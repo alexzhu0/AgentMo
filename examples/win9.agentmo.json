@@ -1,0 +1,410 @@
+{
+  "agentmother_version": "0.1",
+  "agent_id": "win9",
+  "runtime": "pi",
+  "status": "certified",
+  "domain_genome": {
+    "domain": "enterprise_sales_win9_methodology",
+    "purpose": "Answer Win9 / 赢单九步法 sales methodology, customer strategy, project lookup, and evidence-audit questions through Pi-native tools and shared-state evidence.",
+    "task_classes": [
+      "methodology_lookup",
+      "project_search",
+      "customer_fact_lookup",
+      "customer_strategy_orchestration",
+      "audit_read"
+    ],
+    "knowledge_sources": [
+      "Pi Win9 agent prompts",
+      "Win9 methodology workspace archive",
+      "SQLite customer/project adapters",
+      "Chroma methodology/case retrieval",
+      "docs/win9-evals"
+    ],
+    "hard_failures": [
+      "fabricate_customer_fact_or_project_row",
+      "use_full_orchestration_for_simple_l1_lookup",
+      "use_customer_lookup_for_region_project_search",
+      "enter_persistent_session_without_explicit_user_request",
+      "dump_full_shared_state_without_explicit_audit_request"
+    ]
+  },
+  "architecture": {
+    "main_agent": "win9-main",
+    "specialists": [
+      {
+        "id": "win9-step1",
+        "purpose": "Customer profile and account background specialist"
+      },
+      {
+        "id": "win9-step2",
+        "purpose": "Relationship map, customer facts, and coach analysis specialist"
+      },
+      {
+        "id": "win9-step3",
+        "purpose": "Pain, demand, and business driver specialist"
+      },
+      {
+        "id": "win9-step4",
+        "purpose": "Solution value and fit specialist"
+      },
+      {
+        "id": "win9-step5",
+        "purpose": "Action plan and project progress specialist"
+      },
+      {
+        "id": "win9-step6",
+        "purpose": "Competition and buying-criteria specialist"
+      },
+      {
+        "id": "win9-step7",
+        "purpose": "Risk, objection, and recovery strategy specialist"
+      },
+      {
+        "id": "win9-step8",
+        "purpose": "Closing and negotiation specialist"
+      },
+      {
+        "id": "win9-step9",
+        "purpose": "Post-win replication and review specialist"
+      }
+    ],
+    "routing_modes": [
+      "light_methodology_lookup",
+      "project_data_lookup",
+      "fact_only_customer_lookup",
+      "full_customer_orchestration",
+      "bounded_audit_read"
+    ]
+  },
+  "tools": [
+    {
+      "name": "win9_methodology_lookup",
+      "purpose": "Answer simple L1 methodology lookup questions from canonical methodology evidence without spawning step agents.",
+      "allowed_when": [
+        "simple step/tool/stage/usage-scene lookup"
+      ],
+      "forbidden_when": [
+        "customer strategy",
+        "case strategy",
+        "conversation planning",
+        "how-to sales execution"
+      ],
+      "evidence_policy": "Return bounded methodology evidence cards and fail closed on no_match or ambiguous."
+    },
+    {
+      "name": "win9_search_projects",
+      "purpose": "Search project rows by region, customer, industry, product, budget, quantity, or project name.",
+      "allowed_when": [
+        "project list or data lookup"
+      ],
+      "forbidden_when": [
+        "relationship strategy",
+        "full account planning without user asking for strategy"
+      ],
+      "evidence_policy": "Return only adapter rows and disclose missing fields."
+    },
+    {
+      "name": "win9_fetch_customer",
+      "purpose": "Fetch bounded customer fact bundles for fact-only requests or full orchestration prewrite.",
+      "allowed_when": [
+        "known contacts",
+        "roles",
+        "customer/project facts",
+        "missing field checks"
+      ],
+      "forbidden_when": [
+        "user explicitly asks for strategy-only reasoning without facts",
+        "region project search"
+      ],
+      "evidence_policy": "Return section counts, previews, missing_data, and tool evidence without raw full dump."
+    },
+    {
+      "name": "win9_run",
+      "purpose": "Run Pi-native multi-step Win9 orchestration with shared-state evidence.",
+      "allowed_when": [
+        "complex customer strategy",
+        "opportunity recovery",
+        "case planning",
+        "multi-step sales execution"
+      ],
+      "forbidden_when": [
+        "simple L1 lookup",
+        "project data lookup",
+        "fact-only customer request when user says no strategy"
+      ],
+      "evidence_policy": "Write run_details and selected step results; final synthesis must use bounded answer packet."
+    },
+    {
+      "name": "win9_read_shared",
+      "purpose": "Read bounded shared-state files or JSON paths for explicit audit/debug requests.",
+      "allowed_when": [
+        "explicit run_details",
+        "failed step",
+        "source evidence",
+        "debug audit"
+      ],
+      "forbidden_when": [
+        "normal post-run synthesis",
+        "broad full JSON dump without user request"
+      ],
+      "evidence_policy": "Default to summary; expand only requested files, refs, or jsonPath."
+    },
+    {
+      "name": "win9_merge_results",
+      "purpose": "Build bounded conclusion-to-evidence audit summaries for an existing Win9 key.",
+      "allowed_when": [
+        "evidence behind conclusions",
+        "prior run reconstruction"
+      ],
+      "forbidden_when": [
+        "normal final answer immediately after successful win9_run"
+      ],
+      "evidence_policy": "Use summary view and keep final audit answers short."
+    }
+  ],
+  "evidence": {
+    "stores": [
+      ".win9/shared/<key>/",
+      ".win9/workspace/<agent>/runs/<key>.md",
+      "docs/win9-harness-history/",
+      "docs/win9-evals/"
+    ],
+    "required_artifacts": [
+      "run_details.json for full orchestration",
+      "by_win9-stepN.json for selected child steps",
+      "customer_facts.json when customer facts are used",
+      "eval result JSON for benchmark cases",
+      "version ledger entry for release milestones"
+    ],
+    "audit_rules": [
+      "Do not put full shared-state JSON into model context by default.",
+      "Use bounded evidence cards and stable audit refs.",
+      "Separate evidence-backed facts from inference and assumptions.",
+      "Disclose child errors, missing agents, and partial merge status."
+    ]
+  },
+  "eval": {
+    "cases_path": "../pi/docs/win9-evals/CASES.md",
+    "rubric_path": "../pi/docs/win9-evals/RUBRIC.md",
+    "required_case_classes": [
+      "light_methodology_lookup",
+      "project_search",
+      "customer_fact_lookup",
+      "full_customer_orchestration",
+      "audit_read",
+      "boundary_safety"
+    ],
+    "hard_failures": [
+      "fabricate_customer_fact_or_project_row",
+      "route_simple_lookup_to_win9_run",
+      "route_project_search_to_customer_fact_lookup_only",
+      "skip_win9_run_for_complex_strategy",
+      "use_persistent_session_without_explicit_request",
+      "hide_child_errors_or_partial_merge",
+      "dump_full_shared_state_without_request"
+    ]
+  },
+  "governance": {
+    "policies": [
+      "lightest correct evidence path",
+      "bounded evidence packet by default",
+      "explicit audit expansion only",
+      "persistent session requires explicit user request",
+      "partial failures must be disclosed",
+      "release requires eval, tests, and ledger evidence"
+    ],
+    "quality_gates": [
+      "domain_genome_defined",
+      "pipeline_defined",
+      "architecture_defined",
+      "tool_contracts_defined",
+      "evidence_store_defined",
+      "eval_suite_defined",
+      "governance_defined",
+      "release_trace_defined"
+    ]
+  },
+  "release": {
+    "latest_commit": "579e2ff9",
+    "latest_tag": "win9-harness-v0.1.4-risk-optimization-full-rerun",
+    "release_ledger_path": "../pi/docs/win9-harness-history/VERSION_LEDGER.md",
+    "known_risks": [
+      "Full win9_run remains multi-minute for complex orchestration.",
+      "Audit answers must remain bounded and not expand unrelated JSON."
+    ]
+  },
+  "runtime_profiles": [
+    {
+      "id": "pi",
+      "role": "primary",
+      "status": "active",
+      "purpose": "Current verified runtime for local Win9 tools, Pi agents, subprocess child runs, evals, and shared-state evidence.",
+      "owned_surfaces": [
+        ".pi/agents/win9-main.md",
+        ".pi/agents/win9-stepN.md",
+        ".pi/extensions/win9-orchestrator/index.ts",
+        "packages/coding-agent/src/win9/*",
+        "npm run win9:eval"
+      ],
+      "evidence_boundaries": [
+        ".win9/shared/<key>/",
+        "bounded answer packets",
+        "docs/win9-evals/",
+        "docs/win9-harness-history/"
+      ],
+      "source_refs": [
+        "../pi@579e2ff9",
+        "../pi/docs/win9-evals/",
+        "../pi/docs/win9-harness-history/",
+        "../pi/.pi/agents/win9-main.md",
+        "../pi/.pi/extensions/win9-orchestrator/index.ts"
+      ],
+      "transfer_rules": [
+        "Pi is the current execution authority for Win9-on-Pi benchmarked behavior.",
+        "Keep bounded .win9/shared evidence packets as the default audit surface.",
+        "Do not route simple methodology or project lookup tasks through full orchestration."
+      ]
+    },
+    {
+      "id": "openclaw",
+      "role": "alternate",
+      "status": "active",
+      "purpose": "Latest OpenClaw source is the alternate runtime architecture reference for Gateway/channel delivery, isolated multi-agent workspaces, session trajectories, plugin hooks, and runtime ownership boundaries.",
+      "owned_surfaces": [
+        "/home/alex/DTAlex/learningGitHub/openclaw/openclaw.mjs",
+        "/home/alex/DTAlex/learningGitHub/openclaw/src/agents/",
+        "/home/alex/DTAlex/learningGitHub/openclaw/src/gateway/",
+        "/home/alex/DTAlex/learningGitHub/openclaw/src/channels/",
+        "/home/alex/DTAlex/learningGitHub/openclaw/src/context-engine/",
+        "/home/alex/DTAlex/learningGitHub/openclaw/docs/agent-runtime-architecture.md",
+        "/home/alex/DTAlex/learningGitHub/openclaw/docs/concepts/agent-runtimes.md",
+        "/home/alex/DTAlex/learningGitHub/openclaw/docs/concepts/multi-agent.md",
+        "/home/alex/DTAlex/learningGitHub/openclaw/docs/concepts/agent-workspace.md",
+        "/home/alex/DTAlex/learningGitHub/openclaw/docs/concepts/agent-loop.md"
+      ],
+      "evidence_boundaries": [
+        "OpenClaw runtime id is openclaw; provider, model, runtime, and channel are separate layers.",
+        "An OpenClaw agent scope includes workspace, agentDir, auth profiles, and session store; do not reuse agentDir across agents.",
+        "Gateway/channel routing owns ingress and egress; it is not the same layer as the domain reasoner.",
+        "OpenClaw session and trajectory evidence must stay bounded and sanitized; do not dump raw prompts, tool args, or tool results by default.",
+        "Port OpenClaw concepts into Pi/AgentMo through explicit runtime profile transfer rules instead of assuming API compatibility."
+      ],
+      "source_refs": [
+        "/home/alex/DTAlex/learningGitHub/openclaw@5bcd25f0fb",
+        "package openclaw@2026.6.11",
+        "docs/agent-runtime-architecture.md",
+        "docs/concepts/agent-runtimes.md",
+        "docs/concepts/architecture.md",
+        "docs/concepts/agent.md",
+        "docs/concepts/multi-agent.md",
+        "docs/concepts/agent-workspace.md",
+        "docs/concepts/agent-loop.md",
+        "docs/cli/agents.md",
+        "docs/cli/sessions.md"
+      ],
+      "transfer_rules": [
+        "Record runtime ownership explicitly: model loop owner, canonical thread owner, dynamic tool support, native hook support, context lifecycle, compaction surface, and unsupported surfaces.",
+        "Preserve OpenClaw isolation semantics: workspace is memory/cwd, agentDir is auth/state/session scope, and sessions are per-agent evidence.",
+        "Treat Gateway, channels, nodes, and bindings as delivery/control-plane surfaces around the domain agent, not as the domain genome itself.",
+        "Use OpenClaw plugin hooks and session lifecycle ideas as architecture inputs only when the active runtime exposes equivalent hooks.",
+        "Keep OpenClaw trajectory/session inspection conservative and bounded when designing AgentMother evidence gates."
+      ]
+    }
+  ],
+  "pipeline": {
+    "discover": {
+      "purpose": "Find the right agent opportunity by collecting domain data, source documents, operational examples, and user needs before designing the agent.",
+      "data_sources": [
+        "Win9 methodology documents and historical workspace archive",
+        "Customer and project data adapters",
+        "Existing Pi Win9 prompts, tools, and eval history",
+        "User-stated needs, target scenarios, hard failures, and output preferences",
+        "OpenClaw runtime docs and source when OpenClaw is a target architecture"
+      ],
+      "database_outputs": [
+        "Domain source inventory",
+        "Customer/project structured lookup tables",
+        "Methodology retrieval corpus",
+        "Eval case database grouped by task class",
+        "Evidence ledger and version ledger entries"
+      ],
+      "user_need_inputs": [
+        "What business task the agent should perform",
+        "Who will use the agent and in which channel/runtime",
+        "What data can be trusted as source of truth",
+        "What actions are forbidden or require audit expansion",
+        "What output depth, language, and evidence style the user expects"
+      ],
+      "done_when": [
+        "Data sources are enumerated and bounded",
+        "Database or retrieval outputs are named",
+        "User needs and hard failures are captured",
+        "The agent opportunity is concrete enough to plan"
+      ]
+    },
+    "plan": {
+      "purpose": "Turn discovered data plus user needs into a build plan: domain genome, routing strategy, tool contracts, eval design, runtime profile, and release gates.",
+      "planning_inputs": [
+        "Discovery database outputs",
+        "User goals and workflow constraints",
+        "Runtime capabilities and boundaries from Pi and OpenClaw profiles",
+        "Known failure modes from benchmark history"
+      ],
+      "planning_outputs": [
+        "AgentMother blueprint",
+        "Domain genome and task classes",
+        "Main/specialist agent architecture",
+        "Tool contracts and evidence policies",
+        "Eval cases, rubric, and release gates",
+        "Runtime-specific scaffold target choice"
+      ],
+      "decision_gates": [
+        "No build if source data is missing or unbounded",
+        "No build if user need is too vague to evaluate",
+        "No build if tool contracts cannot prevent hard failures",
+        "No release plan without eval and evidence ledger"
+      ],
+      "done_when": [
+        "Blueprint validates",
+        "Quality gates are testable",
+        "Runtime target is explicit",
+        "Build outputs and verification path are known"
+      ]
+    },
+    "produce": {
+      "purpose": "Use Codex or another coding agent to implement the specified domain agent, generate runtime scaffolds, run tests/evals, repair failures, and record release evidence.",
+      "coding_tools": [
+        "Codex",
+        "Pi coding-agent runtime",
+        "OpenClaw workspace scaffold target",
+        "Node test runner",
+        "AgentMo CLI"
+      ],
+      "runtime_targets": [
+        "pi",
+        "openclaw"
+      ],
+      "generated_outputs": [
+        "Pi agent prompts and tools",
+        "OpenClaw workspace files and config patch",
+        "Eval suite and rubric",
+        "Evidence index and version ledger",
+        "Runtime contract and runbook"
+      ],
+      "verification_steps": [
+        "Blueprint validation",
+        "Targeted unit tests",
+        "CLI scaffold smoke test",
+        "Runtime eval benchmark",
+        "Manual rubric review",
+        "Release ledger update"
+      ],
+      "done_when": [
+        "Generated agent passes required tests and evals",
+        "Known risks are documented",
+        "Runtime evidence is bounded and auditable",
+        "Commit/tag can reproduce the agent state"
+      ]
+    }
+  }
+}

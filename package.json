@@ -1,0 +1,16 @@
+{
+  "name": "agentmo",
+  "version": "0.1.0",
+  "description": "AgentMother: a blueprint, governance, and scaffold toolkit for building verifiable domain agents.",
+  "type": "module",
+  "bin": {
+    "agentmo": "./bin/agentmo.js"
+  },
+  "scripts": {
+    "check": "node --check bin/agentmo.js && node --check src/blueprint.js && node --check src/cli.js && node --check src/report.js && node --check src/scaffold.js && node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
+}
