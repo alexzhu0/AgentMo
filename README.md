@@ -26,6 +26,7 @@ AgentMo currently provides a dependency-free Node CLI:
 ./bin/agentmo.js validate examples/win9.agentmo.json
 ./bin/agentmo.js report examples/win9.agentmo.json
 ./bin/agentmo.js report examples/win9.agentmo.json --json
+./bin/agentmo.js discover-report examples/win9.discovery.json --json
 ./bin/agentmo.js plan examples/win9.agentmo.json --json
 ./bin/agentmo.js scaffold examples/win9.agentmo.json --out /tmp/win9-agentmo-scaffold
 ./bin/agentmo.js scaffold examples/win9.agentmo.json --target openclaw --out /tmp/win9-openclaw-scaffold
@@ -43,6 +44,7 @@ as a domain scaffold operation.
 The Win9-on-Pi work showed a new development mode: use Codex to build another agent system on top of Pi. AgentMo captures that mode as a reusable three-stage mother mechanism.
 
 - Discovery finds source data, forms structured databases or retrieval corpora, and captures user needs.
+- Discovery can be recorded as an external `agentmo.discovery.v1` manifest; `discover-report` validates and summarizes it.
 - Planning turns discovered data plus user needs into an executable blueprint.
 - Production uses Codex and other coding-agent runtimes to generate, test, repair, and document the specified agent.
 - Codex acts as the builder: reads, edits, tests, verifies, documents.
@@ -73,8 +75,10 @@ src/blueprint.js            Blueprint validation and quality gates
 src/report.js               AgentMother readiness report
 src/build-plan.js           Deterministic dry-run operation planner
 src/build-state.js          Managed scaffold sidecar state writer
+src/discovery.js            Discovery manifest validation and report builder
 src/scaffold.js             Domain-agent scaffold generator
 examples/win9.agentmo.json  Reference blueprint based on Win9-on-Pi
+examples/win9.discovery.json  Reference discovery/input manifest
 docs/                       Concept, lifecycle, schema, quality gates
 docs/OPENCLAW_RUNTIME_NOTES.md  OpenClaw source-derived runtime notes
 test/                       Node test suite
@@ -113,6 +117,22 @@ openclaw/
 ```
 
 The generated target is not automatically certified. Run evals and record evidence before changing the blueprint's primary runtime to `openclaw`.
+
+## Runtime certification and discovery
+
+Runtime profiles can include optional certification metadata:
+
+- `supported_assets`
+- `unsupported_surfaces`
+- `install_or_onramp`
+- `verification_commands`
+- `risk_notes`
+- `owner`
+- `last_verified_at`
+
+Active runtime profiles without verification commands or unsupported-surface disclosure remain valid but produce warnings. The reference OpenClaw profile is an active alternate architecture reference, not a certified Win9 runtime.
+
+Blueprints can also set `discovery_manifest_path`; `agentmo report` loads the manifest and includes a bounded discovery summary when available. Use `agentmo discover-report <discovery.json> --json` to validate a manifest directly.
 
 ## Scripts
 

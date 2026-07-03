@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 const CLI = fileURLToPath(new URL("../bin/agentmo.js", import.meta.url));
 const BLUEPRINT = fileURLToPath(new URL("../examples/win9.agentmo.json", import.meta.url));
+const DISCOVERY = fileURLToPath(new URL("../examples/win9.discovery.json", import.meta.url));
 
 const AGENTMO_BASELINE_FILES = [
   "README.md",
@@ -85,6 +86,19 @@ describe("cli", () => {
     const json = JSON.parse(report.stdout);
     assert.equal(json.kind, "agentmother_report");
     assert.equal(json.ok, true);
+    assert.equal(json.discovery.loaded, true);
+    assert.equal(json.discovery.summary.source_count, 3);
+    assert.equal(json.runtime_certification.find((profile) => profile.id === "openclaw").certification_status, "evidence_disclosed");
+  });
+
+  it("prints discovery report JSON for the reference manifest", async () => {
+    const result = await runCli(["discover-report", DISCOVERY, "--json"]);
+    assert.equal(result.code, 0, result.stderr);
+    const json = JSON.parse(result.stdout);
+    assert.equal(json.kind, "agentmo_discovery_report");
+    assert.equal(json.ok, true);
+    assert.equal(json.summary.agent_id, "win9");
+    assert.equal(json.summary.source_count, 3);
   });
 
   it("prints deterministic plan JSON and writes no files", async () => {

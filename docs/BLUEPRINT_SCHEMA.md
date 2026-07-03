@@ -52,6 +52,29 @@ Optional runtime profile fields:
 
 - `source_refs`: exact local paths, commits, package versions, or docs used as architecture evidence.
 - `transfer_rules`: rules for porting architecture ideas across runtimes without assuming API compatibility.
+- `supported_assets`: assets this runtime profile is known to support.
+- `unsupported_surfaces`: runtime surfaces that are explicitly not supported or not certified.
+- `install_or_onramp`: setup or promotion guidance for this runtime profile.
+- `verification_commands`: commands required to validate the runtime/profile claim.
+- `risk_notes`: risks that must remain visible in report/control outputs.
+- `owner`: owner of the runtime profile evidence.
+- `last_verified_at`: ISO-like date string for the latest verification pass.
+
+Certification fields are optional for v0.1 compatibility. Active primary/alternate profiles that omit `verification_commands` or `unsupported_surfaces` remain valid but emit warnings, because AgentMo should disclose runtime claims without overstating parity.
+
+## Discovery manifest pointer
+
+`discovery_manifest_path` is optional and points to an external discovery/input manifest relative to the blueprint file:
+
+```json
+{
+  "discovery_manifest_path": "win9.discovery.json"
+}
+```
+
+Blueprint validation checks only that the path is a non-empty string when present. `agentmo report` loads it when possible and emits a summary/warnings. Discovery manifests are data/input manifests only; they do not select build modules or change scaffold output.
+
+See `docs/DISCOVERY_MANIFEST.md`.
 
 ## Build plan and build state
 

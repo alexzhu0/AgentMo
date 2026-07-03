@@ -72,6 +72,12 @@ OpenClaw's loop is intake → context assembly → model inference → tool exec
 
 For the Win9 blueprint, Pi remains the certified execution authority. OpenClaw is recorded as an active alternate architecture reference, not as an implicit Pi-compatible API.
 
+The Win9 blueprint therefore records OpenClaw certification metadata as disclosure, not parity certification:
+
+- supported assets: generated OpenClaw scaffold, runtime contract, runbook, and architecture references;
+- unsupported surfaces: live Win9 execution authority, Pi tool/eval parity, and production deployment;
+- verification commands: AgentMo plan/scaffold/check commands only until OpenClaw-specific integration evidence exists.
+
 Use OpenClaw concepts when designing future agents:
 
 1. Gateway/channel delivery as a control-plane and ingress/egress pattern.
