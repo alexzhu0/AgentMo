@@ -1,10 +1,15 @@
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import { summarizeBlueprint, validateBlueprint } from "./blueprint.js";
+import { summarizeDiscoveryManifest, validateDiscoveryManifest } from "./discovery.js";
 
-export function buildMotherReport(blueprint) {
+export function buildMotherReport(blueprint, options = {}) {
   const validation = validateBlueprint(blueprint);
   const summary = summarizeBlueprint(blueprint);
+  const discovery = buildDiscoverySection(blueprint, options);
   const passedGates = validation.gates.filter((gate) => gate.status === "pass").length;
   const failedGates = validation.gates.filter((gate) => gate.status === "fail");
+  const warnings = [...validation.warnings, ...discovery.warnings, ...discovery.errors.map((error) => `discovery manifest: ${error}`)];
   return {
     kind: "agentmother_report",
     version: "0.1",
@@ -17,7 +22,9 @@ export function buildMotherReport(blueprint) {
       items: validation.gates,
     },
     release_readiness: releaseReadiness(blueprint, validation),
-    warnings: validation.warnings,
+    runtime_certification: summary.runtime_certification,
+    discovery,
+    warnings,
     errors: validation.errors,
   };
 }
@@ -34,6 +41,26 @@ export function formatMotherReport(report) {
     `Quality gates: ${report.gates.passed} passed, ${report.gates.failed} failed`,
     `Release readiness: ${report.release_readiness.status}`,
   ];
+
+  if ((report.runtime_certification ?? []).length > 0) {
+    lines.push("", "Runtime certification:");
+    for (const profile of report.runtime_certification) {
+      lines.push(
+        `- ${profile.id ?? "unknown"}: ${profile.certification_status}; verification commands ${profile.verification_commands.length}; unsupported surfaces ${profile.unsupported_surfaces.length}`,
+      );
+    }
+  }
+
+  if (report.discovery?.present) {
+    lines.push("", "Discovery:");
+    if (report.discovery.loaded && report.discovery.summary) {
+      lines.push(
+        `- ${report.discovery.path}: ${report.discovery.summary.source_count} sources; ${report.discovery.summary.source_types.join(", ") || "no source types"}`,
+      );
+    } else {
+      lines.push(`- ${report.discovery.path ?? "unknown"}: not loaded`);
+    }
+  }
 
   if (report.gates.items.length > 0) {
     lines.push("", "Gates:");
@@ -53,6 +80,50 @@ export function formatMotherReport(report) {
   }
 
   return `${lines.join("\n")}\n`;
+}
+
+function buildDiscoverySection(blueprint, options) {
+  const manifestPath = blueprint?.discovery_manifest_path;
+  const section = {
+    present: typeof manifestPath !== "undefined",
+    path: typeof manifestPath === "string" ? manifestPath : null,
+    resolved_path: null,
+    loaded: false,
+    ok: null,
+    summary: null,
+    warnings: [],
+    errors: [],
+  };
+
+  if (typeof manifestPath === "undefined") return section;
+  if (typeof manifestPath !== "string" || manifestPath.trim().length === 0) {
+    section.warnings.push("discovery_manifest_path is present but is not a non-empty string.");
+    return section;
+  }
+
+  const baseDir = options.baseDir ?? (options.blueprintPath ? dirname(options.blueprintPath) : null);
+  if (!baseDir) {
+    section.warnings.push("discovery manifest path was not loaded because report was built without blueprintPath/baseDir.");
+    return section;
+  }
+
+  section.resolved_path = resolve(baseDir, manifestPath);
+  let manifest;
+  try {
+    manifest = JSON.parse(readFileSync(section.resolved_path, "utf8"));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    section.warnings.push(`discovery manifest could not be loaded: ${message}`);
+    return section;
+  }
+
+  const validation = validateDiscoveryManifest(manifest);
+  section.loaded = true;
+  section.ok = validation.ok;
+  section.summary = summarizeDiscoveryManifest(manifest);
+  section.warnings = validation.warnings;
+  section.errors = validation.errors;
+  return section;
 }
 
 function inferLifecycle(blueprint, validation) {

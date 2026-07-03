@@ -93,6 +93,12 @@ const VALID_STATUSES = new Set(["draft", "gestating", "born", "training", "certi
 const VALID_RUNTIMES = new Set(["pi", "openclaw", "codex", "agentharness", "external"]);
 const VALID_RUNTIME_PROFILE_ROLES = new Set(["primary", "alternate", "legacy", "migration_source", "governance", "builder"]);
 const VALID_RUNTIME_PROFILE_STATUSES = new Set(["active", "planned", "legacy", "experimental", "deprecated"]);
+const RUNTIME_CERTIFICATION_ARRAY_FIELDS = [
+  "supported_assets",
+  "unsupported_surfaces",
+  "verification_commands",
+  "risk_notes",
+];
 
 export async function loadBlueprint(path) {
   const raw = await readFile(path, "utf8");
@@ -125,6 +131,8 @@ export function validateBlueprint(blueprint) {
   } else if (!/^[a-z][a-z0-9-]*$/u.test(blueprint.agent_id)) {
     errors.push("agent_id must use lowercase kebab-case, starting with a letter.");
   }
+
+  validateDiscoveryManifestPath(blueprint, errors);
 
   if (!VALID_RUNTIMES.has(blueprint.runtime)) {
     errors.push(`runtime must be one of: ${Array.from(VALID_RUNTIMES).join(", ")}`);
@@ -174,6 +182,10 @@ export function summarizeBlueprint(blueprint) {
     runtime_profiles: Array.isArray(blueprint.runtime_profiles)
       ? blueprint.runtime_profiles.map((profile) => profile.id).filter((id) => typeof id === "string")
       : [],
+    runtime_certification: summarizeRuntimeCertification(blueprint),
+    discovery_manifest_path: nonEmptyString(blueprint.discovery_manifest_path)
+      ? blueprint.discovery_manifest_path
+      : null,
     status: blueprint.status,
     domain: blueprint.domain_genome?.domain,
     pipeline_phases: summarizePipelinePhases(blueprint.pipeline),
@@ -268,6 +280,12 @@ function validateRuntimeProfiles(blueprint, errors, warnings) {
     requireStringArray(profile, `runtime_profiles[${index}].evidence_boundaries`, errors);
     optionalStringArray(profile, `runtime_profiles[${index}].source_refs`, errors);
     optionalStringArray(profile, `runtime_profiles[${index}].transfer_rules`, errors);
+    for (const field of RUNTIME_CERTIFICATION_ARRAY_FIELDS) {
+      optionalStringArray(profile, `runtime_profiles[${index}].${field}`, errors);
+    }
+    optionalString(profile, `runtime_profiles[${index}].install_or_onramp`, errors);
+    optionalString(profile, `runtime_profiles[${index}].owner`, errors);
+    optionalIsoLikeDateString(profile, `runtime_profiles[${index}].last_verified_at`, errors);
 
     if (typeof profile.id === "string") {
       if (!VALID_RUNTIMES.has(profile.id)) {
@@ -288,11 +306,56 @@ function validateRuntimeProfiles(blueprint, errors, warnings) {
         `runtime_profiles[${index}].status must be one of: ${Array.from(VALID_RUNTIME_PROFILE_STATUSES).join(", ")}`,
       );
     }
+
+    if (profile.status === "active" && (profile.role === "alternate" || profile.id === blueprint.runtime)) {
+      if (!nonEmptyArray(profile.verification_commands)) {
+        warnings.push(`runtime_profiles[${index}] (${profile.id ?? "unknown"}) is active but lacks verification_commands.`);
+      }
+      if (!nonEmptyArray(profile.unsupported_surfaces)) {
+        warnings.push(`runtime_profiles[${index}] (${profile.id ?? "unknown"}) is active but lacks unsupported_surfaces disclosure.`);
+      }
+    }
   }
 
   if (value.length > 0 && !hasPrimaryRuntimeProfile) {
     errors.push(`runtime_profiles must include the primary runtime: ${blueprint.runtime}`);
   }
+}
+
+function validateDiscoveryManifestPath(blueprint, errors) {
+  if (!("discovery_manifest_path" in blueprint)) return;
+  if (!nonEmptyString(blueprint.discovery_manifest_path)) {
+    errors.push("discovery_manifest_path must be a non-empty string when provided.");
+  }
+}
+
+function summarizeRuntimeCertification(blueprint) {
+  if (!Array.isArray(blueprint.runtime_profiles)) return [];
+  return blueprint.runtime_profiles.filter(isObject).map((profile) => {
+    const verificationCommandCount = Array.isArray(profile.verification_commands)
+      ? profile.verification_commands.filter(nonEmptyString).length
+      : 0;
+    const unsupportedSurfaceCount = Array.isArray(profile.unsupported_surfaces)
+      ? profile.unsupported_surfaces.filter(nonEmptyString).length
+      : 0;
+    return {
+      id: typeof profile.id === "string" ? profile.id : null,
+      role: typeof profile.role === "string" ? profile.role : null,
+      status: typeof profile.status === "string" ? profile.status : null,
+      certification_status:
+        verificationCommandCount > 0 && unsupportedSurfaceCount > 0 ? "evidence_disclosed" : "needs_disclosure",
+      supported_assets: Array.isArray(profile.supported_assets) ? profile.supported_assets.filter(nonEmptyString) : [],
+      unsupported_surfaces: Array.isArray(profile.unsupported_surfaces)
+        ? profile.unsupported_surfaces.filter(nonEmptyString)
+        : [],
+      verification_commands: Array.isArray(profile.verification_commands)
+        ? profile.verification_commands.filter(nonEmptyString)
+        : [],
+      risk_notes: Array.isArray(profile.risk_notes) ? profile.risk_notes.filter(nonEmptyString) : [],
+      owner: nonEmptyString(profile.owner) ? profile.owner : null,
+      last_verified_at: nonEmptyString(profile.last_verified_at) ? profile.last_verified_at : null,
+    };
+  });
 }
 
 function validateDomainGenome(value, errors) {
@@ -435,10 +498,24 @@ function requireStringArray(object, path, errors) {
   }
 }
 
+function optionalString(object, path, errors) {
+  const key = path.split(".").at(-1);
+  if (!(key in object)) return;
+  requireString(object, path, errors);
+}
+
 function optionalStringArray(object, path, errors) {
   const key = path.split(".").at(-1);
   if (!(key in object)) return;
   requireStringArray(object, path, errors);
+}
+
+function optionalIsoLikeDateString(object, path, errors) {
+  const key = path.split(".").at(-1);
+  if (!(key in object)) return;
+  if (!nonEmptyString(object[key]) || !/^\d{4}-\d{2}-\d{2}(?:$|[T ])/u.test(object[key])) {
+    errors.push(`${path} must be an ISO-like date string when provided.`);
+  }
 }
 
 function isObject(value) {
