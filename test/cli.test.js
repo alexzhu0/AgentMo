@@ -43,6 +43,7 @@ const OPENCLAW_BASELINE_FILES = [
   "openclaw/workspace/memory/README.md",
   "openclaw/workspace/skills/win9/SKILL.md",
 ].sort();
+const BUILD_STATE_FILENAME = "agentmo-build-state.json";
 
 function runCli(args) {
   return new Promise((resolve) => {
@@ -59,14 +60,14 @@ function runCli(args) {
   });
 }
 
-async function listFiles(root) {
+async function listFiles(root, options = {}) {
   const results = [];
   async function visit(dir, prefix = "") {
     for (const entry of await readdir(dir)) {
       const absolute = path.join(dir, entry);
       const relative = prefix ? `${prefix}/${entry}` : entry;
       if ((await stat(absolute)).isDirectory()) await visit(absolute, relative);
-      else results.push(relative);
+      else if (!options.exclude?.has(relative)) results.push(relative);
     }
   }
   await visit(root);
@@ -106,13 +107,15 @@ describe("cli", () => {
     const agentmo = await runCli(["scaffold", BLUEPRINT, "--out", agentmoDir]);
     assert.equal(agentmo.code, 0, agentmo.stderr);
     assert.match(agentmo.stdout, /Scaffolded 17 files/u);
-    assert.deepEqual(await listFiles(agentmoDir), AGENTMO_BASELINE_FILES);
+    assert.deepEqual(await listFiles(agentmoDir, { exclude: new Set([BUILD_STATE_FILENAME]) }), AGENTMO_BASELINE_FILES);
+    assert.deepEqual(await listFiles(agentmoDir), [...AGENTMO_BASELINE_FILES, BUILD_STATE_FILENAME].sort());
 
     const openclawDir = await mkdtemp(path.join(tmpdir(), "agentmo-cli-openclaw-"));
     const openclaw = await runCli(["scaffold", BLUEPRINT, "--target", "openclaw", "--out", openclawDir]);
     assert.equal(openclaw.code, 0, openclaw.stderr);
     assert.match(openclaw.stdout, /Scaffolded 29 files/u);
-    assert.deepEqual(await listFiles(openclawDir), OPENCLAW_BASELINE_FILES);
+    assert.deepEqual(await listFiles(openclawDir, { exclude: new Set([BUILD_STATE_FILENAME]) }), OPENCLAW_BASELINE_FILES);
+    assert.deepEqual(await listFiles(openclawDir), [...OPENCLAW_BASELINE_FILES, BUILD_STATE_FILENAME].sort());
   });
 
   it("rejects invalid targets consistently", async () => {

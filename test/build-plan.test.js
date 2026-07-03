@@ -4,20 +4,21 @@ import { mkdtemp, readFile, readdir, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { buildPlan } from "../src/build-plan.js";
+import { BUILD_STATE_FILENAME } from "../src/build-state.js";
 import { scaffoldAgent } from "../src/scaffold.js";
 
 async function loadExample() {
   return JSON.parse(await readFile(new URL("../examples/win9.agentmo.json", import.meta.url), "utf8"));
 }
 
-async function listFiles(root) {
+async function listFiles(root, options = {}) {
   const results = [];
   async function visit(dir, prefix = "") {
     for (const entry of await readdir(dir)) {
       const absolute = path.join(dir, entry);
       const relative = prefix ? `${prefix}/${entry}` : entry;
       if ((await stat(absolute)).isDirectory()) await visit(absolute, relative);
-      else results.push(relative);
+      else if (!options.exclude?.has(relative)) results.push(relative);
     }
   }
   await visit(root);
@@ -104,7 +105,8 @@ describe("build plan", () => {
       const plan = buildPlan(blueprint, { target, outputDir: dir });
       const plannedPaths = plan.operations.map((operation) => operation.relativePath).sort();
       assert.deepEqual(result.files, plannedPaths);
-      assert.deepEqual(await listFiles(dir), plannedPaths);
+      assert.deepEqual(await listFiles(dir, { exclude: new Set([BUILD_STATE_FILENAME]) }), plannedPaths);
+      assert.deepEqual(await listFiles(dir), [...plannedPaths, BUILD_STATE_FILENAME].sort());
       assert.equal(plan.operations.every((operation) => operation.destinationPath.startsWith(dir)), true);
     }
   });
