@@ -1,0 +1,70 @@
+{
+  "schemaVersion": "agentmo.discovery.v1",
+  "agent_id": "win9",
+  "source_inventory": [
+    {
+      "id": "pi-win9-prompts",
+      "type": "document",
+      "trust_level": "verified",
+      "description": "Pi Win9 agent prompts and specialist contracts used as the current runtime source of truth.",
+      "location": "../pi/.pi/agents/",
+      "extraction_fields": [
+        "agent purpose",
+        "routing rules",
+        "specialist boundaries",
+        "hard failures"
+      ]
+    },
+    {
+      "id": "win9-shared-state",
+      "type": "database",
+      "trust_level": "trusted",
+      "description": "Bounded customer/project evidence packets and lookup outputs used by Win9 orchestration.",
+      "location": "../pi/.win9/shared/",
+      "extraction_fields": [
+        "customer facts",
+        "project rows",
+        "source references",
+        "audit keys"
+      ]
+    },
+    {
+      "id": "openclaw-runtime-reference",
+      "type": "manual_inventory",
+      "trust_level": "derived",
+      "description": "OpenClaw architecture notes used only for alternate runtime boundary design.",
+      "location": "docs/OPENCLAW_RUNTIME_NOTES.md",
+      "extraction_fields": [
+        "runtime ownership",
+        "session boundaries",
+        "channel surfaces",
+        "unsupported surfaces"
+      ]
+    }
+  ],
+  "database_outputs": [
+    "source inventory",
+    "customer/project evidence table references",
+    "runtime boundary matrix"
+  ],
+  "retrieval_outputs": [
+    "Win9 methodology/case retrieval corpus",
+    "bounded answer packets"
+  ],
+  "user_need_inputs": [
+    "methodology lookup",
+    "customer strategy orchestration",
+    "project and customer fact lookup",
+    "evidence-audit readouts"
+  ],
+  "refresh_policy": {
+    "cadence": "before release or runtime promotion",
+    "owner": "AgentMo reference blueprint maintainers",
+    "stale_after": "90 days"
+  },
+  "forbidden_data_handling": [
+    "Do not store credentials, raw transcripts, or full tool result bodies in the manifest.",
+    "Do not promote OpenClaw runtime claims without separate eval evidence.",
+    "Do not use discovery records as a build/module pack selection system."
+  ]
+}
