@@ -26,6 +26,8 @@ AgentMo currently provides a dependency-free Node CLI:
 ./bin/agentmo.js validate examples/win9.agentmo.json
 ./bin/agentmo.js report examples/win9.agentmo.json
 ./bin/agentmo.js report examples/win9.agentmo.json --json
+./bin/agentmo.js plan examples/win9.agentmo.json --json
+./bin/agentmo.js plan examples/win9.agentmo.json --target openclaw --json
 ./bin/agentmo.js scaffold examples/win9.agentmo.json --out /tmp/win9-agentmo-scaffold
 ./bin/agentmo.js scaffold examples/win9.agentmo.json --target openclaw --out /tmp/win9-openclaw-scaffold
 ```
@@ -63,12 +65,27 @@ No version ledger, no reproduction.
 bin/agentmo.js              CLI entrypoint
 src/blueprint.js            Blueprint validation and quality gates
 src/report.js               AgentMother readiness report
-src/scaffold.js             Domain-agent scaffold generator
+src/build-plan.js           Deterministic dry-run build-plan compiler
+src/targets/                Target adapter registry for scaffold outputs
+src/scaffold.js             Domain-agent scaffold apply path
 examples/win9.agentmo.json  Reference blueprint based on Win9-on-Pi
 docs/                       Concept, lifecycle, schema, quality gates
 docs/OPENCLAW_RUNTIME_NOTES.md  OpenClaw source-derived runtime notes
 test/                       Node test suite
 ```
+
+
+## Build plans
+
+`agentmo plan` compiles a valid blueprint into deterministic dry-run operations without writing files. The plan is the shared source of truth for scaffold apply, so dry-run and generated domain files stay in parity.
+
+Plan JSON includes:
+
+- `selectedTargetId`: explicit `--target` or the default `agentmo`.
+- `selectedProfileId`: the matching runtime profile, primary fallback, or `null` with a stable warning.
+- `selectedModuleIds`: currently always `["default"]`.
+- `warnings`: sorted machine-readable warnings.
+- `domainOperationCount` and `operations[]`: managed `write-file` operations keyed by `relativePath`.
 
 ## OpenClaw target
 
