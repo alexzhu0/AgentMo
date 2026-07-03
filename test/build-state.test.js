@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { mkdtemp, readFile, stat } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { buildPlan } from "../src/build-plan.js";
@@ -62,6 +62,9 @@ describe("build state", () => {
     const openClawState = JSON.parse(await readFile(path.join(openClawDir, BUILD_STATE_FILENAME), "utf8"));
     assert.equal(openClawState.target.id, "openclaw");
     assert.equal(openClawState.resolution.domainOperationCount, openClawResult.files.length);
+
+    assert.deepEqual(await listDomainFiles(agentMoDir), agentMoResult.files);
+    assert.deepEqual(await listDomainFiles(openClawDir), openClawResult.files);
   });
 
   it("keeps dry-run build plans side-effect free", async () => {
@@ -73,3 +76,18 @@ describe("build state", () => {
     await assert.rejects(stat(path.join(outputDir, BUILD_STATE_FILENAME)), /ENOENT/u);
   });
 });
+
+async function listDomainFiles(root, dir = root) {
+  const entries = await readdir(dir, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    const absolute = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...(await listDomainFiles(root, absolute)));
+    } else {
+      const relative = path.relative(root, absolute).split(path.sep).join("/");
+      if (relative !== BUILD_STATE_FILENAME) files.push(relative);
+    }
+  }
+  return files.sort();
+}
