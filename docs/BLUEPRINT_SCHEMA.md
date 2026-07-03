@@ -53,6 +53,18 @@ Optional runtime profile fields:
 - `source_refs`: exact local paths, commits, package versions, or docs used as architecture evidence.
 - `transfer_rules`: rules for porting architecture ideas across runtimes without assuming API compatibility.
 
+## Build plan and build state
+
+`agentmo plan <blueprint.json> [--target agentmo|openclaw] [--json]` emits a
+deterministic dry-run operation list without writing files. `agentmo scaffold`
+applies the same managed domain operations and then writes
+`agentmo-build-state.json` in the output root.
+
+The build-state sidecar uses `schemaVersion: "agentmo.build.v1"` and records the
+request, target/profile resolution, source blueprint metadata/hash, generated
+operation summaries, and `generatedAt` timestamp. It is a managed artifact and
+is not counted as a domain operation.
+
 ## Domain genome
 
 ```json
