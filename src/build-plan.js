@@ -28,7 +28,7 @@ export function buildPlan(blueprint, options = {}) {
     addWarning: (warning) => warningSet.add(warning),
   };
   const operations = target.planOperations(blueprint, context);
-  operations.sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+  operations.sort((left, right) => comparePaths(left.relativePath, right.relativePath));
 
   return {
     schemaVersion: BUILD_PLAN_SCHEMA_VERSION,
@@ -78,4 +78,10 @@ function resolveTargetRuntimeId(target, blueprint) {
   if (typeof target.runtimeId === "function") return target.runtimeId(blueprint);
   if (typeof target.runtimeId === "string") return target.runtimeId;
   return target.id;
+}
+
+function comparePaths(left, right) {
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
 }

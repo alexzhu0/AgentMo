@@ -2,7 +2,7 @@ import path from "node:path";
 
 export function fileMapToWriteOperations(files, context, source) {
   return Array.from(files.entries())
-    .sort(([left], [right]) => left.localeCompare(right))
+    .sort(([left], [right]) => comparePaths(left, right))
     .map(([relativePath, content]) => {
       const operation = {
         kind: "write-file",
@@ -18,4 +18,10 @@ export function fileMapToWriteOperations(files, context, source) {
       });
       return operation;
     });
+}
+
+function comparePaths(left, right) {
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
 }
