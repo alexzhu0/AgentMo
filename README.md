@@ -32,6 +32,7 @@ AgentMo currently provides a dependency-free Node CLI:
 ./bin/agentmo.js scaffold examples/win9.agentmo.json --target openclaw --out /tmp/win9-openclaw-scaffold
 ./bin/agentmo.js status examples/win9.agentmo.json --build-state /tmp/win9-openclaw-scaffold/agentmo-build-state.json --json
 ./bin/agentmo.js observe examples/win9.observation.json --json
+./bin/agentmo.js run-plan examples/win9.agentmo.json --target openclaw --workspace /tmp/win9-openclaw/workspace --agent win9 --transport local --message "Say exactly: ok" --json
 ```
 
 `plan` is a dry run: it emits deterministic managed write operations without
@@ -116,6 +117,8 @@ If build state is absent or unreadable, status remains available and reports the
 
 `agentmo observe` validates `agentmo.observation.v1` records. Observation records capture failure evidence, a proposed regression, and an optional blueprint-change proposal. They do not automatically mutate blueprints, tools, evals, or generated scaffolds.
 
+`agentmo observe-run <run-state.json> --out <observation.json>` derives the same proposal-only observation shape from managed runtime evidence. It is a bridge from failed or declared run-state sidecars into reviewed observe/evolve work, not an automatic blueprint or scaffold mutation path.
+
 ## OpenClaw target
 
 `--target openclaw` generates an OpenClaw-oriented runtime package:
@@ -157,6 +160,7 @@ Blueprints can also set `discovery_manifest_path`; `agentmo report` loads the ma
 
 ```bash
 npm run check
+scripts/openclaw-live-smoke.sh --blueprint examples/win9.agentmo.json --agent win9 --message "Say exactly: ok"
 ```
 
-`check` runs syntax checks and the Node test suite. No package install is required for the current MVP.
+`check` runs syntax checks and the Node test suite. The OpenClaw live smoke script is optional, uses temporary `OPENCLAW_STATE_DIR` and workspace paths by default, and is not part of mandatory checks.

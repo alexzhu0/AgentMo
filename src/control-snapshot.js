@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { buildMotherReport } from "./report.js";
 
 export const CONTROL_SNAPSHOT_SCHEMA_VERSION = "agentmo.control.v1";
@@ -23,8 +24,9 @@ export function buildControlSnapshot(blueprint, options = {}) {
     errors: [...report.errors],
   };
 
-  const risks = summarizeRisks(blueprint, validation);
   const latestBuildState = summarizeBuildState(options.buildState, options.buildStatePath, options.buildStateError);
+  const latestRunState = summarizeRunState(blueprint, options.runState, options.runStatePath, options.runStateError);
+  const risks = summarizeRisks(blueprint, validation, latestRunState);
 
   return {
     schemaVersion: CONTROL_SNAPSHOT_SCHEMA_VERSION,
@@ -39,8 +41,9 @@ export function buildControlSnapshot(blueprint, options = {}) {
     eval: summarizeEval(blueprint),
     evidence: summarizeEvidence(blueprint),
     release: summarizeRelease(blueprint, report),
+    latestRunState,
     risks,
-    nextActions: summarizeNextActions(report, latestBuildState, risks),
+    nextActions: summarizeNextActions(report, latestBuildState, latestRunState, risks),
     validation,
   };
 }
@@ -49,6 +52,9 @@ export function formatControlSnapshot(snapshot) {
   const buildState = snapshot.latestBuildState.available
     ? `${snapshot.latestBuildState.target.id} (${snapshot.latestBuildState.operations.domainOperationCount} domain operations)`
     : `unavailable: ${snapshot.latestBuildState.reason}`;
+  const runState = snapshot.latestRunState.available
+    ? `${snapshot.latestRunState.target.id} ${snapshot.latestRunState.execution.status} (${snapshot.latestRunState.freshness})`
+    : `unavailable: ${snapshot.latestRunState.reason}`;
   const lines = [
     `AgentMo status: ${snapshot.agentId ?? "unknown"}`,
     `Status: ${snapshot.status}`,
@@ -58,6 +64,7 @@ export function formatControlSnapshot(snapshot) {
     `Pipeline complete: ${snapshot.pipeline.completed}/${snapshot.pipeline.total}`,
     `Quality gates: ${snapshot.qualityGates.passed} passed, ${snapshot.qualityGates.failed} failed`,
     `Build state: ${buildState}`,
+    `Run state: ${runState}`,
     `Release readiness: ${snapshot.release.readiness.status}`,
   ];
 
@@ -178,6 +185,76 @@ function summarizeBuildState(buildState, buildStatePath, buildStateError) {
   };
 }
 
+function summarizeRunState(blueprint, runState, runStatePath, runStateError) {
+  if (runStateError) {
+    return {
+      available: false,
+      path: runStatePath ?? null,
+      reason: `unreadable: ${runStateError}`,
+    };
+  }
+  if (!runState) {
+    return {
+      available: false,
+      path: runStatePath ?? null,
+      reason: runStatePath ? "not_loaded" : "not_supplied",
+    };
+  }
+  const currentBlueprintHash = hashString(JSON.stringify(blueprint));
+  const storedBlueprintHash = runState.source?.blueprintHash ?? null;
+  const stale = Boolean(storedBlueprintHash && storedBlueprintHash !== currentBlueprintHash);
+  const missingSandbox = !runState.runtimeIdentity?.sandboxScope;
+  const productionState = runState.runtimeIdentity?.sandboxScope?.usesProductionState === true;
+  const runEvidenceCertifiesRuntime = runState.certificationBoundary?.runEvidenceCertifiesRuntime === true;
+  const usable = !stale && !missingSandbox && !productionState && !runEvidenceCertifiesRuntime;
+  return {
+    available: true,
+    usable,
+    path: runStatePath ?? null,
+    schemaVersion: runState.schemaVersion ?? null,
+    runId: runState.runId ?? null,
+    parentRunId: runState.parentRunId ?? null,
+    agentId: runState.agentId ?? null,
+    target: {
+      id: runState.target?.id ?? null,
+      label: runState.target?.label ?? null,
+    },
+    execution: {
+      status: runState.execution?.status ?? null,
+      executed: Boolean(runState.execution?.executed),
+      exitCode: runState.execution?.exitCode ?? null,
+      live: Boolean(runState.execution?.live),
+    },
+    runtimeIdentity: {
+      runtime: runState.runtimeIdentity?.runtime ?? null,
+      backend: runState.runtimeIdentity?.backend ?? null,
+      transport: runState.runtimeIdentity?.transport ?? null,
+      fallbackFrom: runState.runtimeIdentity?.fallbackFrom ?? null,
+      selector: runState.runtimeIdentity?.selector ?? null,
+      sandboxScope: runState.runtimeIdentity?.sandboxScope ?? null,
+    },
+    message: {
+      mode: runState.message?.messageMode ?? null,
+      hash: runState.message?.messageHash ?? null,
+      length: runState.message?.messageLength ?? null,
+      preview: runState.message?.messagePreview ?? null,
+    },
+    replay: {
+      eligible: Boolean(runState.replay?.eligible),
+      policy: runState.replay?.policy ?? null,
+      replayFidelity: runState.replay?.replayFidelity ?? runState.message?.replayFidelityIfMaterialAvailable ?? null,
+    },
+    freshness: stale ? "stale" : "current",
+    stale,
+    evidenceQualification: {
+      usable,
+      missingSandbox,
+      productionState,
+      runEvidenceCertifiesRuntime,
+    },
+  };
+}
+
 function summarizeEval(blueprint) {
   return {
     casesPath: blueprint?.eval?.cases_path ?? null,
@@ -205,7 +282,7 @@ function summarizeRelease(blueprint, report) {
   };
 }
 
-function summarizeRisks(blueprint, validation) {
+function summarizeRisks(blueprint, validation, latestRunState) {
   const risks = new Set();
   for (const warning of validation.warnings) risks.add(warning);
   for (const risk of asStringArray(blueprint?.release?.known_risks)) risks.add(risk);
@@ -219,14 +296,38 @@ function summarizeRisks(blueprint, validation) {
       risks.add(`Runtime profile ${profile.id ?? "unknown"} lacks unsupported_surfaces disclosure.`);
     }
   }
+  if (latestRunState?.reason?.startsWith("unreadable:")) {
+    risks.add(`Latest run-state is unavailable: ${latestRunState.reason}`);
+  }
+  if (latestRunState?.stale) {
+    risks.add("Latest run-state blueprint hash is stale.");
+  }
+  if (latestRunState?.execution?.status === "failure") {
+    risks.add(`Latest run-state ${latestRunState.runId ?? "unknown"} recorded execution failure.`);
+  }
+  if (latestRunState?.evidenceQualification?.missingSandbox) {
+    risks.add("Latest run-state is missing sandbox scope evidence.");
+  }
+  if (latestRunState?.evidenceQualification?.productionState) {
+    risks.add("Latest run-state used production OpenClaw state.");
+  }
+  if (latestRunState?.evidenceQualification?.runEvidenceCertifiesRuntime) {
+    risks.add("Latest run-state incorrectly claims runtime certification.");
+  }
   return Array.from(risks).sort();
 }
 
-function summarizeNextActions(report, latestBuildState, risks) {
+function summarizeNextActions(report, latestBuildState, latestRunState, risks) {
   const actions = [];
   if (!report.ok) actions.push("Fix blueprint validation errors before scaffold or release claims.");
   if (report.gates.failed > 0) actions.push("Repair failed quality gates and rerun validation.");
   if (!latestBuildState.available) actions.push("Run agentmo scaffold and pass --build-state to connect status to generated output.");
+  if (!latestRunState.available) actions.push("Run agentmo run or pass --run-state/--run-dir to connect status to runtime evidence.");
+  if (latestRunState.stale) actions.push("Refresh runtime evidence because the run-state blueprint hash is stale.");
+  if (latestRunState.execution?.status === "failure") actions.push("Inspect failed runtime evidence and create an observe proposal if it indicates a blueprint/scaffold change.");
+  if (latestRunState.evidenceQualification?.missingSandbox) actions.push("Refresh runtime evidence with sandbox scope metadata before relying on it.");
+  if (latestRunState.evidenceQualification?.productionState) actions.push("Review production OpenClaw state usage before treating run evidence as safe.");
+  if (latestRunState.evidenceQualification?.runEvidenceCertifiesRuntime) actions.push("Reject run evidence that claims runtime certification; certification must come from blueprint/profile eval evidence.");
   if (report.release_readiness.status !== "ready") actions.push("Record eval and release evidence before claiming release readiness.");
   if (risks.length > 0) actions.push("Review risks and either mitigate them or keep them disclosed in release evidence.");
   return actions;
@@ -234,4 +335,8 @@ function summarizeNextActions(report, latestBuildState, risks) {
 
 function asStringArray(value) {
   return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
+}
+
+function hashString(value) {
+  return createHash("sha256").update(value).digest("hex");
 }

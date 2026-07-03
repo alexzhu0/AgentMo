@@ -34,6 +34,8 @@ An observation is evidence, not authority. Do not promote a recommended blueprin
 
 `agentmo observe <observation.json> --json` validates and summarizes the record. It never applies `recommendedBlueprintChange` automatically.
 
+`agentmo observe-run <run-state.json> --out <observation.json> --json` creates the same proposal-only observation shape from managed runtime evidence. Use it for failed, declared, or partial run-state sidecars when the evidence suggests a reviewed regression or blueprint/scaffold change may be needed.
+
 ## Rollback
 
 Observation records are optional sidecar evidence. Removing an observation file, validator, or CLI command does not affect existing `validate`, `report`, `plan`, or `scaffold` outputs.

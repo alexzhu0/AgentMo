@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { buildPlan } from "../src/build-plan.js";
 import { createBuildState } from "../src/build-state.js";
 import { buildControlSnapshot, formatControlSnapshot } from "../src/control-snapshot.js";
+import { executeRuntimeRun } from "../src/run-state.js";
 
 async function loadExample() {
   return JSON.parse(await readFile(new URL("../examples/win9.agentmo.json", import.meta.url), "utf8"));
@@ -29,6 +30,8 @@ describe("control snapshot", () => {
     );
     assert.equal(reparsed.latestBuildState.available, false);
     assert.equal(reparsed.latestBuildState.reason, "not_supplied");
+    assert.equal(reparsed.latestRunState.available, false);
+    assert.equal(reparsed.latestRunState.reason, "not_supplied");
   });
 
   it("summarizes supplied build-state target and operation counts", async () => {
@@ -61,5 +64,86 @@ describe("control snapshot", () => {
     assert.equal(snapshot.latestBuildState.available, false);
     assert.match(snapshot.latestBuildState.reason, /unreadable: ENOENT/u);
     assert.match(formatControlSnapshot(snapshot), /Build state: unavailable/u);
+  });
+
+  it("summarizes supplied run-state without changing runtime certification", async () => {
+    const blueprint = await loadExample();
+    const { runState } = await executeRuntimeRun(blueprint, {
+      target: "openclaw",
+      workspace: "/tmp/agentmo-openclaw-workspace",
+      message: "Say exactly: ok",
+      runId: "status-run",
+      now: "2026-07-03T00:00:00.000Z",
+    });
+
+    const snapshot = buildControlSnapshot(blueprint, {
+      runState,
+      runStatePath: "/tmp/agentmo-runs/runs/status-run/agentmo-run-state.json",
+    });
+
+    assert.equal(snapshot.latestRunState.available, true);
+    assert.equal(snapshot.latestRunState.usable, true);
+    assert.equal(snapshot.latestRunState.path, "/tmp/agentmo-runs/runs/status-run/agentmo-run-state.json");
+    assert.equal(snapshot.latestRunState.target.id, "openclaw");
+    assert.equal(snapshot.latestRunState.execution.status, "declared");
+    assert.equal(snapshot.latestRunState.runtimeIdentity.transport, "unknown");
+    assert.equal(snapshot.latestRunState.runtimeIdentity.sandboxScope.usesProductionState, false);
+    assert.equal(snapshot.latestRunState.freshness, "current");
+    assert.equal(snapshot.runtimeCertification.profiles.find((profile) => profile.id === "openclaw").certificationStatus, "verification_declared");
+    assert.match(formatControlSnapshot(snapshot), /Run state: openclaw declared \(current\)/u);
+  });
+
+  it("reports stale run-state evidence as unusable and non-authoritative", async () => {
+    const blueprint = await loadExample();
+    const { runState } = await executeRuntimeRun(blueprint, {
+      target: "openclaw",
+      workspace: "/tmp/agentmo-openclaw-workspace",
+      message: "Say exactly: ok",
+      runId: "stale-run",
+      now: "2026-07-03T00:00:00.000Z",
+    });
+    const stale = JSON.parse(JSON.stringify(runState));
+    stale.source.blueprintHash = "stale-hash";
+
+    const snapshot = buildControlSnapshot(blueprint, { runState: stale });
+
+    assert.equal(snapshot.latestRunState.available, true);
+    assert.equal(snapshot.latestRunState.usable, false);
+    assert.equal(snapshot.latestRunState.freshness, "stale");
+    assert.equal(snapshot.risks.includes("Latest run-state blueprint hash is stale."), true);
+    assert.equal(snapshot.nextActions.includes("Refresh runtime evidence because the run-state blueprint hash is stale."), true);
+  });
+
+  it("keeps corrupt or risky run evidence fail-closed in risks and next actions", async () => {
+    const blueprint = await loadExample();
+    const unreadable = buildControlSnapshot(blueprint, {
+      runStatePath: "/tmp/bad-run-state.json",
+      runStateError: "Invalid run-state JSON /tmp/bad-run-state.json",
+    });
+    assert.equal(unreadable.latestRunState.available, false);
+    assert.match(unreadable.latestRunState.reason, /unreadable/u);
+    assert.equal(unreadable.risks.some((risk) => risk.includes("Latest run-state is unavailable")), true);
+
+    const { runState } = await executeRuntimeRun(blueprint, {
+      target: "openclaw",
+      workspace: "/tmp/agentmo-openclaw-workspace",
+      openClawStateDir: "/tmp/openclaw-state",
+      message: "Say exactly: ok",
+      live: true,
+      runId: "failed-run",
+      now: "2026-07-03T00:00:00.000Z",
+    }, async () => ({ exitCode: 1, stdout: "", stderr: "failed", timedOut: false, durationMs: 2 }));
+    runState.runtimeIdentity.sandboxScope.usesProductionState = true;
+
+    const risky = buildControlSnapshot(blueprint, { runState });
+    assert.equal(risky.latestRunState.usable, false);
+    assert.equal(risky.latestRunState.execution.status, "failure");
+    assert.equal(risky.risks.includes("Latest run-state failed-run recorded execution failure."), true);
+    assert.equal(risky.risks.includes("Latest run-state used production OpenClaw state."), true);
+    assert.equal(
+      risky.nextActions.includes("Inspect failed runtime evidence and create an observe proposal if it indicates a blueprint/scaffold change."),
+      true,
+    );
+    assert.equal(risky.nextActions.includes("Review production OpenClaw state usage before treating run evidence as safe."), true);
   });
 });

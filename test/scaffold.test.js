@@ -72,6 +72,18 @@ describe("scaffold", () => {
 
     const runbook = await readFile(path.join(dir, "openclaw/RUNBOOK.md"), "utf8");
     assert.match(runbook, /openclaw agents add win9/u);
+    assert.match(runbook, /agentmo run-plan/u);
+    assert.match(runbook, /agentmo\.js run examples\/win9\.agentmo\.json/u);
+    assert.match(runbook, /agentmo\.js replay-run/u);
+    assert.match(runbook, /agentmo\.js run-eval/u);
+    assert.match(runbook, /fresh run-scoped execution/u);
+    assert.match(runbook, /same-session replay requires explicit `--resume-session`/u);
+    assert.match(runbook, /`--message-file`/u);
+    assert.match(runbook, /transport, fallbackFrom, sandboxScope/u);
+    assert.match(runbook, /OPENCLAW_STATE_DIR/u);
+    assert.match(runbook, /--openclaw-source-root/u);
+    assert.match(runbook, /does not certify OpenClaw domain parity/u);
+    assert.match(runbook, /mechanism evidence only; they are not domain parity certification/u);
 
     const contract = await readFile(path.join(dir, "openclaw/runtime_contract.md"), "utf8");
     assert.match(contract, /Model loop/u);

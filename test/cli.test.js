@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { mkdtemp, readdir, stat } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, stat } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -116,6 +116,173 @@ describe("cli", () => {
     assert.deepEqual(await readdir(dir), []);
   });
 
+  it("prints OpenClaw runtime plan JSON and writes no files", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "agentmo-cli-runtime-plan-"));
+    const result = await runCli([
+      "run-plan",
+      BLUEPRINT,
+      "--target",
+      "openclaw",
+      "--workspace",
+      dir,
+      "--agent",
+      "win9",
+      "--message",
+      "Say exactly: ok",
+      "--provider",
+      "openai",
+      "--model",
+      "gpt-5.5",
+      "--channel",
+      "local-cli",
+      "--transport",
+      "local",
+      "--fallback-from",
+      "pi",
+      "--json",
+    ]);
+    assert.equal(result.code, 0, result.stderr);
+    const plan = JSON.parse(result.stdout);
+    assert.equal(plan.schemaVersion, "agentmo.runtime-plan.v1");
+    assert.equal(plan.target.id, "openclaw");
+    assert.equal(plan.executionSessionPolicy, "fresh-per-run");
+    assert.equal(plan.runtimeIdentity.selector.executionSelector.sessionKey, "<fresh-run-session-key>");
+    assert.equal(plan.runtimeIdentity.sandboxScope.usesProductionState, false);
+    assert.equal(plan.runtimeIdentity.provider, "openai");
+    assert.equal(plan.runtimeIdentity.model, "gpt-5.5");
+    assert.equal(plan.runtimeIdentity.channel, "local-cli");
+    assert.equal(plan.runtimeIdentity.transport, "local");
+    assert.equal(plan.runtimeIdentity.fallbackFrom, "pi");
+    assert.deepEqual(plan.command.args, [
+      "agent",
+      "--agent",
+      "win9",
+      "--session-key",
+      "<fresh-run-session-key>",
+      "--message",
+      "Say exactly: ok",
+    ]);
+    assert.deepEqual(await readdir(dir), []);
+  });
+
+  it("writes non-live OpenClaw run-state JSON and index", async () => {
+    const workspace = await mkdtemp(path.join(tmpdir(), "agentmo-cli-run-workspace-"));
+    const out = await mkdtemp(path.join(tmpdir(), "agentmo-cli-run-out-"));
+    const result = await runCli([
+      "run",
+      BLUEPRINT,
+      "--target",
+      "openclaw",
+      "--workspace",
+      workspace,
+      "--agent",
+      "win9",
+      "--message",
+      "Say exactly: ok",
+      "--provider",
+      "openai",
+      "--model",
+      "gpt-5.5",
+      "--channel",
+      "local-cli",
+      "--transport",
+      "local",
+      "--out",
+      out,
+      "--json",
+    ]);
+    assert.equal(result.code, 0, result.stderr);
+    const state = JSON.parse(result.stdout);
+    assert.equal(state.schemaVersion, "agentmo.run.v1");
+    assert.equal(state.execution.executed, false);
+    assert.equal(state.execution.status, "declared");
+    assert.equal(state.runtimeIdentity.selector.executionSelector.sessionKey.startsWith("agentmo-win9-"), true);
+    assert.equal(state.runtimeIdentity.sandboxScope.usesProductionState, false);
+    assert.equal(state.runtimeIdentity.provider, "openai");
+    assert.equal(state.runtimeIdentity.model, "gpt-5.5");
+    assert.equal(state.runtimeIdentity.channel, "local-cli");
+    assert.equal(state.runtimeIdentity.transport, "local");
+    assert.equal(state.certificationBoundary.runEvidenceCertifiesRuntime, false);
+    const stateFile = path.join(out, "runs", state.runId, "agentmo-run-state.json");
+    const indexFile = path.join(out, "agentmo-run-index.json");
+    const savedState = JSON.parse(await readFile(stateFile, "utf8"));
+    const index = JSON.parse(await readFile(indexFile, "utf8"));
+    assert.equal(savedState.runId, state.runId);
+    assert.equal(index.latestRunId, state.runId);
+
+    const report = await runCli(["run-report", stateFile, "--json"]);
+    assert.equal(report.code, 0, report.stderr);
+    const reportJson = JSON.parse(report.stdout);
+    assert.equal(reportJson.schemaVersion, "agentmo.run-report.v1");
+    assert.equal(reportJson.observationRef, `agentmo-run:${state.runId}`);
+
+    const evaluation = await runCli(["run-eval", stateFile, "--expect-status", "declared", "--json"]);
+    assert.equal(evaluation.code, 0, evaluation.stderr);
+    const evalJson = JSON.parse(evaluation.stdout);
+    assert.equal(evalJson.schemaVersion, "agentmo.run-eval.v1");
+    assert.equal(evalJson.ok, true);
+    assert.equal(evalJson.certificationBoundary.runtimeCertifiedByRun, false);
+
+    const statusByState = await runCli(["status", BLUEPRINT, "--run-state", stateFile, "--json"]);
+    assert.equal(statusByState.code, 0, statusByState.stderr);
+    const stateSnapshot = JSON.parse(statusByState.stdout);
+    assert.equal(stateSnapshot.latestRunState.available, true);
+    assert.equal(stateSnapshot.latestRunState.runId, state.runId);
+    assert.equal(stateSnapshot.latestRunState.runtimeIdentity.transport, "local");
+
+    const observationFile = path.join(out, "declared-run.observation.json");
+    const observation = await runCli(["observe-run", stateFile, "--out", observationFile, "--json"]);
+    assert.equal(observation.code, 0, observation.stderr);
+    const observationJson = JSON.parse(observation.stdout);
+    assert.equal(observationJson.observationFile, observationFile);
+    assert.equal(observationJson.observation.schemaVersion, "agentmo.observation.v1");
+    assert.equal(observationJson.observation.source, `agentmo-run:${state.runId}`);
+    assert.equal(observationJson.observation.failureMode.includes("declared"), true);
+    assert.equal(observationJson.report.ok, true);
+    const observed = await runCli(["observe", observationFile, "--json"]);
+    assert.equal(observed.code, 0, observed.stderr);
+    assert.equal(JSON.parse(observed.stdout).ok, true);
+
+    const second = await runCli([
+      "run",
+      BLUEPRINT,
+      "--target",
+      "openclaw",
+      "--workspace",
+      workspace,
+      "--agent",
+      "win9",
+      "--message",
+      "Second run",
+      "--out",
+      out,
+      "--json",
+    ]);
+    assert.equal(second.code, 0, second.stderr);
+    const secondState = JSON.parse(second.stdout);
+
+    const statusByDir = await runCli(["status", BLUEPRINT, "--run-dir", out, "--json"]);
+    assert.equal(statusByDir.code, 0, statusByDir.stderr);
+    const dirSnapshot = JSON.parse(statusByDir.stdout);
+    assert.equal(dirSnapshot.latestRunState.runId, secondState.runId);
+
+    const explicitWins = await runCli(["status", BLUEPRINT, "--run-state", stateFile, "--run-dir", out, "--json"]);
+    assert.equal(explicitWins.code, 0, explicitWins.stderr);
+    const explicitSnapshot = JSON.parse(explicitWins.stdout);
+    assert.equal(explicitSnapshot.latestRunState.runId, state.runId);
+
+    const replayOut = await mkdtemp(path.join(tmpdir(), "agentmo-cli-replay-out-"));
+    const replay = await runCli(["replay-run", stateFile, "--out", replayOut, "--json"]);
+    assert.equal(replay.code, 0, replay.stderr);
+    const replayState = JSON.parse(replay.stdout);
+    assert.equal(replayState.parentRunId, state.runId);
+    assert.equal(replayState.replay.policy, "fresh-child-session");
+    assert.notEqual(
+      replayState.runtimeIdentity.selector.executionSelector.sessionKey,
+      state.runtimeIdentity.selector.executionSelector.sessionKey,
+    );
+  });
+
   it("scaffolds both supported targets with expected file lists", async () => {
     const agentmoDir = await mkdtemp(path.join(tmpdir(), "agentmo-cli-agentmo-"));
     const agentmo = await runCli(["scaffold", BLUEPRINT, "--out", agentmoDir]);
@@ -166,6 +333,14 @@ describe("cli", () => {
     const plan = await runCli(["plan", BLUEPRINT, "--target", "missing", "--json"]);
     assert.equal(plan.code, 1);
     assert.match(plan.stderr, /Unknown plan target: missing. Expected one of: agentmo, openclaw/u);
+
+    const runPlan = await runCli(["run-plan", BLUEPRINT, "--target", "missing", "--workspace", "/tmp/x", "--message", "ping", "--json"]);
+    assert.equal(runPlan.code, 1);
+    assert.match(runPlan.stderr, /Unknown run-plan target: missing. Expected one of: agentmo, openclaw/u);
+
+    const run = await runCli(["run", BLUEPRINT, "--target", "missing", "--workspace", "/tmp/x", "--message", "ping", "--out", "/tmp/y", "--json"]);
+    assert.equal(run.code, 1);
+    assert.match(run.stderr, /Unknown run-plan target: missing. Expected one of: agentmo, openclaw/u);
 
     const dir = await mkdtemp(path.join(tmpdir(), "agentmo-cli-missing-"));
     const scaffold = await runCli(["scaffold", BLUEPRINT, "--target", "missing", "--out", dir]);
