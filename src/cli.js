@@ -1,7 +1,9 @@
 import { resolve } from "node:path";
 import { loadBlueprint, validateBlueprint } from "./blueprint.js";
 import { buildMotherReport, formatMotherReport } from "./report.js";
-import { SCAFFOLD_TARGETS, scaffoldAgent } from "./scaffold.js";
+import { buildPlan } from "./build-plan.js";
+import { scaffoldAgent } from "./scaffold.js";
+import { listTargetIds } from "./targets/registry.js";
 
 export async function main(args) {
   const [command, ...rest] = args;
@@ -36,6 +38,14 @@ export async function main(args) {
     return;
   }
 
+  if (command === "plan") {
+    const options = parsePlanArgs(rest);
+    const blueprint = await loadBlueprint(options.file);
+    const plan = buildPlan(blueprint, { target: options.target });
+    process.stdout.write(options.json ? `${JSON.stringify(plan, null, 2)}\n` : formatBuildPlan(plan));
+    return;
+  }
+
   if (command === "scaffold") {
     const options = parseScaffoldArgs(rest);
     const blueprint = await loadBlueprint(options.file);
@@ -54,6 +64,26 @@ function parseBlueprintArg(args) {
   const file = filtered[0];
   if (!file) throw new Error("Missing blueprint file path.");
   return { file: resolve(file), json };
+}
+
+function parsePlanArgs(args) {
+  const file = args[0];
+  if (!file) throw new Error("Missing blueprint file path.");
+  let json = false;
+  let target = "agentmo";
+  for (let index = 1; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--json") {
+      json = true;
+    } else if (arg === "--target") {
+      target = args[index + 1];
+      index += 1;
+    } else {
+      throw new Error(`Unknown plan option: ${arg}`);
+    }
+  }
+  assertKnownTarget(target, "plan target");
+  return { file: resolve(file), json, target };
 }
 
 function parseScaffoldArgs(args) {
@@ -77,12 +107,32 @@ function parseScaffoldArgs(args) {
     }
   }
   if (!out) throw new Error("Missing --out <dir> for scaffold.");
-  if (!SCAFFOLD_TARGETS.has(target)) {
-    throw new Error(`Unknown scaffold target: ${target}. Expected one of: ${Array.from(SCAFFOLD_TARGETS).join(", ")}`);
-  }
+  assertKnownTarget(target, "scaffold target");
   return { file: resolve(file), out: resolve(out), force, target };
 }
 
+function assertKnownTarget(target, subject) {
+  const targets = listTargetIds();
+  if (!targets.includes(target)) {
+    throw new Error(`Unknown ${subject}: ${target}. Expected one of: ${targets.join(", ")}`);
+  }
+}
+
+function formatBuildPlan(plan) {
+  const lines = [
+    `AgentMo build plan: ${plan.agentId}`,
+    `Target: ${plan.selectedTargetId}`,
+    `Runtime profile: ${plan.selectedProfileId ?? "none"}`,
+    `Modules: ${plan.selectedModuleIds.join(", ")}`,
+    `Domain operations: ${plan.domainOperationCount}`,
+  ];
+  for (const warning of plan.warnings) lines.push(`WARN ${warning}`);
+  for (const operation of plan.operations) lines.push(`- ${operation.kind} ${operation.relativePath}`);
+  return `${lines.join("\n")}\n`;
+}
+
 function helpText() {
-  return `AgentMo / AgentMother CLI\n\nUsage:\n  agentmo validate <blueprint.json>\n  agentmo report <blueprint.json> [--json]\n  agentmo scaffold <blueprint.json> --out <dir> [--target agentmo|openclaw] [--force]\n\nConcepts:\n  validate  Check an AgentMother blueprint and its quality gates.\n  report    Build a human or JSON AgentMother readiness report.\n  scaffold  Generate a domain-agent harness. Use --target openclaw for an OpenClaw workspace scaffold.\n`;
+  return `AgentMo / AgentMother CLI\n\nUsage:\n  agentmo validate <blueprint.json>\n  agentmo report <blueprint.json> [--json]\n  agentmo plan <blueprint.json> [--target agentmo|openclaw] [--json]\n  agentmo scaffold <blueprint.json> --out <dir> [--target agentmo|openclaw] [--force]\n\nConcepts:\n  validate  Check an AgentMother blueprint and its quality gates.\n  report    Build a human or JSON AgentMother readiness report.
+  plan      Dry-run deterministic scaffold operations without writing files.
+  scaffold  Generate a domain-agent harness. Use --target openclaw for an OpenClaw workspace scaffold.\n`;
 }
