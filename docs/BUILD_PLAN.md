@@ -55,6 +55,19 @@ Top-level fields:
 `resolution.domainOperationCount` counts only generated domain outputs. The
 sidecar itself is asserted separately.
 
+## Control snapshot
+
+`agentmo status` turns a blueprint, and optionally a scaffold build-state
+sidecar, into `agentmo.control.v1`:
+
+```bash
+./bin/agentmo.js status examples/win9.agentmo.json --json
+./bin/agentmo.js status examples/win9.agentmo.json --build-state /tmp/win9-openclaw-scaffold/agentmo-build-state.json --json
+```
+
+The snapshot is read-only. Missing or unreadable build state is represented as
+unavailable so older scaffolds and blueprint-only checks keep working.
+
 ## Rollback
 
 The build state file is generated and managed. If Phase 3 must be rolled back,

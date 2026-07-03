@@ -26,10 +26,12 @@ AgentMo currently provides a dependency-free Node CLI:
 ./bin/agentmo.js validate examples/win9.agentmo.json
 ./bin/agentmo.js report examples/win9.agentmo.json
 ./bin/agentmo.js report examples/win9.agentmo.json --json
-./bin/agentmo.js discover-report examples/win9.discovery.json --json
+./bin/agentmo.js status examples/win9.agentmo.json --json
 ./bin/agentmo.js plan examples/win9.agentmo.json --json
 ./bin/agentmo.js scaffold examples/win9.agentmo.json --out /tmp/win9-agentmo-scaffold
 ./bin/agentmo.js scaffold examples/win9.agentmo.json --target openclaw --out /tmp/win9-openclaw-scaffold
+./bin/agentmo.js status examples/win9.agentmo.json --build-state /tmp/win9-openclaw-scaffold/agentmo-build-state.json --json
+./bin/agentmo.js observe examples/win9.observation.json --json
 ```
 
 `plan` is a dry run: it emits deterministic managed write operations without
@@ -75,11 +77,13 @@ src/blueprint.js            Blueprint validation and quality gates
 src/report.js               AgentMother readiness report
 src/build-plan.js           Deterministic dry-run operation planner
 src/build-state.js          Managed scaffold sidecar state writer
-src/discovery.js            Discovery manifest validation and report builder
+src/control-snapshot.js     Machine-readable status/control snapshot builder
+src/observation.js          Observe/evolve record validator and summarizer
 src/scaffold.js             Domain-agent scaffold generator
 examples/win9.agentmo.json  Reference blueprint based on Win9-on-Pi
-examples/win9.discovery.json  Reference discovery/input manifest
+examples/win9.observation.json  Example failure observation / proposal record
 docs/                       Concept, lifecycle, schema, quality gates
+docs/OBSERVE_EVOLVE.md      Evidence-first observe/evolve record rules
 docs/OPENCLAW_RUNTIME_NOTES.md  OpenClaw source-derived runtime notes
 test/                       Node test suite
 ```
@@ -96,6 +100,22 @@ Plan JSON includes:
 - `selectedModuleIds`: currently always `["default"]`.
 - `warnings`: sorted machine-readable warnings.
 - `domainOperationCount` and `operations[]`: managed `write-file` operations keyed by `relativePath`.
+
+## Control status snapshots
+
+`agentmo status` emits `agentmo.control.v1`: a stable control snapshot for a future UI/control pane. It includes agent status, lifecycle stage, runtime profiles, certification metadata when present, pipeline completeness, quality gates, eval/evidence/release summaries, risks, and next actions.
+
+Pass `--build-state <path>` after scaffold to attach the latest managed sidecar summary:
+
+```bash
+./bin/agentmo.js status examples/win9.agentmo.json --build-state /tmp/win9-openclaw-scaffold/agentmo-build-state.json --json
+```
+
+If build state is absent or unreadable, status remains available and reports the build-state section as unavailable.
+
+## Observe / evolve records
+
+`agentmo observe` validates `agentmo.observation.v1` records. Observation records capture failure evidence, a proposed regression, and an optional blueprint-change proposal. They do not automatically mutate blueprints, tools, evals, or generated scaffolds.
 
 ## OpenClaw target
 
