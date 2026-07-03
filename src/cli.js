@@ -5,7 +5,6 @@ import { buildMotherReport, formatMotherReport } from "./report.js";
 import { buildPlan } from "./build-plan.js";
 import { buildControlSnapshot, formatControlSnapshot, loadBuildState } from "./control-snapshot.js";
 import { buildObservationReport, formatObservationReport, loadObservationRecord } from "./observation.js";
-import { buildMotherReport, formatMotherReport } from "./report.js";
 import { scaffoldAgent } from "./scaffold.js";
 import { listTargetIds } from "./targets/registry.js";
 
@@ -48,6 +47,16 @@ export async function main(args) {
     const report = buildDiscoveryReport(manifest);
     process.stdout.write(json ? `${JSON.stringify(report, null, 2)}\n` : formatDiscoveryReport(report));
     if (!report.ok) process.exitCode = 1;
+    return;
+  }
+
+  if (command === "status") {
+    const options = parseStatusArgs(rest);
+    const blueprint = await loadBlueprint(options.file);
+    const buildStateOptions = await loadOptionalBuildState(options.buildStatePath);
+    const snapshot = buildControlSnapshot(blueprint, buildStateOptions);
+    process.stdout.write(options.json ? `${JSON.stringify(snapshot, null, 2)}\n` : formatControlSnapshot(snapshot));
+    if (!snapshot.validation.ok) process.exitCode = 1;
     return;
   }
 
@@ -189,9 +198,5 @@ function formatBuildPlan(plan) {
 }
 
 function helpText() {
-  return `AgentMo / AgentMother CLI\n\nUsage:\n  agentmo validate <blueprint.json>\n  agentmo report <blueprint.json> [--json]\n  agentmo discover-report <discovery.json> [--json]\n  agentmo plan <blueprint.json> [--target agentmo|openclaw] [--json]\n  agentmo scaffold <blueprint.json> --out <dir> [--target agentmo|openclaw] [--force]\n\nConcepts:\n  validate  Check an AgentMother blueprint and its quality gates.\n  report    Build a human or JSON AgentMother readiness report.
-  discover-report  Validate and summarize a discovery/input manifest.
-  plan      Dry-run deterministic scaffold operations without writing files.
-  scaffold  Generate a domain-agent harness. Use --target openclaw for an OpenClaw workspace scaffold.
-  observe   Validate and summarize an observe/evolve record without applying changes.\n`;
+  return `AgentMo / AgentMother CLI\n\nUsage:\n  agentmo validate <blueprint.json>\n  agentmo report <blueprint.json> [--json]\n  agentmo discover-report <discovery.json> [--json]\n  agentmo status <blueprint.json> [--build-state <path>] [--json]\n  agentmo plan <blueprint.json> [--target agentmo|openclaw] [--json]\n  agentmo scaffold <blueprint.json> --out <dir> [--target agentmo|openclaw] [--force]\n  agentmo observe <observation.json> [--json]\n\nConcepts:\n  validate         Check an AgentMother blueprint and its quality gates.\n  report           Build a human or JSON AgentMother readiness report.\n  discover-report  Validate and summarize a discovery/input manifest.\n  status           Build an auditable control snapshot from blueprint plus optional build state.\n  plan             Dry-run deterministic scaffold operations without writing files.\n  scaffold         Generate a domain-agent harness. Use --target openclaw for an OpenClaw workspace scaffold.\n  observe          Validate and summarize an observe/evolve record without applying changes.\n`;
 }
