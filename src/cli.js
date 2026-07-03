@@ -1,8 +1,9 @@
 import { resolve } from "node:path";
 import { loadBlueprint, validateBlueprint } from "./blueprint.js";
-import { buildDiscoveryReport, formatDiscoveryReport, loadDiscoveryManifest } from "./discovery.js";
-import { buildMotherReport, formatMotherReport } from "./report.js";
 import { buildPlan } from "./build-plan.js";
+import { buildControlSnapshot, formatControlSnapshot, loadBuildState } from "./control-snapshot.js";
+import { buildObservationReport, formatObservationReport, loadObservationRecord } from "./observation.js";
+import { buildMotherReport, formatMotherReport } from "./report.js";
 import { scaffoldAgent } from "./scaffold.js";
 import { listTargetIds } from "./targets/registry.js";
 
@@ -39,12 +40,13 @@ export async function main(args) {
     return;
   }
 
-  if (command === "discover-report") {
-    const { file, json } = parseBlueprintArg(rest);
-    const manifest = await loadDiscoveryManifest(file);
-    const report = buildDiscoveryReport(manifest);
-    process.stdout.write(json ? `${JSON.stringify(report, null, 2)}\n` : formatDiscoveryReport(report));
-    if (!report.ok) process.exitCode = 1;
+  if (command === "status") {
+    const options = parseStatusArgs(rest);
+    const blueprint = await loadBlueprint(options.file);
+    const buildStateInput = await loadOptionalBuildState(options.buildStatePath);
+    const snapshot = buildControlSnapshot(blueprint, buildStateInput);
+    process.stdout.write(options.json ? `${JSON.stringify(snapshot, null, 2)}\n` : formatControlSnapshot(snapshot));
+    if (!snapshot.validation.ok) process.exitCode = 1;
     return;
   }
 
@@ -70,6 +72,15 @@ export async function main(args) {
     return;
   }
 
+  if (command === "observe") {
+    const { file, json } = parseBlueprintArg(rest);
+    const observation = await loadObservationRecord(file);
+    const report = buildObservationReport(observation);
+    process.stdout.write(json ? `${JSON.stringify(report, null, 2)}\n` : formatObservationReport(report));
+    if (!report.ok) process.exitCode = 1;
+    return;
+  }
+
   throw new Error(`Unknown command: ${command}\n\n${helpText()}`);
 }
 
@@ -79,6 +90,36 @@ function parseBlueprintArg(args) {
   const file = filtered[0];
   if (!file) throw new Error("Missing blueprint file path.");
   return { file: resolve(file), json };
+}
+
+function parseStatusArgs(args) {
+  const file = args[0];
+  if (!file) throw new Error("Missing blueprint file path.");
+  let json = false;
+  let buildStatePath = null;
+  for (let index = 1; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--json") {
+      json = true;
+    } else if (arg === "--build-state") {
+      buildStatePath = args[index + 1];
+      if (!buildStatePath) throw new Error("Missing --build-state <path> for status.");
+      index += 1;
+    } else {
+      throw new Error(`Unknown status option: ${arg}`);
+    }
+  }
+  return { file: resolve(file), json, buildStatePath: buildStatePath ? resolve(buildStatePath) : null };
+}
+
+async function loadOptionalBuildState(buildStatePath) {
+  if (!buildStatePath) return {};
+  try {
+    return { buildState: await loadBuildState(buildStatePath), buildStatePath };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { buildStatePath, buildStateError: message };
+  }
 }
 
 function parsePlanArgs(args) {
@@ -147,8 +188,9 @@ function formatBuildPlan(plan) {
 }
 
 function helpText() {
-  return `AgentMo / AgentMother CLI\n\nUsage:\n  agentmo validate <blueprint.json>\n  agentmo report <blueprint.json> [--json]\n  agentmo discover-report <discovery.json> [--json]\n  agentmo plan <blueprint.json> [--target agentmo|openclaw] [--json]\n  agentmo scaffold <blueprint.json> --out <dir> [--target agentmo|openclaw] [--force]\n\nConcepts:\n  validate  Check an AgentMother blueprint and its quality gates.\n  report    Build a human or JSON AgentMother readiness report.
-  discover-report  Validate and summarize a discovery/input manifest.
+  return `AgentMo / AgentMother CLI\n\nUsage:\n  agentmo validate <blueprint.json>\n  agentmo report <blueprint.json> [--json]\n  agentmo status <blueprint.json> [--build-state path] [--json]\n  agentmo plan <blueprint.json> [--target agentmo|openclaw] [--json]\n  agentmo scaffold <blueprint.json> --out <dir> [--target agentmo|openclaw] [--force]\n  agentmo observe <observation.json> [--json]\n\nConcepts:\n  validate  Check an AgentMother blueprint and its quality gates.\n  report    Build a human or JSON AgentMother readiness report.
+  status    Build a machine-readable control snapshot, optionally linked to build state.
   plan      Dry-run deterministic scaffold operations without writing files.
-  scaffold  Generate a domain-agent harness. Use --target openclaw for an OpenClaw workspace scaffold.\n`;
+  scaffold  Generate a domain-agent harness. Use --target openclaw for an OpenClaw workspace scaffold.
+  observe   Validate and summarize an observe/evolve record without applying changes.\n`;
 }

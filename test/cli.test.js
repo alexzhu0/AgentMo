@@ -118,6 +118,36 @@ describe("cli", () => {
     assert.deepEqual(await listFiles(openclawDir), [...OPENCLAW_BASELINE_FILES, BUILD_STATE_FILENAME].sort());
   });
 
+  it("prints a control status snapshot with optional build-state", async () => {
+    const status = await runCli(["status", BLUEPRINT, "--json"]);
+    assert.equal(status.code, 0, status.stderr);
+    const snapshot = JSON.parse(status.stdout);
+    assert.equal(snapshot.schemaVersion, "agentmo.control.v1");
+    assert.equal(snapshot.agentId, "win9");
+    assert.equal(snapshot.latestBuildState.available, false);
+
+    const dir = await mkdtemp(path.join(tmpdir(), "agentmo-cli-status-openclaw-"));
+    const scaffold = await runCli(["scaffold", BLUEPRINT, "--target", "openclaw", "--out", dir]);
+    assert.equal(scaffold.code, 0, scaffold.stderr);
+
+    const withState = await runCli(["status", BLUEPRINT, "--build-state", path.join(dir, BUILD_STATE_FILENAME), "--json"]);
+    assert.equal(withState.code, 0, withState.stderr);
+    const stateSnapshot = JSON.parse(withState.stdout);
+    assert.equal(stateSnapshot.latestBuildState.available, true);
+    assert.equal(stateSnapshot.latestBuildState.target.id, "openclaw");
+    assert.equal(stateSnapshot.latestBuildState.operations.domainOperationCount, OPENCLAW_BASELINE_FILES.length);
+  });
+
+  it("validates observation records without applying blueprint changes", async () => {
+    const result = await runCli(["observe", fileURLToPath(new URL("../examples/win9.observation.json", import.meta.url)), "--json"]);
+    assert.equal(result.code, 0, result.stderr);
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.schemaVersion, "agentmo.observation-report.v1");
+    assert.equal(report.ok, true);
+    assert.equal(report.recommendedBlueprintChange.proposalOnly, true);
+    assert.equal(report.mutation.autoApplied, false);
+  });
+
   it("rejects invalid targets consistently", async () => {
     const plan = await runCli(["plan", BLUEPRINT, "--target", "missing", "--json"]);
     assert.equal(plan.code, 1);

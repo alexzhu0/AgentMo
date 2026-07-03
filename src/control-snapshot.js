@@ -1,0 +1,237 @@
+import { readFile } from "node:fs/promises";
+import { buildMotherReport } from "./report.js";
+
+export const CONTROL_SNAPSHOT_SCHEMA_VERSION = "agentmo.control.v1";
+
+const PIPELINE_PHASES = ["discover", "plan", "produce"];
+
+export async function loadBuildState(path) {
+  const raw = await readFile(path, "utf8");
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Invalid JSON build-state ${path}: ${message}`);
+  }
+}
+
+export function buildControlSnapshot(blueprint, options = {}) {
+  const report = buildMotherReport(blueprint);
+  const validation = {
+    ok: report.ok,
+    warnings: [...report.warnings],
+    errors: [...report.errors],
+  };
+
+  const risks = summarizeRisks(blueprint, validation);
+  const latestBuildState = summarizeBuildState(options.buildState, options.buildStatePath, options.buildStateError);
+
+  return {
+    schemaVersion: CONTROL_SNAPSHOT_SCHEMA_VERSION,
+    agentId: blueprint?.agent_id ?? null,
+    status: blueprint?.status ?? "unknown",
+    lifecycle: report.lifecycle,
+    runtime: summarizeRuntime(blueprint),
+    runtimeCertification: summarizeRuntimeCertification(blueprint),
+    pipeline: summarizePipeline(blueprint),
+    qualityGates: report.gates,
+    latestBuildState,
+    eval: summarizeEval(blueprint),
+    evidence: summarizeEvidence(blueprint),
+    release: summarizeRelease(blueprint, report),
+    risks,
+    nextActions: summarizeNextActions(report, latestBuildState, risks),
+    validation,
+  };
+}
+
+export function formatControlSnapshot(snapshot) {
+  const buildState = snapshot.latestBuildState.available
+    ? `${snapshot.latestBuildState.target.id} (${snapshot.latestBuildState.operations.domainOperationCount} domain operations)`
+    : `unavailable: ${snapshot.latestBuildState.reason}`;
+  const lines = [
+    `AgentMo status: ${snapshot.agentId ?? "unknown"}`,
+    `Status: ${snapshot.status}`,
+    `Lifecycle: ${snapshot.lifecycle.stage} (${snapshot.lifecycle.reason})`,
+    `Runtime: ${snapshot.runtime.primary ?? "unknown"}`,
+    `Runtime profiles: ${snapshot.runtime.profiles.map((profile) => profile.id).join(", ") || "none"}`,
+    `Pipeline complete: ${snapshot.pipeline.completed}/${snapshot.pipeline.total}`,
+    `Quality gates: ${snapshot.qualityGates.passed} passed, ${snapshot.qualityGates.failed} failed`,
+    `Build state: ${buildState}`,
+    `Release readiness: ${snapshot.release.readiness.status}`,
+  ];
+
+  if (snapshot.risks.length > 0) {
+    lines.push("", "Risks:");
+    for (const risk of snapshot.risks) lines.push(`- ${risk}`);
+  }
+
+  if (snapshot.nextActions.length > 0) {
+    lines.push("", "Next actions:");
+    for (const action of snapshot.nextActions) lines.push(`- ${action}`);
+  }
+
+  return `${lines.join("\n")}\n`;
+}
+
+function summarizeRuntime(blueprint) {
+  const profiles = Array.isArray(blueprint?.runtime_profiles)
+    ? blueprint.runtime_profiles.map((profile) => ({
+        id: profile.id ?? null,
+        role: profile.role ?? null,
+        status: profile.status ?? null,
+        purpose: profile.purpose ?? null,
+      }))
+    : [];
+  return {
+    primary: blueprint?.runtime ?? null,
+    profiles,
+  };
+}
+
+function summarizeRuntimeCertification(blueprint) {
+  const profiles = Array.isArray(blueprint?.runtime_profiles) ? blueprint.runtime_profiles : [];
+  return {
+    profiles: profiles.map((profile) => {
+      const verificationCommands = asStringArray(profile.verification_commands);
+      const unsupportedSurfaces = asStringArray(profile.unsupported_surfaces);
+      const riskNotes = asStringArray(profile.risk_notes);
+      return {
+        id: profile.id ?? null,
+        role: profile.role ?? null,
+        status: profile.status ?? null,
+        owner: profile.owner ?? null,
+        lastVerifiedAt: profile.last_verified_at ?? null,
+        supportedAssets: asStringArray(profile.supported_assets),
+        unsupportedSurfaces,
+        installOrOnramp: profile.install_or_onramp ?? null,
+        verificationCommands,
+        riskNotes,
+        certificationStatus: certificationStatusFor(profile, verificationCommands, unsupportedSurfaces),
+      };
+    }),
+  };
+}
+
+function certificationStatusFor(profile, verificationCommands, unsupportedSurfaces) {
+  if (profile.status === "deprecated") return "deprecated";
+  if (verificationCommands.length > 0 && unsupportedSurfaces.length > 0 && typeof profile.last_verified_at === "string") {
+    return "verification_declared";
+  }
+  if (profile.status === "active" || profile.status === "experimental") return "needs_verification_metadata";
+  return "not_certified";
+}
+
+function summarizePipeline(blueprint) {
+  const phases = PIPELINE_PHASES.map((id) => {
+    const phase = blueprint?.pipeline?.[id];
+    const present = phase !== null && typeof phase === "object" && !Array.isArray(phase);
+    return {
+      id,
+      complete: present,
+      status: present ? "present" : "missing",
+      doneWhenCount: Array.isArray(phase?.done_when) ? phase.done_when.length : 0,
+    };
+  });
+  return {
+    completed: phases.filter((phase) => phase.complete).length,
+    total: phases.length,
+    phases,
+  };
+}
+
+function summarizeBuildState(buildState, buildStatePath, buildStateError) {
+  if (buildStateError) {
+    return {
+      available: false,
+      path: buildStatePath ?? null,
+      reason: `unreadable: ${buildStateError}`,
+    };
+  }
+  if (!buildState) {
+    return {
+      available: false,
+      path: buildStatePath ?? null,
+      reason: buildStatePath ? "not_loaded" : "not_supplied",
+    };
+  }
+  return {
+    available: true,
+    path: buildStatePath ?? buildState.request?.outputDir ?? null,
+    schemaVersion: buildState.schemaVersion ?? null,
+    generatedAt: buildState.generatedAt ?? null,
+    agentId: buildState.agentId ?? null,
+    target: {
+      id: buildState.target?.id ?? buildState.resolution?.selectedTargetId ?? null,
+      label: buildState.target?.label ?? null,
+    },
+    operations: {
+      domainOperationCount: buildState.resolution?.domainOperationCount ?? buildState.operations?.length ?? 0,
+      recordedOperationCount: Array.isArray(buildState.operations) ? buildState.operations.length : 0,
+    },
+    resolution: {
+      selectedTargetId: buildState.resolution?.selectedTargetId ?? null,
+      selectedProfileId: buildState.resolution?.selectedProfileId ?? null,
+      selectedModuleIds: Array.isArray(buildState.resolution?.selectedModuleIds) ? buildState.resolution.selectedModuleIds : [],
+      warnings: Array.isArray(buildState.resolution?.warnings) ? buildState.resolution.warnings : [],
+    },
+  };
+}
+
+function summarizeEval(blueprint) {
+  return {
+    casesPath: blueprint?.eval?.cases_path ?? null,
+    rubricPath: blueprint?.eval?.rubric_path ?? null,
+    requiredCaseClasses: asStringArray(blueprint?.eval?.required_case_classes),
+    hardFailures: asStringArray(blueprint?.eval?.hard_failures),
+  };
+}
+
+function summarizeEvidence(blueprint) {
+  return {
+    stores: asStringArray(blueprint?.evidence?.stores),
+    requiredArtifacts: asStringArray(blueprint?.evidence?.required_artifacts),
+    auditRules: asStringArray(blueprint?.evidence?.audit_rules),
+  };
+}
+
+function summarizeRelease(blueprint, report) {
+  return {
+    readiness: report.release_readiness,
+    latestCommit: blueprint?.release?.latest_commit ?? null,
+    latestTag: blueprint?.release?.latest_tag ?? null,
+    releaseLedgerPath: blueprint?.release?.release_ledger_path ?? null,
+    knownRisks: asStringArray(blueprint?.release?.known_risks),
+  };
+}
+
+function summarizeRisks(blueprint, validation) {
+  const risks = new Set();
+  for (const warning of validation.warnings) risks.add(warning);
+  for (const risk of asStringArray(blueprint?.release?.known_risks)) risks.add(risk);
+  for (const profile of Array.isArray(blueprint?.runtime_profiles) ? blueprint.runtime_profiles : []) {
+    for (const risk of asStringArray(profile.risk_notes)) risks.add(`${profile.id ?? "runtime"}: ${risk}`);
+    const activeRuntime = profile.status === "active" || profile.status === "experimental";
+    if (activeRuntime && asStringArray(profile.verification_commands).length === 0) {
+      risks.add(`Runtime profile ${profile.id ?? "unknown"} lacks verification_commands metadata.`);
+    }
+    if (activeRuntime && asStringArray(profile.unsupported_surfaces).length === 0) {
+      risks.add(`Runtime profile ${profile.id ?? "unknown"} lacks unsupported_surfaces disclosure.`);
+    }
+  }
+  return Array.from(risks).sort();
+}
+
+function summarizeNextActions(report, latestBuildState, risks) {
+  const actions = [];
+  if (!report.ok) actions.push("Fix blueprint validation errors before scaffold or release claims.");
+  if (report.gates.failed > 0) actions.push("Repair failed quality gates and rerun validation.");
+  if (!latestBuildState.available) actions.push("Run agentmo scaffold and pass --build-state to connect status to generated output.");
+  if (report.release_readiness.status !== "ready") actions.push("Record eval and release evidence before claiming release readiness.");
+  if (risks.length > 0) actions.push("Review risks and either mitigate them or keep them disclosed in release evidence.");
+  return actions;
+}
+
+function asStringArray(value) {
+  return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
+}

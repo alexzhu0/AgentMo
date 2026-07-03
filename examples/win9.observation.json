@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "agentmo.observation.v1",
+  "agentId": "win9",
+  "source": "eval",
+  "failureMode": "simple methodology lookup routed through full orchestration instead of the bounded lookup path",
+  "evidenceRefs": [
+    "../pi/docs/win9-evals/CASES.md#light_methodology_lookup",
+    "../pi/docs/win9-harness-history/VERSION_LEDGER.md"
+  ],
+  "proposedRegression": {
+    "id": "win9-light-lookup-routing",
+    "description": "A simple Win9 methodology lookup must stay on the light methodology path and must not spawn full orchestration.",
+    "expectedEvidence": "bounded methodology evidence card with no .win9/shared full dump"
+  },
+  "recommendedBlueprintChange": {
+    "section": "tools.win9_methodology_lookup.allowed_when",
+    "proposal": "Keep simple step, tool, stage, and usage-scene lookup phrasing explicit in the light lookup contract."
+  },
+  "status": "proposed"
+}
