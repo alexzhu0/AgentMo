@@ -49,9 +49,14 @@ export async function main(args) {
   if (command === "scaffold") {
     const options = parseScaffoldArgs(rest);
     const blueprint = await loadBlueprint(options.file);
-    const result = await scaffoldAgent(blueprint, options.out, { force: options.force, target: options.target });
+    const result = await scaffoldAgent(blueprint, options.out, {
+      blueprintPath: options.file,
+      force: options.force,
+      target: options.target,
+    });
     process.stdout.write(`Scaffolded ${result.files.length} files into ${result.outputDir} for target ${result.target}\n`);
     for (const file of result.files) process.stdout.write(`- ${file}\n`);
+    process.stdout.write(`Build state: ${result.stateFile}\n`);
     return;
   }
 
