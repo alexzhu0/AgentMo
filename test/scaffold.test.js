@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { BUILD_STATE_FILENAME } from "../src/build-state.js";
 import { scaffoldAgent } from "../src/scaffold.js";
 
 async function loadExample() {
@@ -19,6 +20,8 @@ describe("scaffold", () => {
     assert.equal(result.files.includes("agents/win9-main.md"), true);
     assert.equal(result.files.includes("agents/win9-step9.md"), true);
     assert.equal(result.files.includes("evals/RUBRIC.md"), true);
+    assert.equal(result.files.includes(BUILD_STATE_FILENAME), false);
+    assert.equal(result.stateFile, path.join(dir, BUILD_STATE_FILENAME));
 
     const policy = JSON.parse(await readFile(path.join(dir, "agent_policy.json"), "utf8"));
     assert.equal(policy.agent_id, "win9");
@@ -30,6 +33,16 @@ describe("scaffold", () => {
     const readme = await readFile(path.join(dir, "README.md"), "utf8");
     assert.match(readme, /### 1\. Discover: find what to build/u);
     assert.match(readme, /Source refs: .*openclaw@5bcd25f0fb/u);
+
+    const buildState = JSON.parse(await readFile(path.join(dir, BUILD_STATE_FILENAME), "utf8"));
+    assert.equal(buildState.schemaVersion, "agentmo.build.v1");
+    assert.equal(buildState.agentId, "win9");
+    assert.equal(buildState.target.id, "agentmo");
+    assert.equal(buildState.resolution.domainOperationCount, result.files.length);
+    assert.equal(
+      buildState.operations.some((operation) => operation.relativePath === BUILD_STATE_FILENAME),
+      false,
+    );
   });
 
 
@@ -44,6 +57,7 @@ describe("scaffold", () => {
     assert.equal(result.files.includes("openclaw/workspace/skills/win9/SKILL.md"), true);
     assert.equal(result.files.includes("openclaw/config/openclaw.agent.patch.json"), true);
     assert.equal(result.files.includes("openclaw/runtime_contract.md"), true);
+    assert.equal(result.files.includes(BUILD_STATE_FILENAME), false);
 
     const config = JSON.parse(await readFile(path.join(dir, "openclaw/config/openclaw.agent.patch.json"), "utf8"));
     assert.equal(config.agents.list[0].id, "win9");
@@ -62,6 +76,11 @@ describe("scaffold", () => {
     const contract = await readFile(path.join(dir, "openclaw/runtime_contract.md"), "utf8");
     assert.match(contract, /Model loop/u);
     assert.match(contract, /openclaw@5bcd25f0fb/u);
+
+    const buildState = JSON.parse(await readFile(path.join(dir, BUILD_STATE_FILENAME), "utf8"));
+    assert.equal(buildState.target.id, "openclaw");
+    assert.equal(buildState.resolution.selectedTargetId, "openclaw");
+    assert.equal(buildState.resolution.domainOperationCount, result.files.length);
   });
 
   it("refuses non-empty target directories without force", async () => {

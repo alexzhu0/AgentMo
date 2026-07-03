@@ -27,10 +27,16 @@ AgentMo currently provides a dependency-free Node CLI:
 ./bin/agentmo.js report examples/win9.agentmo.json
 ./bin/agentmo.js report examples/win9.agentmo.json --json
 ./bin/agentmo.js plan examples/win9.agentmo.json --json
-./bin/agentmo.js plan examples/win9.agentmo.json --target openclaw --json
 ./bin/agentmo.js scaffold examples/win9.agentmo.json --out /tmp/win9-agentmo-scaffold
 ./bin/agentmo.js scaffold examples/win9.agentmo.json --target openclaw --out /tmp/win9-openclaw-scaffold
 ```
+
+`plan` is a dry run: it emits deterministic managed write operations without
+touching the output directory. `scaffold` applies the same domain operations and
+then writes `agentmo-build-state.json` as a managed sidecar in the output root.
+The sidecar records the request, target/profile resolution, source blueprint
+hash, operation summaries, warnings, and generation timestamp; it is not counted
+as a domain scaffold operation.
 
 ## Why this exists
 
@@ -65,9 +71,9 @@ No version ledger, no reproduction.
 bin/agentmo.js              CLI entrypoint
 src/blueprint.js            Blueprint validation and quality gates
 src/report.js               AgentMother readiness report
-src/build-plan.js           Deterministic dry-run build-plan compiler
-src/targets/                Target adapter registry for scaffold outputs
-src/scaffold.js             Domain-agent scaffold apply path
+src/build-plan.js           Deterministic dry-run operation planner
+src/build-state.js          Managed scaffold sidecar state writer
+src/scaffold.js             Domain-agent scaffold generator
 examples/win9.agentmo.json  Reference blueprint based on Win9-on-Pi
 docs/                       Concept, lifecycle, schema, quality gates
 docs/OPENCLAW_RUNTIME_NOTES.md  OpenClaw source-derived runtime notes

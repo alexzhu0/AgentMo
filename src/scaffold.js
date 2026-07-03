@@ -1,6 +1,6 @@
 import { mkdir, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { BUILD_STATE_FILENAME, buildStatePath, createBuildState, serializeBuildState } from "./build-state.js";
+import { buildStatePath, createBuildState, serializeBuildState } from "./build-state.js";
 import { buildPlan } from "./build-plan.js";
 import { listTargetIds } from "./targets/registry.js";
 

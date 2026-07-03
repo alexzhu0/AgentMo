@@ -53,31 +53,17 @@ Optional runtime profile fields:
 - `source_refs`: exact local paths, commits, package versions, or docs used as architecture evidence.
 - `transfer_rules`: rules for porting architecture ideas across runtimes without assuming API compatibility.
 
+## Build plan and build state
 
-## Build-plan compiler output
+`agentmo plan <blueprint.json> [--target agentmo|openclaw] [--json]` emits a
+deterministic dry-run operation list without writing files. `agentmo scaffold`
+applies the same managed domain operations and then writes
+`agentmo-build-state.json` in the output root.
 
-`agentmo plan <blueprint.json> [--target agentmo|openclaw] [--json]` is a dry-run compiler command. It validates the blueprint, resolves a target adapter, and returns deterministic managed operations without writing output files.
-
-The current build-plan schema is `agentmo.build-plan.v1` and includes:
-
-- `agentId`
-- `selectedTargetId`
-- `selectedProfileId` or `null`
-- `selectedModuleIds`, currently the stable sentinel `["default"]`
-- sorted `warnings`
-- `domainOperationCount`
-- `operations[]` with `kind: "write-file"`, `relativePath`, `ownership: "managed"`, `source`, and `scaffoldOnly: true`
-
-When an output root is known during scaffold apply, operations may also carry `destinationPath`. Dry-run JSON omits generated file contents and does not write files.
-
-## Target adapters
-
-Scaffold targets are resolved through a registry. The built-in target ids are:
-
-- `agentmo`: the default AgentMo domain-agent harness.
-- `openclaw`: an OpenClaw-oriented workspace scaffold.
-
-Each adapter exposes an id, label, support check, canonical operation planner, verification hints, and optional unsupported-surface disclosures. Scaffold apply consumes the same operation list produced by planning, preserving dry-run/apply parity.
+The build-state sidecar uses `schemaVersion: "agentmo.build.v1"` and records the
+request, target/profile resolution, source blueprint metadata/hash, generated
+operation summaries, and `generatedAt` timestamp. It is a managed artifact and
+is not counted as a domain operation.
 
 ## Domain genome
 
