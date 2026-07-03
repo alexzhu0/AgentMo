@@ -1,12 +1,13 @@
 import { mkdir, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { BUILD_STATE_FILENAME, buildStatePath, createBuildState, serializeBuildState } from "./build-state.js";
 import { buildPlan } from "./build-plan.js";
 import { listTargetIds } from "./targets/registry.js";
 
 export const SCAFFOLD_TARGETS = new Set(listTargetIds());
 
 export async function scaffoldAgent(blueprint, outputDir, options = {}) {
-  const plan = buildPlan(blueprint, { target: options.target, outputDir });
+  const plan = buildPlan(blueprint, { target: options.target, outputDir, profile: options.profile, profileId: options.profileId });
 
   await assertTargetWritable(outputDir, options.force === true);
   await mkdir(outputDir, { recursive: true });
@@ -21,10 +22,22 @@ export async function scaffoldAgent(blueprint, outputDir, options = {}) {
     await writeFile(filePath, operation.content, "utf8");
   }
 
+  const state = createBuildState(blueprint, plan, {
+    blueprintPath: options.blueprintPath,
+    outputDir,
+    target: options.target,
+    force: options.force,
+    profile: options.profile,
+    profileId: options.profileId,
+  });
+  const stateFile = buildStatePath(outputDir);
+  await writeFile(stateFile, serializeBuildState(state), "utf8");
+
   return {
     outputDir,
     target: plan.selectedTargetId,
     files: plan.operations.map((operation) => operation.relativePath).sort(),
+    stateFile,
     plan,
   };
 }
