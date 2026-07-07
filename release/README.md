@@ -32,13 +32,14 @@ YYYY.MM.DD.md
 | --- | --- | --- | --- |
 | 2026.07.03 | AgentMo v0.1 baseline + runtime evidence spine | 已提交到 `93da9b5` | [`2026.07.03.md`](./2026.07.03.md) |
 | 2026.07.05 | DeepSeek/OpenClaw live POC 与产品化规划 | POC/规划完成 | [`2026.07.05.md`](./2026.07.05.md) |
-| 2026.07.06 | MVP birth-loop：discover -> need -> draft -> handoff -> birth-report | 工作树实现已验证，尚未提交 | [`2026.07.06.md`](./2026.07.06.md) |
-| 2026.07.07 | Release ledger 回填、session 迁移与 agent 指令固化 | 文档维护 | [`2026.07.07.md`](./2026.07.07.md) |
+| 2026.07.06 | MVP birth-loop：discover -> need -> draft -> handoff -> birth-report | 已提交到 `83dc9e5`，后续安全修复到 `e287988` | [`2026.07.06.md`](./2026.07.06.md) |
+| 2026.07.07 | Stage 3 delivery closure：domain-eval + delivery-report | 已提交到 `3dfb597`，本地 release tag `v0.1.0` | [`2026.07.07.md`](./2026.07.07.md) |
 
 ## 当前恢复锚点
 
 - 当前项目：`/home/alex/DTAlex/learningGitHub/AgentMo`
-- 当前已提交 HEAD：`93da9b5`
-- 当前重点：AgentMo MVP birth-loop 工作树已实现并通过本地验证，但还未提交。
-- 当前主线：不要把 AgentMo 和 `/home/alex/DTAlex/learningGitHub/pi` 的 Win9 harness 工作混在一个 commit。
-- 当前恢复入口：`docs/OMX_SESSION_MIGRATION.md` 和仓库根目录 `AGENTS.md`。
+- 当前 release tag：`v0.1.0`（本地 tag；远端当前无可见 heads，尚未 push）
+- Stage 3 功能提交：`3dfb597`
+- 当前重点：AgentMo 第三阶段交付闭环已实现并通过本地验证。
+- 当前主线：继续只在 AgentMo 内维护，不把 sibling projects 的工作混入本仓库 commit。
+- 当前恢复入口：`docs/OMX_SESSION_MIGRATION.md`、仓库根目录 `AGENTS.md`、`docs/MVP_RUNBOOK.md`。
