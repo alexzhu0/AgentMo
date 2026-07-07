@@ -206,16 +206,20 @@ function streamStoresRawPreview(evidence, streamName) {
   const summaryStored = hasStoredPreview(evidence[summaryName]);
   if (evidence[flagName] === true) return true;
   if (summaryKind === "raw-output-preview") return summaryStored;
-  if (summaryKind === "empty" || summaryKind === "structured-json-summary") return false;
+  if (isSafeOutputSummaryKind(summaryKind)) return false;
   if (summaryStored) return true;
   return false;
 }
 
 function outputStoresRawPreview(output) {
   if (!output || typeof output !== "object") return true;
-  if (output.summaryKind === "empty" || output.summaryKind === "structured-json-summary") return false;
   if (output.summaryKind === "raw-output-preview" || output.rawPreviewStored === true) return hasStoredPreview(output.preview);
+  if (isSafeOutputSummaryKind(output.summaryKind)) return false;
   return hasStoredPreview(output.preview);
+}
+
+function isSafeOutputSummaryKind(summaryKind) {
+  return summaryKind === "empty" || summaryKind === "structured-json-summary" || summaryKind === "unstructured-digest-summary";
 }
 
 function hasStoredPreview(value) {

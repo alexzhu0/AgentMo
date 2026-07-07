@@ -120,12 +120,36 @@ describe("run state", () => {
     assert.deepEqual(runState.runtimeIdentity.runtimeEnv.presentKeys, ["DEEPSEEK_API_KEY", "DEEPSEEK_BASE_URL"]);
     assert.equal(observedStateDir, path.resolve("/tmp/openclaw-state"));
     assert.equal(observedDeepSeekKey, "deepseek-secret-value");
+    assert.equal(runState.execution.stdout.summaryKind, "unstructured-digest-summary");
+    assert.equal(JSON.parse(runState.execution.stdout.preview).type, "unstructured-output-digest");
     assert.equal(runState.execution.stdout.preview.includes("secret"), false);
-    assert.equal(runState.execution.stdout.preview.includes("[REDACTED_SECRET]"), true);
-    assert.equal(runState.evidence.rawOutputPreviewStored, true);
-    assert.equal(runState.evidence.rawTranscriptStored, true);
+    assert.equal(runState.evidence.rawOutputPreviewStored, false);
+    assert.equal(runState.evidence.rawTranscriptStored, false);
     assert.equal(JSON.stringify(runState).includes("deepseek-secret-value"), false);
     assert.equal(JSON.stringify(runState).includes("/tmp/agentmo/.env"), false);
+  });
+
+  it("stores unstructured live output as digest-only evidence", async () => {
+    const blueprint = await loadExample();
+    const { runState } = await executeRuntimeRun(
+      blueprint,
+      {
+        target: "openclaw",
+        workspace: "/tmp/workspace",
+        openClawStateDir: "/tmp/openclaw-state",
+        message: "ping",
+        live: true,
+        runId: "run-live-digest-output",
+        now: "2026-07-03T00:00:00.000Z",
+      },
+      async () => ({ exitCode: 0, stdout: "ok", stderr: "", timedOut: false, durationMs: 1 }),
+    );
+
+    const evaluation = buildRunEval(runState, { expectStatus: "success" });
+    assert.equal(runState.execution.stdout.summaryKind, "unstructured-digest-summary");
+    assert.equal(runState.evidence.rawOutputPreviewStored, false);
+    assert.equal(runState.evidence.birthEligibility, "eligible-no-raw-runtime-output-preview");
+    assert.equal(evaluation.ok, true, evaluation.checks.filter((check) => !check.pass).map((check) => check.id).join(", "));
   });
 
   it("fails run-eval closed when raw runtime output previews are stored", async () => {
@@ -143,9 +167,22 @@ describe("run state", () => {
       },
       async () => ({ exitCode: 0, stdout: "ok", stderr: "", timedOut: false, durationMs: 1 }),
     );
+    runState.execution.stdout = {
+      preview: "ok",
+      summaryKind: "raw-output-preview",
+      length: 2,
+      redactedLength: 2,
+      truncated: false,
+      rawPreviewStored: true,
+    };
+    runState.evidence.stdoutSummary = "ok";
+    runState.evidence.stdoutSummaryKind = "raw-output-preview";
+    runState.evidence.stdoutPreviewStored = true;
+    runState.evidence.rawOutputPreviewStored = true;
+    runState.evidence.rawTranscriptStored = true;
+    runState.evidence.rawToolBodiesStored = true;
 
     const evaluation = buildRunEval(runState, { expectStatus: "success" });
-    assert.equal(runState.evidence.rawOutputPreviewStored, true);
     assert.equal(evaluation.ok, false);
     assert.equal(evaluation.checks.find((check) => check.id === "raw_output_preview_absent").pass, false);
   });
@@ -165,6 +202,14 @@ describe("run state", () => {
       },
       async () => ({ exitCode: 0, stdout: "raw diagnostics", stderr: "", timedOut: false, durationMs: 1 }),
     );
+    runState.execution.stdout = {
+      preview: "raw diagnostics",
+      summaryKind: "raw-output-preview",
+      length: 15,
+      redactedLength: 15,
+      truncated: false,
+      rawPreviewStored: true,
+    };
     runState.evidence.stdoutPreviewStored = false;
     runState.evidence.rawOutputPreviewStored = false;
     runState.evidence.rawTranscriptStored = false;
@@ -211,7 +256,7 @@ describe("run state", () => {
     assert.equal(evaluation.checks.find((check) => check.id === "raw_output_preview_absent").pass, false);
   });
 
-  it("treats mixed raw output plus JSON as raw output evidence", async () => {
+  it("summarizes mixed raw output plus JSON as digest-only evidence", async () => {
     const blueprint = await loadExample();
     const { runState } = await executeRuntimeRun(
       blueprint,
@@ -234,10 +279,9 @@ describe("run state", () => {
     );
 
     const evaluation = buildRunEval(runState, { expectStatus: "success" });
-    assert.equal(runState.execution.stdout.summaryKind, "raw-output-preview");
-    assert.equal(runState.evidence.rawOutputPreviewStored, true);
-    assert.equal(evaluation.ok, false);
-    assert.equal(evaluation.checks.find((check) => check.id === "raw_output_preview_absent").pass, false);
+    assert.equal(runState.execution.stdout.summaryKind, "unstructured-digest-summary");
+    assert.equal(runState.evidence.rawOutputPreviewStored, false);
+    assert.equal(evaluation.ok, true, evaluation.checks.filter((check) => !check.pass).map((check) => check.id).join(", "));
     assert.equal(JSON.stringify(runState).includes("secret-value-123456"), false);
   });
 
@@ -258,11 +302,11 @@ describe("run state", () => {
     );
 
     const evaluation = buildRunEval(runState, { expectStatus: "success" });
-    assert.equal(runState.execution.stdout.summaryKind, "raw-output-preview");
-    assert.equal(evaluation.ok, false);
+    assert.equal(runState.execution.stdout.summaryKind, "unstructured-digest-summary");
+    assert.equal(evaluation.ok, true, evaluation.checks.filter((check) => !check.pass).map((check) => check.id).join(", "));
   });
 
-  it("rejects generic status JSON with empty meta or result as raw output evidence", async () => {
+  it("does not let generic status JSON spoof structured OpenClaw metadata", async () => {
     const blueprint = await loadExample();
     const genericOutputs = [
       { runId: "run-live-generic-empty-meta", output: { ok: true, meta: {} } },
@@ -289,15 +333,14 @@ describe("run state", () => {
       );
 
       const evaluation = buildRunEval(runState, { expectStatus: "success" });
-      assert.equal(runState.execution.stdout.summaryKind, "raw-output-preview");
-      assert.equal(runState.evidence.rawOutputPreviewStored, true);
+      assert.equal(runState.execution.stdout.summaryKind, "unstructured-digest-summary");
+      assert.equal(runState.evidence.rawOutputPreviewStored, false);
       assert.equal(runState.runtimeIdentity.transport, "unknown");
       assert.equal(runState.runtimeIdentity.fallbackFrom, null);
       assert.equal(runState.runtimeIdentity.fallbackEvidence.detected, false);
       assert.equal(runState.runtimeIdentity.fallbackEvidence.detectionMethod, "planned");
       assert.equal(runState.runtimeIdentity.fallbackEvidence.structured, false);
-      assert.equal(evaluation.ok, false);
-      assert.equal(evaluation.checks.find((check) => check.id === "raw_output_preview_absent").pass, false);
+      assert.equal(evaluation.ok, true, evaluation.checks.filter((check) => !check.pass).map((check) => check.id).join(", "));
     }
   });
 
@@ -615,7 +658,8 @@ describe("run state", () => {
     assert.equal(runState.execution.executed, true);
     assert.equal(runState.execution.status, "failure");
     assert.equal(runState.execution.exitCode, 2);
-    assert.equal(runState.execution.stderr.preview, "bad");
+    assert.equal(runState.execution.stderr.summaryKind, "unstructured-digest-summary");
+    assert.equal(runState.execution.stderr.preview.includes("bad"), false);
   });
 
   it("materializes planned message files and redacts secret-like message evidence", async () => {

@@ -204,8 +204,9 @@ describe("runtime replay and eval", () => {
     assert.equal(observedDeepSeekKey, "replay-secret");
     assert.equal(replay.runState.runtimeIdentity.runtimeEnv.envFile.basename, ".env");
     assert.deepEqual(replay.runState.runtimeIdentity.runtimeEnv.presentKeys, ["DEEPSEEK_API_KEY", "OPENCLAW_GATEWAY_URL"]);
+    assert.equal(replay.runState.execution.stdout.summaryKind, "unstructured-digest-summary");
     assert.equal(replay.runState.execution.stdout.preview.includes("replay-secret"), false);
-    assert.equal(replay.runState.execution.stdout.preview.includes("[REDACTED_SECRET]"), true);
+    assert.equal(replay.runState.execution.stdout.preview.includes("[REDACTED_SECRET]"), false);
     assert.equal(JSON.stringify(replay.runState).includes("replay-secret"), false);
     assert.equal(replay.runState.runtimeIdentity.sandboxScope.environmentAllowlist.includes("OPENCLAW_GATEWAY_URL"), true);
   });

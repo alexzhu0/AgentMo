@@ -24,7 +24,7 @@ The gate requires all four artifacts:
 3. `agentmo.run.v1` run-state from `agentmo run`.
 4. `agentmo.run-eval.v1` report from `agentmo run-eval`.
 
-Missing, malformed, wrong-agent, stale, production-state, failed eval, secret-like, raw-transcript, or certification-claiming evidence fails closed.
+Missing, malformed, wrong-agent, stale, production-state, failed eval, secret-like, raw-transcript, raw stdout/stderr preview, or certification-claiming evidence fails closed. Unstructured runtime output may be represented only as digest/length metadata; raw output previews are not birth-eligible evidence.
 
 ## Evidence levels
 

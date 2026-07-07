@@ -171,6 +171,20 @@ describe("birth report", () => {
       },
       async () => ({ exitCode: 0, stdout: "ok", stderr: "", timedOut: false, durationMs: 1 }),
     );
+    runState.execution.stdout = {
+      preview: "ok",
+      summaryKind: "raw-output-preview",
+      length: 2,
+      redactedLength: 2,
+      truncated: false,
+      rawPreviewStored: true,
+    };
+    runState.evidence.stdoutSummary = "ok";
+    runState.evidence.stdoutSummaryKind = "raw-output-preview";
+    runState.evidence.stdoutPreviewStored = true;
+    runState.evidence.rawOutputPreviewStored = true;
+    runState.evidence.rawTranscriptStored = true;
+    runState.evidence.rawToolBodiesStored = true;
     const runEval = buildRunEval(runState, { expectStatus: "success" });
     const report = buildBirthReport(blueprint, { buildState, runState, runEval, expectStatus: "success" });
     assert.equal(runEval.ok, false);

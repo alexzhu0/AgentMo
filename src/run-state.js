@@ -340,7 +340,7 @@ function buildRuntimeOutputEvidence(execution, boundaries) {
     processGroupVerification: execution?.processGroupVerification ?? null,
     birthEligibility:
       rawOutputPreviewStored === false
-        ? "eligible-empty-runtime-output-preview"
+        ? "eligible-no-raw-runtime-output-preview"
         : "blocked-raw-runtime-output-preview-stored",
   };
 }
@@ -541,8 +541,8 @@ function outputStoresRawPreview(output) {
 
 function streamStoresRawPreviewOutput(output) {
   if (!output || typeof output !== "object") return true;
-  if (output.summaryKind === "empty" || output.summaryKind === "structured-json-summary") return false;
   if (output.summaryKind === "raw-output-preview" || output.rawPreviewStored === true) return hasStoredPreview(output.preview);
+  if (isSafeOutputSummaryKind(output.summaryKind)) return false;
   return hasStoredPreview(output.preview);
 }
 
@@ -555,9 +555,13 @@ function streamStoresRawPreviewEvidence(evidence, streamName) {
   const summaryStored = hasStoredPreview(evidence[summaryName]);
   if (evidence[flagName] === true) return true;
   if (summaryKind === "raw-output-preview") return summaryStored;
-  if (summaryKind === "empty" || summaryKind === "structured-json-summary") return false;
+  if (isSafeOutputSummaryKind(summaryKind)) return false;
   if (summaryStored) return true;
   return false;
+}
+
+function isSafeOutputSummaryKind(summaryKind) {
+  return summaryKind === "empty" || summaryKind === "structured-json-summary" || summaryKind === "unstructured-digest-summary";
 }
 
 function runtimeEnvReadyForEvidence(runState) {
@@ -681,14 +685,20 @@ function summarizeOutput(value, secretValues) {
     };
   }
   const redacted = redactSecrets(value, secretValues);
-  const truncated = redacted.length > OUTPUT_TEXT_LIMIT;
-  return {
-    preview: truncated ? `${redacted.slice(0, OUTPUT_TEXT_LIMIT - 1)}…` : redacted,
-    summaryKind: "raw-output-preview",
+  const summary = JSON.stringify({
+    type: "unstructured-output-digest",
+    sha256: hashString(redacted),
     length: value.length,
     redactedLength: redacted.length,
-    truncated,
-    rawPreviewStored: true,
+    lineCount: String(value).split(/\r?\n/u).length,
+  });
+  return {
+    preview: summary,
+    summaryKind: "unstructured-digest-summary",
+    length: value.length,
+    redactedLength: redacted.length,
+    truncated: false,
+    rawPreviewStored: false,
   };
 }
 

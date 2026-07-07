@@ -38,3 +38,30 @@ Known risks:
 - The OMX tmux team runtime could not launch because the existing working tree was dirty and team workers require dedicated worktrees; implementation used leader-owned integration plus a native read-only explorer fallback.
 - Declared birth evidence proves wiring only. Live OpenClaw execution must be run separately with isolated state before runtime promotion.
 - Generated blueprint drafts are valid starting points and still require human/domain review before production use.
+
+## 2026-07-07 — Support-triage live-success promotion
+
+Scope:
+
+- Ran support-triage through isolated OpenClaw live smoke with DeepSeek flash.
+- Fixed AgentMo run-state evidence so unstructured live stdout/stderr is persisted only as digest/length metadata, not raw previews.
+- Re-ran `birth-report --expect-status success` over the live run-state/eval/build-state artifacts.
+
+Evidence level:
+
+- Runtime evidence reached `live-success`.
+- Birth status reached `born`.
+- `promotionEligible=true`.
+- Runtime/domain certification remain explicitly `false`.
+
+Observed local evidence:
+
+- Evidence directory: `/tmp/agentmo-openclaw-runs-20260707T153450-support-triage-live.eooycf`
+- Birth report: `/tmp/agentmo-openclaw-runs-20260707T153450-support-triage-live.eooycf/agentmo-birth-report-success.json`
+- Birth report hash: `6e169c9caec8b41edc955ebbb5d4de07489a05e28dfd92b8632f5d42cf8b2720`
+
+Known risks:
+
+- Live-success proves isolated runtime execution only.
+- Domain certification still requires separate eval/rubric evidence.
+- Evidence paths are local `/tmp` artifacts and should not be treated as long-term repository evidence.

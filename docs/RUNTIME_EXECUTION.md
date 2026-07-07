@@ -31,7 +31,7 @@ node ./bin/agentmo.js run examples/win9.agentmo.json --target openclaw --workspa
 node ./bin/agentmo.js status examples/win9.agentmo.json --run-dir "$RUN_OUT" --json
 ```
 
-Each run-state stores command descriptor, selected target, execution status, bounded stdout/stderr summaries, message provenance, source blueprint hash, replay policy, and layer-separated runtime identity. It does not store raw transcripts or unrestricted tool bodies.
+Each run-state stores command descriptor, selected target, execution status, stdout/stderr evidence summaries, message provenance, source blueprint hash, replay policy, and layer-separated runtime identity. Structured OpenClaw JSON output is summarized as structured metadata. Unstructured stdout/stderr is summarized as digest/length metadata only, not as a raw preview. Run-state evidence does not store raw transcripts or unrestricted tool bodies.
 Secret-like inline messages are refused when they would be copied into AgentMo-managed run output; use `--message-file <path>` when an operator must manage sensitive prompt material outside AgentMo evidence.
 
 ## Replay and evaluation
