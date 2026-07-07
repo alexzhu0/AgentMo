@@ -26,20 +26,23 @@ YYYY.MM.DD.md
 - 原始对话 transcript。
 - 未脱敏 tool body 或 provider payload。
 
-## 时间线索引
+## 日期索引
+
+Release 记录按日期倒序维护（最新在前），不要按版本号排序。版本号只作为某个日期记录下的发布标签。
 
 | 日期 | 阶段 | 状态 | 记录 |
 | --- | --- | --- | --- |
-| 2026.07.03 | AgentMo v0.1 baseline + runtime evidence spine | 已提交到 `93da9b5` | [`2026.07.03.md`](./2026.07.03.md) |
-| 2026.07.05 | DeepSeek/OpenClaw live POC 与产品化规划 | POC/规划完成 | [`2026.07.05.md`](./2026.07.05.md) |
+| 2026.07.07 | Stage 3 delivery closure：domain-eval + delivery-report | 已提交并发布到 GitHub Release `v0.1.0` | [`2026.07.07.md`](./2026.07.07.md) |
 | 2026.07.06 | MVP birth-loop：discover -> need -> draft -> handoff -> birth-report | 已提交到 `83dc9e5`，后续安全修复到 `e287988` | [`2026.07.06.md`](./2026.07.06.md) |
-| 2026.07.07 | Stage 3 delivery closure：domain-eval + delivery-report | 已提交到 `3dfb597`，本地 release tag `v0.1.0` | [`2026.07.07.md`](./2026.07.07.md) |
+| 2026.07.05 | DeepSeek/OpenClaw live POC 与产品化规划 | POC/规划完成；记录为历史阶段证据 | [`2026.07.05.md`](./2026.07.05.md) |
+| 2026.07.03 | AgentMo v0.1 baseline + runtime evidence spine | 已提交到 `93da9b5` | [`2026.07.03.md`](./2026.07.03.md) |
 
 ## 当前恢复锚点
 
 - 当前项目：`/home/alex/DTAlex/learningGitHub/AgentMo`
-- 当前 release tag：`v0.1.0`（本地 tag；远端当前无可见 heads，尚未 push）
-- Stage 3 功能提交：`3dfb597`
-- 当前重点：AgentMo 第三阶段交付闭环已实现并通过本地验证。
+- 当前 release tag：`v0.1.0`（已 push，GitHub Release 已发布）
+- GitHub Release：<https://github.com/alexzhu0/AgentMo/releases/tag/v0.1.0>
+- Stage 3 功能提交：`3dfb597`，release baseline 提交：`3e3592b`
+- 当前重点：AgentMo 第三阶段交付闭环已实现并通过本地验证，日期型 release 记录已作为 GitHub release assets 同步。
 - 当前主线：继续只在 AgentMo 内维护，不把 sibling projects 的工作混入本仓库 commit。
 - 当前恢复入口：`docs/OMX_SESSION_MIGRATION.md`、仓库根目录 `AGENTS.md`、`docs/MVP_RUNBOOK.md`。
