@@ -8,7 +8,7 @@
 YYYY.MM.DD.md
 ```
 
-每个日期文件按以下结构维护，并在 GitHub Releases 中作为对应日期 release 的正文使用（不是 asset 附件）：
+每个日期文件按以下结构维护，并在 GitHub Releases 中作为对应日期 release 的正文使用（不是 asset 附件）。历史日期 release 使用 `release-YYYY.MM.DD` tag；`2026.07.07` 同时承载 `v0.1.0` release baseline tag：
 
 - 背景：为什么进入这个阶段。
 - 范围：本阶段新增或确定了什么。
@@ -33,9 +33,9 @@ Release 记录按日期倒序维护（最新在前），不要按版本号排序
 | 日期 | 阶段 | 状态 | 记录 | GitHub Release |
 | --- | --- | --- | --- | --- |
 | 2026.07.07 | Stage 3 delivery closure：domain-eval + delivery-report | 已提交并发布到 GitHub Release `v0.1.0` | [`2026.07.07.md`](./2026.07.07.md) | [`v0.1.0`](https://github.com/alexzhu0/AgentMo/releases/tag/v0.1.0) |
-| 2026.07.06 | MVP birth-loop：discover -> need -> draft -> handoff -> birth-report | 已提交到 `83dc9e5`，后续安全修复到 `e287988` | [`2026.07.06.md`](./2026.07.06.md) | [`2026.07.06`](https://github.com/alexzhu0/AgentMo/releases/tag/2026.07.06) |
-| 2026.07.05 | DeepSeek/OpenClaw live POC 与产品化规划 | POC/规划完成；记录为历史阶段证据 | [`2026.07.05.md`](./2026.07.05.md) | [`2026.07.05`](https://github.com/alexzhu0/AgentMo/releases/tag/2026.07.05) |
-| 2026.07.03 | AgentMo v0.1 baseline + runtime evidence spine | 已提交到 `93da9b5` | [`2026.07.03.md`](./2026.07.03.md) | [`2026.07.03`](https://github.com/alexzhu0/AgentMo/releases/tag/2026.07.03) |
+| 2026.07.06 | MVP birth-loop：discover -> need -> draft -> handoff -> birth-report | 已提交到 `83dc9e5`，后续安全修复到 `e287988` | [`2026.07.06.md`](./2026.07.06.md) | [`release-2026.07.06`](https://github.com/alexzhu0/AgentMo/releases/tag/release-2026.07.06) |
+| 2026.07.05 | DeepSeek/OpenClaw live POC 与产品化规划 | POC/规划完成；记录为历史阶段证据 | [`2026.07.05.md`](./2026.07.05.md) | [`release-2026.07.05`](https://github.com/alexzhu0/AgentMo/releases/tag/release-2026.07.05) |
+| 2026.07.03 | AgentMo v0.1 baseline + runtime evidence spine | 已提交到 `93da9b5` | [`2026.07.03.md`](./2026.07.03.md) | [`release-2026.07.03`](https://github.com/alexzhu0/AgentMo/releases/tag/release-2026.07.03) |
 
 ## 当前恢复锚点
 
