@@ -51,6 +51,33 @@ node ./bin/agentmo.js observe /tmp/agentmo-runtime-observation.json --json
 - `observe-run` converts run-state evidence into a proposal-only `agentmo.observation.v1` record. It writes the requested observation sidecar but does not mutate the source run-state, blueprint, or scaffold.
 - `status --run-state <path>` wins over `status --run-dir <dir>` when both are supplied. Missing, corrupt, stale, production-state, or failed evidence is shown as unavailable/risky evidence rather than health certification.
 
+## Domain and delivery evidence
+
+Runtime evidence belongs to stage 3 delivery closure, after stage 1 discovery has produced a database and stage 2 planning has produced the Agent blueprint. Runtime evidence still does not prove domain quality by itself.
+
+Use `domain-eval` for independent domain-quality evidence and `delivery-report` to aggregate/revalidate the full evidence set:
+
+```bash
+node ./bin/agentmo.js birth-report <blueprint.json> \
+  --build-state <agentmo-build-state.json> \
+  --run-state "$RUN_STATE" \
+  --run-eval <run-eval.json> \
+  --expect-status declared \
+  --json > /tmp/agentmo-birth-report.json
+node ./bin/agentmo.js domain-eval <blueprint.json> --cases <domain-cases.json> --target openclaw --json > /tmp/agentmo-domain-eval.json
+node ./bin/agentmo.js delivery-report <blueprint.json> \
+  --build-state <agentmo-build-state.json> \
+  --run-state "$RUN_STATE" \
+  --run-eval <run-eval.json> \
+  --birth-report /tmp/agentmo-birth-report.json \
+  --domain-eval /tmp/agentmo-domain-eval.json \
+  --json > /tmp/agentmo-delivery-report.json
+```
+
+- `domain-eval` evaluates bounded cases or reviewed eval artifacts. It does not certify runtime execution or production approval.
+- `delivery-report` aggregates and revalidates source artifacts. It does not self-certify runtime, domain quality, OpenClaw production readiness, or deployment approval.
+- The support-triage deterministic fixture is sanitized and bounded. It proves sample mechanism/case coverage only, not production support certification.
+
 ## Message and session boundaries
 
 - Short single-line messages may be stored as bounded inline evidence.

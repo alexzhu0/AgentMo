@@ -76,6 +76,15 @@ async function listFiles(root, options = {}) {
 }
 
 describe("cli", () => {
+  it("prints help that exposes domain and delivery report commands", async () => {
+    const help = await runCli(["help"]);
+    assert.equal(help.code, 0, help.stderr);
+    assert.match(help.stdout, /agentmo domain-eval <blueprint\.json> --cases <cases\.json>/u);
+    assert.match(help.stdout, /agentmo delivery-report <blueprint\.json> --build-state <agentmo-build-state\.json>/u);
+    assert.match(help.stdout, /domain-eval\s+Evaluate deterministic domain cases/u);
+    assert.match(help.stdout, /delivery-report\s+Re-validate and aggregate delivery closure evidence/u);
+  });
+
   it("validates and reports the reference blueprint", async () => {
     const validate = await runCli(["validate", BLUEPRINT]);
     assert.equal(validate.code, 0, validate.stderr);

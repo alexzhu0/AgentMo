@@ -3,7 +3,15 @@
 This runbook executes the first vertical AgentMother loop:
 
 ```text
-discover data -> capture user need -> draft blueprint -> handoff -> scaffold/run/eval -> birth-report
+stage 1: search/collect data into a database
+stage 2: plan a new Agent from user needs plus that database
+stage 3: complete Agent design, implementation, and delivery evidence
+```
+
+The current MVP evidence work is stage 3 delivery closure:
+
+```text
+discover-pack -> need-report -> blueprint-draft -> handoff -> scaffold/run/run-eval -> birth-report -> domain-eval -> delivery-report
 ```
 
 ## Support-triage declared slice
@@ -35,10 +43,30 @@ node ./bin/agentmo.js birth-report "$WORK/support-triage.agentmo.json" \
   --run-state "$RUN_STATE" \
   --run-eval "$WORK/run-eval.json" \
   --expect-status declared \
-  --json
+  --json > "$WORK/birth-report.json"
+node ./bin/agentmo.js domain-eval "$WORK/support-triage.agentmo.json" \
+  --cases examples/support-triage.domain-cases.json \
+  --target openclaw \
+  --json > "$WORK/domain-eval.json"
+node ./bin/agentmo.js delivery-report "$WORK/support-triage.agentmo.json" \
+  --build-state "$WORK/scaffold/agentmo-build-state.json" \
+  --run-state "$RUN_STATE" \
+  --run-eval "$WORK/run-eval.json" \
+  --birth-report "$WORK/birth-report.json" \
+  --domain-eval "$WORK/domain-eval.json" \
+  --json > "$WORK/delivery-report.json"
 ```
 
-Expected result: `birth-report.ok === true`, `birthStatus === "declared-ready"`, and certification boundary fields remain false.
+Expected result:
+
+- `birth-report.ok === true`
+- `birthStatus === "declared-ready"`
+- birth/run certification boundary fields remain false
+- `domain-eval.ok === true` for the sanitized deterministic fixture
+- `delivery-report.ok === true`
+- `delivery-report.deliveryReady === false` for declared-only runtime evidence
+
+The support-triage deterministic fixture is sanitized, bounded evidence. It proves the mechanism and sample case coverage only; it is not production customer-support certification.
 
 ## Live-success promotion gate
 
@@ -48,7 +76,7 @@ Declared evidence is enough for MVP wiring, not runtime promotion. For promotion
 scripts/openclaw-live-smoke.sh --blueprint examples/support-triage.agentmo.json --agent support-triage --message "Say exactly: ok" --openclaw-source-root /home/alex/DTAlex/learningGitHub/openclaw
 ```
 
-Do not claim OpenClaw production/domain certification unless separate domain eval/rubric evidence exists.
+Do not claim OpenClaw production/domain certification from the live smoke, birth report, deterministic support-triage fixture, or delivery report alone. Production/domain certification needs separate reviewed domain eval/rubric evidence and approval.
 
 ## Verification
 

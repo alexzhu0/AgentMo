@@ -1,0 +1,104 @@
+{
+  "schemaVersion": "agentmo.domain-cases.v1",
+  "agentId": "support-triage",
+  "target": {
+    "id": "openclaw"
+  },
+  "threshold": 0.85,
+  "evaluator": {
+    "id": "support-triage-deterministic-fixture-evaluator",
+    "name": "Support Triage Deterministic Fixture Evaluator",
+    "version": "2026.07.07",
+    "provenance": {
+      "kind": "sanitized-deterministic-fixture",
+      "path": "examples/support-triage.domain-cases.json",
+      "notes": "Static bounded case outcomes; no raw ticket transcripts or credential-bearing payloads are stored."
+    }
+  },
+  "rubric": {
+    "id": "support-triage-rubric",
+    "path": "evals/RUBRIC.md",
+    "version": "fixture-v1",
+    "provenance": {
+      "kind": "blueprint-eval-rubric-ref",
+      "sourceRef": "examples/support-triage.agentmo.json#/eval/rubric_path",
+      "criteria": [
+        "classification uses taxonomy refs",
+        "reply draft cites bounded policy refs",
+        "escalation occurs when policy or customer facts are missing",
+        "no unsupported refund, account, legal, or credential exposure claims"
+      ]
+    }
+  },
+  "cases": [
+    {
+      "id": "st-domain-classify-001",
+      "caseClass": "classify-ticket-category-and-priority",
+      "passed": true,
+      "score": 0.95,
+      "threshold": 0.85,
+      "hardFailures": [],
+      "inputSummary": "Customer asks why an invoice changed after a plan update; sanitized summary only.",
+      "expectedBehavior": "Classify as billing-plan-change with normal priority unless account-access or legal risk appears.",
+      "outputSummary": "Classified billing plan-change, priority normal, with missing account-specific evidence explicitly noted.",
+      "evidence": [
+        {
+          "type": "bounded-fact-ref",
+          "ref": "discovery-db:facts/support-policy-handbook#billing-plan-change",
+          "summary": "Billing plan-change tickets require policy lookup and no account-specific claims without account evidence."
+        },
+        {
+          "type": "bounded-fact-ref",
+          "ref": "discovery-db:facts/ticket-taxonomy#billing",
+          "summary": "Billing category covers invoice, subscription, and plan-change questions."
+        }
+      ]
+    },
+    {
+      "id": "st-domain-reply-001",
+      "caseClass": "draft-evidence-backed-customer-reply",
+      "passed": true,
+      "score": 0.92,
+      "threshold": 0.85,
+      "hardFailures": [],
+      "inputSummary": "Customer reports a duplicate charge; sanitized summary only.",
+      "expectedBehavior": "Draft a concise reply that cites policy boundaries and asks for missing safe identifiers without promising a refund.",
+      "outputSummary": "Reply acknowledges the issue, requests bounded verification details, cites refund-review policy, and avoids unsupported promises.",
+      "evidence": [
+        {
+          "type": "bounded-fact-ref",
+          "ref": "discovery-db:facts/support-policy-handbook#refund-review-required",
+          "summary": "Refund requests require policy and account evidence before a commitment is made."
+        },
+        {
+          "type": "bounded-rubric-ref",
+          "ref": "rubric:support-triage-rubric#evidence-backed-reply",
+          "summary": "Customer replies must separate known facts from missing verification details."
+        }
+      ]
+    },
+    {
+      "id": "st-domain-escalate-001",
+      "caseClass": "escalate-missing-policy-or-missing-customer-fact-cases",
+      "passed": true,
+      "score": 0.97,
+      "threshold": 0.85,
+      "hardFailures": [],
+      "inputSummary": "Customer requests account access changes but required account ownership evidence is absent; sanitized summary only.",
+      "expectedBehavior": "Escalate for account-access review and avoid inventing account facts or performing account changes.",
+      "outputSummary": "Escalated to account-access review, identified missing ownership evidence, and refused to infer account facts.",
+      "evidence": [
+        {
+          "type": "bounded-fact-ref",
+          "ref": "discovery-db:facts/support-policy-handbook#account-access-risk",
+          "summary": "Account access changes require verified ownership evidence and escalation when facts are missing."
+        },
+        {
+          "type": "bounded-rubric-ref",
+          "ref": "rubric:support-triage-rubric#safe-escalation",
+          "summary": "Escalation is required for legal, account-access, or missing-policy risk."
+        }
+      ]
+    }
+  ]
+}

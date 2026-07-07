@@ -2,6 +2,8 @@
 
 AgentMo birth is an evidence gate, not a branding claim.
 
+Birth is part of AgentMo stage 3: finish the Agent design, implementation, and delivery evidence loop. It follows stage 1 data discovery and stage 2 planning from user needs plus the discovery database.
+
 ## Required command
 
 ```bash
@@ -44,3 +46,11 @@ Missing, malformed, wrong-agent, stale, production-state, failed eval, secret-li
 - `domainCertifiedByRun: false`
 
 Birth evidence is necessary for promotion, but it is not domain quality certification and not production deployment approval.
+
+## Domain and delivery reports
+
+`birth-report` proves only mechanism/runtime birth evidence. It does not consume or replace domain-quality evidence.
+
+- `domain-eval` records independent domain-quality evidence from bounded cases or reviewed eval artifacts. It does not certify runtime execution or production approval.
+- `delivery-report` revalidates and aggregates blueprint, build-state, run-state, run-eval, birth-report, and optional domain-eval artifacts. It does not certify runtime behavior, domain quality, OpenClaw production readiness, or production deployment by itself.
+- The support-triage deterministic fixture is sanitized and bounded evidence. It proves only the sample mechanism and case coverage, not production customer-support certification.

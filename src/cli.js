@@ -3,8 +3,10 @@ import { readFile } from "node:fs/promises";
 import { buildBirthReport, formatBirthReport, loadJsonArtifact } from "./birth-report.js";
 import { loadBlueprint, validateBlueprint } from "./blueprint.js";
 import { buildBlueprintDraftReport, draftBlueprint, formatBlueprintDraftReport, loadJsonFile, writeBlueprintDraft } from "./blueprint-draft.js";
+import { buildDeliveryReport, formatDeliveryReport } from "./delivery-report.js";
 import { buildDiscoveryPack, formatDiscoveryPack, writeDiscoveryPack } from "./discovery-db.js";
 import { buildDiscoveryReport, formatDiscoveryReport, loadDiscoveryManifest } from "./discovery.js";
+import { buildDomainEval, formatDomainEval, loadDomainCases } from "./domain-eval.js";
 import { buildHandoffPackage, formatHandoffPackage, writeHandoffPackage } from "./handoff.js";
 import { buildMotherReport, formatMotherReport } from "./report.js";
 import { buildPlan } from "./build-plan.js";
@@ -185,6 +187,46 @@ export async function main(args) {
     return;
   }
 
+  if (command === "domain-eval") {
+    const options = parseDomainEvalArgs(rest);
+    const blueprint = await loadBlueprint(options.file);
+    const domainCases = await loadDomainCases(options.casesPath);
+    const report = buildDomainEval(blueprint, domainCases, {
+      blueprintPath: options.file,
+      casesPath: options.casesPath,
+      target: options.target,
+    });
+    process.stdout.write(options.json ? `${JSON.stringify(report, null, 2)}\n` : formatDomainEval(report));
+    if (!report.ok) process.exitCode = 1;
+    return;
+  }
+
+  if (command === "delivery-report") {
+    const options = parseDeliveryReportArgs(rest);
+    const blueprint = await loadBlueprint(options.file);
+    const buildState = await loadJsonArtifact(options.buildStatePath, "build-state");
+    const runState = await loadJsonArtifact(options.runStatePath, "run-state");
+    const runEval = await loadJsonArtifact(options.runEvalPath, "run-eval");
+    const birthReport = await loadJsonArtifact(options.birthReportPath, "birth-report");
+    const domainEval = options.domainEvalPath ? await loadJsonArtifact(options.domainEvalPath, "domain-eval") : null;
+    const report = buildDeliveryReport(blueprint, {
+      blueprintPath: options.file,
+      buildState,
+      buildStatePath: options.buildStatePath,
+      runState,
+      runStatePath: options.runStatePath,
+      runEval,
+      runEvalPath: options.runEvalPath,
+      birthReport,
+      birthReportPath: options.birthReportPath,
+      domainEval,
+      domainEvalPath: options.domainEvalPath,
+    });
+    process.stdout.write(options.json ? `${JSON.stringify(report, null, 2)}\n` : formatDeliveryReport(report));
+    if (!report.ok) process.exitCode = 1;
+    return;
+  }
+
   if (command === "observe-run") {
     const options = parseObserveRunArgs(rest);
     const runState = await loadRunState(options.file);
@@ -347,6 +389,82 @@ function parseBirthReportArgs(args) {
     runStatePath: resolve(runStatePath),
     runEvalPath: resolve(runEvalPath),
     expectStatus,
+    json,
+  };
+}
+
+function parseDomainEvalArgs(args) {
+  const file = args[0];
+  if (!file) throw new Error("Missing blueprint file path for domain-eval.");
+  let casesPath = null;
+  let target = null;
+  let json = false;
+  for (let index = 1; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--cases") {
+      casesPath = args[index + 1];
+      index += 1;
+    } else if (arg === "--target") {
+      target = args[index + 1];
+      index += 1;
+    } else if (arg === "--json") {
+      json = true;
+    } else {
+      throw new Error(`Unknown domain-eval option: ${arg}`);
+    }
+  }
+  requireOptionValue(casesPath, "--cases");
+  if (target !== null) {
+    requireOptionValue(target, "--target");
+    assertKnownTarget(target, "domain-eval target");
+  }
+  return { file: resolve(file), casesPath: resolve(casesPath), target, json };
+}
+
+function parseDeliveryReportArgs(args) {
+  const file = args[0];
+  if (!file) throw new Error("Missing blueprint file path for delivery-report.");
+  let buildStatePath = null;
+  let runStatePath = null;
+  let runEvalPath = null;
+  let birthReportPath = null;
+  let domainEvalPath = null;
+  let json = false;
+  for (let index = 1; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--build-state") {
+      buildStatePath = args[index + 1];
+      index += 1;
+    } else if (arg === "--run-state") {
+      runStatePath = args[index + 1];
+      index += 1;
+    } else if (arg === "--run-eval") {
+      runEvalPath = args[index + 1];
+      index += 1;
+    } else if (arg === "--birth-report") {
+      birthReportPath = args[index + 1];
+      index += 1;
+    } else if (arg === "--domain-eval") {
+      domainEvalPath = args[index + 1];
+      index += 1;
+    } else if (arg === "--json") {
+      json = true;
+    } else {
+      throw new Error(`Unknown delivery-report option: ${arg}`);
+    }
+  }
+  requireOptionValue(buildStatePath, "--build-state");
+  requireOptionValue(runStatePath, "--run-state");
+  requireOptionValue(runEvalPath, "--run-eval");
+  requireOptionValue(birthReportPath, "--birth-report");
+  if (domainEvalPath !== null) requireOptionValue(domainEvalPath, "--domain-eval");
+  return {
+    file: resolve(file),
+    buildStatePath: resolve(buildStatePath),
+    runStatePath: resolve(runStatePath),
+    runEvalPath: resolve(runEvalPath),
+    birthReportPath: resolve(birthReportPath),
+    domainEvalPath: domainEvalPath ? resolve(domainEvalPath) : null,
     json,
   };
 }
@@ -822,6 +940,8 @@ Usage:
   agentmo replay-run <run-state.json> --out <dir> [--env-file <path>] [--resume-session] [--live] [--json]
   agentmo run-eval <run-state.json> [--expect-status success|failure|declared] [--require-exact-replay] [--json]
   agentmo birth-report <blueprint.json> --build-state <agentmo-build-state.json> --run-state <agentmo-run-state.json> --run-eval <run-eval.json> --expect-status success|declared|failure [--json]
+  agentmo domain-eval <blueprint.json> --cases <cases.json> [--target agentmo|openclaw] [--json]
+  agentmo delivery-report <blueprint.json> --build-state <agentmo-build-state.json> --run-state <agentmo-run-state.json> --run-eval <run-eval.json> --birth-report <birth-report.json> [--domain-eval <domain-eval.json>] [--json]
   agentmo observe-run <run-state.json> --out <observation.json> [--json]
   agentmo scaffold <blueprint.json> --out <dir> [--target agentmo|openclaw] [--force]
   agentmo observe <observation.json> [--json]
@@ -842,6 +962,8 @@ Concepts:
   replay-run       Reconstruct a prior run into a fresh child session unless --resume-session is explicit.
   run-eval         Evaluate evidence completeness without certifying runtime/domain behavior.
   birth-report     Fail-closed birth gate over blueprint, build-state, run-state, and run-eval evidence.
+  domain-eval      Evaluate deterministic domain cases with bounded evidence refs; does not certify runtime/production.
+  delivery-report  Re-validate and aggregate delivery closure evidence; does not itself certify runtime/domain/production.
   observe-run      Convert run-state evidence into a proposal-only observation record.
   scaffold         Generate a domain-agent harness. Use --target openclaw for an OpenClaw workspace scaffold.
   observe          Validate and summarize an observe/evolve record without applying changes.

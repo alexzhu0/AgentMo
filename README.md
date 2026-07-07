@@ -2,6 +2,14 @@
 
 AgentMo is a minimal **AgentMother** toolkit: it finds what agent should be built, plans the agent from data plus user needs, then scaffolds a repo-native harness for coding-agent production.
 
+AgentMo has three explicit stages:
+
+1. Search and collect source data into a structured database.
+2. Combine user needs with that database to plan a new Agent.
+3. Finish the Agent design, implementation, and delivery evidence loop.
+
+The current `domain-eval` / `delivery-report` work belongs to stage 3: it closes delivery evidence after scaffold, run-state, run-eval, and birth-report exist.
+
 AgentMother is not a chat prompt generator. It is a mechanism for building agents as software:
 
 ```text
@@ -37,7 +45,9 @@ AgentMo currently provides a dependency-free Node CLI:
 ./bin/agentmo.js status examples/win9.agentmo.json --build-state /tmp/win9-openclaw-scaffold/agentmo-build-state.json --json
 ./bin/agentmo.js observe examples/win9.observation.json --json
 ./bin/agentmo.js run-plan examples/win9.agentmo.json --target openclaw --workspace /tmp/win9-openclaw/workspace --agent win9 --provider deepseek --model deepseek/deepseek-v4-flash --thinking off --transport local --env-file .env --message "Say exactly: ok" --json
-./bin/agentmo.js birth-report /tmp/support-triage.agentmo.json --build-state /tmp/support-triage-scaffold/agentmo-build-state.json --run-state /tmp/support-triage-run/runs/<run_id>/agentmo-run-state.json --run-eval /tmp/support-triage-run-eval.json --expect-status declared --json
+./bin/agentmo.js birth-report /tmp/support-triage.agentmo.json --build-state /tmp/support-triage-scaffold/agentmo-build-state.json --run-state /tmp/support-triage-run/runs/<run_id>/agentmo-run-state.json --run-eval /tmp/support-triage-run-eval.json --expect-status declared --json > /tmp/support-triage-birth-report.json
+./bin/agentmo.js domain-eval /tmp/support-triage.agentmo.json --cases examples/support-triage.domain-cases.json --target openclaw --json > /tmp/support-triage-domain-eval.json
+./bin/agentmo.js delivery-report /tmp/support-triage.agentmo.json --build-state /tmp/support-triage-scaffold/agentmo-build-state.json --run-state /tmp/support-triage-run/runs/<run_id>/agentmo-run-state.json --run-eval /tmp/support-triage-run-eval.json --birth-report /tmp/support-triage-birth-report.json --domain-eval /tmp/support-triage-domain-eval.json --json
 ```
 
 `plan` is a dry run: it emits deterministic managed write operations without
@@ -76,10 +86,10 @@ Those instructions are the project-specific contract for future coding agents wo
 
 The Win9-on-Pi work showed a new development mode: use Codex to build another agent system on top of Pi. AgentMo captures that mode as a reusable three-stage mother mechanism.
 
-- Discovery finds source data, forms structured databases or retrieval corpora, and captures user needs.
+- Stage 1 discovery searches and collects source data, forms structured databases or retrieval corpora, and captures user needs.
 - Discovery can be recorded as an external `agentmo.discovery.v1` manifest; `discover-report` validates and summarizes it.
-- Planning turns discovered data plus user needs into an executable blueprint.
-- Production uses Codex and other coding-agent runtimes to generate, test, repair, and document the specified agent.
+- Stage 2 planning turns discovered data plus user needs into an executable blueprint for the new Agent.
+- Stage 3 production uses Codex and other coding-agent runtimes to finish Agent design, implementation, runtime evidence, domain eval, and delivery reporting.
 - Codex acts as the builder: reads, edits, tests, verifies, documents.
 - Pi can act as the active runtime: local agents, tools, sessions, extension surface.
 - OpenClaw can be recorded as an active alternate architecture profile: Gateway, channel delivery, isolated agents, session trajectories, and plugin/runtime ownership boundaries.
@@ -114,11 +124,13 @@ src/user-need.js            User-need brief validation and report builder
 src/blueprint-draft.js      Blueprint drafting from discovery DB plus user need
 src/handoff.js              Coding/runtime handoff package writer
 src/birth-report.js         Fail-closed birth gate over build/run/eval evidence
+src/domain-eval.js          Independent bounded domain-quality evidence report
+src/delivery-report.js      Delivery evidence aggregation and revalidation report
 src/scaffold.js             Domain-agent scaffold generator
 AGENTS.md                   Local instructions for Codex/OMX agents working on AgentMo
 examples/win9.agentmo.json  Reference blueprint based on Win9-on-Pi
 examples/win9.discovery.json  Reference discovery/input manifest
-examples/support-triage.*   MVP birth-loop fixture inputs and generated draft blueprint
+examples/support-triage.*   MVP birth-loop fixture inputs, domain cases, and generated draft blueprint
 docs/                       Concept, lifecycle, schema, quality gates
 docs/OMX_SESSION_MIGRATION.md  Fresh-session handoff and ultragoal-style recovery plan
 docs/AGENT_BIRTH_GATE.md    Birth-report evidence levels and fail-closed gate
@@ -160,10 +172,14 @@ If build state is absent or unreadable, status remains available and reports the
 The first executable AgentMother loop is:
 
 ```text
-discover-pack -> need-report -> blueprint-draft -> handoff -> scaffold/run/run-eval -> birth-report
+discover-pack -> need-report -> blueprint-draft -> handoff -> scaffold/run/run-eval -> birth-report -> domain-eval -> delivery-report
 ```
 
 `birth-report` is fail-closed. It requires a valid blueprint, `agentmo-build-state.json`, `agentmo-run-state.json`, and a passing `agentmo.run-eval.v1` report. Declared evidence proves wiring only; `live-success` evidence from isolated live execution is required before runtime promotion. The birth report never certifies runtime parity, domain quality, or production deployment.
+
+`domain-eval` is independent domain-quality evidence over bounded domain cases. The support-triage deterministic fixture is sanitized and bounded; it proves only the mechanism/sample behavior it covers, not production customer-support certification.
+
+`delivery-report` revalidates and aggregates blueprint, build-state, run-state, run-eval, birth-report, and optional domain-eval artifacts. It does not certify runtime behavior, domain quality, OpenClaw production readiness, or production deployment by itself.
 
 See `docs/MVP_RUNBOOK.md` and `docs/AGENT_BIRTH_GATE.md`.
 

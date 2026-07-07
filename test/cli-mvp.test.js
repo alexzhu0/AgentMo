@@ -9,6 +9,7 @@ import path from "node:path";
 const CLI = fileURLToPath(new URL("../bin/agentmo.js", import.meta.url));
 const DISCOVERY = fileURLToPath(new URL("../examples/support-triage.discovery.json", import.meta.url));
 const NEED = fileURLToPath(new URL("../examples/support-triage.need.json", import.meta.url));
+const DOMAIN_CASES = fileURLToPath(new URL("../examples/support-triage.domain-cases.json", import.meta.url));
 
 function runCli(args) {
   return new Promise((resolve) => {
@@ -26,7 +27,7 @@ function runCli(args) {
 }
 
 describe("cli mvp birth loop", () => {
-  it("runs support-triage through discover, need, draft, handoff, run-eval, and birth-report", async () => {
+  it("runs support-triage through discover, need, draft, handoff, run-eval, birth-report, domain-eval, and delivery-report", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agentmo-cli-mvp-"));
     const discoveryOut = path.join(root, "discovery-pack");
     const discover = await runCli(["discover-pack", DISCOVERY, "--out", discoveryOut, "--json"]);
@@ -85,6 +86,9 @@ describe("cli mvp birth loop", () => {
 
     const evaluation = await runCli(["run-eval", runStatePath, "--expect-status", "declared", "--json"]);
     assert.equal(evaluation.code, 0, evaluation.stderr);
+    const runEvalJson = JSON.parse(evaluation.stdout);
+    assert.equal(runEvalJson.schemaVersion, "agentmo.run-eval.v1");
+    assert.equal(runEvalJson.ok, true);
     const runEvalPath = path.join(root, "run-eval.json");
     await writeFile(runEvalPath, evaluation.stdout, "utf8");
 
@@ -106,6 +110,42 @@ describe("cli mvp birth loop", () => {
     assert.equal(birthJson.ok, true);
     assert.equal(birthJson.birthStatus, "declared-ready");
     assert.equal(birthJson.certificationBoundary.runtimeCertifiedByBirthReport, false);
+    const birthReportPath = path.join(root, "birth-report.json");
+    await writeFile(birthReportPath, birth.stdout, "utf8");
+
+    const domainEval = await runCli(["domain-eval", blueprintPath, "--cases", DOMAIN_CASES, "--target", "openclaw", "--json"]);
+    assert.equal(domainEval.code, 0, domainEval.stderr);
+    const domainEvalJson = JSON.parse(domainEval.stdout);
+    assert.equal(domainEvalJson.schemaVersion, "agentmo.domain-eval.v1");
+    assert.equal(domainEvalJson.ok, true);
+    assert.equal(domainEvalJson.domainCertifiedByDomainEval, true);
+    const domainEvalPath = path.join(root, "domain-eval.json");
+    await writeFile(domainEvalPath, domainEval.stdout, "utf8");
+
+    const delivery = await runCli([
+      "delivery-report",
+      blueprintPath,
+      "--build-state",
+      path.join(scaffoldOut, "agentmo-build-state.json"),
+      "--run-state",
+      runStatePath,
+      "--run-eval",
+      runEvalPath,
+      "--birth-report",
+      birthReportPath,
+      "--domain-eval",
+      domainEvalPath,
+      "--json",
+    ]);
+    assert.equal(delivery.code, 0, delivery.stderr);
+    const deliveryJson = JSON.parse(delivery.stdout);
+    assert.equal(deliveryJson.schemaVersion, "agentmo.delivery.v1");
+    assert.equal(deliveryJson.ok, true);
+    assert.equal(deliveryJson.domainCertified, true);
+    assert.equal(deliveryJson.runtimePromotionEligible, false);
+    assert.equal(deliveryJson.deliveryReady, false);
+    assert.equal(deliveryJson.certificationBoundary.runtimeCertifiedByDeliveryReport, false);
+    assert.equal(deliveryJson.certificationBoundary.domainCertifiedByDeliveryReport, false);
     assert.equal((await readFile(path.join(handoffOut, "VERIFY.md"), "utf8")).includes("Birth-report must fail closed"), true);
   });
 });

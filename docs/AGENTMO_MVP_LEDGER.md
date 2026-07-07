@@ -65,3 +65,24 @@ Known risks:
 - Live-success proves isolated runtime execution only.
 - Domain certification still requires separate eval/rubric evidence.
 - Evidence paths are local `/tmp` artifacts and should not be treated as long-term repository evidence.
+
+## 2026-07-07 — Stage 3 delivery closure documentation
+
+Scope:
+
+- Restored minimal docs for the three AgentMo stages: data discovery database, user-need planning, and Agent design/implementation/delivery.
+- Documented `domain-eval` as independent bounded domain-quality evidence.
+- Documented `delivery-report` as aggregation/revalidation over source artifacts, not a self-certifying report.
+
+Evidence semantics:
+
+- `birth-report` remains mechanism/runtime birth evidence only and does not prove domain quality or production approval.
+- The support-triage deterministic fixture is sanitized and bounded; it proves sample mechanism/case coverage only.
+- No OpenClaw production or domain certification is claimed by this ledger entry.
+
+Verification for this docs/scaffold pass:
+
+```bash
+node --check src/scaffold-files.js src/handoff.js
+git diff --check
+```
