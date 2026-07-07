@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { validateBlueprint } from "./blueprint.js";
+import { resolveRuntimeEnv } from "./runtime-env.js";
+import { containsSecretLikeValue, redactSecrets } from "./secret-redaction.js";
 import { assertTargetAdapter } from "./targets/registry.js";
 
 export const RUNTIME_PLAN_SCHEMA_VERSION = "agentmo.runtime-plan.v1";
@@ -9,6 +11,8 @@ export const DEFAULT_INLINE_MESSAGE_LIMIT = 200;
 export const FRESH_RUN_SESSION_KEY_PLACEHOLDER = "<fresh-run-session-key>";
 export const DEFAULT_COMMAND_TIMEOUT_MS = 120000;
 export const SUPPORTED_TRANSPORTS = ["gateway", "local", "embedded-fallback", "unknown"];
+export const SUPPORTED_THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "adaptive", "xhigh", "max"];
+export const RUNTIME_PROXY_ENV_KEYS = ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "all_proxy", "no_proxy"];
 
 const DEFAULT_BACKEND = "openclaw-cli";
 const DEFAULT_TRANSPORT = "unknown";
@@ -28,15 +32,20 @@ export function buildRuntimePlan(blueprint, options = {}) {
 
   const workspace = resolveRequiredPath(options.workspace, "workspace");
   const sourceRoot = options.openClawSourceRoot ? path.resolve(options.openClawSourceRoot) : null;
+  const runtimeEnv = resolveRuntimeEnv(options);
   const sandboxScope = buildSandboxScope({
     workspace,
     sourceRoot,
     stateDir: options.openClawStateDir,
     usesProductionState: options.useProductionOpenClawState === true,
+    runtimeEnvDescriptor: runtimeEnv.descriptor,
   });
   const routingSelector = resolveSelector(blueprint, options);
-  const message = resolveMessageProvenance(options);
-  const command = buildCommand({ routingSelector, message, sourceRoot, timeoutMs: options.timeoutMs });
+  const message = resolveMessageProvenance(options, runtimeEnv.secretValues);
+  const transport = normalizeTransport(options.transport);
+  const model = normalizeOptionalString(options.model);
+  const thinking = normalizeThinking(options.thinking);
+  const command = buildCommand({ routingSelector, message, sourceRoot, timeoutMs: options.timeoutMs, transport, model, thinking });
   const runtimeProfile = findRuntimeProfile(blueprint, SUPPORTED_RUNTIME_TARGET);
   const evidenceBoundaries = buildEvidenceBoundaries(runtimeProfile);
 
@@ -53,15 +62,26 @@ export function buildRuntimePlan(blueprint, options = {}) {
     executionSessionPolicy: routingSelector.executionSessionPolicy,
     runtimeIdentity: {
       provider: normalizeOptionalString(options.provider),
-      model: normalizeOptionalString(options.model),
+      model,
+      thinking,
       runtime: SUPPORTED_RUNTIME_TARGET,
       channel: normalizeOptionalString(options.channel),
       selector: routingSelector,
       workspace,
       backend: DEFAULT_BACKEND,
-      transport: normalizeTransport(options.transport),
+      transport,
       fallbackFrom: normalizeOptionalString(options.fallbackFrom),
+      fallbackEvidence: {
+        detected: false,
+        detectionMethod: "planned",
+        source: null,
+        from: null,
+        to: null,
+        reason: null,
+        structured: false,
+      },
       sandboxScope,
+      runtimeEnv: runtimeEnv.descriptor,
       evidenceBoundaries,
     },
     message,
@@ -139,7 +159,7 @@ function resolveSelector(blueprint, options) {
   };
 }
 
-function resolveMessageProvenance(options) {
+function resolveMessageProvenance(options, secretValues) {
   const hasInlineMessage = typeof options.message === "string";
   const hasMessageFile = typeof options.messageFile === "string" && options.messageFile.trim().length > 0;
   if (hasInlineMessage && hasMessageFile) {
@@ -153,11 +173,13 @@ function resolveMessageProvenance(options) {
     const filePath = path.resolve(options.messageFile);
     const content = typeof options.messageFileContent === "string" ? options.messageFileContent : "";
     const digest = hashString(content);
+    const secretLikeContent = containsSecretLikeValue(content, secretValues);
     return {
       messageMode: "file",
       messageHash: digest,
       messageLength: content.length,
-      messagePreview: previewString(redactSecrets(content)),
+      messagePreview: previewString(redactSecrets(content, secretValues)),
+      secretLikeContent,
       inlineMessage: null,
       messageFile: {
         path: filePath,
@@ -171,13 +193,15 @@ function resolveMessageProvenance(options) {
 
   const message = options.message;
   const digest = hashString(message);
-  const shouldUseManagedMessageFile = message.includes("\n") || message.length > DEFAULT_INLINE_MESSAGE_LIMIT || containsSecretLikeValue(message);
+  const secretLikeContent = containsSecretLikeValue(message, secretValues);
+  const shouldUseManagedMessageFile = message.includes("\n") || message.length > DEFAULT_INLINE_MESSAGE_LIMIT || secretLikeContent;
   if (shouldUseManagedMessageFile) {
     return {
       messageMode: "file",
       messageHash: digest,
       messageLength: message.length,
-      messagePreview: previewString(redactSecrets(message)),
+      messagePreview: previewString(redactSecrets(message, secretValues)),
+      secretLikeContent,
       inlineMessage: null,
       messageFile: {
         path: `messages/${digest.slice(0, 16)}.txt`,
@@ -193,15 +217,20 @@ function resolveMessageProvenance(options) {
     messageMode: "inline",
     messageHash: digest,
     messageLength: message.length,
-    messagePreview: previewString(redactSecrets(message)),
+    messagePreview: previewString(redactSecrets(message, secretValues)),
+    secretLikeContent,
     inlineMessage: message,
     messageFile: null,
     replayFidelityIfMaterialAvailable: "exact",
   };
 }
 
-function buildCommand({ routingSelector, message, sourceRoot, timeoutMs }) {
+function buildCommand({ routingSelector, message, sourceRoot, timeoutMs, transport, model, thinking }) {
   const args = sourceRoot ? ["openclaw", "agent"] : ["agent"];
+  if (transport === "local") args.push("--local");
+  args.push("--json");
+  if (model) args.push("--model", model);
+  if (thinking) args.push("--thinking", thinking);
   if (routingSelector.executionSelector.agent) args.push("--agent", routingSelector.executionSelector.agent);
   if (routingSelector.executionSelector.sessionKey) args.push("--session-key", routingSelector.executionSelector.sessionKey);
   if (routingSelector.executionSelector.sessionId) args.push("--session-id", routingSelector.executionSelector.sessionId);
@@ -221,17 +250,19 @@ function buildCommand({ routingSelector, message, sourceRoot, timeoutMs }) {
   };
 }
 
-function buildSandboxScope({ workspace, sourceRoot, stateDir, usesProductionState }) {
+function buildSandboxScope({ workspace, sourceRoot, stateDir, usesProductionState, runtimeEnvDescriptor }) {
   if (stateDir && usesProductionState) {
     throw new Error("Pass either --openclaw-state-dir or --use-production-openclaw-state, not both.");
   }
   const resolvedStateDir = stateDir ? path.resolve(stateDir) : null;
+  const baseEnvironmentAllowlist = usesProductionState ? ["HOME", "OPENCLAW_STATE_DIR", "PATH"] : ["OPENCLAW_STATE_DIR", "PATH"];
+  const proxyEnvironmentAllowlist = RUNTIME_PROXY_ENV_KEYS.filter((key) => typeof process.env[key] === "string" && process.env[key].trim().length > 0);
   return {
     stateDir: resolvedStateDir,
     workspaceRoot: workspace,
     openClawSourceRoot: sourceRoot,
     sourceMode: sourceRoot ? "source-checkout" : "packaged-cli",
-    environmentAllowlist: usesProductionState ? ["HOME", "OPENCLAW_STATE_DIR", "PATH"] : ["OPENCLAW_STATE_DIR", "PATH"],
+    environmentAllowlist: uniqueStrings([...baseEnvironmentAllowlist, ...proxyEnvironmentAllowlist, ...(runtimeEnvDescriptor?.presentKeys ?? [])]),
     usesProductionState: Boolean(usesProductionState),
   };
 }
@@ -261,16 +292,6 @@ function previewString(value) {
   return `${value.slice(0, DEFAULT_MESSAGE_PREVIEW_LIMIT - 1)}…`;
 }
 
-function containsSecretLikeValue(value) {
-  return /\b[A-Za-z0-9_-]*(?:api[_-]?key|token|secret|password)[A-Za-z0-9_-]*\s*=\s*[^\s]+/iu.test(value) || /\bsk-[A-Za-z0-9_-]{12,}\b/u.test(value);
-}
-
-function redactSecrets(value) {
-  return String(value)
-    .replace(/\b[A-Za-z0-9_-]*(?:api[_-]?key|token|secret|password)[A-Za-z0-9_-]*\s*=\s*[^\s]+/giu, "[REDACTED_SECRET]")
-    .replace(/\bsk-[A-Za-z0-9_-]{12,}\b/gu, "[REDACTED_SECRET]");
-}
-
 function normalizeTimeoutMs(value) {
   if (value === undefined || value === null) return DEFAULT_COMMAND_TIMEOUT_MS;
   const numeric = Number(value);
@@ -290,6 +311,15 @@ function normalizeTransport(value) {
   const normalized = normalizeOptionalString(value) ?? DEFAULT_TRANSPORT;
   if (!SUPPORTED_TRANSPORTS.includes(normalized)) {
     throw new Error(`Unsupported --transport ${normalized}. Expected one of: ${SUPPORTED_TRANSPORTS.join(", ")}`);
+  }
+  return normalized;
+}
+
+function normalizeThinking(value) {
+  const normalized = normalizeOptionalString(value);
+  if (normalized === null) return null;
+  if (!SUPPORTED_THINKING_LEVELS.includes(normalized)) {
+    throw new Error(`Unsupported --thinking ${normalized}. Expected one of: ${SUPPORTED_THINKING_LEVELS.join(", ")}`);
   }
   return normalized;
 }

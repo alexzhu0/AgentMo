@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { mkdtemp, readFile, readdir, stat } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -133,6 +133,8 @@ describe("cli", () => {
       "openai",
       "--model",
       "gpt-5.5",
+      "--thinking",
+      "off",
       "--channel",
       "local-cli",
       "--transport",
@@ -150,11 +152,18 @@ describe("cli", () => {
     assert.equal(plan.runtimeIdentity.sandboxScope.usesProductionState, false);
     assert.equal(plan.runtimeIdentity.provider, "openai");
     assert.equal(plan.runtimeIdentity.model, "gpt-5.5");
+    assert.equal(plan.runtimeIdentity.thinking, "off");
     assert.equal(plan.runtimeIdentity.channel, "local-cli");
     assert.equal(plan.runtimeIdentity.transport, "local");
     assert.equal(plan.runtimeIdentity.fallbackFrom, "pi");
     assert.deepEqual(plan.command.args, [
       "agent",
+      "--local",
+      "--json",
+      "--model",
+      "gpt-5.5",
+      "--thinking",
+      "off",
       "--agent",
       "win9",
       "--session-key",
@@ -163,6 +172,43 @@ describe("cli", () => {
       "Say exactly: ok",
     ]);
     assert.deepEqual(await readdir(dir), []);
+  });
+
+  it("prints env-file metadata without leaking env values", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "agentmo-cli-runtime-env-"));
+    const envFile = path.join(dir, ".env");
+    await writeFile(envFile, "DEEPSEEK_API_KEY=cli-secret-value\nDEEPSEEK_BASE_URL=https://api.deepseek.com\n", "utf8");
+    const result = await runCli([
+      "run-plan",
+      BLUEPRINT,
+      "--target",
+      "openclaw",
+      "--workspace",
+      dir,
+      "--agent",
+      "win9",
+      "--message",
+      "Secret is cli-secret-value",
+      "--provider",
+      "deepseek",
+      "--model",
+      "deepseek/deepseek-v4-flash",
+      "--channel",
+      "local-cli",
+      "--transport",
+      "local",
+      "--env-file",
+      envFile,
+      "--json",
+    ]);
+    assert.equal(result.code, 0, result.stderr);
+    const plan = JSON.parse(result.stdout);
+    assert.equal(plan.runtimeIdentity.runtimeEnv.envFile.basename, ".env");
+    assert.equal(plan.runtimeIdentity.runtimeEnv.envFile.fullPathPersisted, false);
+    assert.deepEqual(plan.runtimeIdentity.runtimeEnv.presentKeys, ["DEEPSEEK_API_KEY", "DEEPSEEK_BASE_URL"]);
+    assert.equal(result.stdout.includes("cli-secret-value"), false);
+    assert.equal(result.stdout.includes(envFile), false);
+    assert.equal(plan.message.messagePreview.includes("[REDACTED_SECRET]"), true);
   });
 
   it("writes non-live OpenClaw run-state JSON and index", async () => {

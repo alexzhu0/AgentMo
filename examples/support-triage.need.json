@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "agentmo.user-need.v1",
+  "agent_id": "support-triage",
+  "domain": "customer_support_ticket_triage",
+  "problem": "Support operators need a bounded agent that classifies incoming support tickets, identifies missing customer or policy evidence, and drafts concise replies without making unsupported promises.",
+  "target_users": [
+    "frontline support representative",
+    "support operations lead"
+  ],
+  "primary_tasks": [
+    "classify ticket category and priority",
+    "draft evidence-backed customer reply",
+    "escalate missing-policy or missing-customer-fact cases"
+  ],
+  "success_criteria": [
+    "Every recommendation includes a source or missing-evidence disclosure.",
+    "Refund, legal, and account-access cases are escalated when policy evidence is insufficient.",
+    "Customer-facing replies stay concise and distinguish facts from assumptions."
+  ],
+  "hard_failures": [
+    "promise refund without policy evidence",
+    "invent customer account facts",
+    "expose raw ticket transcript or credentials",
+    "skip escalation for legal or account-access risk"
+  ],
+  "output_preferences": {
+    "language": "English",
+    "format": "triage summary plus draft reply",
+    "evidence_style": "bounded source refs and missing-evidence bullets"
+  },
+  "runtime_preferences": [
+    "openclaw workspace scaffold for channel/runtime exploration",
+    "codex implementation handoff",
+    "declared evidence first, live-success evidence before runtime promotion"
+  ],
+  "source_refs": [
+    "examples/support-triage.discovery.json",
+    "docs/AGENT_BIRTH_GATE.md"
+  ]
+}

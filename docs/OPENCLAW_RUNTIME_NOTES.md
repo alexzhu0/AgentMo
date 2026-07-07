@@ -85,3 +85,19 @@ Use OpenClaw concepts when designing future agents:
 3. Runtime ownership tables to avoid provider/model/runtime/channel confusion.
 4. Session trajectory redaction as a default audit posture.
 5. Plugin hook names as inspiration only when the active runtime exposes equivalent hooks.
+
+## DeepSeek flash live-smoke posture
+
+AgentMo can now prepare optional local-first OpenClaw smoke runs with DeepSeek flash:
+
+- credentials come from a gitignored env file such as `.env`;
+- AgentMo records only env-file basename, allowed key names, present/missing key names, and `valuesPersisted: false`;
+- command descriptors preserve execution-affecting OpenClaw flags: `--local` for local embedded execution, `--model <id>` for model override, and `--thinking off` for non-thinking DeepSeek flash smoke runs;
+- command and replay descriptors request OpenClaw `--json` output so AgentMo can use structured runtime meta before text-log compatibility matching;
+- replay descriptors preserve the same local/model/thinking semantics;
+- live child processes can receive proxy env values from the operator shell when those proxy keys are present, while AgentMo evidence persists only proxy key names;
+- helper runs use isolated `OPENCLAW_STATE_DIR`, scaffold workspace, and run-output directories;
+- helper runs delete credential-bearing OpenClaw state by default unless `--keep-state` is explicit;
+- Gateway attempts that fall back to embedded execution must be recorded as `transport: "embedded-fallback"` with `fallbackFrom: "gateway"` and `fallbackEvidence`; structured OpenClaw JSON meta is authoritative even when planned transport is `unknown`, while stdout/stderr matching is only a compatibility fallback.
+
+This remains mechanism evidence only. It does not certify Win9 domain quality, Pi/OpenClaw parity, or production deployment readiness.

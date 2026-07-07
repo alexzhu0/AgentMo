@@ -7,7 +7,7 @@ AgentMo runtime execution is evidence-first. It prepares, records, replays, and 
 `agentmo run-plan` prepares an OpenClaw command descriptor and evidence schema without starting OpenClaw, writing OpenClaw state, writing run-state, or certifying runtime behavior.
 
 ```bash
-node ./bin/agentmo.js run-plan examples/win9.agentmo.json --target openclaw --workspace /tmp/win9-openclaw/openclaw/workspace --agent win9 --provider openai --model gpt-5.5 --channel local-cli --transport local --message "Say exactly: ok" --json
+node ./bin/agentmo.js run-plan examples/win9.agentmo.json --target openclaw --workspace /tmp/win9-openclaw/openclaw/workspace --agent win9 --provider deepseek --model deepseek/deepseek-v4-flash --thinking off --channel local-cli --transport local --env-file .env --message "Say exactly: ok" --json
 ```
 
 The plan records:
@@ -15,8 +15,11 @@ The plan records:
 - stable routing selector: default `--agent <agent_id>`;
 - execution session policy: default `fresh-per-run` until a real run allocates a run id;
 - bounded message provenance: mode, hash, length, preview, and inline text or planned message artifact;
-- runtime identity fields kept separate: provider, model, runtime, channel, selector, workspace, backend, transport, fallbackFrom, sandboxScope, evidenceBoundaries;
+- runtime identity fields kept separate: provider, model, thinking, runtime, channel, selector, workspace, backend, transport, fallbackFrom, fallbackEvidence, sandboxScope, evidenceBoundaries;
+- optional runtime env metadata: env-file basename, allowed key names, present/missing key names, and `valuesPersisted: false`;
 - command descriptor for packaged `openclaw` or source-checkout `pnpm openclaw` execution.
+
+When proxy variables are present in the operator process (`HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, `NO_PROXY`, and lowercase variants), the sandbox scope allowlists their key names so live OpenClaw children can reach provider APIs in proxy-required networks. AgentMo does not persist proxy values.
 
 ## Managed run-state
 
@@ -29,6 +32,7 @@ node ./bin/agentmo.js status examples/win9.agentmo.json --run-dir "$RUN_OUT" --j
 ```
 
 Each run-state stores command descriptor, selected target, execution status, bounded stdout/stderr summaries, message provenance, source blueprint hash, replay policy, and layer-separated runtime identity. It does not store raw transcripts or unrestricted tool bodies.
+Secret-like inline messages are refused when they would be copied into AgentMo-managed run output; use `--message-file <path>` when an operator must manage sensitive prompt material outside AgentMo evidence.
 
 ## Replay and evaluation
 
@@ -61,8 +65,12 @@ Live OpenClaw execution is opt-in and outside mandatory checks. It requires `--o
 Use the helper script for the default isolated path:
 
 ```bash
-scripts/openclaw-live-smoke.sh --blueprint examples/win9.agentmo.json --agent win9 --message "Say exactly: ok"
+cp .env.example .env
+# fill DEEPSEEK_API_KEY in .env; .env is gitignored and value-blind in AgentMo evidence
+scripts/openclaw-live-smoke.sh --blueprint examples/win9.agentmo.json --agent win9 --message "Say exactly: ok" --openclaw-source-root /home/alex/DTAlex/learningGitHub/openclaw
 ```
+
+The helper defaults to DeepSeek flash (`deepseek/deepseek-v4-flash`) and local embedded OpenClaw execution. It scaffolds an isolated OpenClaw workspace, uses a temporary `OPENCLAW_STATE_DIR`, writes run/report/eval/status/helper summaries under a temporary run-output directory, requires live execution success by default, and deletes credential-bearing OpenClaw state on success or failure unless `--keep-state` is explicit. Pass `--keep-state` only for explicit debugging and treat that path as credential-bearing. The helper reads only supported env keys instead of exporting a whole env file, and passes proxy env keys through when present without writing their values into AgentMo evidence. The advanced `--transport gateway` path generates an ephemeral gateway token when one is not already present, starts a loopback gateway, passes runtime keys through a temporary env file, and stops/deletes those helper credentials at exit.
 
 Manual equivalent:
 
@@ -72,16 +80,20 @@ export OPENCLAW_STATE_DIR="/tmp/agentmo-openclaw-state-${RUN_ID}"
 WORKSPACE="/tmp/agentmo-openclaw-workspace-${RUN_ID}"
 RUN_OUT="/tmp/agentmo-openclaw-runs-${RUN_ID}"
 mkdir -p "$OPENCLAW_STATE_DIR" "$WORKSPACE" "$RUN_OUT"
-node ./bin/agentmo.js run examples/win9.agentmo.json --target openclaw --workspace "$WORKSPACE" --openclaw-state-dir "$OPENCLAW_STATE_DIR" --agent win9 --provider openai --model gpt-5.5 --channel local-cli --transport local --message "Say exactly: ok" --out "$RUN_OUT" --live --json
+node ./bin/agentmo.js run examples/win9.agentmo.json --target openclaw --workspace "$WORKSPACE" --openclaw-state-dir "$OPENCLAW_STATE_DIR" --agent win9 --provider deepseek --model deepseek/deepseek-v4-flash --thinking off --channel local-cli --transport local --env-file .env --message "Say exactly: ok" --out "$RUN_OUT" --live --json
 ```
 
 For source checkout mode, add `--openclaw-source-root /path/to/openclaw`; AgentMo plans `pnpm openclaw agent ...`.
+
+Command and replay descriptors always request OpenClaw JSON output with `--json` so AgentMo can prefer structured runtime metadata over free-text logs. When `--transport local` is set, descriptors also include `--local`; when `--model` is set, descriptors include `--model <id>`; when `--thinking` is set, descriptors include `--thinking <level>`. Gateway requests do not add local-only flags. Structured OpenClaw JSON meta is authoritative even when the planned transport is `unknown`: if live JSON meta indicates embedded fallback from Gateway, AgentMo records `transport: "embedded-fallback"`, `fallbackFrom: "gateway"`, and `fallbackEvidence.detectionMethod: "openclaw-json-meta"` rather than claiming Gateway execution. Legacy stdout/stderr text matching is retained only as compatibility evidence and is marked `fallbackEvidence.structured: false`.
 
 ## Boundaries
 
 - `run-plan` does not write files.
 - `run` writes only managed AgentMo run-state under the explicit `--out` directory.
 - AgentMo does not automatically write production `~/.openclaw`.
+- AgentMo does not persist credential values from `--env-file`; durable evidence stores only basename/key presence and redacted summaries.
+- AgentMo may pass proxy env values to the live child process when the key is allowlisted, but durable evidence stores only proxy key names.
 - Runtime evidence is mechanism evidence, not runtime/domain certification.
-- Provider, model, runtime, channel, transport, fallback, selector, workspace, sandbox scope, and evidence boundaries remain separate fields.
+- Provider, model, runtime, channel, transport, fallback, fallback evidence, selector, workspace, sandbox scope, and evidence boundaries remain separate fields.
 - Failed run-state can be linked from an observe/evolve proposal, but observation remains proposal-only and does not mutate blueprints or scaffolds automatically.

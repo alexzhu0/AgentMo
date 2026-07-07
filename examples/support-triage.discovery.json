@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "agentmo.discovery.v1",
+  "agent_id": "support-triage",
+  "source_inventory": [
+    {
+      "id": "support-policy-handbook",
+      "type": "document",
+      "trust_level": "verified",
+      "description": "Bounded support policy reference for refunds, escalations, account access, and evidence-required replies.",
+      "location": "examples/fixtures/support-triage/policy-handbook.md",
+      "extraction_fields": [
+        "refund eligibility rules",
+        "account access escalation triggers",
+        "evidence requirements for customer-facing replies"
+      ]
+    },
+    {
+      "id": "ticket-taxonomy",
+      "type": "database",
+      "trust_level": "trusted",
+      "description": "Structured ticket categories and priority rules used by support operations.",
+      "location": "examples/fixtures/support-triage/ticket-taxonomy.json",
+      "extraction_fields": [
+        "priority labels",
+        "routing category",
+        "required next action"
+      ]
+    },
+    {
+      "id": "quality-rubric",
+      "type": "manual_inventory",
+      "trust_level": "derived",
+      "description": "Manual rubric for concise, evidence-backed, non-hallucinated support triage answers.",
+      "location": "examples/fixtures/support-triage/quality-rubric.md",
+      "extraction_fields": [
+        "must cite policy section",
+        "must disclose missing customer facts",
+        "must avoid refund or legal promises without policy evidence"
+      ]
+    }
+  ],
+  "database_outputs": [
+    "support source inventory",
+    "ticket category table",
+    "priority and escalation matrix"
+  ],
+  "retrieval_outputs": [
+    "bounded policy evidence cards",
+    "support answer packet template"
+  ],
+  "user_need_inputs": [
+    "triage incoming support tickets by category and priority",
+    "draft a concise customer-facing response with evidence refs",
+    "escalate when policy or customer facts are missing"
+  ],
+  "refresh_policy": {
+    "cadence": "before every support policy release",
+    "owner": "support operations lead",
+    "stale_after": "30 days"
+  },
+  "forbidden_data_handling": [
+    "Do not store credentials, customer secrets, raw ticket transcripts, or full tool result bodies in managed AgentMo evidence.",
+    "Do not promise refunds, legal outcomes, or account access without policy evidence and escalation rules.",
+    "Do not treat declared smoke evidence as production support certification."
+  ]
+}

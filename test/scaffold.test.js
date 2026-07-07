@@ -79,7 +79,8 @@ describe("scaffold", () => {
     assert.match(runbook, /fresh run-scoped execution/u);
     assert.match(runbook, /same-session replay requires explicit `--resume-session`/u);
     assert.match(runbook, /`--message-file`/u);
-    assert.match(runbook, /transport, fallbackFrom, sandboxScope/u);
+    assert.match(runbook, /model, thinking, runtime/u);
+    assert.match(runbook, /transport, fallbackFrom, fallbackEvidence, sandboxScope/u);
     assert.match(runbook, /OPENCLAW_STATE_DIR/u);
     assert.match(runbook, /--openclaw-source-root/u);
     assert.match(runbook, /does not certify OpenClaw domain parity/u);

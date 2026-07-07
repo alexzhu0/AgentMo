@@ -3,7 +3,9 @@ import { readFileSync } from "node:fs";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { buildRuntimePlan, materializeRuntimePlanForRun, SUPPORTED_TRANSPORTS } from "./runtime-plan.js";
+import { assertRuntimeEnvReady, resolveRuntimeEnv } from "./runtime-env.js";
 import { runRuntimeCommand } from "./runtime-execution.js";
+import { redactSecrets } from "./secret-redaction.js";
 
 export const RUN_STATE_SCHEMA_VERSION = "agentmo.run.v1";
 export const RUN_INDEX_SCHEMA_VERSION = "agentmo.run-index.v1";
@@ -17,15 +19,23 @@ export async function executeRuntimeRun(blueprint, options = {}, commandRunner =
   const runId = options.runId ?? generateRunId(options.now);
   const startedAt = isoTimestamp(options.now);
   const runtimePlan = materializeRuntimePlanForRun(buildRuntimePlan(blueprint, options), runId);
+  const runtimeEnv = resolveRuntimeEnv(options);
+  assertRuntimeEnvReady(runtimePlan.runtimeIdentity.runtimeEnv, {
+    live: Boolean(options.live),
+    provider: runtimePlan.runtimeIdentity.provider,
+    transport: runtimePlan.runtimeIdentity.transport,
+  });
   if (options.live && !runtimePlan.runtimeIdentity.sandboxScope.stateDir && runtimePlan.runtimeIdentity.sandboxScope.usesProductionState !== true) {
     throw new Error("Live OpenClaw runs require --openclaw-state-dir <dir> or explicit --use-production-openclaw-state.");
   }
   await materializeManagedMessageFile(runtimePlan, options);
   const live = Boolean(options.live);
   const runner = commandRunner ?? runRuntimeCommand;
-  const runnerResult = live ? await runner(runtimePlan.command, runtimePlan.runtimeIdentity, options) : null;
+  const runnerOptions = { ...options, runtimeEnvValues: runtimeEnv.values };
+  const runnerResult = live ? await runner(runtimePlan.command, runtimePlan.runtimeIdentity, runnerOptions) : null;
+  runtimePlan.runtimeIdentity = resolveActualRuntimeIdentity(runtimePlan.runtimeIdentity, runnerResult);
   const endedAt = isoTimestamp(options.endedAt ?? options.now);
-  const execution = buildExecution({ live, runnerResult, startedAt, endedAt });
+  const execution = buildExecution({ live, runnerResult, startedAt, endedAt, secretValues: runtimeEnv.secretValues });
   const runState = buildRunState({ blueprint, options, runtimePlan, runId, startedAt, endedAt, execution });
 
   if (options.out) {
@@ -115,6 +125,7 @@ function buildRunEvalReport(runState, options) {
   const sandboxScope = runState?.runtimeIdentity?.sandboxScope;
   const blueprintHash = runState?.source?.blueprintHash;
   const replayFidelityValue = options.replayFidelityValue;
+  const rawOutputPreviewStored = hasRawOutputPreviewEvidence(runState);
   const checks = [
     check("schema", runState?.schemaVersion === RUN_STATE_SCHEMA_VERSION, "run-state schema is supported"),
     check("execution", Boolean(runState?.execution?.status), "execution status is present"),
@@ -123,10 +134,19 @@ function buildRunEvalReport(runState, options) {
     check("replayability", Boolean(runState?.replay?.eligible && runState?.message?.messageHash), "run has replay metadata and message provenance"),
     check("replay_fidelity", replayFidelityValue === "exact" || replayFidelityValue === "reconstructed", "replay fidelity is exact or reconstructed"),
     check("identity_fields", hasRuntimeIdentityFields(runState?.runtimeIdentity), "runtime identity fields are present as separate fields"),
+    check("runtime_env_ready", runtimeEnvReadyForEvidence(runState), "live provider runtime env descriptor satisfies required keys"),
     check("transport", isKnownTransport(transport), "transport field is present and explicit"),
+    check(
+      "fallback_evidence",
+      transport !== "embedded-fallback" || runState?.runtimeIdentity?.fallbackEvidence?.detected === true,
+      "embedded fallback is backed by structured or compatibility fallback evidence",
+    ),
     check("sandbox", Boolean(sandboxScope), "sandbox scope is present"),
     check("sandbox_non_production", sandboxScope?.usesProductionState !== true, "sandbox scope does not use production OpenClaw state"),
     check("certification_boundary", runState?.certificationBoundary?.runEvidenceCertifiesRuntime === false, "run evidence does not certify runtime/domain behavior"),
+    check("process_group_closed", timedOutProcessGroupClosed(runState), "timed-out live runs prove process-group cleanup or fail closed"),
+    check("raw_output_flags_consistent", hasConsistentRawOutputEvidence(runState), "raw stdout/stderr preview flags match stored evidence"),
+    check("raw_output_preview_absent", rawOutputPreviewStored === false, "birth-eligible run evidence does not store raw stdout/stderr previews"),
   ];
   if (options.expectedBlueprintHash) {
     checks.push(check("blueprint_hash_freshness", blueprintHash === options.expectedBlueprintHash, "run-state blueprint hash matches expected blueprint hash"));
@@ -162,11 +182,28 @@ export async function replayRunState(parentRunState, options = {}, commandRunner
   if (live && !runState.runtimeIdentity.sandboxScope.stateDir && runState.runtimeIdentity.sandboxScope.usesProductionState !== true) {
     throw new Error("Live OpenClaw replay requires --openclaw-state-dir metadata in the parent run-state or explicit production-state evidence.");
   }
+  const runtimeEnv = resolveRuntimeEnv(options);
+  if (runtimeEnv.descriptor) {
+    runState.runtimeIdentity.runtimeEnv = runtimeEnv.descriptor;
+    runState.runtimeIdentity.sandboxScope.environmentAllowlist = uniqueStrings([
+      ...(runState.runtimeIdentity.sandboxScope.environmentAllowlist ?? []),
+      ...runtimeEnv.descriptor.presentKeys,
+    ]);
+  }
+  assertRuntimeEnvReady(live ? runtimeEnv.descriptor : runState.runtimeIdentity.runtimeEnv, {
+    live,
+    provider: runState.runtimeIdentity.provider,
+    transport: runState.runtimeIdentity.transport,
+  });
   const runner = commandRunner ?? runRuntimeCommand;
   runState.replay.replayFidelity = await replayFidelity(parentRunState);
+  const runnerOptions = { ...options, runtimeEnvValues: runtimeEnv.values };
+  const runnerResult = live ? await runner(runState.command, runState.runtimeIdentity, runnerOptions) : null;
+  runState.runtimeIdentity = resolveActualRuntimeIdentity(runState.runtimeIdentity, runnerResult);
   runState.execution = live
-    ? buildExecution({ live: true, runnerResult: await runner(runState.command, runState.runtimeIdentity, options), startedAt, endedAt })
+    ? buildExecution({ live: true, runnerResult, startedAt, endedAt, secretValues: runtimeEnv.secretValues })
     : buildExecution({ live: false, runnerResult: null, startedAt, endedAt });
+  runState.evidence = buildRuntimeOutputEvidence(runState.execution, runState.runtimeIdentity.evidenceBoundaries);
   setCommandMutationFlags(runState.command, runState.execution, runState.runtimeIdentity);
   runState.updatedAt = endedAt;
   if (options.out) {
@@ -217,6 +254,15 @@ async function updateRunIndex(outputRoot, runState, stateRelativePath) {
 async function materializeManagedMessageFile(runtimePlan, options) {
   const messageFile = runtimePlan.message?.messageFile;
   if (!messageFile?.planned) return;
+  if (runtimePlan.message.secretLikeContent === true) {
+    runtimePlan.message.replayFidelityIfMaterialAvailable = "reconstructed";
+    if (options.out || options.live) {
+      throw new Error(
+        "Refusing to persist secret-like inline message content under AgentMo run output. Pass --message-file <path> so AgentMo records path/digest metadata without copying the content.",
+      );
+    }
+    return;
+  }
   if (!options.out) {
     runtimePlan.message.replayFidelityIfMaterialAvailable = "reconstructed";
     return;
@@ -242,6 +288,7 @@ function buildRunState({ blueprint, options, runtimePlan, runId, startedAt, ende
   const command = {
     ...runtimePlan.command,
   };
+  const evidence = buildRuntimeOutputEvidence(execution, runtimePlan.runtimeIdentity.evidenceBoundaries);
   setCommandMutationFlags(command, execution, runtimePlan.runtimeIdentity);
   return {
     schemaVersion: RUN_STATE_SCHEMA_VERSION,
@@ -268,14 +315,33 @@ function buildRunState({ blueprint, options, runtimePlan, runId, startedAt, ende
       parentRunId: options.parentRunId ?? null,
       replayFidelity: replayFidelityFromMessage(runtimePlan.message),
     },
-    evidence: {
-      boundaries: runtimePlan.runtimeIdentity.evidenceBoundaries,
-      stdoutSummary: execution.stdout.preview,
-      stderrSummary: execution.stderr.preview,
-      rawTranscriptStored: false,
-      rawToolBodiesStored: false,
-    },
+    evidence,
     certificationBoundary: runtimePlan.certificationBoundary,
+  };
+}
+
+function buildRuntimeOutputEvidence(execution, boundaries) {
+  const stdoutPreviewStored = outputStoresRawPreview(execution?.stdout);
+  const stderrPreviewStored = outputStoresRawPreview(execution?.stderr);
+  const rawOutputPreviewStored = stdoutPreviewStored || stderrPreviewStored;
+  return {
+    boundaries,
+    stdoutSummary: execution?.stdout?.preview ?? "",
+    stderrSummary: execution?.stderr?.preview ?? "",
+    stdoutSummaryKind: execution?.stdout?.summaryKind ?? "empty",
+    stderrSummaryKind: execution?.stderr?.summaryKind ?? "empty",
+    stdoutPreviewStored,
+    stderrPreviewStored,
+    rawOutputPreviewStored,
+    rawTranscriptStored: rawOutputPreviewStored,
+    rawToolBodiesStored: rawOutputPreviewStored,
+    processGroupClosed: execution?.processGroupClosed ?? null,
+    processGroupCleanupFailed: execution?.processGroupCleanupFailed === true,
+    processGroupVerification: execution?.processGroupVerification ?? null,
+    birthEligibility:
+      rawOutputPreviewStored === false
+        ? "eligible-empty-runtime-output-preview"
+        : "blocked-raw-runtime-output-preview-stored",
   };
 }
 
@@ -345,6 +411,10 @@ function assertReplayableRunState(runState) {
 function rebuildCommandArgsForReplay(runState) {
   const args = runState.command.executable === "pnpm" ? ["openclaw", "agent"] : ["agent"];
   const executionSelector = runState.runtimeIdentity.selector.executionSelector;
+  if (runState.runtimeIdentity.transport === "local" || runState.runtimeIdentity.transport === "embedded-fallback") args.push("--local");
+  args.push("--json");
+  if (runState.runtimeIdentity.model) args.push("--model", runState.runtimeIdentity.model);
+  if (runState.runtimeIdentity.thinking) args.push("--thinking", runState.runtimeIdentity.thinking);
   if (executionSelector.agent) args.push("--agent", executionSelector.agent);
   if (executionSelector.sessionKey) args.push("--session-key", executionSelector.sessionKey);
   if (executionSelector.sessionId) args.push("--session-id", executionSelector.sessionId);
@@ -365,8 +435,12 @@ function summarizeRunState(runState) {
     status: runState.execution?.status ?? null,
     executed: Boolean(runState.execution?.executed),
     exitCode: runState.execution?.exitCode ?? null,
+    timedOut: runState.execution?.timedOut === true,
+    processGroupClosed: runState.execution?.processGroupClosed ?? null,
+    processGroupCleanupFailed: runState.execution?.processGroupCleanupFailed === true,
     transport: runState.runtimeIdentity?.transport ?? null,
     fallbackFrom: runState.runtimeIdentity?.fallbackFrom ?? null,
+    fallbackEvidence: runState.runtimeIdentity?.fallbackEvidence ?? null,
     sandboxScope: runState.runtimeIdentity?.sandboxScope ?? null,
     replayEligible: Boolean(runState.replay?.eligible),
     replayFidelity: runState.replay?.replayFidelity ?? runState.message?.replayFidelityIfMaterialAvailable ?? null,
@@ -395,6 +469,7 @@ function hasRuntimeIdentityFields(identity) {
   return [
     "provider",
     "model",
+    "thinking",
     "runtime",
     "channel",
     "selector",
@@ -402,7 +477,9 @@ function hasRuntimeIdentityFields(identity) {
     "backend",
     "transport",
     "fallbackFrom",
+    "fallbackEvidence",
     "sandboxScope",
+    "runtimeEnv",
     "evidenceBoundaries",
   ].every((field) => field in identity);
 }
@@ -423,6 +500,94 @@ function hasMessageProvenance(message) {
   } catch (_error) {
     return false;
   }
+}
+
+function hasRawOutputPreviewEvidence(runState) {
+  const evidence = runState?.evidence;
+  if (!evidence || typeof evidence !== "object") return true;
+  return (
+    evidence.rawOutputPreviewStored === true ||
+    streamStoresRawPreviewEvidence(evidence, "stdout") ||
+    streamStoresRawPreviewEvidence(evidence, "stderr") ||
+    streamStoresRawPreviewOutput(runState?.execution?.stdout) ||
+    streamStoresRawPreviewOutput(runState?.execution?.stderr)
+  );
+}
+
+function hasConsistentRawOutputEvidence(runState) {
+  const evidence = runState?.evidence;
+  if (!evidence || typeof evidence !== "object") return false;
+  const stdoutPreviewStored = streamStoresRawPreviewOutput(runState?.execution?.stdout);
+  const stderrPreviewStored = streamStoresRawPreviewOutput(runState?.execution?.stderr);
+  const rawOutputPreviewStored = stdoutPreviewStored || stderrPreviewStored;
+  return (
+    streamStoresRawPreviewEvidence(evidence, "stdout") === stdoutPreviewStored &&
+    streamStoresRawPreviewEvidence(evidence, "stderr") === stderrPreviewStored &&
+    evidence.stdoutPreviewStored === stdoutPreviewStored &&
+    evidence.stderrPreviewStored === stderrPreviewStored &&
+    evidence.rawOutputPreviewStored === rawOutputPreviewStored &&
+    evidence.rawTranscriptStored === rawOutputPreviewStored &&
+    evidence.rawToolBodiesStored === rawOutputPreviewStored
+  );
+}
+
+function hasStoredPreview(value) {
+  return typeof value === "string" && value.length > 0;
+}
+
+function outputStoresRawPreview(output) {
+  return output?.summaryKind === "raw-output-preview" && hasStoredPreview(output.preview);
+}
+
+function streamStoresRawPreviewOutput(output) {
+  if (!output || typeof output !== "object") return true;
+  if (output.summaryKind === "empty" || output.summaryKind === "structured-json-summary") return false;
+  if (output.summaryKind === "raw-output-preview" || output.rawPreviewStored === true) return hasStoredPreview(output.preview);
+  return hasStoredPreview(output.preview);
+}
+
+function streamStoresRawPreviewEvidence(evidence, streamName) {
+  if (!evidence || typeof evidence !== "object") return true;
+  const flagName = `${streamName}PreviewStored`;
+  const summaryName = `${streamName}Summary`;
+  const summaryKindName = `${streamName}SummaryKind`;
+  const summaryKind = evidence[summaryKindName];
+  const summaryStored = hasStoredPreview(evidence[summaryName]);
+  if (evidence[flagName] === true) return true;
+  if (summaryKind === "raw-output-preview") return summaryStored;
+  if (summaryKind === "empty" || summaryKind === "structured-json-summary") return false;
+  if (summaryStored) return true;
+  return false;
+}
+
+function runtimeEnvReadyForEvidence(runState) {
+  try {
+    assertRuntimeEnvReady(runState?.runtimeIdentity?.runtimeEnv, {
+      live: runState?.execution?.live === true,
+      provider: runState?.runtimeIdentity?.provider,
+      transport: runState?.runtimeIdentity?.transport,
+    });
+    return true;
+  } catch (_error) {
+    return false;
+  }
+}
+
+function timedOutProcessGroupClosed(runState) {
+  if (runState?.execution?.timedOut !== true) return true;
+  const verification = runState.execution.processGroupVerification;
+  return (
+    runState.execution.processGroupClosed === true &&
+    runState.execution.processGroupCleanupFailed !== true &&
+    isPositiveProcessGroupVerification(verification) &&
+    runState.evidence?.processGroupClosed === true &&
+    runState.evidence?.processGroupCleanupFailed !== true &&
+    runState.evidence?.processGroupVerification === verification
+  );
+}
+
+function isPositiveProcessGroupVerification(verification) {
+  return verification === "closed-after-sigterm-grace" || verification === "closed-after-sigkill-grace";
 }
 
 function isKnownTransport(transport) {
@@ -456,7 +621,7 @@ function replayFidelityFromStoredEvidence(runState) {
   return "unknown";
 }
 
-function buildExecution({ live, runnerResult, startedAt, endedAt }) {
+function buildExecution({ live, runnerResult, startedAt, endedAt, secretValues = [] }) {
   if (!live) {
     return {
       live: false,
@@ -464,11 +629,14 @@ function buildExecution({ live, runnerResult, startedAt, endedAt }) {
       status: "declared",
       exitCode: null,
       timedOut: false,
+      processGroupClosed: null,
+      processGroupCleanupFailed: false,
+      processGroupVerification: null,
       startedAt,
       endedAt,
       durationMs: 0,
-      stdout: summarizeOutput(""),
-      stderr: summarizeOutput(""),
+      stdout: summarizeOutput("", secretValues),
+      stderr: summarizeOutput("", secretValues),
     };
   }
 
@@ -479,29 +647,234 @@ function buildExecution({ live, runnerResult, startedAt, endedAt }) {
     status: exitCode === 0 ? "success" : "failure",
     exitCode,
     timedOut: Boolean(runnerResult?.timedOut),
+    processGroupClosed: runnerResult?.processGroupClosed ?? null,
+    processGroupCleanupFailed: runnerResult?.processGroupCleanupFailed === true,
+    processGroupVerification: runnerResult?.processGroupVerification ?? null,
     startedAt,
     endedAt,
     durationMs: Number.isFinite(runnerResult?.durationMs) ? runnerResult.durationMs : 0,
-    stdout: summarizeOutput(runnerResult?.stdout ?? ""),
-    stderr: summarizeOutput(runnerResult?.stderr ?? ""),
+    stdout: summarizeOutput(runnerResult?.stdout ?? "", secretValues),
+    stderr: summarizeOutput(runnerResult?.stderr ?? "", secretValues),
   };
 }
 
-function summarizeOutput(value) {
-  const redacted = redactSecrets(value);
+function summarizeOutput(value, secretValues) {
+  if (value.length === 0) {
+    return {
+      preview: "",
+      summaryKind: "empty",
+      length: 0,
+      redactedLength: 0,
+      truncated: false,
+      rawPreviewStored: false,
+    };
+  }
+  const structuredSummary = summarizeStructuredRuntimeOutput(value, secretValues);
+  if (structuredSummary) {
+    return {
+      preview: structuredSummary,
+      summaryKind: "structured-json-summary",
+      length: value.length,
+      redactedLength: structuredSummary.length,
+      truncated: false,
+      rawPreviewStored: false,
+    };
+  }
+  const redacted = redactSecrets(value, secretValues);
   const truncated = redacted.length > OUTPUT_TEXT_LIMIT;
   return {
     preview: truncated ? `${redacted.slice(0, OUTPUT_TEXT_LIMIT - 1)}…` : redacted,
+    summaryKind: "raw-output-preview",
     length: value.length,
     redactedLength: redacted.length,
     truncated,
+    rawPreviewStored: true,
   };
 }
 
-function redactSecrets(value) {
-  return String(value)
-    .replace(/\b[A-Za-z0-9_-]*(?:api[_-]?key|token|secret|password)[A-Za-z0-9_-]*\s*=\s*[^\s]+/giu, "[REDACTED_SECRET]")
-    .replace(/\bsk-[A-Za-z0-9_-]{12,}\b/gu, "[REDACTED_SECRET]");
+function summarizeStructuredRuntimeOutput(value, secretValues) {
+  const parsed = parseStrictJsonObjectOutput(value);
+  if (!parsed || !isRecognizableOpenClawJson(parsed)) return null;
+  const meta = findOpenClawRuntimeMeta(parsed);
+  const result = isRecord(parsed.result) ? parsed.result : null;
+  const summary = removeNullish({
+    type: "openclaw-json-summary",
+    status: normalizeOptionalString(parsed.status),
+    ok: typeof parsed.ok === "boolean" ? parsed.ok : null,
+    resultStatus: normalizeOptionalString(result?.status),
+    payloadCount: Array.isArray(parsed.payloads) ? parsed.payloads.length : null,
+    resultPayloadCount: Array.isArray(result?.payloads) ? result.payloads.length : null,
+    meta: meta
+      ? removeNullish({
+          transport: redactSecrets(normalizeOptionalString(meta.transport) ?? "", secretValues) || null,
+          fallbackFrom: redactSecrets(normalizeOptionalString(meta.fallbackFrom) ?? "", secretValues) || null,
+          fallbackReason: redactSecrets(normalizeOptionalString(meta.fallbackReason) ?? "", secretValues) || null,
+        })
+      : null,
+  });
+  return JSON.stringify(summary);
+}
+
+function resolveActualRuntimeIdentity(runtimeIdentity, runnerResult) {
+  if (!runnerResult) return runtimeIdentity;
+  const structuredResult = resolveStructuredFallbackResult(runnerResult);
+  const structuredEvidence = structuredResult.evidence;
+  if (structuredEvidence?.detected === true) {
+    return {
+      ...runtimeIdentity,
+      transport: "embedded-fallback",
+      fallbackFrom: "gateway",
+      fallbackEvidence: structuredEvidence,
+    };
+  }
+  if (structuredEvidence) {
+    return {
+      ...runtimeIdentity,
+      transport: normalizeStructuredTransport(structuredEvidence.to) ?? runtimeIdentity.transport,
+      fallbackFrom: structuredEvidence.from ?? runtimeIdentity.fallbackFrom,
+      fallbackEvidence: structuredEvidence,
+    };
+  }
+
+  if (runtimeIdentity?.transport !== "gateway") return runtimeIdentity;
+  const heuristicSource = structuredResult.stdoutJsonParsed ? (runnerResult.stderr ?? "") : `${runnerResult.stdout ?? ""}\n${runnerResult.stderr ?? ""}`;
+  if (!/\b(?:embedded[-\s]?fallback|fallback(?:ing)?\s+(?:to|into)\s+embedded|falling\s+back\s+to\s+embedded)\b/iu.test(heuristicSource)) {
+    return runtimeIdentity;
+  }
+  return {
+    ...runtimeIdentity,
+    transport: "embedded-fallback",
+    fallbackFrom: "gateway",
+    fallbackEvidence: {
+      detected: true,
+      detectionMethod: structuredResult.stdoutJsonParsed ? "stderr-heuristic" : "stdout-stderr-heuristic",
+      source: structuredResult.stdoutJsonParsed ? "stderr" : "stdout/stderr",
+      from: "gateway",
+      to: "embedded",
+      reason: "matched embedded fallback text",
+      structured: false,
+    },
+  };
+}
+
+function resolveStructuredFallbackResult(runnerResult) {
+  if (isRecord(runnerResult?.openClawResult)) {
+    return {
+      evidence: buildStructuredFallbackEvidence(runnerResult.openClawResult, "openclaw-result"),
+      stdoutJsonParsed: parseJsonObjectFromOutput(runnerResult?.stdout) !== null,
+    };
+  }
+  const parsedStdout = parseJsonObjectFromOutput(runnerResult?.stdout);
+  return {
+    evidence: buildStructuredFallbackEvidence(parsedStdout, "stdout-json"),
+    stdoutJsonParsed: parsedStdout !== null,
+  };
+}
+
+function buildStructuredFallbackEvidence(structuredResult, source) {
+  const meta = findOpenClawRuntimeMeta(structuredResult);
+  if (!meta) return null;
+
+  const transport = normalizeOptionalString(meta.transport);
+  const fallbackFrom = normalizeOptionalString(meta.fallbackFrom);
+  const fallbackReason = normalizeOptionalString(meta.fallbackReason);
+  const embeddedTransport = transport === "embedded" || transport === "embedded-fallback";
+  const detected = fallbackFrom === "gateway" && embeddedTransport;
+  if (!detected) return null;
+  return {
+    detected: true,
+    detectionMethod: "openclaw-json-meta",
+    source,
+    from: "gateway",
+    to: "embedded",
+    reason: fallbackReason,
+    structured: true,
+  };
+}
+
+function findOpenClawRuntimeMeta(value) {
+  const root = isRecord(value) ? value : null;
+  if (!root) return null;
+  const candidates = [root.meta, isRecord(root.result) ? root.result.meta : null];
+  for (const candidate of candidates) {
+    if (!isRecord(candidate)) continue;
+    if (typeof candidate.transport === "string" || typeof candidate.fallbackFrom === "string") return candidate;
+  }
+  return null;
+}
+
+function isRecognizableOpenClawJson(value) {
+  if (!isRecord(value)) return false;
+  const hasStatus = typeof value.status === "string" || typeof value.ok === "boolean";
+  const hasOpenClawShape = Array.isArray(value.payloads) || hasFallbackRuntimeMeta(value) || hasRecognizableOpenClawResult(value.result);
+  if (hasStatus && hasOpenClawShape) return true;
+  const result = isRecord(value.result) ? value.result : null;
+  return Boolean(result && (typeof result.status === "string" || typeof result.ok === "boolean") && hasRecognizableOpenClawResult(result));
+}
+
+function hasRecognizableOpenClawResult(value) {
+  if (!isRecord(value)) return false;
+  return Array.isArray(value.payloads) || hasFallbackRuntimeMeta(value);
+}
+
+function hasFallbackRuntimeMeta(value) {
+  const meta = findOpenClawRuntimeMeta(value);
+  const transport = normalizeOptionalString(meta?.transport);
+  const fallbackFrom = normalizeOptionalString(meta?.fallbackFrom);
+  return fallbackFrom === "gateway" && (transport === "embedded" || transport === "embedded-fallback");
+}
+
+function parseStrictJsonObjectOutput(value) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return parseJsonObject(trimmed);
+}
+
+function parseJsonObjectFromOutput(value) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const direct = parseJsonObject(trimmed);
+  if (direct) return direct;
+  const lines = trimmed.split(/\r?\n/u).reverse();
+  for (const line of lines) {
+    const candidate = line.trim();
+    if (!candidate.startsWith("{") || !candidate.endsWith("}")) continue;
+    const parsed = parseJsonObject(candidate);
+    if (parsed) return parsed;
+  }
+  return null;
+}
+
+function parseJsonObject(value) {
+  try {
+    const parsed = JSON.parse(value);
+    return isRecord(parsed) ? parsed : null;
+  } catch (_error) {
+    return null;
+  }
+}
+
+function isRecord(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function removeNullish(value) {
+  return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== null && item !== undefined));
+}
+
+function normalizeOptionalString(value) {
+  if (value === undefined || value === null) return null;
+  const normalized = String(value).trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeStructuredTransport(value) {
+  const transport = normalizeOptionalString(value);
+  if (transport === "embedded") return "local";
+  if (transport && SUPPORTED_TRANSPORTS.includes(transport)) return transport;
+  return null;
 }
 
 async function writeJsonAtomic(filePath, value) {
@@ -524,6 +897,17 @@ function isoTimestamp(value) {
 
 function hashString(value) {
   return createHash("sha256").update(value).digest("hex");
+}
+
+function uniqueStrings(values) {
+  return Array.from(
+    new Set(
+      values
+        .filter((value) => typeof value === "string")
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0),
+    ),
+  ).sort();
 }
 
 function shellQuote(value) {

@@ -83,6 +83,34 @@ describe("runtime replay and eval", () => {
     assert.equal(saved.parentRunId, "parent-run");
   });
 
+  it("preserves OpenClaw local transport and model flags during replay", async () => {
+    const blueprint = await loadExample();
+    const parent = await executeRuntimeRun(blueprint, {
+      target: "openclaw",
+      workspace: "/tmp/agentmo-workspace",
+      transport: "local",
+      model: "deepseek/deepseek-v4-flash",
+      thinking: "off",
+      message: "Say exactly: ok",
+      runId: "model-parent",
+      now: "2026-07-03T00:00:00.000Z",
+    });
+    const replay = await replayRunState(parent.runState, {
+      runId: "model-child",
+      now: "2026-07-03T00:01:00.000Z",
+    });
+
+    assert.equal(replay.runState.runtimeIdentity.transport, "local");
+    assert.equal(replay.runState.runtimeIdentity.model, "deepseek/deepseek-v4-flash");
+    assert.equal(replay.runState.runtimeIdentity.thinking, "off");
+    assert.equal(replay.runState.command.args.includes("--local"), true);
+    assert.equal(replay.runState.command.args.includes("--json"), true);
+    assert.equal(replay.runState.command.args.includes("--model"), true);
+    assert.equal(replay.runState.command.args.includes("deepseek/deepseek-v4-flash"), true);
+    assert.equal(replay.runState.command.args.includes("--thinking"), true);
+    assert.equal(replay.runState.command.args.includes("off"), true);
+  });
+
   it("reuses the original session only with explicit resume-session", async () => {
     const runState = await createParentRunState();
     const replay = await replayRunState(runState, {
@@ -126,6 +154,60 @@ describe("runtime replay and eval", () => {
     assert.equal(replay.runState.command.mutatesOpenClawState, true);
     assert.equal(replay.runState.command.mutatesProductionOpenClawState, false);
     assert.equal(replay.runState.command.mutatesIsolatedOpenClawState, true);
+  });
+
+  it("passes env-file values and redaction context into live replay", async () => {
+    const blueprint = await loadExample();
+    const parent = await executeRuntimeRun(blueprint, {
+      target: "openclaw",
+      workspace: "/tmp/agentmo-workspace",
+      openClawStateDir: "/tmp/openclaw-state",
+      provider: "deepseek",
+      model: "deepseek/deepseek-v4-flash",
+      transport: "local",
+      envFile: "/tmp/agentmo/.env",
+      envFileContent: "DEEPSEEK_API_KEY=parent-secret\n",
+      message: "Say exactly: ok",
+      runId: "live-replay-env-parent",
+      now: "2026-07-03T00:00:00.000Z",
+    });
+    await assert.rejects(
+      () =>
+        replayRunState(
+          parent.runState,
+          {
+            live: true,
+            runId: "live-replay-env-missing",
+            now: "2026-07-03T00:08:00.000Z",
+          },
+          async () => ({ exitCode: 0, stdout: "", stderr: "", timedOut: false, durationMs: 1 }),
+        ),
+      /Missing required runtime env key\(s\): DEEPSEEK_API_KEY/u,
+    );
+
+    let observedDeepSeekKey = null;
+    const replay = await replayRunState(
+      parent.runState,
+      {
+        live: true,
+        envFile: "/tmp/agentmo/.env",
+        envFileContent: "DEEPSEEK_API_KEY=replay-secret\nOPENCLAW_GATEWAY_URL=ws://127.0.0.1:28765\n",
+        runId: "live-replay-env-child",
+        now: "2026-07-03T00:08:00.000Z",
+      },
+      async (_command, _runtimeIdentity, options) => {
+        observedDeepSeekKey = options.runtimeEnvValues.DEEPSEEK_API_KEY;
+        return { exitCode: 0, stdout: "api_key=replay-secret", stderr: "", timedOut: false, durationMs: 3 };
+      },
+    );
+
+    assert.equal(observedDeepSeekKey, "replay-secret");
+    assert.equal(replay.runState.runtimeIdentity.runtimeEnv.envFile.basename, ".env");
+    assert.deepEqual(replay.runState.runtimeIdentity.runtimeEnv.presentKeys, ["DEEPSEEK_API_KEY", "OPENCLAW_GATEWAY_URL"]);
+    assert.equal(replay.runState.execution.stdout.preview.includes("replay-secret"), false);
+    assert.equal(replay.runState.execution.stdout.preview.includes("[REDACTED_SECRET]"), true);
+    assert.equal(JSON.stringify(replay.runState).includes("replay-secret"), false);
+    assert.equal(replay.runState.runtimeIdentity.sandboxScope.environmentAllowlist.includes("OPENCLAW_GATEWAY_URL"), true);
   });
 
   it("fresh replay rewrites session-id and to selectors into a generated child session-key", async () => {

@@ -27,12 +27,17 @@ AgentMo currently provides a dependency-free Node CLI:
 ./bin/agentmo.js report examples/win9.agentmo.json
 ./bin/agentmo.js report examples/win9.agentmo.json --json
 ./bin/agentmo.js discover-report examples/win9.discovery.json --json
+./bin/agentmo.js discover-pack examples/support-triage.discovery.json --out /tmp/support-triage-discovery --json
+./bin/agentmo.js need-report examples/support-triage.need.json --json
+./bin/agentmo.js blueprint-draft /tmp/support-triage-discovery/agentmo-discovery-db.json --need examples/support-triage.need.json --out /tmp/support-triage.agentmo.json --target openclaw --json
+./bin/agentmo.js handoff /tmp/support-triage.agentmo.json --target openclaw --out /tmp/support-triage-handoff --json
 ./bin/agentmo.js plan examples/win9.agentmo.json --json
 ./bin/agentmo.js scaffold examples/win9.agentmo.json --out /tmp/win9-agentmo-scaffold
 ./bin/agentmo.js scaffold examples/win9.agentmo.json --target openclaw --out /tmp/win9-openclaw-scaffold
 ./bin/agentmo.js status examples/win9.agentmo.json --build-state /tmp/win9-openclaw-scaffold/agentmo-build-state.json --json
 ./bin/agentmo.js observe examples/win9.observation.json --json
-./bin/agentmo.js run-plan examples/win9.agentmo.json --target openclaw --workspace /tmp/win9-openclaw/workspace --agent win9 --transport local --message "Say exactly: ok" --json
+./bin/agentmo.js run-plan examples/win9.agentmo.json --target openclaw --workspace /tmp/win9-openclaw/workspace --agent win9 --provider deepseek --model deepseek/deepseek-v4-flash --thinking off --transport local --env-file .env --message "Say exactly: ok" --json
+./bin/agentmo.js birth-report /tmp/support-triage.agentmo.json --build-state /tmp/support-triage-scaffold/agentmo-build-state.json --run-state /tmp/support-triage-run/runs/<run_id>/agentmo-run-state.json --run-eval /tmp/support-triage-run-eval.json --expect-status declared --json
 ```
 
 `plan` is a dry run: it emits deterministic managed write operations without
@@ -41,6 +46,31 @@ then writes `agentmo-build-state.json` as a managed sidecar in the output root.
 The sidecar records the request, target/profile resolution, source blueprint
 hash, operation summaries, warnings, and generation timestamp; it is not counted
 as a domain scaffold operation.
+
+## Session recovery and current handoff
+
+AgentMo carries a repo-local handoff for restarting Codex/OMX without relying on old chat context:
+
+```text
+docs/OMX_SESSION_MIGRATION.md
+```
+
+Use it when starting a fresh session or when work becomes mixed with sibling projects:
+
+```bash
+cd /home/alex/DTAlex/learningGitHub/AgentMo
+omx --madmax --xhigh
+```
+
+Then tell the new session to read `docs/OMX_SESSION_MIGRATION.md` first. The handoff records the current AgentMo objective, dirty-tree expectations, verification commands, secret-handling rules, and the boundary that AgentMo work must not touch `pi`, `AgentHarness`, or `openclaw` unless explicitly requested.
+
+Local agent instructions live in:
+
+```text
+AGENTS.md
+```
+
+Those instructions are the project-specific contract for future coding agents working in this repository.
 
 ## Why this exists
 
@@ -79,12 +109,24 @@ src/report.js               AgentMother readiness report
 src/build-plan.js           Deterministic dry-run operation planner
 src/build-state.js          Managed scaffold sidecar state writer
 src/discovery.js            Discovery manifest validation and report builder
+src/discovery-db.js         Sanitized discovery pack / facts / coverage materializer
+src/user-need.js            User-need brief validation and report builder
+src/blueprint-draft.js      Blueprint drafting from discovery DB plus user need
+src/handoff.js              Coding/runtime handoff package writer
+src/birth-report.js         Fail-closed birth gate over build/run/eval evidence
 src/scaffold.js             Domain-agent scaffold generator
+AGENTS.md                   Local instructions for Codex/OMX agents working on AgentMo
 examples/win9.agentmo.json  Reference blueprint based on Win9-on-Pi
 examples/win9.discovery.json  Reference discovery/input manifest
+examples/support-triage.*   MVP birth-loop fixture inputs and generated draft blueprint
 docs/                       Concept, lifecycle, schema, quality gates
+docs/OMX_SESSION_MIGRATION.md  Fresh-session handoff and ultragoal-style recovery plan
+docs/AGENT_BIRTH_GATE.md    Birth-report evidence levels and fail-closed gate
+docs/MVP_RUNBOOK.md         End-to-end MVP birth-loop runbook
+docs/AGENTMO_MVP_LEDGER.md  MVP evidence ledger and non-certification disclosure
 docs/OBSERVE_EVOLVE.md      Evidence-first observe/evolve record rules
 docs/OPENCLAW_RUNTIME_NOTES.md  OpenClaw source-derived runtime notes
+release/                    Date-based release records and evidence summaries
 test/                       Node test suite
 ```
 
@@ -113,6 +155,18 @@ Pass `--build-state <path>` after scaffold to attach the latest managed sidecar 
 
 If build state is absent or unreadable, status remains available and reports the build-state section as unavailable.
 
+## MVP birth loop
+
+The first executable AgentMother loop is:
+
+```text
+discover-pack -> need-report -> blueprint-draft -> handoff -> scaffold/run/run-eval -> birth-report
+```
+
+`birth-report` is fail-closed. It requires a valid blueprint, `agentmo-build-state.json`, `agentmo-run-state.json`, and a passing `agentmo.run-eval.v1` report. Declared evidence proves wiring only; `live-success` evidence from isolated live execution is required before runtime promotion. The birth report never certifies runtime parity, domain quality, or production deployment.
+
+See `docs/MVP_RUNBOOK.md` and `docs/AGENT_BIRTH_GATE.md`.
+
 ## Observe / evolve records
 
 `agentmo observe` validates `agentmo.observation.v1` records. Observation records capture failure evidence, a proposed regression, and an optional blueprint-change proposal. They do not automatically mutate blueprints, tools, evals, or generated scaffolds.
@@ -140,6 +194,27 @@ openclaw/
 
 The generated target is not automatically certified. Run evals and record evidence before changing the blueprint's primary runtime to `openclaw`.
 
+## Release records
+
+AgentMo keeps project-level release records under:
+
+```text
+release/YYYY.MM.DD.md
+```
+
+These files record milestones, design decisions, verification evidence, non-certification boundaries, and remaining risks. They are not a substitute for git tags or npm releases.
+
+Update `release/` when AgentMo changes any durable mechanism:
+
+- discovery, planning, or production loop behavior;
+- blueprint/schema/runtime semantics;
+- birth-gate or certification rules;
+- runtime promotion evidence;
+- session migration or handoff rules;
+- major integration direction with Codex, Pi, OpenClaw, or AgentHarness.
+
+Do not place secrets, raw transcripts, raw provider payloads, or credential-bearing runtime state in release records.
+
 ## Runtime certification and discovery
 
 Runtime profiles can include optional certification metadata:
@@ -160,7 +235,9 @@ Blueprints can also set `discovery_manifest_path`; `agentmo report` loads the ma
 
 ```bash
 npm run check
-scripts/openclaw-live-smoke.sh --blueprint examples/win9.agentmo.json --agent win9 --message "Say exactly: ok"
+cp .env.example .env
+# fill DEEPSEEK_API_KEY in .env; .env is gitignored and value-blind in AgentMo evidence
+scripts/openclaw-live-smoke.sh --blueprint examples/win9.agentmo.json --agent win9 --message "Say exactly: ok" --openclaw-source-root /home/alex/DTAlex/learningGitHub/openclaw
 ```
 
-`check` runs syntax checks and the Node test suite. The OpenClaw live smoke script is optional, uses temporary `OPENCLAW_STATE_DIR` and workspace paths by default, and is not part of mandatory checks.
+`check` runs syntax checks and the Node test suite. The OpenClaw live smoke script is optional, defaults to DeepSeek flash with `--thinking off`, uses temporary `OPENCLAW_STATE_DIR`, scaffold workspace, and run-output paths by default, refuses non-gitignored env files, reads only supported env keys, passes proxy env keys through when present without persisting their values, requires live execution success by default, and scrubs credential-bearing OpenClaw state unless `--keep-state` is explicit.

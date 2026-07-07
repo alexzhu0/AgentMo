@@ -4,4 +4,8 @@ coverage/
 /tmp/
 *.log
 
+.env
+.env.local
+.env.*.local
+
 .omx/

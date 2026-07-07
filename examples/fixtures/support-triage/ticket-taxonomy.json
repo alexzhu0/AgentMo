@@ -1,0 +1,4 @@
+{
+  "categories": ["refund", "account_access", "technical_issue", "legal_risk"],
+  "priorities": ["low", "normal", "urgent", "escalate"]
+}

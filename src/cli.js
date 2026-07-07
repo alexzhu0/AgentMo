@@ -1,7 +1,11 @@
 import { resolve } from "node:path";
 import { readFile } from "node:fs/promises";
+import { buildBirthReport, formatBirthReport, loadJsonArtifact } from "./birth-report.js";
 import { loadBlueprint, validateBlueprint } from "./blueprint.js";
+import { buildBlueprintDraftReport, draftBlueprint, formatBlueprintDraftReport, loadJsonFile, writeBlueprintDraft } from "./blueprint-draft.js";
+import { buildDiscoveryPack, formatDiscoveryPack, writeDiscoveryPack } from "./discovery-db.js";
 import { buildDiscoveryReport, formatDiscoveryReport, loadDiscoveryManifest } from "./discovery.js";
+import { buildHandoffPackage, formatHandoffPackage, writeHandoffPackage } from "./handoff.js";
 import { buildMotherReport, formatMotherReport } from "./report.js";
 import { buildPlan } from "./build-plan.js";
 import { buildRuntimePlan } from "./runtime-plan.js";
@@ -11,6 +15,7 @@ import { buildControlSnapshot, formatControlSnapshot, loadBuildState } from "./c
 import { buildObservationReport, formatObservationReport, loadObservationRecord } from "./observation.js";
 import { scaffoldAgent } from "./scaffold.js";
 import { listTargetIds } from "./targets/registry.js";
+import { buildUserNeedReport, formatUserNeedReport, loadUserNeed } from "./user-need.js";
 
 export async function main(args) {
   const [command, ...rest] = args;
@@ -51,6 +56,50 @@ export async function main(args) {
     const report = buildDiscoveryReport(manifest);
     process.stdout.write(json ? `${JSON.stringify(report, null, 2)}\n` : formatDiscoveryReport(report));
     if (!report.ok) process.exitCode = 1;
+    return;
+  }
+
+  if (command === "discover-pack") {
+    const options = parseDiscoverPackArgs(rest);
+    const manifest = await loadDiscoveryManifest(options.file);
+    const pack = buildDiscoveryPack(manifest, { manifestPath: options.file });
+    const paths = await writeDiscoveryPack(options.out, pack);
+    const result = { ...pack, paths };
+    process.stdout.write(options.json ? `${JSON.stringify(result, null, 2)}\n` : formatDiscoveryPack(pack, paths));
+    if (!pack.ok) process.exitCode = 1;
+    return;
+  }
+
+  if (command === "need-report") {
+    const { file, json } = parseBlueprintArg(rest);
+    const need = await loadUserNeed(file);
+    const report = buildUserNeedReport(need);
+    process.stdout.write(json ? `${JSON.stringify(report, null, 2)}\n` : formatUserNeedReport(report));
+    if (!report.ok) process.exitCode = 1;
+    return;
+  }
+
+  if (command === "blueprint-draft") {
+    const options = parseBlueprintDraftArgs(rest);
+    const discoveryDb = await loadJsonFile(options.file, "discovery-db");
+    const userNeed = await loadUserNeed(options.need);
+    const blueprint = draftBlueprint(discoveryDb, userNeed, { target: options.target });
+    const blueprintPath = await writeBlueprintDraft(options.out, blueprint);
+    const report = buildBlueprintDraftReport(blueprint, { blueprintPath });
+    const result = { report, blueprint, blueprintPath };
+    process.stdout.write(options.json ? `${JSON.stringify(result, null, 2)}\n` : formatBlueprintDraftReport(report));
+    if (!report.ok) process.exitCode = 1;
+    return;
+  }
+
+  if (command === "handoff") {
+    const options = parseHandoffArgs(rest);
+    const blueprint = await loadBlueprint(options.file);
+    const handoffPackage = buildHandoffPackage(blueprint, { target: options.target });
+    const paths = await writeHandoffPackage(options.out, handoffPackage);
+    const result = { ...handoffPackage, paths };
+    process.stdout.write(options.json ? `${JSON.stringify(result, null, 2)}\n` : formatHandoffPackage(handoffPackage, paths));
+    if (!handoffPackage.ok) process.exitCode = 1;
     return;
   }
 
@@ -99,7 +148,7 @@ export async function main(args) {
   }
 
   if (command === "replay-run") {
-    const options = parseReplayRunArgs(rest);
+    const options = await parseReplayRunArgs(rest);
     const runState = await loadRunState(options.file);
     const result = await replayRunState(runState, options);
     process.stdout.write(options.json ? `${JSON.stringify(result.runState, null, 2)}\n` : formatRunState(result));
@@ -111,6 +160,27 @@ export async function main(args) {
     const runState = await loadRunState(options.file);
     const report = await buildRunEvalVerified(runState, { expectStatus: options.expectStatus, requireExactReplay: options.requireExactReplay });
     process.stdout.write(options.json ? `${JSON.stringify(report, null, 2)}\n` : formatRunEval(report));
+    if (!report.ok) process.exitCode = 1;
+    return;
+  }
+
+  if (command === "birth-report") {
+    const options = parseBirthReportArgs(rest);
+    const blueprint = await loadBlueprint(options.file);
+    const buildState = await loadBuildState(options.buildStatePath);
+    const runState = await loadRunState(options.runStatePath);
+    const runEval = await loadJsonArtifact(options.runEvalPath, "run-eval");
+    const report = buildBirthReport(blueprint, {
+      blueprintPath: options.file,
+      buildState,
+      buildStatePath: options.buildStatePath,
+      runState,
+      runStatePath: options.runStatePath,
+      runEval,
+      runEvalPath: options.runEvalPath,
+      expectStatus: options.expectStatus,
+    });
+    process.stdout.write(options.json ? `${JSON.stringify(report, null, 2)}\n` : formatBirthReport(report));
     if (!report.ok) process.exitCode = 1;
     return;
   }
@@ -159,6 +229,126 @@ function parseBlueprintArg(args) {
   const file = filtered[0];
   if (!file) throw new Error("Missing blueprint file path.");
   return { file: resolve(file), json };
+}
+
+function parseDiscoverPackArgs(args) {
+  const file = args[0];
+  if (!file) throw new Error("Missing discovery manifest file path.");
+  let out = null;
+  let json = false;
+  for (let index = 1; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--out") {
+      out = args[index + 1];
+      index += 1;
+    } else if (arg === "--json") {
+      json = true;
+    } else {
+      throw new Error(`Unknown discover-pack option: ${arg}`);
+    }
+  }
+  requireOptionValue(out, "--out");
+  return { file: resolve(file), out: resolve(out), json };
+}
+
+function parseBlueprintDraftArgs(args) {
+  const file = args[0];
+  if (!file) throw new Error("Missing discovery-db file path.");
+  let need = null;
+  let out = null;
+  let target = "openclaw";
+  let json = false;
+  for (let index = 1; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--need") {
+      need = args[index + 1];
+      index += 1;
+    } else if (arg === "--out") {
+      out = args[index + 1];
+      index += 1;
+    } else if (arg === "--target") {
+      target = args[index + 1];
+      index += 1;
+    } else if (arg === "--json") {
+      json = true;
+    } else {
+      throw new Error(`Unknown blueprint-draft option: ${arg}`);
+    }
+  }
+  requireOptionValue(need, "--need");
+  requireOptionValue(out, "--out");
+  assertKnownTarget(target, "blueprint-draft target");
+  return { file: resolve(file), need: resolve(need), out: resolve(out), target, json };
+}
+
+function parseHandoffArgs(args) {
+  const file = args[0];
+  if (!file) throw new Error("Missing blueprint file path.");
+  let target = "openclaw";
+  let out = null;
+  let json = false;
+  for (let index = 1; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--target") {
+      target = args[index + 1];
+      index += 1;
+    } else if (arg === "--out") {
+      out = args[index + 1];
+      index += 1;
+    } else if (arg === "--json") {
+      json = true;
+    } else {
+      throw new Error(`Unknown handoff option: ${arg}`);
+    }
+  }
+  requireOptionValue(out, "--out");
+  assertKnownTarget(target, "handoff target");
+  return { file: resolve(file), target, out: resolve(out), json };
+}
+
+function parseBirthReportArgs(args) {
+  const file = args[0];
+  if (!file) throw new Error("Missing blueprint file path.");
+  let buildStatePath = null;
+  let runStatePath = null;
+  let runEvalPath = null;
+  let expectStatus = null;
+  let json = false;
+  for (let index = 1; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--build-state") {
+      buildStatePath = args[index + 1];
+      index += 1;
+    } else if (arg === "--run-state") {
+      runStatePath = args[index + 1];
+      index += 1;
+    } else if (arg === "--run-eval") {
+      runEvalPath = args[index + 1];
+      index += 1;
+    } else if (arg === "--expect-status") {
+      expectStatus = args[index + 1];
+      index += 1;
+    } else if (arg === "--json") {
+      json = true;
+    } else {
+      throw new Error(`Unknown birth-report option: ${arg}`);
+    }
+  }
+  requireOptionValue(buildStatePath, "--build-state");
+  requireOptionValue(runStatePath, "--run-state");
+  requireOptionValue(runEvalPath, "--run-eval");
+  requireOptionValue(expectStatus, "--expect-status");
+  if (!["success", "declared", "failure"].includes(expectStatus)) {
+    throw new Error("--expect-status must be one of: success, declared, failure.");
+  }
+  return {
+    file: resolve(file),
+    buildStatePath: resolve(buildStatePath),
+    runStatePath: resolve(runStatePath),
+    runEvalPath: resolve(runEvalPath),
+    expectStatus,
+    json,
+  };
 }
 
 function parseStatusArgs(args) {
@@ -262,11 +452,14 @@ async function parseRunPlanArgs(args) {
     message: undefined,
     messageFile: null,
     messageFileContent: undefined,
+    envFile: null,
+    envFileContent: undefined,
     openClawSourceRoot: null,
     openClawStateDir: null,
     useProductionOpenClawState: false,
     provider: null,
     model: null,
+    thinking: null,
     channel: null,
     transport: null,
     fallbackFrom: null,
@@ -301,6 +494,9 @@ async function parseRunPlanArgs(args) {
     } else if (arg === "--message-file") {
       options.messageFile = args[index + 1];
       index += 1;
+    } else if (arg === "--env-file") {
+      options.envFile = args[index + 1];
+      index += 1;
     } else if (arg === "--openclaw-source-root") {
       options.openClawSourceRoot = args[index + 1];
       index += 1;
@@ -314,6 +510,9 @@ async function parseRunPlanArgs(args) {
       index += 1;
     } else if (arg === "--model") {
       options.model = args[index + 1];
+      index += 1;
+    } else if (arg === "--thinking") {
+      options.thinking = args[index + 1];
       index += 1;
     } else if (arg === "--channel") {
       options.channel = args[index + 1];
@@ -339,6 +538,7 @@ async function parseRunPlanArgs(args) {
   if (options.to !== null) requireOptionValue(options.to, "--to");
   if (options.provider !== null) requireOptionValue(options.provider, "--provider");
   if (options.model !== null) requireOptionValue(options.model, "--model");
+  if (options.thinking !== null) requireOptionValue(options.thinking, "--thinking");
   if (options.channel !== null) requireOptionValue(options.channel, "--channel");
   if (options.transport !== null) requireOptionValue(options.transport, "--transport");
   if (options.fallbackFrom !== null) requireOptionValue(options.fallbackFrom, "--fallback-from");
@@ -350,6 +550,11 @@ async function parseRunPlanArgs(args) {
     }
   } else {
     requireOptionValue(options.message, "--message");
+  }
+  if (options.envFile !== null) {
+    requireOptionValue(options.envFile, "--env-file");
+    options.envFile = resolve(options.envFile);
+    options.envFileContent = await readFile(options.envFile, "utf8");
   }
   if (options.openClawSourceRoot !== null) {
     requireOptionValue(options.openClawSourceRoot, "--openclaw-source-root");
@@ -405,10 +610,12 @@ function parseRunStateFileArg(args, commandName) {
   return { file: resolve(file), json };
 }
 
-function parseReplayRunArgs(args) {
+async function parseReplayRunArgs(args) {
   const file = args[0];
   if (!file) throw new Error("Missing run-state file path for replay-run.");
   let out = null;
+  let envFile = null;
+  let envFileContent = undefined;
   let live = false;
   let json = false;
   let resumeSession = false;
@@ -416,6 +623,9 @@ function parseReplayRunArgs(args) {
     const arg = args[index];
     if (arg === "--out") {
       out = args[index + 1];
+      index += 1;
+    } else if (arg === "--env-file") {
+      envFile = args[index + 1];
       index += 1;
     } else if (arg === "--live") {
       live = true;
@@ -428,7 +638,12 @@ function parseReplayRunArgs(args) {
     }
   }
   requireOptionValue(out, "--out");
-  return { file: resolve(file), out: resolve(out), live, json, resumeSession };
+  if (envFile !== null) {
+    requireOptionValue(envFile, "--env-file");
+    envFile = resolve(envFile);
+    envFileContent = await readFile(envFile, "utf8");
+  }
+  return { file: resolve(file), out: resolve(out), envFile, envFileContent, live, json, resumeSession };
 }
 
 function parseRunEvalArgs(args) {
@@ -595,13 +810,18 @@ Usage:
   agentmo validate <blueprint.json>
   agentmo report <blueprint.json> [--json]
   agentmo discover-report <discovery.json> [--json]
+  agentmo discover-pack <discovery.json> --out <dir> [--json]
+  agentmo need-report <need.json> [--json]
+  agentmo blueprint-draft <agentmo-discovery-db.json> --need <need.json> --out <blueprint.json> [--target agentmo|openclaw] [--json]
+  agentmo handoff <blueprint.json> --target agentmo|openclaw --out <dir> [--json]
   agentmo status <blueprint.json> [--build-state <path>] [--run-state <path>|--run-dir <dir>] [--json]
   agentmo plan <blueprint.json> [--target agentmo|openclaw] [--json]
-  agentmo run-plan <blueprint.json> --target openclaw --workspace <dir> [--agent <id>] [--session-key <key>|--session-id <id>|--to <dest>] [--message <text>|--message-file <path>] [--provider <name>] [--model <name>] [--channel <name>] [--transport gateway|local|embedded-fallback|unknown] [--fallback-from <runtime>] [--openclaw-state-dir <dir>|--use-production-openclaw-state] [--timeout-ms <ms>] [--json]
-  agentmo run <blueprint.json> --target openclaw --workspace <dir> --message <text> --out <dir> [--agent <id>] [--provider <name>] [--model <name>] [--channel <name>] [--transport gateway|local|embedded-fallback|unknown] [--fallback-from <runtime>] [--openclaw-state-dir <dir>|--use-production-openclaw-state] [--timeout-ms <ms>] [--live] [--json]
+  agentmo run-plan <blueprint.json> --target openclaw --workspace <dir> [--agent <id>] [--session-key <key>|--session-id <id>|--to <dest>] [--message <text>|--message-file <path>] [--env-file <path>] [--provider <name>] [--model <name>] [--thinking off|minimal|low|medium|high|adaptive|xhigh|max] [--channel <name>] [--transport gateway|local|embedded-fallback|unknown] [--fallback-from <runtime>] [--openclaw-state-dir <dir>|--use-production-openclaw-state] [--timeout-ms <ms>] [--json]
+  agentmo run <blueprint.json> --target openclaw --workspace <dir> --message <text> --out <dir> [--agent <id>] [--env-file <path>] [--provider <name>] [--model <name>] [--thinking off|minimal|low|medium|high|adaptive|xhigh|max] [--channel <name>] [--transport gateway|local|embedded-fallback|unknown] [--fallback-from <runtime>] [--openclaw-state-dir <dir>|--use-production-openclaw-state] [--timeout-ms <ms>] [--live] [--json]
   agentmo run-report <run-state.json> [--json]
-  agentmo replay-run <run-state.json> --out <dir> [--resume-session] [--live] [--json]
+  agentmo replay-run <run-state.json> --out <dir> [--env-file <path>] [--resume-session] [--live] [--json]
   agentmo run-eval <run-state.json> [--expect-status success|failure|declared] [--require-exact-replay] [--json]
+  agentmo birth-report <blueprint.json> --build-state <agentmo-build-state.json> --run-state <agentmo-run-state.json> --run-eval <run-eval.json> --expect-status success|declared|failure [--json]
   agentmo observe-run <run-state.json> --out <observation.json> [--json]
   agentmo scaffold <blueprint.json> --out <dir> [--target agentmo|openclaw] [--force]
   agentmo observe <observation.json> [--json]
@@ -610,6 +830,10 @@ Concepts:
   validate         Check an AgentMother blueprint and its quality gates.
   report           Build a human or JSON AgentMother readiness report.
   discover-report  Validate and summarize a discovery/input manifest.
+  discover-pack    Materialize a sanitized discovery database, facts JSONL, and coverage report.
+  need-report      Validate and summarize a concrete user-need brief.
+  blueprint-draft  Draft a valid AgentMo blueprint from discovery data plus user need.
+  handoff          Write a coding/runtime handoff package for the generated blueprint.
   status           Build an auditable control snapshot from blueprint plus optional build/run state.
   plan             Dry-run deterministic scaffold operations without writing files.
   run-plan         Dry-run OpenClaw runtime command/evidence planning without executing OpenClaw.
@@ -617,6 +841,7 @@ Concepts:
   run-report       Summarize run-state evidence without changing blueprint status.
   replay-run       Reconstruct a prior run into a fresh child session unless --resume-session is explicit.
   run-eval         Evaluate evidence completeness without certifying runtime/domain behavior.
+  birth-report     Fail-closed birth gate over blueprint, build-state, run-state, and run-eval evidence.
   observe-run      Convert run-state evidence into a proposal-only observation record.
   scaffold         Generate a domain-agent harness. Use --target openclaw for an OpenClaw workspace scaffold.
   observe          Validate and summarize an observe/evolve record without applying changes.

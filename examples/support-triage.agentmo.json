@@ -1,0 +1,283 @@
+{
+  "agentmother_version": "0.1",
+  "agent_id": "support-triage",
+  "runtime": "openclaw",
+  "status": "draft",
+  "domain_genome": {
+    "domain": "customer_support_ticket_triage",
+    "purpose": "Support operators need a bounded agent that classifies incoming support tickets, identifies missing customer or policy evidence, and drafts concise replies without making unsupported promises.",
+    "task_classes": [
+      "classify-ticket-category-and-priority",
+      "draft-evidence-backed-customer-reply",
+      "escalate-missing-policy-or-missing-customer-fact-cases"
+    ],
+    "knowledge_sources": [
+      "quality-rubric",
+      "support-policy-handbook",
+      "ticket-taxonomy"
+    ],
+    "hard_failures": [
+      "promise-refund-without-policy-evidence",
+      "invent-customer-account-facts",
+      "expose-raw-ticket-transcript-or-credentials",
+      "skip-escalation-for-legal-or-account-access-risk"
+    ]
+  },
+  "architecture": {
+    "main_agent": "support-triage-main",
+    "specialists": [
+      {
+        "id": "support-triage-classify-ticket-category-and-pri",
+        "purpose": "classify ticket category and priority"
+      },
+      {
+        "id": "support-triage-draft-evidence-backed-customer-r",
+        "purpose": "draft evidence-backed customer reply"
+      },
+      {
+        "id": "support-triage-escalate-missing-policy-or-missi",
+        "purpose": "escalate missing-policy or missing-customer-fact cases"
+      }
+    ],
+    "routing_modes": [
+      "classify-ticket-category-and-priority",
+      "draft-evidence-backed-customer-reply",
+      "escalate-missing-policy-or-missing-customer-fact-cases"
+    ]
+  },
+  "tools": [
+    {
+      "name": "support-triage_classify_ticket_category_and_priority",
+      "purpose": "Support the workflow task: classify ticket category and priority",
+      "allowed_when": [
+        "classify ticket category and priority"
+      ],
+      "forbidden_when": [
+        "promise refund without policy evidence",
+        "invent customer account facts",
+        "expose raw ticket transcript or credentials",
+        "skip escalation for legal or account-access risk"
+      ],
+      "evidence_policy": "Use bounded discovery-db fact refs and disclose missing or unverified source coverage."
+    },
+    {
+      "name": "support-triage_draft_evidence_backed_customer_reply",
+      "purpose": "Support the workflow task: draft evidence-backed customer reply",
+      "allowed_when": [
+        "draft evidence-backed customer reply"
+      ],
+      "forbidden_when": [
+        "promise refund without policy evidence",
+        "invent customer account facts",
+        "expose raw ticket transcript or credentials",
+        "skip escalation for legal or account-access risk"
+      ],
+      "evidence_policy": "Use bounded discovery-db fact refs and disclose missing or unverified source coverage."
+    },
+    {
+      "name": "support-triage_escalate_missing_policy_or_missing_customer_fact_cases",
+      "purpose": "Support the workflow task: escalate missing-policy or missing-customer-fact cases",
+      "allowed_when": [
+        "escalate missing-policy or missing-customer-fact cases"
+      ],
+      "forbidden_when": [
+        "promise refund without policy evidence",
+        "invent customer account facts",
+        "expose raw ticket transcript or credentials",
+        "skip escalation for legal or account-access risk"
+      ],
+      "evidence_policy": "Use bounded discovery-db fact refs and disclose missing or unverified source coverage."
+    }
+  ],
+  "evidence": {
+    "stores": [
+      "agentmo-discovery-db.json",
+      "facts.jsonl",
+      "coverage.json",
+      "agentmo-birth-report.json"
+    ],
+    "required_artifacts": [
+      "discovery pack",
+      "user-need report",
+      "blueprint validation",
+      "handoff package",
+      "birth report"
+    ],
+    "audit_rules": [
+      "Do not store credential values, raw transcripts, raw tool bodies, or production runtime state in managed evidence.",
+      "Use bounded fact refs from the discovery pack and disclose unknowns.",
+      "Do not claim runtime/domain certification from declared evidence or scaffold smoke alone."
+    ]
+  },
+  "eval": {
+    "cases_path": "evals/CASES.md",
+    "rubric_path": "evals/RUBRIC.md",
+    "required_case_classes": [
+      "classify-ticket-category-and-priority",
+      "draft-evidence-backed-customer-reply",
+      "escalate-missing-policy-or-missing-customer-fact-cases"
+    ],
+    "hard_failures": [
+      "promise-refund-without-policy-evidence",
+      "invent-customer-account-facts",
+      "expose-raw-ticket-transcript-or-credentials",
+      "skip-escalation-for-legal-or-account-access-risk"
+    ]
+  },
+  "governance": {
+    "policies": [
+      "discover-plan-produce order is mandatory",
+      "fail closed when source coverage or user need is insufficient",
+      "bounded evidence by default",
+      "birth requires build-state, run-state, run-eval, and birth-report evidence"
+    ],
+    "quality_gates": [
+      "domain_genome_defined",
+      "pipeline_defined",
+      "architecture_defined",
+      "tool_contracts_defined",
+      "evidence_store_defined",
+      "eval_suite_defined",
+      "governance_defined",
+      "release_trace_defined"
+    ]
+  },
+  "release": {
+    "latest_commit": "draft-d0615a71",
+    "release_ledger_path": "docs/AGENTMO_MVP_LEDGER.md",
+    "known_risks": [
+      "Draft blueprint is generated from bounded discovery/user-need inputs and is not production certified.",
+      "Runtime birth requires separate live-success evidence before promotion from declared status."
+    ]
+  },
+  "runtime_profiles": [
+    {
+      "id": "openclaw",
+      "role": "primary",
+      "status": "experimental",
+      "purpose": "openclaw runtime profile for support-triage MVP production path.",
+      "owned_surfaces": [
+        "generated workspace",
+        "agent config",
+        "runbook",
+        "birth report"
+      ],
+      "evidence_boundaries": [
+        "bounded discovery pack",
+        "managed run-state",
+        "birth-report summary",
+        "no raw transcripts by default"
+      ],
+      "source_refs": [
+        "examples/support-triage.discovery.json",
+        "docs/AGENT_BIRTH_GATE.md"
+      ],
+      "transfer_rules": [
+        "Keep provider, model, runtime, channel, and target evidence separate."
+      ],
+      "supported_assets": [
+        "generated scaffold",
+        "handoff package",
+        "declared run evidence"
+      ],
+      "unsupported_surfaces": [
+        "production deployment",
+        "domain certification",
+        "runtime parity without live-success eval evidence"
+      ],
+      "install_or_onramp": "Use agentmo handoff --target openclaw and run the birth gate before promotion.",
+      "verification_commands": [
+        "agentmo validate <blueprint>",
+        "agentmo birth-report <blueprint> --build-state <agentmo-build-state.json> --run-state <run-state.json> --run-eval <run-eval.json> --expect-status declared",
+        "npm run check"
+      ],
+      "risk_notes": [
+        "Draft runtime profile is not certified until live-success birth evidence exists."
+      ],
+      "owner": "AgentMo MVP operator",
+      "last_verified_at": "2026-07-06"
+    }
+  ],
+  "pipeline": {
+    "discover": {
+      "purpose": "Find bounded source data and concrete user need before designing the agent.",
+      "data_sources": [
+        "quality-rubric: Manual rubric for concise, evidence-backed, non-hallucinated support triage answers.",
+        "support-policy-handbook: Bounded support policy reference for refunds, escalations, account access, and evidence-required replies.",
+        "ticket-taxonomy: Structured ticket categories and priority rules used by support operations."
+      ],
+      "database_outputs": [
+        "support source inventory",
+        "ticket category table",
+        "priority and escalation matrix"
+      ],
+      "user_need_inputs": [
+        "classify ticket category and priority",
+        "draft evidence-backed customer reply",
+        "escalate missing-policy or missing-customer-fact cases"
+      ],
+      "done_when": [
+        "discovery pack validates",
+        "user need validates",
+        "source coverage and unknowns are explicit"
+      ]
+    },
+    "plan": {
+      "purpose": "Convert discovery facts plus user need into a buildable AgentMo blueprint.",
+      "planning_inputs": [
+        "agentmo-discovery-db.json",
+        "facts.jsonl",
+        "user-need report",
+        "examples/support-triage.discovery.json",
+        "docs/AGENT_BIRTH_GATE.md"
+      ],
+      "planning_outputs": [
+        "AgentMo blueprint",
+        "tool contracts",
+        "evidence policy",
+        "eval class list",
+        "runtime profile"
+      ],
+      "decision_gates": [
+        "no production claim from draft",
+        "no build if discovery/user need is invalid",
+        "no birth without birth-report"
+      ],
+      "done_when": [
+        "blueprint validates",
+        "handoff package is generated",
+        "birth-report inputs are known"
+      ]
+    },
+    "produce": {
+      "purpose": "Use Codex or another coding agent to implement, test, and document the specified agent.",
+      "coding_tools": [
+        "Codex",
+        "AgentMo CLI",
+        "OpenClaw"
+      ],
+      "runtime_targets": [
+        "openclaw"
+      ],
+      "generated_outputs": [
+        "agent prompt/workspace",
+        "tool contract implementation",
+        "eval fixtures",
+        "runbook",
+        "birth report"
+      ],
+      "verification_steps": [
+        "agentmo validate",
+        "agentmo scaffold",
+        "agentmo run-eval",
+        "agentmo birth-report",
+        "npm run check"
+      ],
+      "done_when": [
+        "declared birth gate passes",
+        "live-success birth gate passes before runtime promotion",
+        "known risks are recorded"
+      ]
+    }
+  }
+}
