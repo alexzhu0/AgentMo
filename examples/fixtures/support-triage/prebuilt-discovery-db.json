@@ -1,0 +1,230 @@
+{
+  "schemaVersion": "agentmo.discovery-db.v1",
+  "agentId": "support-triage",
+  "sourceManifest": {
+    "schemaVersion": "agentmo.discovery.v1",
+    "path": "examples/support-triage.discovery.json"
+  },
+  "sources": [
+    {
+      "id": "quality-rubric",
+      "type": "manual_inventory",
+      "trustLevel": "derived",
+      "description": "Manual rubric for concise, evidence-backed, non-hallucinated support triage answers.",
+      "location": "examples/fixtures/support-triage/quality-rubric.md",
+      "extractionFields": [
+        "must cite policy section",
+        "must disclose missing customer facts",
+        "must avoid refund or legal promises without policy evidence"
+      ]
+    },
+    {
+      "id": "support-policy-handbook",
+      "type": "document",
+      "trustLevel": "verified",
+      "description": "Bounded support policy reference for refunds, escalations, account access, and evidence-required replies.",
+      "location": "examples/fixtures/support-triage/policy-handbook.md",
+      "extractionFields": [
+        "refund eligibility rules",
+        "account access escalation triggers",
+        "evidence requirements for customer-facing replies"
+      ]
+    },
+    {
+      "id": "ticket-taxonomy",
+      "type": "database",
+      "trustLevel": "trusted",
+      "description": "Structured ticket categories and priority rules used by support operations.",
+      "location": "examples/fixtures/support-triage/ticket-taxonomy.json",
+      "extractionFields": [
+        "priority labels",
+        "routing category",
+        "required next action"
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "id": "quality-rubric:field:01",
+      "sourceId": "quality-rubric",
+      "kind": "extraction_field",
+      "text": "must cite policy section",
+      "trustLevel": "derived",
+      "refs": [
+        "examples/fixtures/support-triage/quality-rubric.md"
+      ],
+      "tags": [
+        "manual_inventory"
+      ]
+    },
+    {
+      "id": "quality-rubric:field:02",
+      "sourceId": "quality-rubric",
+      "kind": "extraction_field",
+      "text": "must disclose missing customer facts",
+      "trustLevel": "derived",
+      "refs": [
+        "examples/fixtures/support-triage/quality-rubric.md"
+      ],
+      "tags": [
+        "manual_inventory"
+      ]
+    },
+    {
+      "id": "quality-rubric:field:03",
+      "sourceId": "quality-rubric",
+      "kind": "extraction_field",
+      "text": "must avoid refund or legal promises without policy evidence",
+      "trustLevel": "derived",
+      "refs": [
+        "examples/fixtures/support-triage/quality-rubric.md"
+      ],
+      "tags": [
+        "manual_inventory"
+      ]
+    },
+    {
+      "id": "support-policy-handbook:field:01",
+      "sourceId": "support-policy-handbook",
+      "kind": "extraction_field",
+      "text": "refund eligibility rules",
+      "trustLevel": "verified",
+      "refs": [
+        "examples/fixtures/support-triage/policy-handbook.md"
+      ],
+      "tags": [
+        "document"
+      ]
+    },
+    {
+      "id": "support-policy-handbook:field:02",
+      "sourceId": "support-policy-handbook",
+      "kind": "extraction_field",
+      "text": "account access escalation triggers",
+      "trustLevel": "verified",
+      "refs": [
+        "examples/fixtures/support-triage/policy-handbook.md"
+      ],
+      "tags": [
+        "document"
+      ]
+    },
+    {
+      "id": "support-policy-handbook:field:03",
+      "sourceId": "support-policy-handbook",
+      "kind": "extraction_field",
+      "text": "evidence requirements for customer-facing replies",
+      "trustLevel": "verified",
+      "refs": [
+        "examples/fixtures/support-triage/policy-handbook.md"
+      ],
+      "tags": [
+        "document"
+      ]
+    },
+    {
+      "id": "ticket-taxonomy:field:01",
+      "sourceId": "ticket-taxonomy",
+      "kind": "extraction_field",
+      "text": "priority labels",
+      "trustLevel": "trusted",
+      "refs": [
+        "examples/fixtures/support-triage/ticket-taxonomy.json"
+      ],
+      "tags": [
+        "database"
+      ]
+    },
+    {
+      "id": "ticket-taxonomy:field:02",
+      "sourceId": "ticket-taxonomy",
+      "kind": "extraction_field",
+      "text": "routing category",
+      "trustLevel": "trusted",
+      "refs": [
+        "examples/fixtures/support-triage/ticket-taxonomy.json"
+      ],
+      "tags": [
+        "database"
+      ]
+    },
+    {
+      "id": "ticket-taxonomy:field:03",
+      "sourceId": "ticket-taxonomy",
+      "kind": "extraction_field",
+      "text": "required next action",
+      "trustLevel": "trusted",
+      "refs": [
+        "examples/fixtures/support-triage/ticket-taxonomy.json"
+      ],
+      "tags": [
+        "database"
+      ]
+    }
+  ],
+  "userNeedInputs": [
+    "triage incoming support tickets by category and priority",
+    "draft a concise customer-facing response with evidence refs",
+    "escalate when policy or customer facts are missing"
+  ],
+  "outputs": {
+    "database": [
+      "support source inventory",
+      "ticket category table",
+      "priority and escalation matrix"
+    ],
+    "retrieval": [
+      "bounded policy evidence cards",
+      "support answer packet template"
+    ]
+  },
+  "refreshPolicy": {
+    "cadence": "before every support policy release",
+    "owner": "support operations lead",
+    "staleAfter": "30 days"
+  },
+  "forbiddenDataHandling": [
+    "Do not store credentials, customer secrets, raw ticket transcripts, or full tool result bodies in managed AgentMo evidence.",
+    "Do not promise refunds, legal outcomes, or account access without policy evidence and escalation rules.",
+    "Do not treat declared smoke evidence as production support certification."
+  ],
+  "coverage": {
+    "sourceCount": 3,
+    "factCount": 9,
+    "databaseOutputCount": 3,
+    "retrievalOutputCount": 2,
+    "userNeedInputCount": 3,
+    "sourceTypes": {
+      "database": 1,
+      "document": 1,
+      "manual_inventory": 1
+    },
+    "trustLevels": {
+      "derived": 1,
+      "trusted": 1,
+      "verified": 1
+    },
+    "sourceIds": [
+      "quality-rubric",
+      "support-policy-handbook",
+      "ticket-taxonomy"
+    ]
+  },
+  "safety": {
+    "rawSecretsStored": false,
+    "rawTranscriptsStored": false,
+    "rawToolBodiesStored": false,
+    "redactedInputStringCount": 0,
+    "managedEvidenceExcludes": [
+      "credential values",
+      "raw transcripts",
+      "raw tool bodies",
+      "production runtime state"
+    ]
+  },
+  "validation": {
+    "ok": true,
+    "warnings": [],
+    "errors": []
+  }
+}

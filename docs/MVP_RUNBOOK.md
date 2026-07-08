@@ -1,20 +1,123 @@
 # AgentMo MVP Runbook
 
-This runbook executes the first vertical AgentMother loop:
+This runbook executes the support-triage MVP as a composed vertical demo of AgentMo's three artifact contracts. It is not the only valid AgentMo path.
 
 ```text
-stage 1: search/collect data into a database
-stage 2: plan a new Agent from user needs plus that database
-stage 3: complete Agent design, implementation, and delivery evidence
+Stage 1 Discover -> Discovery Contract
+Stage 2 Plan     -> Agent Design / Blueprint Contract
+Stage 3 Produce  -> Delivery Evidence Contract
 ```
 
-The current MVP evidence work is stage 3 delivery closure:
+Current commands materialize operator-provided manifests and checked-in fixtures. They do not claim live web search or crawling.
+
+## Contract architecture
+
+- **Stage 1 Discover** produces `agentmo.discovery-pack.v1`, `agentmo.discovery-db.v1`, `facts.jsonl`, and `coverage.json`.
+- **Stage 2 Plan** consumes a valid discovery DB plus `agentmo.user-need.v1` and produces a valid blueprint/design contract with `agentmother_version: "0.1"`, eval requirements, and evidence policy.
+- **Stage 3 Produce** consumes any valid blueprint/design contract and produces delivery evidence: `agentmo.handoff.v1`, `agentmo.build.v1`, `agentmo.run.v1`, `agentmo.run-eval.v1`, `agentmo.birth-report.v1`, `agentmo.domain-eval.v1`, and `agentmo.delivery.v1`.
+
+Stage 3 may start from an externally reviewed or business-provided valid blueprint/design contract when bounded provenance records the source, reviewed status, review reference, contract version, and non-secret notes. That provenance admits the design to Stage 3; it does not certify runtime behavior, domain-wide quality, production readiness, or deployment approval. If generated handoff wording names discovery pack or user-need artifacts, read those as provenance/review references for AgentMo-generated designs, not as mandatory command ancestry for externally reviewed designs.
+
+See `docs/STAGE_CONTRACTS.md` for the full contract matrix.
+
+## Run each stage independently
+
+### Stage 1 only: materialize a Discovery Contract
+
+```bash
+WORK=/tmp/agentmo-stage1-only
+rm -rf "$WORK"
+mkdir -p "$WORK"
+node ./bin/agentmo.js discover-pack examples/support-triage.discovery.json --out "$WORK/discovery" --json
+```
+
+Expected outputs:
+
+```text
+$WORK/discovery/agentmo-discovery-db.json
+$WORK/discovery/facts.jsonl
+$WORK/discovery/coverage.json
+```
+
+Stop here when the goal is only a sanitized discovery pack. Do not infer blueprint, runtime, or domain certification from Stage 1 outputs.
+
+### Stage 2 only: draft a blueprint from contract artifacts
+
+Point `DISCOVERY_DB` at any existing valid `agentmo.discovery-db.v1` artifact. This command does not invoke `discover-pack` and does not require the original discovery manifest.
+
+```bash
+WORK=/tmp/agentmo-stage2-only
+rm -rf "$WORK"
+mkdir -p "$WORK"
+DISCOVERY_DB=/path/to/agentmo-discovery-db.json
+node ./bin/agentmo.js need-report examples/support-triage.need.json --json
+node ./bin/agentmo.js blueprint-draft "$DISCOVERY_DB" \
+  --need examples/support-triage.need.json \
+  --out "$WORK/support-triage.agentmo.json" \
+  --target openclaw \
+  --json
+node ./bin/agentmo.js validate "$WORK/support-triage.agentmo.json"
+```
+
+Stop here when the goal is only a reviewed blueprint/design contract. A valid blueprint is not runtime evidence and does not certify domain-wide quality or production approval.
+
+### Stage 3 only: produce delivery evidence from a valid blueprint
+
+This path starts from `examples/support-triage.agentmo.json`. It does not invoke `discover-pack`, `need-report`, or `blueprint-draft`.
+
+```bash
+WORK=/tmp/agentmo-stage3-only
+rm -rf "$WORK"
+mkdir -p "$WORK"
+BLUEPRINT=examples/support-triage.agentmo.json
+node ./bin/agentmo.js validate "$BLUEPRINT"
+node ./bin/agentmo.js handoff "$BLUEPRINT" --target openclaw --out "$WORK/handoff" --json
+node ./bin/agentmo.js scaffold "$BLUEPRINT" --target openclaw --out "$WORK/scaffold"
+node ./bin/agentmo.js run "$BLUEPRINT" \
+  --target openclaw \
+  --workspace "$WORK/workspace" \
+  --message "Say exactly: ok" \
+  --out "$WORK/run" \
+  --json > "$WORK/run-state.stdout.json"
+RUN_STATE="$(find "$WORK/run/runs" -name agentmo-run-state.json | sort | tail -n 1)"
+node ./bin/agentmo.js run-eval "$RUN_STATE" --expect-status declared --json > "$WORK/run-eval.json"
+node ./bin/agentmo.js birth-report "$BLUEPRINT" \
+  --build-state "$WORK/scaffold/agentmo-build-state.json" \
+  --run-state "$RUN_STATE" \
+  --run-eval "$WORK/run-eval.json" \
+  --expect-status declared \
+  --json > "$WORK/birth-report.json"
+node ./bin/agentmo.js domain-eval "$BLUEPRINT" \
+  --cases examples/support-triage.domain-cases.json \
+  --target openclaw \
+  --json > "$WORK/domain-eval.json"
+node ./bin/agentmo.js delivery-report "$BLUEPRINT" \
+  --build-state "$WORK/scaffold/agentmo-build-state.json" \
+  --run-state "$RUN_STATE" \
+  --run-eval "$WORK/run-eval.json" \
+  --birth-report "$WORK/birth-report.json" \
+  --domain-eval "$WORK/domain-eval.json" \
+  --json > "$WORK/delivery-report.json"
+```
+
+Expected result:
+
+- `birth-report.ok === true`
+- `birthStatus === "declared-ready"`
+- birth/run certification boundary fields remain false
+- `domain-eval.ok === true` for the sanitized deterministic fixture
+- `delivery-report.ok === true`
+- `delivery-report.deliveryReady === false` for declared-only runtime evidence
+
+Scaffold, declared run-state, run-eval, birth-report, domain-eval, and delivery-report are delivery evidence only. They do not certify runtime behavior, domain-wide quality, production readiness, or deployment approval by themselves; a passing domain-eval proves only the supplied bounded case suite, and delivery-report only aggregates source artifacts.
+
+## Support-triage composed vertical demo
+
+The full support-triage sequence composes all three stages:
 
 ```text
 discover-pack -> need-report -> blueprint-draft -> handoff -> scaffold/run/run-eval -> birth-report -> domain-eval -> delivery-report
 ```
-
-## Support-triage declared slice
 
 ```bash
 WORK=/tmp/agentmo-support-triage-mvp
@@ -66,7 +169,7 @@ Expected result:
 - `delivery-report.ok === true`
 - `delivery-report.deliveryReady === false` for declared-only runtime evidence
 
-The support-triage deterministic fixture is sanitized, bounded evidence. It proves the mechanism and sample case coverage only; it is not production customer-support certification.
+The support-triage deterministic fixture is sanitized, bounded evidence. It proves contract composition and sample case coverage only; it is not production customer-support certification.
 
 ## Live-success promotion gate
 

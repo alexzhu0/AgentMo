@@ -84,7 +84,7 @@ describe("scaffold", () => {
     assert.match(runbook, /OPENCLAW_STATE_DIR/u);
     assert.match(runbook, /--openclaw-source-root/u);
     assert.match(runbook, /does not certify OpenClaw domain parity/u);
-    assert.match(runbook, /mechanism evidence only; they are not domain parity certification/u);
+    assert.match(runbook, /domain-eval fixtures certify only their bounded case suite/u);
 
     const contract = await readFile(path.join(dir, "openclaw/runtime_contract.md"), "utf8");
     assert.match(contract, /Model loop/u);

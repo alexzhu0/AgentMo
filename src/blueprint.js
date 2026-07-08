@@ -1,6 +1,8 @@
 import { readFile } from "node:fs/promises";
+import { containsSecretLikeValue } from "./secret-redaction.js";
 
 export const SCHEMA_VERSION = "0.1";
+export const DESIGN_CONTRACT_VERSION = "agentmo.design-contract.v1";
 
 export const REQUIRED_TOP_LEVEL_FIELDS = [
   "agentmother_version",
@@ -93,6 +95,8 @@ const VALID_STATUSES = new Set(["draft", "gestating", "born", "training", "certi
 const VALID_RUNTIMES = new Set(["pi", "openclaw", "codex", "agentharness", "external"]);
 const VALID_RUNTIME_PROFILE_ROLES = new Set(["primary", "alternate", "legacy", "migration_source", "governance", "builder"]);
 const VALID_RUNTIME_PROFILE_STATUSES = new Set(["active", "planned", "legacy", "experimental", "deprecated"]);
+const VALID_DESIGN_CONTRACT_SOURCES = new Set(["agentmo-stage2", "external-reviewed"]);
+const DESIGN_CONTRACT_PROVENANCE_NOTE_MAX_LENGTH = 500;
 const RUNTIME_CERTIFICATION_ARRAY_FIELDS = [
   "supported_assets",
   "unsupported_surfaces",
@@ -133,6 +137,7 @@ export function validateBlueprint(blueprint) {
   }
 
   validateDiscoveryManifestPath(blueprint, errors);
+  validateDesignContract(blueprint.design_contract, errors);
 
   if (!VALID_RUNTIMES.has(blueprint.runtime)) {
     errors.push(`runtime must be one of: ${Array.from(VALID_RUNTIMES).join(", ")}`);
@@ -329,6 +334,48 @@ function validateDiscoveryManifestPath(blueprint, errors) {
   }
 }
 
+function validateDesignContract(value, errors) {
+  if (value === undefined) return;
+  if (!isObject(value)) {
+    errors.push("design_contract must be an object when provided.");
+    return;
+  }
+
+  validateDesignContractProvenance(value.provenance, errors);
+}
+
+function validateDesignContractProvenance(value, errors) {
+  if (!isObject(value)) {
+    errors.push("design_contract.provenance must be an object when design_contract is provided.");
+    return;
+  }
+
+  if (!VALID_DESIGN_CONTRACT_SOURCES.has(value.source)) {
+    errors.push(`design_contract.provenance.source must be one of: ${Array.from(VALID_DESIGN_CONTRACT_SOURCES).join(", ")}`);
+  }
+  if (typeof value.reviewed !== "boolean") {
+    errors.push("design_contract.provenance.reviewed must be a boolean.");
+  }
+  if (value.source === "external-reviewed" && value.reviewed !== true) {
+    errors.push("design_contract.provenance.reviewed must be true for external-reviewed designs.");
+  }
+  if ("review_ref" in value) optionalString(value, "design_contract.provenance.review_ref", errors);
+  if (value.contract_version !== DESIGN_CONTRACT_VERSION) {
+    errors.push(`design_contract.provenance.contract_version must be ${DESIGN_CONTRACT_VERSION}`);
+  }
+  requireString(value, "design_contract.provenance.notes", errors);
+  if (typeof value.notes === "string" && value.notes.length > DESIGN_CONTRACT_PROVENANCE_NOTE_MAX_LENGTH) {
+    errors.push(
+      `design_contract.provenance.notes must be ${DESIGN_CONTRACT_PROVENANCE_NOTE_MAX_LENGTH} characters or fewer.`,
+    );
+  }
+
+  const secretFindings = collectSecretLikeStringFindings(value, "design_contract.provenance");
+  if (secretFindings.length > 0) {
+    errors.push(`design_contract.provenance must not contain secret-like string values: ${secretFindings.join(", ")}`);
+  }
+}
+
 function summarizeRuntimeCertification(blueprint) {
   if (!Array.isArray(blueprint.runtime_profiles)) return [];
   return blueprint.runtime_profiles.filter(isObject).map((profile) => {
@@ -516,6 +563,23 @@ function optionalIsoLikeDateString(object, path, errors) {
   if (!nonEmptyString(object[key]) || !/^\d{4}-\d{2}-\d{2}(?:$|[T ])/u.test(object[key])) {
     errors.push(`${path} must be an ISO-like date string when provided.`);
   }
+}
+
+function collectSecretLikeStringFindings(value, pointer = "$", findings = []) {
+  if (typeof value === "string") {
+    if (containsSecretLikeValue(value)) findings.push(pointer);
+    return findings;
+  }
+  if (Array.isArray(value)) {
+    for (const [index, item] of value.entries()) collectSecretLikeStringFindings(item, `${pointer}[${index}]`, findings);
+    return findings;
+  }
+  if (isObject(value)) {
+    for (const [key, item] of Object.entries(value)) {
+      collectSecretLikeStringFindings(item, `${pointer}.${key}`, findings);
+    }
+  }
+  return findings;
 }
 
 function isObject(value) {

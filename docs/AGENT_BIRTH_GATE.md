@@ -51,6 +51,6 @@ Birth evidence is necessary for promotion, but it is not domain quality certific
 
 `birth-report` proves only mechanism/runtime birth evidence. It does not consume or replace domain-quality evidence.
 
-- `domain-eval` records independent domain-quality evidence from bounded cases or reviewed eval artifacts. It does not certify runtime execution or production approval.
-- `delivery-report` revalidates and aggregates blueprint, build-state, run-state, run-eval, birth-report, and optional domain-eval artifacts. It does not certify runtime behavior, domain quality, OpenClaw production readiness, or production deployment by itself.
+- `domain-eval` records independent bounded case-suite evidence from supplied cases or reviewed eval artifacts. A passing report can set `domainCertifiedByDomainEval` for that suite only; it does not certify runtime execution, production approval, or domain-wide quality.
+- `delivery-report` revalidates and aggregates blueprint, build-state, run-state, run-eval, birth-report, and optional domain-eval artifacts. It can carry bounded domain-eval status from the source artifact, but it does not create runtime certification, domain-wide quality certification, OpenClaw production readiness, or production deployment approval by itself.
 - The support-triage deterministic fixture is sanitized and bounded evidence. It proves only the sample mechanism and case coverage, not production customer-support certification.

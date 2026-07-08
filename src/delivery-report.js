@@ -164,7 +164,7 @@ export function formatDeliveryReport(report) {
     `Domain certified by domain-eval: ${report.domainCertified ? "yes" : "no"}`,
     `Runtime promotion eligible: ${report.runtimePromotionEligible ? "yes" : "no"}`,
     `Delivery ready: ${report.deliveryReady ? "yes" : "no"}`,
-    "Certification: delivery-report aggregates evidence only; it does not certify runtime, domain, or production approval",
+    "Certification: delivery-report aggregates source evidence; bounded domain status comes only from supplied domain-eval, and runtime/production/domain-wide approval is not implied",
   ];
   for (const checkItem of report.checks) lines.push(`- ${checkItem.pass ? "PASS" : "FAIL"} ${checkItem.id}: ${checkItem.message}`);
   if (report.nextActions.length > 0) {
@@ -265,7 +265,7 @@ function auditMessage(audit) {
 
 function nextActions({ ok, domainCertified, runtimePromotionEligible, deliveryReady }) {
   if (!ok) return ["Fix failed delivery checks, rerun source evidence commands, then regenerate delivery-report."];
-  if (!domainCertified) return ["Run domain-eval with deterministic bounded cases before domain certification claims."];
+  if (!domainCertified) return ["Run domain-eval with deterministic bounded cases before bounded case-suite domain certification claims."];
   if (!runtimePromotionEligible) return ["Collect live-success birth evidence before runtime promotion or delivery-ready claims."];
   if (!deliveryReady) return ["Resolve remaining delivery readiness blockers before release."];
   return [];

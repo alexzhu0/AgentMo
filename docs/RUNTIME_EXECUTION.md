@@ -75,7 +75,7 @@ node ./bin/agentmo.js delivery-report <blueprint.json> \
 ```
 
 - `domain-eval` evaluates bounded cases or reviewed eval artifacts. It does not certify runtime execution or production approval.
-- `delivery-report` aggregates and revalidates source artifacts. It does not self-certify runtime, domain quality, OpenClaw production readiness, or deployment approval.
+- `delivery-report` aggregates and revalidates source artifacts. It can carry bounded domain-eval status, but it does not self-certify runtime behavior, domain-wide quality, OpenClaw production readiness, or deployment approval.
 - The support-triage deterministic fixture is sanitized and bounded. It proves sample mechanism/case coverage only, not production support certification.
 
 ## Message and session boundaries

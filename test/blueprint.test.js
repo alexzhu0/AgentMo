@@ -1,10 +1,14 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { readFile } from "node:fs/promises";
-import { validateBlueprint, evaluateQualityGates, summarizeBlueprint } from "../src/blueprint.js";
+import { DESIGN_CONTRACT_VERSION, validateBlueprint, evaluateQualityGates, summarizeBlueprint } from "../src/blueprint.js";
 
 async function loadExample() {
   return JSON.parse(await readFile(new URL("../examples/win9.agentmo.json", import.meta.url), "utf8"));
+}
+
+async function loadSupportExample() {
+  return JSON.parse(await readFile(new URL("../examples/support-triage.agentmo.json", import.meta.url), "utf8"));
 }
 
 describe("blueprint validation", () => {
@@ -109,5 +113,48 @@ describe("blueprint validation", () => {
     const result = validateBlueprint(blueprint);
     assert.equal(result.ok, false);
     assert.equal(result.errors.some((error) => error.includes("discovery_manifest_path")), true);
+  });
+
+  it("accepts bounded design-contract provenance when present", async () => {
+    const blueprint = await loadSupportExample();
+    const result = validateBlueprint(blueprint);
+    assert.equal(result.ok, true, result.errors.join("\n"));
+    assert.equal(blueprint.design_contract.provenance.source, "agentmo-stage2");
+    assert.equal(blueprint.design_contract.provenance.reviewed, true);
+    assert.equal(blueprint.design_contract.provenance.contract_version, DESIGN_CONTRACT_VERSION);
+    assert.equal(
+      blueprint.governance.policies.includes(
+        "AgentMo-generated blueprints must preserve reviewed discovery/user-need provenance; Stage 3 admission is by valid design contract.",
+      ),
+      true,
+    );
+    assert.equal(blueprint.governance.policies.includes("discover-plan-produce order is mandatory"), false);
+  });
+
+  it("keeps design-contract provenance optional but validates it when present", async () => {
+    const blueprint = await loadExample();
+    assert.equal(validateBlueprint(blueprint).ok, true);
+
+    blueprint.design_contract = { provenance: { source: "unreviewed", reviewed: "yes", contract_version: "old", notes: "" } };
+    const malformed = validateBlueprint(blueprint);
+    assert.equal(malformed.ok, false);
+    assert.equal(malformed.errors.some((error) => error.includes("design_contract.provenance.source")), true);
+    assert.equal(malformed.errors.some((error) => error.includes("design_contract.provenance.reviewed must be a boolean")), true);
+    assert.equal(malformed.errors.some((error) => error.includes("design_contract.provenance.contract_version")), true);
+    assert.equal(malformed.errors.some((error) => error.includes("design_contract.provenance.notes")), true);
+
+    blueprint.design_contract = {
+      provenance: {
+        source: "external-reviewed",
+        reviewed: false,
+        review_ref: "api_key=secret-value-123456",
+        contract_version: DESIGN_CONTRACT_VERSION,
+        notes: "Reviewed outside AgentMo.",
+      },
+    };
+    const secretLike = validateBlueprint(blueprint);
+    assert.equal(secretLike.ok, false);
+    assert.equal(secretLike.errors.some((error) => error.includes("reviewed must be true for external-reviewed")), true);
+    assert.equal(secretLike.errors.some((error) => error.includes("secret-like string values")), true);
   });
 });

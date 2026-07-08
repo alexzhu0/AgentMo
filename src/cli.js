@@ -962,8 +962,8 @@ Concepts:
   replay-run       Reconstruct a prior run into a fresh child session unless --resume-session is explicit.
   run-eval         Evaluate evidence completeness without certifying runtime/domain behavior.
   birth-report     Fail-closed birth gate over blueprint, build-state, run-state, and run-eval evidence.
-  domain-eval      Evaluate deterministic domain cases with bounded evidence refs; does not certify runtime/production.
-  delivery-report  Re-validate and aggregate delivery closure evidence; does not itself certify runtime/domain/production.
+  domain-eval      Evaluate deterministic domain cases with bounded evidence refs; certifies only supplied cases.
+  delivery-report  Re-validate and aggregate delivery closure evidence; does not itself certify runtime/domain-wide/production.
   observe-run      Convert run-state evidence into a proposal-only observation record.
   scaffold         Generate a domain-agent harness. Use --target openclaw for an OpenClaw workspace scaffold.
   observe          Validate and summarize an observe/evolve record without applying changes.

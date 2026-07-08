@@ -1,14 +1,16 @@
 # AgentMo
 
-AgentMo is a minimal **AgentMother** toolkit: it finds what agent should be built, plans the agent from data plus user needs, then scaffolds a repo-native harness for coding-agent production.
+AgentMo is a minimal **AgentMother** toolkit: it records what agent should be built, plans the agent from valid data plus user needs, then scaffolds a repo-native harness for coding-agent production.
 
-AgentMo has three explicit stages:
+AgentMo has three explicit stages connected by artifact contracts, not mandatory command ancestry:
 
-1. Search and collect source data into a structured database.
-2. Combine user needs with that database to plan a new Agent.
-3. Finish the Agent design, implementation, and delivery evidence loop.
+1. **Discover -> Discovery Contract:** materialize bounded source inventory, `agentmo.discovery-pack.v1`, `agentmo.discovery-db.v1`, `facts.jsonl`, and `coverage.json`.
+2. **Plan -> Agent Design / Blueprint Contract:** combine a valid discovery database with `agentmo.user-need.v1` to produce a valid blueprint with `agentmother_version: "0.1"`, eval requirements, and evidence policy.
+3. **Produce -> Delivery Evidence Contract:** accept any valid AgentMo blueprint/design contract, including externally reviewed or business-provided designs with bounded provenance, then produce handoff, scaffold, run, eval, birth, domain-eval, and delivery evidence.
 
-The current `domain-eval` / `delivery-report` work belongs to stage 3: it closes delivery evidence after scaffold, run-state, run-eval, and birth-report exist.
+The support-triage MVP is a composed vertical demo of those contracts. It is not the only valid path. The current `domain-eval` / `delivery-report` work belongs to stage 3: it closes delivery evidence after scaffold, run-state, run-eval, and birth-report exist.
+
+See `docs/STAGE_CONTRACTS.md` for the contract matrix, allowed inputs, forbidden coupling, and independent verification commands.
 
 AgentMother is not a chat prompt generator. It is a mechanism for building agents as software:
 
@@ -86,10 +88,11 @@ Those instructions are the project-specific contract for future coding agents wo
 
 The Win9-on-Pi work showed a new development mode: use Codex to build another agent system on top of Pi. AgentMo captures that mode as a reusable three-stage mother mechanism.
 
-- Stage 1 discovery searches and collects source data, forms structured databases or retrieval corpora, and captures user needs.
-- Discovery can be recorded as an external `agentmo.discovery.v1` manifest; `discover-report` validates and summarizes it.
-- Stage 2 planning turns discovered data plus user needs into an executable blueprint for the new Agent.
-- Stage 3 production uses Codex and other coding-agent runtimes to finish Agent design, implementation, runtime evidence, domain eval, and delivery reporting.
+- Stage 1 discovery materializes approved source inputs into structured databases or retrieval corpora; current commands use operator-provided manifests rather than claiming live web crawling.
+- Discovery can be recorded as an external `agentmo.discovery.v1` manifest; `discover-report` validates it and `discover-pack` materializes `agentmo.discovery-pack.v1` / `agentmo.discovery-db.v1` artifacts.
+- Stage 2 planning turns a valid discovery database plus `agentmo.user-need.v1` into an executable blueprint/design contract for the new Agent.
+- Stage 3 production accepts a valid blueprint/design contract by artifact validity, not command ancestry. It may start from AgentMo Stage 2 output or from an externally reviewed/business-provided contract with bounded provenance.
+- Stage 3 then uses Codex and other coding-agent runtimes to finish handoff, scaffold, runtime evidence, domain eval, and delivery reporting.
 - Codex acts as the builder: reads, edits, tests, verifies, documents.
 - Pi can act as the active runtime: local agents, tools, sessions, extension surface.
 - OpenClaw can be recorded as an active alternate architecture profile: Gateway, channel delivery, isolated agents, session trajectories, and plugin/runtime ownership boundaries.
@@ -98,17 +101,19 @@ The Win9-on-Pi work showed a new development mode: use Codex to build another ag
 
 ## Quality rule
 
-AgentMo follows one strict idea:
+AgentMo follows one strict idea. Read these as artifact-contract rules, not as mandatory command ancestry:
 
 ```text
-No discovery, no plan.
-No plan, no production.
+No valid Discovery Contract, no AgentMo-generated plan.
+No valid Agent Design / Blueprint Contract, no production.
 No eval, no birth.
 No evidence, no release.
 No tool contract, no runtime.
 No governance, no production.
 No version ledger, no reproduction.
 ```
+
+For Stage 3, an externally reviewed or business-provided valid blueprint/design contract can satisfy the plan contract when it carries bounded provenance. That admission does not certify runtime behavior, domain-wide quality, or production approval.
 
 ## Project layout
 
@@ -138,6 +143,7 @@ docs/MVP_RUNBOOK.md         End-to-end MVP birth-loop runbook
 docs/AGENTMO_MVP_LEDGER.md  MVP evidence ledger and non-certification disclosure
 docs/OBSERVE_EVOLVE.md      Evidence-first observe/evolve record rules
 docs/OPENCLAW_RUNTIME_NOTES.md  OpenClaw source-derived runtime notes
+docs/STAGE_CONTRACTS.md     Stage artifact contracts and independent verification commands
 release/                    Date-based release records and evidence summaries
 test/                       Node test suite
 ```
@@ -169,17 +175,19 @@ If build state is absent or unreadable, status remains available and reports the
 
 ## MVP birth loop
 
-The first executable AgentMother loop is:
+The first executable AgentMother loop is a composed vertical demo of the three artifact contracts:
 
 ```text
 discover-pack -> need-report -> blueprint-draft -> handoff -> scaffold/run/run-eval -> birth-report -> domain-eval -> delivery-report
 ```
 
+This sequence proves that the contracts compose. It does not make Stage 3 depend on the Stage 1 or Stage 2 command path when a valid blueprint/design contract is already available.
+
 `birth-report` is fail-closed. It requires a valid blueprint, `agentmo-build-state.json`, `agentmo-run-state.json`, and a passing `agentmo.run-eval.v1` report. Declared evidence proves wiring only; `live-success` evidence from isolated live execution is required before runtime promotion. The birth report never certifies runtime parity, domain quality, or production deployment.
 
-`domain-eval` is independent domain-quality evidence over bounded domain cases. The support-triage deterministic fixture is sanitized and bounded; it proves only the mechanism/sample behavior it covers, not production customer-support certification.
+`domain-eval` is independent bounded case-suite evidence over supplied domain cases. When it passes, `domainCertifiedByDomainEval` means the supplied deterministic suite passed; it is not production, customer-support-wide, or domain-wide certification.
 
-`delivery-report` revalidates and aggregates blueprint, build-state, run-state, run-eval, birth-report, and optional domain-eval artifacts. It does not certify runtime behavior, domain quality, OpenClaw production readiness, or production deployment by itself.
+`delivery-report` revalidates and aggregates blueprint, build-state, run-state, run-eval, birth-report, and optional domain-eval artifacts. It can carry the bounded domain-eval result, but it does not create runtime certification, domain-wide quality certification, OpenClaw production readiness, or production deployment approval by itself.
 
 See `docs/MVP_RUNBOOK.md` and `docs/AGENT_BIRTH_GATE.md`.
 
