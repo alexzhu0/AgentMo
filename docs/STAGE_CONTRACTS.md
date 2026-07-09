@@ -14,7 +14,7 @@ The support-triage MVP remains the composed vertical demo of these contracts. It
 
 | Stage | Purpose | Accepted inputs | Produced outputs | Forbidden process dependency |
 | --- | --- | --- | --- | --- |
-| Stage 1 Discover | Materialize bounded source inventory, sanitized facts, and coverage. | `agentmo.discovery.v1` manifest or future external collector input that can be reduced to the same discovery facts. | `agentmo.discovery-pack.v1`, `agentmo.discovery-db.v1`, `facts.jsonl`, `coverage.json`. | Stage 2 planner implementation, blueprint files, Stage 3 runtime target or run evidence. |
+| Stage 1 Discover | Materialize bounded source inventory, sanitized facts, and coverage. | `agentmo.discovery.v1` manifest. `discover-pack` uses it as manifest-only input; `discover-workspace` also reads approved local source files under a repo-bound `--source-root`. | `agentmo.discovery-db.v1`, `facts.jsonl`, `coverage.json`; workspace intake also writes `source-cards.json` and `source-chunks.jsonl`. | Stage 2 planner implementation, blueprint files, Stage 3 runtime target or run evidence. |
 | Stage 2 Plan | Convert valid discovery facts plus user need into a buildable agent design. | `agentmo.discovery-db.v1` plus `agentmo.user-need.v1`, regardless of how the discovery DB was created. | Valid AgentMo blueprint/design contract with `agentmother_version: "0.1"`, eval requirements, and evidence policy. | Stage 1 command path, original discovery manifest, Stage 3 scaffold/run/birth/delivery commands. |
 | Stage 3 Produce | Turn a valid design contract into handoff, scaffold, run evidence, eval evidence, and delivery closure artifacts. | Valid blueprint/design contract and explicit target/runtime options. The design may be AgentMo-generated or externally reviewed/business-provided with bounded provenance. | `agentmo.handoff.v1`, `agentmo.build.v1`, `agentmo.run.v1`, `agentmo.run-eval.v1`, `agentmo.birth-report.v1`, `agentmo.domain-eval.v1`, `agentmo.delivery.v1`. | Discovery DB/user-need generation process, Stage 1 commands, Stage 2 commands. |
 
@@ -27,20 +27,32 @@ Stage 1 owns source inventory, sanitized fact extraction, coverage, and discover
 ### Accepted input artifacts
 
 - Current CLI input: `agentmo.discovery.v1` discovery manifest.
+- `discover-workspace` additionally requires an explicit `--source-root <dir>` that resolves inside the current AgentMo repository root.
 - Future/external collector input is acceptable only when it can produce the same sanitized discovery contract artifacts.
 
 ### Produced output artifacts
 
-`agentmo discover-pack` emits an `agentmo.discovery-pack.v1` summary and writes:
+`agentmo discover-pack` is the manifest-only path. It emits an `agentmo.discovery-pack.v1` summary and writes:
 
 - `agentmo-discovery-db.json` with `schemaVersion: "agentmo.discovery-db.v1"`;
 - `facts.jsonl` with bounded sanitized fact records;
 - `coverage.json` with source/fact/output coverage metadata.
 
+`agentmo discover-workspace <discovery.json> --source-root <dir> --out <dir> [--json]` is the approved local source-intake path. It writes the same durable discovery DB plus workspace sidecars:
+
+- `agentmo-discovery-db.json` with `schemaVersion: "agentmo.discovery-db.v1"`;
+- `facts.jsonl` emitted from the same facts array as the DB;
+- `coverage.json` with source, chunk, rejection, redaction, and truncation coverage;
+- `source-cards.json` with sanitized per-source metadata/previews;
+- `source-chunks.jsonl` with bounded sanitized chunk records.
+
+Source-derived evidence must be DB-visible as `kind:"source_chunk"` facts in both `agentmo-discovery-db.json.facts` and `facts.jsonl`. `source-cards.json` and `source-chunks.jsonl` are supplemental; they are not required Stage 2 inputs.
+
 ### Validators and commands
 
 - `agentmo discover-report <discovery.json> [--json]`
 - `agentmo discover-pack <discovery.json> --out <dir> [--json]`
+- `agentmo discover-workspace <discovery.json> --source-root <dir> --out <dir> [--json]`
 - Pure helpers: `validateDiscoveryManifest`, `buildDiscoveryPack`, `buildDiscoveryDb`.
 
 ### Forbidden reads and dependencies
@@ -50,13 +62,17 @@ Stage 1 must not require:
 - `agentmo.user-need.v1`;
 - a blueprint/design contract;
 - `blueprint-draft`, `handoff`, `scaffold`, `run`, `birth-report`, `domain-eval`, or `delivery-report` execution;
-- a runtime target such as `openclaw`.
+- blueprint, handoff, build-state, run-state, birth-report, domain-eval, or delivery-report artifact writes;
+- a runtime target such as `openclaw`;
+- web crawling, live search, browser automation, or search API access;
+- source roots that point at parent directories, sibling projects, `.env` files, credential files, key/cert directories, or other secret roots.
 
 ### Guarantees and safety boundaries
 
 - Discovery outputs are sanitized managed artifacts.
 - Safety metadata keeps `rawSecretsStored:false`, `rawTranscriptsStored:false`, and `rawToolBodiesStored:false`.
-- Stage 1 does not claim web crawling or live search. Current inputs are checked-in or operator-provided manifests and future collector outputs must enter through the same bounded contract.
+- `discover-workspace` must fail closed when a workspace is unsafe. The emitted DB must expose that state through validation/safety fields such as `validation.ok:false` or `safety.workspaceOk:false`.
+- Stage 1 does not claim web crawling or live search. Current inputs are checked-in or operator-provided manifests and approved local source files. Future collector outputs must enter through the same bounded contract.
 
 ### Certification boundary
 
@@ -69,6 +85,7 @@ WORK=/tmp/agentmo-stage-contracts
 rm -rf "$WORK"
 mkdir -p "$WORK"
 node ./bin/agentmo.js discover-pack examples/support-triage.discovery.json --out "$WORK/discovery" --json
+node ./bin/agentmo.js discover-workspace examples/support-triage.discovery.json --source-root . --out "$WORK/discovery-workspace" --json
 ```
 
 ## Stage 2 Plan -> Agent Design / Blueprint Contract
@@ -82,7 +99,7 @@ Stage 2 owns user-need interpretation, blueprint drafting, agent architecture, e
 - `agentmo-discovery-db.json` with `schemaVersion: "agentmo.discovery-db.v1"`.
 - User need JSON with `schemaVersion: "agentmo.user-need.v1"`.
 
-The discovery DB may come from Stage 1, an imported database, or a manual/external process. Stage 2 depends on artifact validity, not on `discover-pack` ancestry.
+The discovery DB may come from `discover-pack`, `discover-workspace`, an imported database, or a manual/external process. Stage 2 depends on artifact validity, not on Stage 1 command ancestry. A workspace DB with failing validation or `safety.workspaceOk:false` is not a valid Stage 2 input.
 
 ### Produced output artifacts
 
@@ -106,12 +123,14 @@ Stage 2 produces a valid AgentMo blueprint/design contract:
 Stage 2 must not require:
 
 - the original `agentmo.discovery.v1` manifest when a valid `agentmo.discovery-db.v1` is supplied;
-- `discover-pack` execution in the same command path;
+- `discover-pack` or `discover-workspace` execution in the same command path;
+- workspace sidecars such as `source-cards.json` or `source-chunks.jsonl` when the discovery DB already contains valid `source_chunk` facts;
 - Stage 3 handoff/scaffold/run/birth/delivery artifacts.
 
 ### Guarantees and safety boundaries
 
 - The blueprint validates before Stage 3 admission.
+- Unsafe workspace DBs fail closed before blueprint drafting.
 - The design describes eval/evidence policy before production claims.
 - A drafted blueprint is still a plan; it is not runtime evidence.
 

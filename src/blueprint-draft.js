@@ -153,6 +153,9 @@ function assertDraftInputs(discoveryDb, userNeed) {
   if (typeof discoveryDb.agentId === "string" && discoveryDb.agentId !== userNeed.agent_id) {
     throw new Error(`discovery-db agentId ${discoveryDb.agentId} does not match user-need agent_id ${userNeed.agent_id}`);
   }
+  if (discoveryDb.safety?.workspaceOk === false || discoveryDb.workspace?.ok === false) {
+    throw new Error("Cannot draft blueprint from an unsafe workspace discovery-db safety state.");
+  }
   if (discoveryDb.validation?.ok !== true) {
     throw new Error("Cannot draft blueprint from a discovery-db whose source manifest did not validate.");
   }

@@ -5,6 +5,7 @@ import { loadBlueprint, validateBlueprint } from "./blueprint.js";
 import { buildBlueprintDraftReport, draftBlueprint, formatBlueprintDraftReport, loadJsonFile, writeBlueprintDraft } from "./blueprint-draft.js";
 import { buildDeliveryReport, formatDeliveryReport } from "./delivery-report.js";
 import { buildDiscoveryPack, formatDiscoveryPack, writeDiscoveryPack } from "./discovery-db.js";
+import { buildDiscoveryWorkspace, formatDiscoveryWorkspace, writeDiscoveryWorkspace } from "./discovery-source-workspace.js";
 import { buildDiscoveryReport, formatDiscoveryReport, loadDiscoveryManifest } from "./discovery.js";
 import { buildDomainEval, formatDomainEval, loadDomainCases } from "./domain-eval.js";
 import { buildHandoffPackage, formatHandoffPackage, writeHandoffPackage } from "./handoff.js";
@@ -69,6 +70,20 @@ export async function main(args) {
     const result = { ...pack, paths };
     process.stdout.write(options.json ? `${JSON.stringify(result, null, 2)}\n` : formatDiscoveryPack(pack, paths));
     if (!pack.ok) process.exitCode = 1;
+    return;
+  }
+
+  if (command === "discover-workspace") {
+    const options = parseDiscoverWorkspaceArgs(rest);
+    const manifest = await loadDiscoveryManifest(options.file);
+    const workspace = await buildDiscoveryWorkspace(manifest, {
+      manifestPath: options.file,
+      sourceRoot: options.sourceRoot,
+    });
+    const paths = await writeDiscoveryWorkspace(options.out, workspace);
+    const result = { ...workspace, paths };
+    process.stdout.write(options.json ? `${JSON.stringify(result, null, 2)}\n` : formatDiscoveryWorkspace(workspace, paths));
+    if (!workspace.ok) process.exitCode = 1;
     return;
   }
 
@@ -291,6 +306,31 @@ function parseDiscoverPackArgs(args) {
   }
   requireOptionValue(out, "--out");
   return { file: resolve(file), out: resolve(out), json };
+}
+
+function parseDiscoverWorkspaceArgs(args) {
+  const file = args[0];
+  if (!file) throw new Error("Missing discovery manifest file path.");
+  let sourceRoot = null;
+  let out = null;
+  let json = false;
+  for (let index = 1; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--source-root") {
+      sourceRoot = args[index + 1];
+      index += 1;
+    } else if (arg === "--out") {
+      out = args[index + 1];
+      index += 1;
+    } else if (arg === "--json") {
+      json = true;
+    } else {
+      throw new Error(`Unknown discover-workspace option: ${arg}`);
+    }
+  }
+  requireOptionValue(sourceRoot, "--source-root");
+  requireOptionValue(out, "--out");
+  return { file: resolve(file), sourceRoot: resolve(sourceRoot), out: resolve(out), json };
 }
 
 function parseBlueprintDraftArgs(args) {
@@ -929,6 +969,7 @@ Usage:
   agentmo report <blueprint.json> [--json]
   agentmo discover-report <discovery.json> [--json]
   agentmo discover-pack <discovery.json> --out <dir> [--json]
+  agentmo discover-workspace <discovery.json> --source-root <dir> --out <dir> [--json]
   agentmo need-report <need.json> [--json]
   agentmo blueprint-draft <agentmo-discovery-db.json> --need <need.json> --out <blueprint.json> [--target agentmo|openclaw] [--json]
   agentmo handoff <blueprint.json> --target agentmo|openclaw --out <dir> [--json]
@@ -951,6 +992,7 @@ Concepts:
   report           Build a human or JSON AgentMother readiness report.
   discover-report  Validate and summarize a discovery/input manifest.
   discover-pack    Materialize a sanitized discovery database, facts JSONL, and coverage report.
+  discover-workspace  Read approved repo-bound local sources into sanitized Stage 1 discovery artifacts.
   need-report      Validate and summarize a concrete user-need brief.
   blueprint-draft  Draft a valid AgentMo blueprint from discovery data plus user need.
   handoff          Write a coding/runtime handoff package for the generated blueprint.

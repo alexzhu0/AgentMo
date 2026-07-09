@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 const CLI = fileURLToPath(new URL("../bin/agentmo.js", import.meta.url));
+const REPO_ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const DISCOVERY = fileURLToPath(new URL("../examples/support-triage.discovery.json", import.meta.url));
 const NEED = fileURLToPath(new URL("../examples/support-triage.need.json", import.meta.url));
 const PREBUILT_DISCOVERY_DB = fileURLToPath(new URL("../examples/fixtures/support-triage/prebuilt-discovery-db.json", import.meta.url));
@@ -95,6 +96,12 @@ function assertNoAbsoluteLocalPaths(value, pointer = "$") {
   }
 }
 
+function assertNoHostPathText(text, label, extraPath = null) {
+  assert.equal(text.includes(REPO_ROOT), false, `${label} must not contain repo root ${REPO_ROOT}`);
+  assert.equal(text.includes("/home/alex"), false, `${label} must not contain host-specific /home/alex paths`);
+  if (extraPath) assert.equal(text.includes(extraPath), false, `${label} must not contain absolute path ${extraPath}`);
+}
+
 function assertNoCertifyingTrueClaims(value, label, pointer = "$", findings = []) {
   if (Array.isArray(value)) {
     for (const [index, item] of value.entries()) assertNoCertifyingTrueClaims(item, label, `${pointer}[${index}]`, findings);
@@ -121,20 +128,37 @@ describe("stage contract independence", () => {
 
     const discover = await runCli(["discover-pack", DISCOVERY, "--out", discoveryOut, "--json"]);
     assert.equal(discover.code, 0, discover.stderr);
+    assertNoHostPathText(discover.stdout, "discover-pack stdout", discoveryOut);
     const result = JSON.parse(discover.stdout);
     assert.equal(result.schemaVersion, "agentmo.discovery-pack.v1");
     assert.equal(result.ok, true);
     assert.equal(result.discoveryDb.agentId, "support-triage");
+    assert.deepEqual(result.paths, {
+      outDir: ".",
+      discoveryDbPath: "agentmo-discovery-db.json",
+      factsPath: "facts.jsonl",
+      coveragePath: "coverage.json",
+    });
+    assertNoAbsoluteLocalPaths(result);
 
     const files = await listRelativeFiles(discoveryOut);
     assert.deepEqual(files, ["agentmo-discovery-db.json", "coverage.json", "facts.jsonl"]);
     assertNoStage2OrStage3Artifacts(files);
 
-    const discoveryDb = await readJson(path.join(discoveryOut, "agentmo-discovery-db.json"));
-    const coverage = await readJson(path.join(discoveryOut, "coverage.json"));
+    const discoveryDbText = await readFile(path.join(discoveryOut, "agentmo-discovery-db.json"), "utf8");
+    const factsText = await readFile(path.join(discoveryOut, "facts.jsonl"), "utf8");
+    const coverageText = await readFile(path.join(discoveryOut, "coverage.json"), "utf8");
+    assertNoHostPathText(discoveryDbText, "discover-pack discovery DB", discoveryOut);
+    assertNoHostPathText(factsText, "discover-pack facts JSONL", discoveryOut);
+    assertNoHostPathText(coverageText, "discover-pack coverage JSON", discoveryOut);
+    const discoveryDb = JSON.parse(discoveryDbText);
+    const coverage = JSON.parse(coverageText);
     assert.equal(discoveryDb.schemaVersion, "agentmo.discovery-db.v1");
+    assert.equal(discoveryDb.sourceManifest.path, "examples/support-triage.discovery.json");
     assert.equal(discoveryDb.validation.ok, true);
     assert.equal(coverage.sourceCount, 3);
+    assertNoAbsoluteLocalPaths(discoveryDb);
+    assertNoAbsoluteLocalPaths(coverage);
   });
 
   it("Stage 2 drafts a valid blueprint from a prebuilt discovery-db fixture plus user need", async () => {

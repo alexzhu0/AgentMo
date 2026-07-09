@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 const CLI = fileURLToPath(new URL("../bin/agentmo.js", import.meta.url));
+const REPO_ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const BLUEPRINT = fileURLToPath(new URL("../examples/win9.agentmo.json", import.meta.url));
 const DISCOVERY = fileURLToPath(new URL("../examples/win9.discovery.json", import.meta.url));
 
@@ -108,6 +109,106 @@ describe("cli", () => {
     assert.equal(json.ok, true);
     assert.equal(json.summary.agent_id, "win9");
     assert.equal(json.summary.source_count, 3);
+  });
+
+  it("scrubs denied discover-pack source locations from stdout and artifacts while preserving ordinary URLs", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agentmo-cli-denied-discovery-location-"));
+    const manifestPath = path.join(root, "denied-location.discovery.json");
+    const out = path.join(root, "out");
+    const deniedLocations = [".env", ".env.local", "private.key", "credentials.json"];
+    const manifest = {
+      schemaVersion: "agentmo.discovery.v1",
+      agent_id: "support-triage",
+      source_inventory: [
+        ...deniedLocations.map((location, index) => ({
+          id: `denied-location-${index + 1}`,
+          type: "document",
+          trust_level: "verified",
+          description: `Denied location CLI fixture ${index + 1}`,
+          location,
+          extraction_fields: [`Denied location CLI field ${index + 1}`],
+        })),
+        {
+          id: "ordinary-url-doc",
+          type: "document",
+          trust_level: "verified",
+          description: "Ordinary URL documentation path",
+          location: "https://example.com/docs/policy",
+          extraction_fields: ["Ordinary URL field"],
+        },
+      ],
+      database_outputs: ["safe discovery database"],
+      retrieval_outputs: ["safe retrieval facts"],
+      user_need_inputs: ["triage incoming support tickets by category and priority"],
+      refresh_policy: {
+        cadence: "before every fixture update",
+        owner: "test engineer",
+        stale_after: "30 days",
+      },
+      forbidden_data_handling: ["Do not store credentials, raw transcripts, or raw tool bodies in managed evidence."],
+    };
+    await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+
+    const result = await runCli(["discover-pack", manifestPath, "--out", out, "--json"]);
+
+    assert.equal(result.code, 1, result.stderr);
+    const json = JSON.parse(result.stdout);
+    assert.equal(json.ok, false);
+    assert.equal(json.checks.find((check) => check.id === "durable_source_location_policy")?.pass, false);
+    assert.equal(json.discoveryDb.safety.deniedSourceLocationCount, deniedLocations.length);
+    assert.equal(json.discoveryDb.sources.find((source) => source.id === "ordinary-url-doc").location, "https://example.com/docs/policy");
+    assert.deepEqual(json.discoveryDb.facts.find((fact) => fact.sourceId === "ordinary-url-doc").refs, [
+      "https://example.com/docs/policy",
+    ]);
+    for (const sourceId of ["denied-location-1", "denied-location-2", "denied-location-3", "denied-location-4"]) {
+      assert.equal(json.discoveryDb.sources.find((source) => source.id === sourceId).location, null);
+      assert.deepEqual(json.discoveryDb.facts.find((fact) => fact.sourceId === sourceId).refs, []);
+    }
+    assert.deepEqual(await listFiles(out), ["agentmo-discovery-db.json", "coverage.json", "facts.jsonl"]);
+
+    const discoveryDbText = await readFile(path.join(out, "agentmo-discovery-db.json"), "utf8");
+    const factsText = await readFile(path.join(out, "facts.jsonl"), "utf8");
+    const coverageText = await readFile(path.join(out, "coverage.json"), "utf8");
+    for (const [label, text] of [
+      ["discover-pack stdout", result.stdout],
+      ["discover-pack stderr", result.stderr],
+      ["discover-pack discovery DB", discoveryDbText],
+      ["discover-pack facts JSONL", factsText],
+      ["discover-pack coverage JSON", coverageText],
+    ]) {
+      for (const deniedLocation of deniedLocations) {
+        assert.equal(text.includes(deniedLocation), false, `${label} must not contain denied location ${deniedLocation}`);
+      }
+    }
+  });
+
+  it("scrubs absolute paths from fatal missing and invalid discovery manifest errors", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agentmo-cli-fatal-manifest-"));
+    const missingManifest = path.join(root, "missing.discovery.json");
+    const invalidManifest = path.join(root, "invalid.discovery.json");
+    const out = path.join(root, "out");
+    await writeFile(invalidManifest, "{ not valid json", "utf8");
+
+    const missing = await runCli(["discover-workspace", missingManifest, "--source-root", ".", "--out", out, "--json"]);
+    assert.equal(missing.code, 1);
+    assert.equal(missing.stdout, "");
+    assert.equal(missing.stderr.includes(missingManifest), false);
+    assert.equal(missing.stderr.includes(root), false);
+    assert.equal(missing.stderr.includes(REPO_ROOT), false);
+
+    const invalid = await runCli(["discover-workspace", invalidManifest, "--source-root", ".", "--out", out, "--json"]);
+    assert.equal(invalid.code, 1);
+    assert.equal(invalid.stdout, "");
+    assert.equal(invalid.stderr.includes(invalidManifest), false);
+    assert.equal(invalid.stderr.includes(root), false);
+    assert.equal(invalid.stderr.includes(REPO_ROOT), false);
+
+    const etcManifest = "/etc/agentmo-missing-manifest-should-redact.discovery.json";
+    const etcMissing = await runCli(["discover-pack", etcManifest, "--out", out, "--json"]);
+    assert.equal(etcMissing.code, 1);
+    assert.equal(etcMissing.stdout, "");
+    assert.equal(etcMissing.stderr.includes(etcManifest), false);
+    assert.match(etcMissing.stderr, /\[REDACTED_PATH\]/u);
   });
 
   it("prints deterministic plan JSON and writes no files", async () => {
