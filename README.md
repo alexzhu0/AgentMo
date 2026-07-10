@@ -10,7 +10,7 @@ AgentMo has three explicit stages connected by artifact contracts, not mandatory
 
 The support-triage MVP is a composed vertical demo of those contracts. It is not the only valid path. The current `domain-eval` / `delivery-report` work belongs to stage 3: it closes delivery evidence after scaffold, run-state, run-eval, and birth-report exist.
 
-See `docs/STAGE_CONTRACTS.md` for the contract matrix, allowed inputs, forbidden coupling, and independent verification commands. New contributors should start with `CONTRIBUTING.md`.
+See `docs/STAGE_CONTRACTS.md` for the contract matrix, allowed inputs, forbidden coupling, and independent verification commands. Echo and future close collaborators should start with the tri-party collaboration protocol in `CONTRIBUTING.md`.
 
 AgentMother is not a chat prompt generator. It is a mechanism for building agents as software:
 
@@ -156,7 +156,7 @@ src/domain-eval.js          Independent bounded domain-quality evidence report
 src/delivery-report.js      Delivery evidence aggregation and revalidation report
 src/scaffold.js             Domain-agent scaffold generator
 AGENTS.md                   Local instructions for Codex/OMX agents working on AgentMo
-CONTRIBUTING.md              Human contributor workflow, boundaries, and validation commands
+CONTRIBUTING.md              Alex/Echo/Codex collaboration protocol, PR workflow, boundaries, and validation commands
 examples/win9.agentmo.json  Reference blueprint based on Win9-on-Pi
 examples/win9.discovery.json  Reference discovery/input manifest
 examples/support-triage.*   MVP birth-loop fixture inputs, domain cases, and generated draft blueprint
