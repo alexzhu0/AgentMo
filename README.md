@@ -5,12 +5,12 @@ AgentMo is a minimal **AgentMother** toolkit: it records what agent should be bu
 AgentMo has three explicit stages connected by artifact contracts, not mandatory command ancestry:
 
 1. **Discover -> Discovery Contract:** materialize bounded discovery evidence through either `discover-pack` (manifest-only) or `discover-workspace` (approved local source intake).
-2. **Plan -> Agent Design / Blueprint Contract:** combine a valid discovery database with `agentmo.user-need.v1` to produce a valid blueprint with `agentmother_version: "0.1"`, eval requirements, and evidence policy.
+2. **Plan -> Agent Design / Blueprint Contract:** combine a valid discovery database with `agentmo.user-need.v1` to produce `agentmo.design-plan.v1`, then draft a valid blueprint with `agentmother_version: "0.1"`, eval requirements, and evidence policy.
 3. **Produce -> Delivery Evidence Contract:** accept any valid AgentMo blueprint/design contract, including externally reviewed or business-provided designs with bounded provenance, then produce handoff, scaffold, run, eval, birth, domain-eval, and delivery evidence.
 
 The support-triage MVP is a composed vertical demo of those contracts. It is not the only valid path. The current `domain-eval` / `delivery-report` work belongs to stage 3: it closes delivery evidence after scaffold, run-state, run-eval, and birth-report exist.
 
-See `docs/STAGE_CONTRACTS.md` for the contract matrix, allowed inputs, forbidden coupling, and independent verification commands.
+See `docs/STAGE_CONTRACTS.md` for the contract matrix, allowed inputs, forbidden coupling, and independent verification commands. New contributors should start with `CONTRIBUTING.md`.
 
 AgentMother is not a chat prompt generator. It is a mechanism for building agents as software:
 
@@ -40,7 +40,8 @@ AgentMo currently provides a dependency-free Node CLI:
 ./bin/agentmo.js discover-pack examples/support-triage.discovery.json --out /tmp/support-triage-discovery --json
 ./bin/agentmo.js discover-workspace examples/support-triage.discovery.json --source-root . --out /tmp/support-triage-workspace-discovery --json
 ./bin/agentmo.js need-report examples/support-triage.need.json --json
-./bin/agentmo.js blueprint-draft /tmp/support-triage-discovery/agentmo-discovery-db.json --need examples/support-triage.need.json --out /tmp/support-triage.agentmo.json --target openclaw --json
+./bin/agentmo.js design-plan /tmp/support-triage-discovery/agentmo-discovery-db.json --need examples/support-triage.need.json --out /tmp/support-triage-design-plan.json --target openclaw --json
+./bin/agentmo.js blueprint-draft /tmp/support-triage-discovery/agentmo-discovery-db.json --need examples/support-triage.need.json --design-plan /tmp/support-triage-design-plan.json --out /tmp/support-triage.agentmo.json --target openclaw --json
 ./bin/agentmo.js handoff /tmp/support-triage.agentmo.json --target openclaw --out /tmp/support-triage-handoff --json
 ./bin/agentmo.js plan examples/win9.agentmo.json --json
 ./bin/agentmo.js scaffold examples/win9.agentmo.json --out /tmp/win9-agentmo-scaffold
@@ -68,7 +69,7 @@ source-cards.json
 source-chunks.jsonl
 ```
 
-Source-derived evidence enters `agentmo-discovery-db.json.facts` and `facts.jsonl` as `kind:"source_chunk"` records. `source-cards.json` and `source-chunks.jsonl` are supplemental sidecars; Stage 2 uses the discovery DB as its durable input. Unsafe workspace DBs fail closed through DB-visible validation/safety state and must not enter `blueprint-draft`.
+Source-derived evidence enters `agentmo-discovery-db.json.facts` and `facts.jsonl` as `kind:"source_chunk"` records. `source-cards.json` and `source-chunks.jsonl` are supplemental sidecars; Stage 2 uses the discovery DB as its durable input. Unsafe workspace DBs fail closed through DB-visible validation/safety state and must not enter `design-plan` or `blueprint-draft`.
 
 Neither Stage 1 path performs web crawling, live search, or search API collection. Do not point `--source-root` at secrets, `.env` files, parent directories, or sibling projects. Stage 1 stays decoupled: it does not call Stage 2/3 and does not write blueprint, handoff, build, run, birth, or delivery artifacts.
 
@@ -110,7 +111,7 @@ The Win9-on-Pi work showed a new development mode: use Codex to build another ag
 
 - Stage 1 discovery materializes approved source inputs into structured databases or retrieval corpora; current commands use operator-provided manifests and approved local source intake rather than claiming live web crawling.
 - Discovery can be recorded as an external `agentmo.discovery.v1` manifest. `discover-report` validates it, `discover-pack` materializes the manifest-only Discovery Contract, and `discover-workspace` reads approved local sources into DB-visible `source_chunk` facts plus supplemental source sidecars.
-- Stage 2 planning turns a valid discovery database plus `agentmo.user-need.v1` into an executable blueprint/design contract for the new Agent.
+- Stage 2 planning turns a valid discovery database plus `agentmo.user-need.v1` into an auditable `agentmo.design-plan.v1`, then into an executable blueprint/design contract for the new Agent.
 - Stage 3 production accepts a valid blueprint/design contract by artifact validity, not command ancestry. It may start from AgentMo Stage 2 output or from an externally reviewed/business-provided contract with bounded provenance.
 - Stage 3 then uses Codex and other coding-agent runtimes to finish handoff, scaffold, runtime evidence, domain eval, and delivery reporting.
 - Codex acts as the builder: reads, edits, tests, verifies, documents.
@@ -146,13 +147,16 @@ src/build-state.js          Managed scaffold sidecar state writer
 src/discovery.js            Discovery manifest validation and report builder
 src/discovery-db.js         Sanitized discovery pack / facts / coverage materializer
 src/user-need.js            User-need brief validation and report builder
-src/blueprint-draft.js      Blueprint drafting from discovery DB plus user need
+src/source-refs.js          Shared bounded source_refs validation
+src/design-plan.js          Stage 2 design-plan contract builder and validator
+src/blueprint-draft.js      Blueprint drafting from discovery DB plus user need/design-plan
 src/handoff.js              Coding/runtime handoff package writer
 src/birth-report.js         Fail-closed birth gate over build/run/eval evidence
 src/domain-eval.js          Independent bounded domain-quality evidence report
 src/delivery-report.js      Delivery evidence aggregation and revalidation report
 src/scaffold.js             Domain-agent scaffold generator
 AGENTS.md                   Local instructions for Codex/OMX agents working on AgentMo
+CONTRIBUTING.md              Human contributor workflow, boundaries, and validation commands
 examples/win9.agentmo.json  Reference blueprint based on Win9-on-Pi
 examples/win9.discovery.json  Reference discovery/input manifest
 examples/support-triage.*   MVP birth-loop fixture inputs, domain cases, and generated draft blueprint
@@ -198,7 +202,7 @@ If build state is absent or unreadable, status remains available and reports the
 The first executable AgentMother loop is a composed vertical demo of the three artifact contracts:
 
 ```text
-discover-pack or discover-workspace -> need-report -> blueprint-draft -> handoff -> scaffold/run/run-eval -> birth-report -> domain-eval -> delivery-report
+discover-pack or discover-workspace -> need-report -> design-plan -> blueprint-draft -> handoff -> scaffold/run/run-eval -> birth-report -> domain-eval -> delivery-report
 ```
 
 This sequence proves that the contracts compose. It does not make Stage 3 depend on the Stage 1 or Stage 2 command path when a valid blueprint/design contract is already available.

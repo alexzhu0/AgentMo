@@ -32,6 +32,7 @@ Release 记录按日期倒序维护（最新在前），不要按版本号排序
 
 | 日期 | 阶段 | 状态 | 记录 | GitHub Release |
 | --- | --- | --- | --- | --- |
+| 2026.07.10 | Stage 2 design-plan contract：DB+need -> design-plan -> blueprint | 本地验证通过，待提交/发布 | [`2026.07.10.md`](./2026.07.10.md) | 待发布 |
 | 2026.07.07 | Stage 3 delivery closure：domain-eval + delivery-report | 已提交并发布到 GitHub Release `v0.1.0` | [`2026.07.07.md`](./2026.07.07.md) | [`v0.1.0`](https://github.com/alexzhu0/AgentMo/releases/tag/v0.1.0) |
 | 2026.07.06 | MVP birth-loop：discover -> need -> draft -> handoff -> birth-report | 已提交到 `83dc9e5`，后续安全修复到 `e287988` | [`2026.07.06.md`](./2026.07.06.md) | [`release-2026.07.06`](https://github.com/alexzhu0/AgentMo/releases/tag/release-2026.07.06) |
 | 2026.07.05 | DeepSeek/OpenClaw live POC 与产品化规划 | POC/规划完成；记录为历史阶段证据 | [`2026.07.05.md`](./2026.07.05.md) | [`release-2026.07.05`](https://github.com/alexzhu0/AgentMo/releases/tag/release-2026.07.05) |
@@ -43,6 +44,6 @@ Release 记录按日期倒序维护（最新在前），不要按版本号排序
 - 当前 release tag：`v0.1.0`（已 push，GitHub Release 已发布）
 - GitHub Release：<https://github.com/alexzhu0/AgentMo/releases/tag/v0.1.0>
 - Stage 3 功能提交：`3dfb597`，release baseline 提交：`3e3592b`
-- 当前重点：AgentMo 第三阶段交付闭环已实现并通过本地验证；每个日期型 release 记录都应作为对应 GitHub Release 的正文同步，而不是作为附件 asset。
+- 当前重点：Stage 2 `agentmo.design-plan.v1` 与新协作者入口已本地验证通过，待提交/发布；每个日期型 release 记录都应作为对应 GitHub Release 的正文同步，而不是作为附件 asset。
 - 当前主线：继续只在 AgentMo 内维护，不把 sibling projects 的工作混入本仓库 commit。
 - 当前恢复入口：`docs/OMX_SESSION_MIGRATION.md`、仓库根目录 `AGENTS.md`、`docs/MVP_RUNBOOK.md`。

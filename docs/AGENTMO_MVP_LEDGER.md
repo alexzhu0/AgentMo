@@ -86,3 +86,31 @@ Verification for this docs/scaffold pass:
 node --check src/scaffold-files.js src/handoff.js
 git diff --check
 ```
+## 2026-07-10 — Stage 2 design-plan contract
+
+Scope:
+
+- Added `agentmo.design-plan.v1` as a first-class Stage 2 artifact between discovery DB/user need and blueprint drafting.
+- Added `agentmo design-plan` CLI and required-but-compatible `blueprint-draft --design-plan` integration.
+- Centralized bounded `source_refs` validation across user need, design-plan, and blueprint drafting.
+- Preserved Stage 3 decoupling: blueprint handoff still starts from a valid design contract, not Stage 1 command ancestry.
+
+Evidence semantics:
+
+- `design-plan` records requirements trace, evidence refs, gaps, eval plan, governance gates, and certification boundary.
+- Missing or partial evidence is allowed only when explicit and governed; it does not become a production claim.
+- Design planning still does not certify runtime execution, domain-wide quality, or production approval.
+
+Verification commands:
+
+```bash
+node --test test/design-plan.test.js
+node --test test/user-need.test.js test/blueprint-draft.test.js test/stage-contracts.test.js test/discovery-source-workspace.test.js
+npm run check
+git diff --check
+```
+
+Known risks:
+
+- Initial evidence matching is deterministic and lexical; future semantic retrieval can improve coverage without changing the artifact boundary.
+- GitHub release publication is not implied by this ledger entry until the commit/tag/release step is performed separately.

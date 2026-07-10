@@ -1,7 +1,7 @@
 # AgentMo OMX Session Migration Handoff
 
-Date: 2026-07-07
-Purpose: reset Codex/OMX context and continue AgentMo work without mixing in `pi`, Win9, OpenClaw, or AgentHarness implementation work.
+Date: 2026-07-10
+Purpose: reset Codex/OMX context and continue AgentMo Stage 2 design-plan / contributor-handoff work without mixing in `pi`, Win9, OpenClaw, or AgentHarness implementation work.
 Mode: Ultragoal-style durable handoff artifact.
 
 ## 1. Copy-paste prompt for the new session
@@ -31,6 +31,8 @@ Then paste this as the first message:
 - release/2026.07.05.md
 - release/2026.07.06.md
 - release/2026.07.07.md
+- release/2026.07.10.md
+- CONTRIBUTING.md
 - docs/MVP_RUNBOOK.md
 - docs/AGENT_BIRTH_GATE.md
 - docs/AGENTMO_MVP_LEDGER.md
@@ -40,7 +42,7 @@ Then paste this as the first message:
 2. 确认 git status、branch、HEAD。
 3. 审查当前未提交 diff 的范围。
 4. 运行 npm run check 和 git diff --check。
-5. 检查新增 release/ 文档和 MVP birth-loop 文档是否准确。
+5. 检查 Stage 2 design-plan、CONTRIBUTING、release/ 和 MVP runbook 文档是否准确。
 6. 不要 commit，除非我明确要求。
 
 用中文回复。
@@ -60,56 +62,46 @@ Current branch:
 main
 ```
 
-Current committed HEAD:
+Current committed HEAD at the time of this handoff refresh:
 
 ```text
-93da9b5 feat: make AgentMo runtime evidence replayable and reviewable
+f5dd4ea
 ```
 
 Current important state:
 
 ```text
-AgentMo MVP birth-loop is implemented in the working tree.
+Stage 2 design-plan contract is implemented in the working tree.
+Contributor onboarding docs are being added for external programmers.
 The implementation is verified locally.
 The implementation is not committed yet.
-The release/ history directory is newly added and not committed yet.
+Git status is intentionally dirty with source, tests, docs, and release records.
 ```
 
-Latest local verification already observed before this handoff:
+Latest local verification observed before this handoff refresh:
 
 ```text
-npm run check: passed
-Node tests: 129/129 passed
+node --test test/design-plan.test.js: passed, 9/9 tests
+node --test test/user-need.test.js test/blueprint-draft.test.js test/stage-contracts.test.js test/discovery-source-workspace.test.js: passed, 40/40 tests
+npm run check: passed, 199/199 tests
 git diff --check: passed
 ```
 
-Additional declared support-triage birth-loop evidence:
+Release/publication state:
 
 ```text
-/tmp/agentmo-release-support-triage-20260707
-birthOk=true
-birthStatus=declared-ready
-evidenceLevel=declared
-promotionEligible=false
-runtimeCertifiedByBirthReport=false
-domainCertifiedByBirthReport=false
+Local code/docs are commit-ready after verification.
+No commit has been created for the Stage 2 design-plan work in this handoff.
+No tag, GitHub Release, npm package publication, or production deployment is implied.
+release/2026.07.10.md is a local date-based release record for future release body use.
 ```
 
-Artifact hashes:
-
-```text
-b340cdf39931611f0601c98045a59c79aa14f50762ad82fe75f3c9fd7b4c04b1  birth-report.json
-0eeaea39b30dc52c30cf21327bb15ab4b4fa1d9c756ac484d893f56ca367e8fe  run-eval.json
-81bd04ea411ae97bf3870aa2bdd59301cee2f2e8cf8188ba77951e2da83d7231  discover-pack.json
-7db97d10a519642352e2870b2714c51e61a07b23571895a8e92ad262be61273e  blueprint-draft.json
-```
-
-## 3. Ultragoal objective for the new session
+## 3. Current objective for the new session
 
 Stable aggregate objective:
 
 ```text
-Complete the AgentMo MVP handoff stabilization: recover context from repo artifacts, audit the current uncommitted AgentMo MVP birth-loop and release history, verify tests and evidence gates, and prepare a clean commit-ready summary without touching other projects or reading secrets.
+Complete AgentMo Stage 2 design-plan and contributor-handoff stabilization: recover context from repo artifacts, audit the current uncommitted source/tests/docs/release diff, verify tests and evidence gates, and prepare a clean commit-ready summary without touching sibling projects or reading secrets.
 ```
 
 Stop condition:
@@ -119,19 +111,19 @@ Stop when the new session has:
 1. confirmed it is operating only in AgentMo;
 2. reviewed current dirty files;
 3. verified npm run check and git diff --check;
-4. reviewed release/ and MVP docs;
+4. reviewed README, CONTRIBUTING, AGENTS, release/, MVP runbook, and stage contracts;
 5. reported remaining risks and whether the work is commit-ready;
 6. made no commit unless explicitly instructed.
 ```
 
-## 4. Suggested Ultragoal story breakdown
+## 4. Suggested recovery story breakdown
 
 ### G001 — Context recovery
 
 Objective:
 
 ```text
-Read this handoff, release history, MVP docs, and current git status to reconstruct AgentMo context without using old chat memory.
+Read this handoff, release history, contributor docs, MVP docs, and current git status to reconstruct AgentMo context without using old chat memory.
 ```
 
 Required commands:
@@ -146,7 +138,7 @@ git branch --show-current
 Acceptance:
 
 - `pwd` is `/home/alex/DTAlex/learningGitHub/AgentMo`.
-- HEAD is `93da9b5` unless the user has committed after this document was written.
+- HEAD is `f5dd4ea` unless the user has committed after this document was refreshed.
 - The session explicitly states it will not touch `pi`, AgentHarness, or OpenClaw without instruction.
 
 ### G002 — Working tree audit
@@ -154,30 +146,40 @@ Acceptance:
 Objective:
 
 ```text
-Classify the current uncommitted AgentMo diff into feature code, tests, docs, examples, release records, and safety-sensitive files.
+Classify the current uncommitted AgentMo diff into product behavior, tests, contributor docs, release records, and safety-sensitive files.
 ```
 
 Suggested read targets:
 
 ```text
+CONTRIBUTING.md
+README.md
+AGENTS.md
+package.json
 src/cli.js
-src/birth-report.js
+src/design-plan.js
+src/source-refs.js
 src/blueprint-draft.js
-src/discovery-db.js
-src/handoff.js
-src/runtime-env.js
-src/secret-redaction.js
 src/user-need.js
-docs/AGENT_BIRTH_GATE.md
+test/design-plan.test.js
+test/blueprint-draft.test.js
+test/cli-mvp.test.js
+test/stage-contracts.test.js
+test/user-need.test.js
+docs/STAGE_CONTRACTS.md
 docs/MVP_RUNBOOK.md
 docs/AGENTMO_MVP_LEDGER.md
-release/
+release/README.md
+release/2026.07.10.md
 ```
 
 Do not read:
 
 ```text
 .env
+private keys
+credential stores
+raw logs likely to contain secrets
 ```
 
 Acceptance:
@@ -191,12 +193,14 @@ Acceptance:
 Objective:
 
 ```text
-Re-run the repository checks and confirm the MVP birth-loop remains valid.
+Re-run the repository checks and confirm the Stage 2 design-plan path and MVP composition remain valid.
 ```
 
 Required commands:
 
 ```bash
+node --test test/design-plan.test.js
+node --test test/user-need.test.js test/blueprint-draft.test.js test/stage-contracts.test.js test/discovery-source-workspace.test.js
 npm run check
 git diff --check
 ```
@@ -209,7 +213,8 @@ rm -rf "$WORK"
 mkdir -p "$WORK"
 node ./bin/agentmo.js discover-pack examples/support-triage.discovery.json --out "$WORK/discovery" --json
 node ./bin/agentmo.js need-report examples/support-triage.need.json --json
-node ./bin/agentmo.js blueprint-draft "$WORK/discovery/agentmo-discovery-db.json" --need examples/support-triage.need.json --out "$WORK/support-triage.agentmo.json" --target openclaw --json
+node ./bin/agentmo.js design-plan "$WORK/discovery/agentmo-discovery-db.json" --need examples/support-triage.need.json --out "$WORK/agentmo-design-plan.json" --target openclaw --json
+node ./bin/agentmo.js blueprint-draft "$WORK/discovery/agentmo-discovery-db.json" --need examples/support-triage.need.json --design-plan "$WORK/agentmo-design-plan.json" --out "$WORK/support-triage.agentmo.json" --target openclaw --json
 node ./bin/agentmo.js handoff "$WORK/support-triage.agentmo.json" --target openclaw --out "$WORK/handoff" --json
 node ./bin/agentmo.js scaffold "$WORK/support-triage.agentmo.json" --target openclaw --out "$WORK/scaffold" --force
 node ./bin/agentmo.js run "$WORK/support-triage.agentmo.json" --target openclaw --workspace "$WORK/scaffold/openclaw/workspace" --message "Say exactly: ok" --out "$WORK/run" --json
@@ -220,6 +225,8 @@ node ./bin/agentmo.js birth-report "$WORK/support-triage.agentmo.json" --build-s
 
 Acceptance:
 
+- `node --test test/design-plan.test.js` passes.
+- Stage 2/contract targeted tests pass.
 - `npm run check` passes.
 - `git diff --check` passes.
 - If optional vertical slice is run, `birth-report.ok` is true and `birthStatus` is `declared-ready`.
@@ -236,6 +243,7 @@ Report must include:
 
 - changed file categories;
 - verification commands and results;
+- contributor docs status;
 - release docs status;
 - secret handling status;
 - remaining risks;
@@ -251,66 +259,44 @@ Acceptance:
 
 The current dirty tree is expected to include these categories.
 
-### Runtime/productization updates
+### Product behavior
 
 ```text
-.gitignore
-.env.example
-README.md
-package.json
-docs/OPENCLAW_RUNTIME_NOTES.md
-docs/RUNTIME_EXECUTION.md
-scripts/openclaw-live-smoke.sh
+src/design-plan.js
+src/source-refs.js
+src/blueprint-draft.js
 src/cli.js
-src/run-state.js
-src/runtime-execution.js
-src/runtime-plan.js
-src/scaffold-files.js
-test/cli.test.js
-test/live-smoke-script.test.js
-test/run-state.test.js
-test/runtime-execution.test.js
-test/runtime-plan.test.js
-test/runtime-replay-eval.test.js
-test/scaffold.test.js
+src/user-need.js
+package.json
 ```
 
-### MVP birth-loop additions
+### Tests
 
 ```text
-docs/AGENTMO_MVP_LEDGER.md
-docs/AGENT_BIRTH_GATE.md
-docs/MVP_RUNBOOK.md
-examples/fixtures/
-examples/support-triage.agentmo.json
-examples/support-triage.discovery.json
-examples/support-triage.need.json
-src/birth-report.js
-src/blueprint-draft.js
-src/discovery-db.js
-src/handoff.js
-src/runtime-env.js
-src/secret-redaction.js
-src/user-need.js
-test/birth-report.test.js
+test/design-plan.test.js
 test/blueprint-draft.test.js
 test/cli-mvp.test.js
-test/discovery-db.test.js
-test/handoff.test.js
-test/runtime-env.test.js
-test/secret-redaction.test.js
+test/stage-contracts.test.js
 test/user-need.test.js
 ```
 
-### Release history additions
+### Maintenance and contributor docs
+
+```text
+CONTRIBUTING.md
+AGENTS.md
+README.md
+docs/OMX_SESSION_MIGRATION.md
+docs/STAGE_CONTRACTS.md
+docs/MVP_RUNBOOK.md
+docs/AGENTMO_MVP_LEDGER.md
+```
+
+### Release records
 
 ```text
 release/README.md
-release/2026.07.03.md
-release/2026.07.05.md
-release/2026.07.06.md
-release/2026.07.07.md
-docs/OMX_SESSION_MIGRATION.md
+release/2026.07.10.md
 ```
 
 ## 6. Architecture invariants to preserve
@@ -320,6 +306,8 @@ docs/OMX_SESSION_MIGRATION.md
    ```text
    Discover -> Plan -> Produce
    ```
+
+   Stage 2 should remain visible as `agentmo.design-plan.v1` before blueprint drafting when using the recommended AgentMo-generated path.
 
 2. AgentMo is not a prompt generator and not a hidden LLM generator.
 
@@ -379,24 +367,18 @@ git add .
 git add -A
 ```
 
-Suggested commit intent:
+Suggested commit intent and trailers:
 
 ```text
-feat: add AgentMo MVP birth-loop
-```
+Make Stage 2 planning auditable before blueprint drafting
 
-Suggested body/trailers:
-
-```text
-Implement the CLI-first AgentMother birth loop so discovery plus user need can produce a blueprint, handoff, runtime evidence, and fail-closed birth report.
-
-Constraint: MVP evidence must remain deterministic, secret-blind, and non-certifying by default.
-Rejected: Direct Codex execution inside AgentMo | MVP should generate handoff artifacts first.
+Constraint: Preserve three-stage artifact decoupling and keep the old blueprint-draft DB+need path compatible.
+Rejected: Hiding Stage 2 inside blueprint-draft only | It would keep planning rationale implicit and hard to review.
 Confidence: high
 Scope-risk: moderate
-Directive: Do not treat declared-ready or live-success evidence as domain certification.
-Tested: npm run check; git diff --check; support-triage declared birth-loop
-Not-tested: Production OpenClaw deployment; domain certification; AgentHarness integration
+Directive: Keep design-plan as a planning contract; do not let it certify runtime, domain-wide quality, or production approval.
+Tested: node --test test/design-plan.test.js; node --test test/user-need.test.js test/blueprint-draft.test.js test/stage-contracts.test.js test/discovery-source-workspace.test.js; npm run check; git diff --check
+Not-tested: GitHub release publication/tagging was not performed.
 ```
 
 ## 9. Final note for future sessions

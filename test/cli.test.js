@@ -77,11 +77,14 @@ async function listFiles(root, options = {}) {
 }
 
 describe("cli", () => {
-  it("prints help that exposes domain and delivery report commands", async () => {
+  it("prints help that exposes design-plan, domain, and delivery report commands", async () => {
     const help = await runCli(["help"]);
     assert.equal(help.code, 0, help.stderr);
+    assert.match(help.stdout, /agentmo design-plan <agentmo-discovery-db\.json> --need <need\.json>/u);
+    assert.match(help.stdout, /agentmo blueprint-draft <agentmo-discovery-db\.json> --need <need\.json> \[--design-plan/u);
     assert.match(help.stdout, /agentmo domain-eval <blueprint\.json> --cases <cases\.json>/u);
     assert.match(help.stdout, /agentmo delivery-report <blueprint\.json> --build-state <agentmo-build-state\.json>/u);
+    assert.match(help.stdout, /design-plan\s+Produce a Stage 2 planning contract/u);
     assert.match(help.stdout, /domain-eval\s+Evaluate deterministic domain cases/u);
     assert.match(help.stdout, /delivery-report\s+Re-validate and aggregate delivery closure evidence/u);
   });

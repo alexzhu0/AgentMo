@@ -99,7 +99,7 @@ For docs-only changes, run at least:
 git diff --check
 ```
 
-If changing the MVP birth-loop, also verify the support-triage vertical slice described in `docs/OMX_SESSION_MIGRATION.md` or `docs/MVP_RUNBOOK.md`.
+If changing Stage 2 planning, run `node --test test/design-plan.test.js` and the Stage 2 contract test set documented in `docs/MVP_RUNBOOK.md`. If changing the composed MVP birth-loop, also verify the support-triage vertical slice described in `docs/OMX_SESSION_MIGRATION.md` or `docs/MVP_RUNBOOK.md`.
 
 ## Release records
 
@@ -140,10 +140,18 @@ In this worktree, `AGENTS.md` may be ignored by local `.git/info/exclude`. If th
 git add -f AGENTS.md
 ```
 
-Recommended commit style for the current MVP work:
+Recommended commit style is a concise decision record:
 
 ```text
-feat: add AgentMo MVP birth-loop
+<why this change exists>
+
+Constraint: <constraint that shaped the decision>
+Rejected: <alternative considered> | <reason>
+Confidence: <low|medium|high>
+Scope-risk: <narrow|moderate|broad>
+Directive: <future warning>
+Tested: <commands/evidence>
+Not-tested: <known gaps>
 ```
 
-Include verification evidence in the commit body when useful.
+Stage explicit paths only and include verification evidence in the commit body when useful.

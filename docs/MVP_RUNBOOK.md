@@ -13,7 +13,7 @@ Current Stage 1 commands materialize operator-provided manifests and approved lo
 ## Contract architecture
 
 - **Stage 1 Discover** has two paths: `discover-pack` is manifest-only, and `discover-workspace` is approved local source intake. Both produce a valid discovery DB for Stage 2; workspace intake also writes supplemental source sidecars.
-- **Stage 2 Plan** consumes a valid discovery DB plus `agentmo.user-need.v1` and produces a valid blueprint/design contract with `agentmother_version: "0.1"`, eval requirements, and evidence policy.
+- **Stage 2 Plan** consumes a valid discovery DB plus `agentmo.user-need.v1`, produces `agentmo.design-plan.v1`, then drafts a valid blueprint/design contract with `agentmother_version: "0.1"`, eval requirements, and evidence policy.
 - **Stage 3 Produce** consumes any valid blueprint/design contract and produces delivery evidence: `agentmo.handoff.v1`, `agentmo.build.v1`, `agentmo.run.v1`, `agentmo.run-eval.v1`, `agentmo.birth-report.v1`, `agentmo.domain-eval.v1`, and `agentmo.delivery.v1`.
 
 Stage 3 may start from an externally reviewed or business-provided valid blueprint/design contract when bounded provenance records the source, reviewed status, review reference, contract version, and non-secret notes. That provenance admits the design to Stage 3; it does not certify runtime behavior, domain-wide quality, production readiness, or deployment approval. If generated handoff wording names discovery pack or user-need artifacts, read those as provenance/review references for AgentMo-generated designs, not as mandatory command ancestry for externally reviewed designs.
@@ -78,7 +78,7 @@ Source-derived evidence enters `agentmo-discovery-db.json.facts` and `facts.json
 
 Stop here when the goal is only a sanitized Discovery Contract. Do not infer blueprint, runtime, or domain certification from Stage 1 outputs. Stage 1 must not write blueprint, handoff, build, run, birth, domain-eval, or delivery artifacts. If workspace safety marks a DB unsafe, fail closed and do not pass that DB to Stage 2.
 
-### Stage 2 only: draft a blueprint from contract artifacts
+### Stage 2 only: plan and draft from contract artifacts
 
 Point `DISCOVERY_DB` at any existing valid `agentmo.discovery-db.v1` artifact from `discover-pack`, `discover-workspace`, or another trusted process. This command does not invoke Stage 1 and does not require the original discovery manifest or workspace sidecars. Do not use a workspace DB when `validation.ok` is false or `safety.workspaceOk` is false.
 
@@ -88,8 +88,14 @@ rm -rf "$WORK"
 mkdir -p "$WORK"
 DISCOVERY_DB=/path/to/agentmo-discovery-db.json
 node ./bin/agentmo.js need-report examples/support-triage.need.json --json
+node ./bin/agentmo.js design-plan "$DISCOVERY_DB" \
+  --need examples/support-triage.need.json \
+  --out "$WORK/agentmo-design-plan.json" \
+  --target openclaw \
+  --json
 node ./bin/agentmo.js blueprint-draft "$DISCOVERY_DB" \
   --need examples/support-triage.need.json \
+  --design-plan "$WORK/agentmo-design-plan.json" \
   --out "$WORK/support-triage.agentmo.json" \
   --target openclaw \
   --json
@@ -100,7 +106,7 @@ Stop here when the goal is only a reviewed blueprint/design contract. A valid bl
 
 ### Stage 3 only: produce delivery evidence from a valid blueprint
 
-This path starts from `examples/support-triage.agentmo.json`. It does not invoke `discover-pack`, `discover-workspace`, `need-report`, or `blueprint-draft`.
+This path starts from `examples/support-triage.agentmo.json`. It does not invoke `discover-pack`, `discover-workspace`, `need-report`, `design-plan`, or `blueprint-draft`.
 
 ```bash
 WORK=/tmp/agentmo-stage3-only
@@ -153,7 +159,7 @@ Scaffold, declared run-state, run-eval, birth-report, domain-eval, and delivery-
 The full support-triage sequence composes all three stages. The default demo below uses the manifest-only Stage 1 path:
 
 ```text
-discover-pack -> need-report -> blueprint-draft -> handoff -> scaffold/run/run-eval -> birth-report -> domain-eval -> delivery-report
+discover-pack -> need-report -> design-plan -> blueprint-draft -> handoff -> scaffold/run/run-eval -> birth-report -> domain-eval -> delivery-report
 ```
 
 ```bash
@@ -163,8 +169,14 @@ mkdir -p "$WORK"
 
 node ./bin/agentmo.js discover-pack examples/support-triage.discovery.json --out "$WORK/discovery" --json
 node ./bin/agentmo.js need-report examples/support-triage.need.json --json
+node ./bin/agentmo.js design-plan "$WORK/discovery/agentmo-discovery-db.json" \
+  --need examples/support-triage.need.json \
+  --out "$WORK/agentmo-design-plan.json" \
+  --target openclaw \
+  --json
 node ./bin/agentmo.js blueprint-draft "$WORK/discovery/agentmo-discovery-db.json" \
   --need examples/support-triage.need.json \
+  --design-plan "$WORK/agentmo-design-plan.json" \
   --out "$WORK/support-triage.agentmo.json" \
   --target openclaw \
   --json
@@ -203,7 +215,7 @@ To run the same composed demo with approved local source intake, replace only th
 node ./bin/agentmo.js discover-workspace examples/support-triage.discovery.json --source-root . --out "$WORK/discovery" --json
 ```
 
-The downstream `blueprint-draft` command still consumes `$WORK/discovery/agentmo-discovery-db.json`. It does not need `source-cards.json` or `source-chunks.jsonl`; those sidecars remain supplemental.
+The downstream `design-plan` and `blueprint-draft` commands still consume `$WORK/discovery/agentmo-discovery-db.json`. It does not need `source-cards.json` or `source-chunks.jsonl`; those sidecars remain supplemental.
 
 Expected result:
 
@@ -229,7 +241,7 @@ Do not claim OpenClaw production/domain certification from the live smoke, birth
 ## Verification
 
 ```bash
-node --test test/discovery-source-workspace.test.js test/discovery-db.test.js test/user-need.test.js test/blueprint-draft.test.js test/handoff.test.js test/birth-report.test.js test/cli-mvp.test.js
+node --test test/design-plan.test.js test/user-need.test.js test/blueprint-draft.test.js test/stage-contracts.test.js test/discovery-source-workspace.test.js
 npm run check
 git diff --check
 ```

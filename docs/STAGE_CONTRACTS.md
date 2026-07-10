@@ -15,7 +15,7 @@ The support-triage MVP remains the composed vertical demo of these contracts. It
 | Stage | Purpose | Accepted inputs | Produced outputs | Forbidden process dependency |
 | --- | --- | --- | --- | --- |
 | Stage 1 Discover | Materialize bounded source inventory, sanitized facts, and coverage. | `agentmo.discovery.v1` manifest. `discover-pack` uses it as manifest-only input; `discover-workspace` also reads approved local source files under a repo-bound `--source-root`. | `agentmo.discovery-db.v1`, `facts.jsonl`, `coverage.json`; workspace intake also writes `source-cards.json` and `source-chunks.jsonl`. | Stage 2 planner implementation, blueprint files, Stage 3 runtime target or run evidence. |
-| Stage 2 Plan | Convert valid discovery facts plus user need into a buildable agent design. | `agentmo.discovery-db.v1` plus `agentmo.user-need.v1`, regardless of how the discovery DB was created. | Valid AgentMo blueprint/design contract with `agentmother_version: "0.1"`, eval requirements, and evidence policy. | Stage 1 command path, original discovery manifest, Stage 3 scaffold/run/birth/delivery commands. |
+| Stage 2 Plan | Convert valid discovery facts plus user need into an auditable plan and buildable agent design. | `agentmo.discovery-db.v1` plus `agentmo.user-need.v1`, regardless of how the discovery DB was created. | `agentmo.design-plan.v1` plus a valid AgentMo blueprint/design contract with `agentmother_version: "0.1"`, eval requirements, and evidence policy. | Stage 1 command path, original discovery manifest, Stage 3 scaffold/run/birth/delivery commands. |
 | Stage 3 Produce | Turn a valid design contract into handoff, scaffold, run evidence, eval evidence, and delivery closure artifacts. | Valid blueprint/design contract and explicit target/runtime options. The design may be AgentMo-generated or externally reviewed/business-provided with bounded provenance. | `agentmo.handoff.v1`, `agentmo.build.v1`, `agentmo.run.v1`, `agentmo.run-eval.v1`, `agentmo.birth-report.v1`, `agentmo.domain-eval.v1`, `agentmo.delivery.v1`. | Discovery DB/user-need generation process, Stage 1 commands, Stage 2 commands. |
 
 ## Stage 1 Discover -> Discovery Contract
@@ -92,7 +92,7 @@ node ./bin/agentmo.js discover-workspace examples/support-triage.discovery.json 
 
 ### Ownership
 
-Stage 2 owns user-need interpretation, blueprint drafting, agent architecture, eval/rubric requirements, and evidence policy. It produces a reviewed design contract for Stage 3. It does not produce the concrete handoff package.
+Stage 2 owns user-need interpretation, the `agentmo.design-plan.v1` planning contract, blueprint drafting, agent architecture, eval/rubric requirements, and evidence policy. It produces a reviewed design contract for Stage 3. It does not produce the concrete handoff package.
 
 ### Accepted input artifacts
 
@@ -103,7 +103,9 @@ The discovery DB may come from `discover-pack`, `discover-workspace`, an importe
 
 ### Produced output artifacts
 
-Stage 2 produces a valid AgentMo blueprint/design contract:
+Stage 2 produces a valid `agentmo.design-plan.v1` plus a valid AgentMo blueprint/design contract:
+
+- `agentmo.design-plan.v1` records requirements trace, evidence map, gaps, architecture plan, tool contract plan, eval plan, evidence policy, governance gates, and certification boundary;
 
 - `agentmother_version: "0.1"`;
 - explicit `agent_id`, `runtime`, and target/runtime profile information where applicable;
@@ -114,9 +116,10 @@ Stage 2 produces a valid AgentMo blueprint/design contract:
 ### Validators and commands
 
 - `agentmo need-report <need.json> [--json]`
-- `agentmo blueprint-draft <agentmo-discovery-db.json> --need <need.json> --out <blueprint.json> [--target agentmo|openclaw] [--json]`
+- `agentmo design-plan <agentmo-discovery-db.json> --need <need.json> --out <agentmo-design-plan.json> [--target agentmo|openclaw] [--json]`
+- `agentmo blueprint-draft <agentmo-discovery-db.json> --need <need.json> --design-plan <agentmo-design-plan.json> --out <blueprint.json> [--target agentmo|openclaw] [--json]`
 - `agentmo validate <blueprint.json>`
-- Pure helpers: `validateUserNeed`, `loadDiscoveryDb`, `draftBlueprint`, `validateBlueprint`.
+- Pure helpers: `validateUserNeed`, `loadDiscoveryDb`, `buildDesignPlan`, `validateDesignPlan`, `draftBlueprint`, `validateBlueprint`.
 
 ### Forbidden reads and dependencies
 
@@ -130,8 +133,9 @@ Stage 2 must not require:
 ### Guarantees and safety boundaries
 
 - The blueprint validates before Stage 3 admission.
-- Unsafe workspace DBs fail closed before blueprint drafting.
-- The design describes eval/evidence policy before production claims.
+- Unsafe workspace DBs fail closed before design-plan or blueprint drafting.
+- `source_refs` fail closed on absolute paths, parent traversal, `.env`/key/cert/token-like refs, URL credentials, and non-http(s) schemes.
+- The design-plan describes trace/gaps/eval/governance before blueprint claims.
 - A drafted blueprint is still a plan; it is not runtime evidence.
 
 ### Certification boundary
@@ -144,8 +148,14 @@ Use any prebuilt valid discovery DB; this command does not invoke `discover-pack
 
 ```bash
 DISCOVERY_DB=/path/to/agentmo-discovery-db.json
+node ./bin/agentmo.js design-plan "$DISCOVERY_DB" \
+  --need examples/support-triage.need.json \
+  --out /tmp/support-triage-design-plan.json \
+  --target openclaw \
+  --json
 node ./bin/agentmo.js blueprint-draft "$DISCOVERY_DB" \
   --need examples/support-triage.need.json \
+  --design-plan /tmp/support-triage-design-plan.json \
   --out /tmp/support-triage.agentmo.json \
   --target openclaw \
   --json
@@ -197,7 +207,7 @@ Stage 3 may accept an externally reviewed or business-provided design contract w
 Stage 3 must not require:
 
 - discovery DB files or user-need files when the blueprint/design contract is already valid;
-- `discover-pack`, `need-report`, or `blueprint-draft` execution in the same command path;
+- `discover-pack`, `need-report`, `design-plan`, or `blueprint-draft` execution in the same command path;
 - raw provider payloads, raw transcripts, unrestricted tool bodies, or production runtime state in managed evidence.
 
 ### Guarantees and safety boundaries
@@ -256,7 +266,7 @@ node ./bin/agentmo.js delivery-report "$BLUEPRINT" \
 The support-triage MVP runs all three contracts in order:
 
 ```text
-discover-pack -> need-report -> blueprint-draft -> handoff -> scaffold/run/run-eval -> birth-report -> domain-eval -> delivery-report
+discover-pack -> need-report -> design-plan -> blueprint-draft -> handoff -> scaffold/run/run-eval -> birth-report -> domain-eval -> delivery-report
 ```
 
 That sequence proves the contracts compose. It does not make command ancestry mandatory for every valid AgentMo use case.

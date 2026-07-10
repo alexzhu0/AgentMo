@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { containsSecretLikeValue, redactSecrets } from "./secret-redaction.js";
+import { validateSourceRefs } from "./source-refs.js";
 
 export const USER_NEED_SCHEMA_VERSION = "agentmo.user-need.v1";
 
@@ -31,6 +32,8 @@ export function validateUserNeed(need) {
   validateOutputPreferences(need.output_preferences, errors);
   optionalStringArray(need, "runtime_preferences", errors);
   optionalStringArray(need, "source_refs", errors);
+  const sourceRefValidation = validateSourceRefs(need.source_refs ?? [], { fieldPath: "source_refs" });
+  errors.push(...sourceRefValidation.errors);
 
   if (typeof need.problem === "string" && need.problem.trim().length < 24) {
     warnings.push("problem is short; make sure the agent opportunity is concrete enough to evaluate.");
@@ -57,6 +60,7 @@ export function summarizeUserNeed(need) {
     primary_task_count: Array.isArray(need?.primary_tasks) ? need.primary_tasks.filter(nonEmptyString).length : 0,
     success_criteria_count: Array.isArray(need?.success_criteria) ? need.success_criteria.filter(nonEmptyString).length : 0,
     hard_failure_count: Array.isArray(need?.hard_failures) ? need.hard_failures.filter(nonEmptyString).length : 0,
+    source_refs: Array.isArray(need?.source_refs) ? validateSourceRefs(need.source_refs, { fieldPath: "source_refs" }).refs : [],
     output_preferences: isObject(need?.output_preferences)
       ? {
           language: sanitizeText(need.output_preferences.language ?? ""),

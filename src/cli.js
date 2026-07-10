@@ -4,6 +4,7 @@ import { buildBirthReport, formatBirthReport, loadJsonArtifact } from "./birth-r
 import { loadBlueprint, validateBlueprint } from "./blueprint.js";
 import { buildBlueprintDraftReport, draftBlueprint, formatBlueprintDraftReport, loadJsonFile, writeBlueprintDraft } from "./blueprint-draft.js";
 import { buildDeliveryReport, formatDeliveryReport } from "./delivery-report.js";
+import { buildDesignPlan, buildDesignPlanReport, formatDesignPlanReport, loadDesignPlan, writeDesignPlan } from "./design-plan.js";
 import { buildDiscoveryPack, formatDiscoveryPack, writeDiscoveryPack } from "./discovery-db.js";
 import { buildDiscoveryWorkspace, formatDiscoveryWorkspace, writeDiscoveryWorkspace } from "./discovery-source-workspace.js";
 import { buildDiscoveryReport, formatDiscoveryReport, loadDiscoveryManifest } from "./discovery.js";
@@ -96,14 +97,32 @@ export async function main(args) {
     return;
   }
 
+  if (command === "design-plan") {
+    const options = parseDesignPlanArgs(rest);
+    const discoveryDb = await loadJsonFile(options.file, "discovery-db");
+    const userNeed = await loadUserNeed(options.need);
+    const designPlan = buildDesignPlan(discoveryDb, userNeed, { target: options.target });
+    await writeDesignPlan(options.out, designPlan);
+    const report = buildDesignPlanReport(designPlan, { designPlanPath: options.out });
+    const result = { report, designPlan, designPlanPath: report.designPlanPath };
+    process.stdout.write(options.json ? `${JSON.stringify(result, null, 2)}\n` : formatDesignPlanReport(report));
+    if (!report.ok) process.exitCode = 1;
+    return;
+  }
+
   if (command === "blueprint-draft") {
     const options = parseBlueprintDraftArgs(rest);
     const discoveryDb = await loadJsonFile(options.file, "discovery-db");
     const userNeed = await loadUserNeed(options.need);
-    const blueprint = draftBlueprint(discoveryDb, userNeed, { target: options.target });
-    const blueprintPath = await writeBlueprintDraft(options.out, blueprint);
-    const report = buildBlueprintDraftReport(blueprint, { blueprintPath });
-    const result = { report, blueprint, blueprintPath };
+    const designPlan = options.designPlan ? await loadDesignPlan(options.designPlan) : null;
+    const blueprint = draftBlueprint(discoveryDb, userNeed, {
+      target: options.target,
+      designPlan,
+      designPlanPath: options.designPlan,
+    });
+    await writeBlueprintDraft(options.out, blueprint);
+    const report = buildBlueprintDraftReport(blueprint, { blueprintPath: options.out });
+    const result = { report, blueprint, blueprintPath: report.blueprintPath };
     process.stdout.write(options.json ? `${JSON.stringify(result, null, 2)}\n` : formatBlueprintDraftReport(report));
     if (!report.ok) process.exitCode = 1;
     return;
@@ -339,6 +358,41 @@ function parseBlueprintDraftArgs(args) {
   let need = null;
   let out = null;
   let target = "openclaw";
+  let designPlan = null;
+  let json = false;
+  for (let index = 1; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--need") {
+      need = args[index + 1];
+      index += 1;
+    } else if (arg === "--out") {
+      out = args[index + 1];
+      index += 1;
+    } else if (arg === "--target") {
+      target = args[index + 1];
+      index += 1;
+    } else if (arg === "--design-plan") {
+      designPlan = args[index + 1];
+      index += 1;
+    } else if (arg === "--json") {
+      json = true;
+    } else {
+      throw new Error(`Unknown blueprint-draft option: ${arg}`);
+    }
+  }
+  requireOptionValue(need, "--need");
+  requireOptionValue(out, "--out");
+  if (designPlan !== null) requireOptionValue(designPlan, "--design-plan");
+  assertKnownTarget(target, "blueprint-draft target");
+  return { file: resolve(file), need: resolve(need), out: resolve(out), target, designPlan: designPlan ? resolve(designPlan) : null, json };
+}
+
+function parseDesignPlanArgs(args) {
+  const file = args[0];
+  if (!file) throw new Error("Missing discovery-db file path.");
+  let need = null;
+  let out = null;
+  let target = "openclaw";
   let json = false;
   for (let index = 1; index < args.length; index += 1) {
     const arg = args[index];
@@ -354,12 +408,12 @@ function parseBlueprintDraftArgs(args) {
     } else if (arg === "--json") {
       json = true;
     } else {
-      throw new Error(`Unknown blueprint-draft option: ${arg}`);
+      throw new Error(`Unknown design-plan option: ${arg}`);
     }
   }
   requireOptionValue(need, "--need");
   requireOptionValue(out, "--out");
-  assertKnownTarget(target, "blueprint-draft target");
+  assertKnownTarget(target, "design-plan target");
   return { file: resolve(file), need: resolve(need), out: resolve(out), target, json };
 }
 
@@ -971,7 +1025,8 @@ Usage:
   agentmo discover-pack <discovery.json> --out <dir> [--json]
   agentmo discover-workspace <discovery.json> --source-root <dir> --out <dir> [--json]
   agentmo need-report <need.json> [--json]
-  agentmo blueprint-draft <agentmo-discovery-db.json> --need <need.json> --out <blueprint.json> [--target agentmo|openclaw] [--json]
+  agentmo design-plan <agentmo-discovery-db.json> --need <need.json> --out <agentmo-design-plan.json> [--target agentmo|openclaw] [--json]
+  agentmo blueprint-draft <agentmo-discovery-db.json> --need <need.json> [--design-plan <agentmo-design-plan.json>] --out <blueprint.json> [--target agentmo|openclaw] [--json]
   agentmo handoff <blueprint.json> --target agentmo|openclaw --out <dir> [--json]
   agentmo status <blueprint.json> [--build-state <path>] [--run-state <path>|--run-dir <dir>] [--json]
   agentmo plan <blueprint.json> [--target agentmo|openclaw] [--json]
@@ -994,7 +1049,8 @@ Concepts:
   discover-pack    Materialize a sanitized discovery database, facts JSONL, and coverage report.
   discover-workspace  Read approved repo-bound local sources into sanitized Stage 1 discovery artifacts.
   need-report      Validate and summarize a concrete user-need brief.
-  blueprint-draft  Draft a valid AgentMo blueprint from discovery data plus user need.
+  design-plan      Produce a Stage 2 planning contract from discovery DB plus user need.
+  blueprint-draft  Draft a valid AgentMo blueprint from discovery data plus user need, optionally gated by design-plan.
   handoff          Write a coding/runtime handoff package for the generated blueprint.
   status           Build an auditable control snapshot from blueprint plus optional build/run state.
   plan             Dry-run deterministic scaffold operations without writing files.

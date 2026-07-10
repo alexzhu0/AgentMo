@@ -27,7 +27,7 @@ function runCli(args) {
 }
 
 describe("cli mvp birth loop", () => {
-  it("runs support-triage through discover, need, draft, handoff, run-eval, birth-report, domain-eval, and delivery-report", async () => {
+  it("runs support-triage through discover, need, design-plan, draft, handoff, run-eval, birth-report, domain-eval, and delivery-report", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agentmo-cli-mvp-"));
     const discoveryOut = path.join(root, "discovery-pack");
     const discover = await runCli(["discover-pack", DISCOVERY, "--out", discoveryOut, "--json"]);
@@ -39,12 +39,31 @@ describe("cli mvp birth loop", () => {
     assert.equal(need.code, 0, need.stderr);
     assert.equal(JSON.parse(need.stdout).ok, true);
 
+    const designPlanPath = path.join(root, "agentmo-design-plan.json");
+    const designPlan = await runCli([
+      "design-plan",
+      path.join(discoveryOut, "agentmo-discovery-db.json"),
+      "--need",
+      NEED,
+      "--out",
+      designPlanPath,
+      "--target",
+      "openclaw",
+      "--json",
+    ]);
+    assert.equal(designPlan.code, 0, designPlan.stderr);
+    const designPlanJson = JSON.parse(designPlan.stdout);
+    assert.equal(designPlanJson.report.ok, true);
+    assert.equal(designPlanJson.designPlan.schemaVersion, "agentmo.design-plan.v1");
+
     const blueprintPath = path.join(root, "support-triage.agentmo.json");
     const draft = await runCli([
       "blueprint-draft",
       path.join(discoveryOut, "agentmo-discovery-db.json"),
       "--need",
       NEED,
+      "--design-plan",
+      designPlanPath,
       "--out",
       blueprintPath,
       "--target",

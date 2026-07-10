@@ -2,7 +2,9 @@ import { createHash } from "node:crypto";
 import { readFile, rename, writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { DESIGN_CONTRACT_VERSION, validateBlueprint } from "./blueprint.js";
+import { DESIGN_PLAN_SCHEMA_VERSION, validateDesignPlan } from "./design-plan.js";
 import { DISCOVERY_DB_SCHEMA_VERSION } from "./discovery-db.js";
+import { validateSourceRefs } from "./source-refs.js";
 import { USER_NEED_SCHEMA_VERSION, validateUserNeed } from "./user-need.js";
 
 export const BLUEPRINT_DRAFT_SCHEMA_VERSION = "agentmo.blueprint-draft.v1";
@@ -19,8 +21,10 @@ export async function loadJsonFile(filePath, subject) {
 
 export function draftBlueprint(discoveryDb, userNeed, options = {}) {
   assertDraftInputs(discoveryDb, userNeed);
+  const designPlan = options.designPlan ?? null;
   const agentId = sanitizeAgentId(userNeed.agent_id ?? discoveryDb.agentId);
   const runtime = resolveRuntime(options.target, options.runtime);
+  if (designPlan !== null) assertDesignPlanForDraft(designPlan, { agentId, domain: userNeed.domain, runtime });
   const sourceIds = Array.isArray(discoveryDb.sources) ? discoveryDb.sources.map((source) => source.id).filter(nonEmptyString) : [];
   const sourceDescriptions = Array.isArray(discoveryDb.sources)
     ? discoveryDb.sources.map((source) => `${source.id}: ${source.description}`).filter(nonEmptyString)
@@ -45,7 +49,7 @@ export function draftBlueprint(discoveryDb, userNeed, options = {}) {
     agent_id: agentId,
     runtime,
     status: "draft",
-    design_contract: buildDesignContractProvenance(),
+    design_contract: buildDesignContractProvenance(designPlan, options.designPlanPath),
     domain_genome: {
       domain: userNeed.domain,
       purpose: userNeed.problem,
@@ -101,7 +105,17 @@ export function draftBlueprint(discoveryDb, userNeed, options = {}) {
       ],
     },
     runtime_profiles: buildRuntimeProfiles(runtime, userNeed, options),
-    pipeline: buildPipeline(discoveryDb, userNeed, runtime),
+    pipeline: buildPipeline(discoveryDb, userNeed, runtime, { designPlan, designPlanPath: options.designPlanPath }),
+    stage2_planning:
+      designPlan === null
+        ? undefined
+        : {
+            schemaVersion: designPlan.schemaVersion,
+            review_ref: designPlanReviewRef(designPlan, options.designPlanPath),
+            requirement_count: Array.isArray(designPlan.requirementsTrace) ? designPlan.requirementsTrace.length : 0,
+            gap_count: Array.isArray(designPlan.gaps) ? designPlan.gaps.length : 0,
+            evidence_policy: "bounded refs only; full Stage 2 evidence map remains in the design-plan artifact",
+          },
   };
 }
 
@@ -110,7 +124,7 @@ export function buildBlueprintDraftReport(blueprint, options = {}) {
   return {
     schemaVersion: BLUEPRINT_DRAFT_SCHEMA_VERSION,
     ok: validation.ok,
-    blueprintPath: options.blueprintPath ? path.resolve(options.blueprintPath) : null,
+    blueprintPath: boundedPath(options.blueprintPath),
     agentId: blueprint.agent_id,
     runtime: blueprint.runtime,
     status: blueprint.status,
@@ -159,9 +173,45 @@ function assertDraftInputs(discoveryDb, userNeed) {
   if (discoveryDb.validation?.ok !== true) {
     throw new Error("Cannot draft blueprint from a discovery-db whose source manifest did not validate.");
   }
+  const sourceRefValidation = validateSourceRefs(userNeed.source_refs ?? [], {
+    sourceIds: Array.isArray(discoveryDb.sources) ? discoveryDb.sources.map((source) => source.id).filter(nonEmptyString) : [],
+    factIds: Array.isArray(discoveryDb.facts) ? discoveryDb.facts.map((fact) => fact.id).filter(nonEmptyString) : [],
+    fieldPath: "source_refs",
+    requireKnownBareRefs: true,
+  });
+  if (!sourceRefValidation.ok) {
+    throw new Error(`Cannot draft blueprint for invalid source_refs:\n${sourceRefValidation.errors.map((error) => `- ${error}`).join("\n")}`);
+  }
 }
 
-function buildDesignContractProvenance() {
+function assertDesignPlanForDraft(designPlan, { agentId, domain, runtime }) {
+  if (designPlan.schemaVersion !== DESIGN_PLAN_SCHEMA_VERSION) {
+    throw new Error(`design-plan schemaVersion must be ${DESIGN_PLAN_SCHEMA_VERSION}`);
+  }
+  if (designPlan.ok !== true) throw new Error("design-plan ok must be true before blueprint drafting.");
+  if (designPlan.validation?.ok !== true) throw new Error("design-plan validation.ok must be true before blueprint drafting.");
+  const validation = validateDesignPlan(designPlan);
+  if (!validation.ok) {
+    throw new Error(`Invalid design-plan for blueprint draft:\n${validation.errors.map((error) => `- ${error}`).join("\n")}`);
+  }
+  if (designPlan.agentId !== agentId) throw new Error(`design-plan agent id ${designPlan.agentId} does not match blueprint agent id ${agentId}.`);
+  if (designPlan.domain !== domain) throw new Error(`design-plan domain ${designPlan.domain} does not match user-need domain ${domain}.`);
+  if (designPlan.targetRuntime !== runtime) throw new Error(`design-plan target runtime ${designPlan.targetRuntime} does not match blueprint runtime ${runtime}.`);
+}
+
+function buildDesignContractProvenance(designPlan = null, designPlanPath = null) {
+  if (designPlan !== null) {
+    return {
+      provenance: {
+        source: "agentmo-stage2",
+        reviewed: true,
+        review_ref: designPlanReviewRef(designPlan, designPlanPath),
+        contract_version: DESIGN_CONTRACT_VERSION,
+        notes:
+          "Generated by AgentMo Stage 2 from a validated design-plan contract; this is an admission record only, not runtime/domain certification.",
+      },
+    };
+  }
   return {
     provenance: {
       source: "agentmo-stage2",
@@ -174,7 +224,17 @@ function buildDesignContractProvenance() {
   };
 }
 
-function buildPipeline(discoveryDb, userNeed, runtime) {
+function buildPipeline(discoveryDb, userNeed, runtime, options = {}) {
+  const planningInputs = [
+    "agentmo-discovery-db.json",
+    "facts.jsonl",
+    "agentmo.user-need.v1",
+    ...(options.designPlan ? ["agentmo.design-plan.v1", boundedPath(options.designPlanPath) ?? "agentmo-design-plan.json"] : []),
+    ...(Array.isArray(userNeed.source_refs) ? userNeed.source_refs : []),
+  ];
+  const planningOutputs = options.designPlan
+    ? ["AgentMo blueprint", "design-plan review ref", "tool contracts", "evidence policy", "eval class list", "runtime profile"]
+    : ["AgentMo blueprint", "tool contracts", "evidence policy", "eval class list", "runtime profile"];
   return {
     discover: {
       purpose: "Find bounded source data and concrete user need before designing the agent.",
@@ -185,8 +245,8 @@ function buildPipeline(discoveryDb, userNeed, runtime) {
     },
     plan: {
       purpose: "Convert discovery facts plus user need into a buildable AgentMo blueprint.",
-      planning_inputs: ["agentmo-discovery-db.json", "facts.jsonl", "user-need report", ...userNeed.source_refs ?? []],
-      planning_outputs: ["AgentMo blueprint", "tool contracts", "evidence policy", "eval class list", "runtime profile"],
+      planning_inputs: Array.from(new Set(planningInputs.filter(nonEmptyString))),
+      planning_outputs: planningOutputs,
       decision_gates: ["no production claim from draft", "no build if discovery/user need is invalid", "no birth without birth-report"],
       done_when: ["blueprint validates", "handoff package is generated", "birth-report inputs are known"],
     },
@@ -199,6 +259,16 @@ function buildPipeline(discoveryDb, userNeed, runtime) {
       done_when: ["declared birth gate passes", "live-success birth gate passes before runtime promotion", "known risks are recorded"],
     },
   };
+}
+
+function designPlanReviewRef(designPlan, designPlanPath) {
+  const bounded = boundedPath(designPlanPath);
+  return `design-plan:${bounded ?? `${designPlan.schemaVersion}:${designPlan.agentId}`}`;
+}
+
+function boundedPath(filePath) {
+  if (!nonEmptyString(filePath)) return null;
+  return path.basename(filePath);
 }
 
 function buildRuntimeProfiles(runtime, userNeed, options) {

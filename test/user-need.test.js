@@ -33,4 +33,13 @@ describe("user need", () => {
     assert.equal(validation.ok, false);
     assert.match(validation.errors.join("\n"), /secret-like string values are not allowed/u);
   });
+
+  it("fails closed when source refs are not bounded review refs", async () => {
+    const need = await loadSupportNeed();
+    need.source_refs = ["../AgentHarness/README.md"];
+    const validation = validateUserNeed(need);
+    assert.equal(validation.ok, false);
+    assert.match(validation.errors.join("\n"), /source_refs/);
+  });
+
 });

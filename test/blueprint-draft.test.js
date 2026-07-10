@@ -4,7 +4,8 @@ import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { DESIGN_CONTRACT_VERSION, validateBlueprint } from "../src/blueprint.js";
-import { draftBlueprint, writeBlueprintDraft } from "../src/blueprint-draft.js";
+import { buildBlueprintDraftReport, draftBlueprint, writeBlueprintDraft } from "../src/blueprint-draft.js";
+import { buildDesignPlan } from "../src/design-plan.js";
 import { buildDiscoveryDb } from "../src/discovery-db.js";
 
 async function loadJson(url) {
@@ -53,4 +54,51 @@ describe("blueprint draft", () => {
     const discoveryDb = buildDiscoveryDb(manifest);
     assert.throws(() => draftBlueprint(discoveryDb, need, { target: "openclaw" }), /does not match user-need/u);
   });
+
+  it("drafts from a validated design-plan without embedding the full evidence map", async () => {
+    const manifest = await loadJson(new URL("../examples/support-triage.discovery.json", import.meta.url));
+    const need = await loadJson(new URL("../examples/support-triage.need.json", import.meta.url));
+    const discoveryDb = buildDiscoveryDb(manifest, { manifestPath: "examples/support-triage.discovery.json" });
+    const designPlan = buildDesignPlan(discoveryDb, need, { target: "openclaw" });
+
+    const blueprint = draftBlueprint(discoveryDb, need, { target: "openclaw", designPlan, designPlanPath: "agentmo-design-plan.json" });
+    const validation = validateBlueprint(blueprint);
+    assert.equal(validation.ok, true, validation.errors.join("\n"));
+    assert.equal(blueprint.design_contract.provenance.review_ref, "design-plan:agentmo-design-plan.json");
+    assert.equal(blueprint.pipeline.plan.planning_inputs.includes("agentmo-design-plan.json"), true);
+    assert.equal("evidenceMap" in blueprint, false);
+    assert.equal(JSON.stringify(blueprint).includes("requirementsTrace"), false);
+  });
+
+  it("rejects invalid or mismatched design-plan input", async () => {
+    const manifest = await loadJson(new URL("../examples/support-triage.discovery.json", import.meta.url));
+    const need = await loadJson(new URL("../examples/support-triage.need.json", import.meta.url));
+    const discoveryDb = buildDiscoveryDb(manifest, { manifestPath: "examples/support-triage.discovery.json" });
+    const designPlan = buildDesignPlan(discoveryDb, need, { target: "openclaw" });
+
+    assert.throws(() => draftBlueprint(discoveryDb, need, { target: "agentmo", designPlan }), /target runtime/i);
+
+    const notOk = structuredClone(designPlan);
+    notOk.ok = false;
+    assert.throws(() => draftBlueprint(discoveryDb, need, { target: "openclaw", designPlan: notOk }), /design-plan ok must be true/i);
+
+    const invalidValidation = structuredClone(designPlan);
+    invalidValidation.validation.ok = false;
+    assert.throws(() => draftBlueprint(discoveryDb, need, { target: "openclaw", designPlan: invalidValidation }), /design-plan validation.ok must be true/i);
+
+    const wrongAgent = structuredClone(designPlan);
+    wrongAgent.agentId = "other-agent";
+    assert.throws(() => draftBlueprint(discoveryDb, need, { target: "openclaw", designPlan: wrongAgent }), /agent id/i);
+  });
+
+  it("reports blueprint output paths without leaking host absolute paths", async () => {
+    const manifest = await loadJson(new URL("../examples/support-triage.discovery.json", import.meta.url));
+    const need = await loadJson(new URL("../examples/support-triage.need.json", import.meta.url));
+    const discoveryDb = buildDiscoveryDb(manifest, { manifestPath: "examples/support-triage.discovery.json" });
+    const blueprint = draftBlueprint(discoveryDb, need, { target: "openclaw" });
+    const dir = await mkdtemp(path.join(tmpdir(), "agentmo-blueprint-report-"));
+    const report = buildBlueprintDraftReport(blueprint, { blueprintPath: path.join(dir, "support-triage.agentmo.json") });
+    assert.equal(report.blueprintPath, "support-triage.agentmo.json");
+  });
+
 });
