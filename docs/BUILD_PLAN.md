@@ -5,8 +5,9 @@ AgentMo separates planning from mutation.
 ## Dry-run plan
 
 ```bash
-./bin/agentmo.js plan examples/win9.agentmo.json --json
-./bin/agentmo.js plan examples/win9.agentmo.json --target openclaw --json
+digest_file() { node -e 'const fs=require("node:fs");const crypto=require("node:crypto");fs.writeSync(1,"sha256:"+crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex"));' "$1"; }
+./bin/agentmo.js plan examples/win9.agentmo.json --json --digest "blueprint=$(digest_file "examples/win9.agentmo.json")"
+./bin/agentmo.js plan examples/win9.agentmo.json --target openclaw --json --digest "blueprint=$(digest_file "examples/win9.agentmo.json")"
 ```
 
 The plan command validates the blueprint, resolves the target/profile, and emits
@@ -24,8 +25,9 @@ Stable fields include:
 ## Scaffold apply
 
 ```bash
-./bin/agentmo.js scaffold examples/win9.agentmo.json --out /tmp/win9-agentmo-scaffold
-./bin/agentmo.js scaffold examples/win9.agentmo.json --target openclaw --out /tmp/win9-openclaw-scaffold
+digest_file() { node -e 'const fs=require("node:fs");const crypto=require("node:crypto");fs.writeSync(1,"sha256:"+crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex"));' "$1"; }
+./bin/agentmo.js scaffold examples/win9.agentmo.json --out /tmp/win9-agentmo-scaffold --digest "blueprint=$(digest_file "examples/win9.agentmo.json")"
+./bin/agentmo.js scaffold examples/win9.agentmo.json --target openclaw --out /tmp/win9-openclaw-scaffold --digest "blueprint=$(digest_file "examples/win9.agentmo.json")"
 ```
 
 Scaffold uses the same domain operation model as the dry-run plan. After the
@@ -37,6 +39,8 @@ agentmo-build-state.json
 
 The sidecar is not part of the dry-run domain operation list and is excluded
 from dry-run/apply file-list parity checks.
+
+Before the first output directory or file is created, scaffold materializes and validates the complete operation set, product bytes, paths, collisions, and final build-state bytes. An unsafe or mismatched candidate therefore fails with zero managed output writes; this is preflight evidence, not a multi-file transaction guarantee.
 
 ## Build-state schema
 
@@ -61,8 +65,9 @@ sidecar itself is asserted separately.
 sidecar, into `agentmo.control.v1`:
 
 ```bash
-./bin/agentmo.js status examples/win9.agentmo.json --json
-./bin/agentmo.js status examples/win9.agentmo.json --build-state /tmp/win9-openclaw-scaffold/agentmo-build-state.json --json
+digest_file() { node -e 'const fs=require("node:fs");const crypto=require("node:crypto");fs.writeSync(1,"sha256:"+crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex"));' "$1"; }
+./bin/agentmo.js status examples/win9.agentmo.json --json --digest "blueprint=$(digest_file "examples/win9.agentmo.json")"
+./bin/agentmo.js status examples/win9.agentmo.json --build-state /tmp/win9-openclaw-scaffold/agentmo-build-state.json --json --digest "blueprint=$(digest_file "examples/win9.agentmo.json")" --digest "build-state=$(digest_file "/tmp/win9-openclaw-scaffold/agentmo-build-state.json")"
 ```
 
 The snapshot is read-only. Missing or unreadable build state is represented as

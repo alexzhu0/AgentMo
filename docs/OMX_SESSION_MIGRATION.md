@@ -9,18 +9,19 @@ Mode: Ultragoal-style durable handoff artifact.
 Start a fresh terminal session:
 
 ```bash
-cd /home/alex/DTAlex/learningGitHub/AgentMo
+export AGENTMO_REPO="<path-to-AgentMo>"
+cd "$AGENTMO_REPO"
 omx --madmax --xhigh
 ```
 
 Then paste this as the first message:
 
 ```text
-我们现在只在 /home/alex/DTAlex/learningGitHub/AgentMo 项目里工作。
+我们现在只在 AgentMo 仓库根目录（`$AGENTMO_REPO`）工作。
 
-不要读取或修改 /home/alex/DTAlex/learningGitHub/pi。
-不要读取或修改 /home/alex/DTAlex/learningGitHub/AgentHarness。
-不要读取或修改 /home/alex/DTAlex/learningGitHub/openclaw。
+不要读取或修改 sibling project `../pi`。
+不要读取或修改 sibling project `../AgentHarness`。
+不要读取或修改 sibling project `../openclaw`。
 除非我明确要求，AgentHarness/openclaw 只能作为概念背景使用 AgentMo 仓库内已有文档。
 不要读取 .env，不要打印任何密钥。
 
@@ -38,7 +39,7 @@ Then paste this as the first message:
 - docs/AGENTMO_MVP_LEDGER.md
 
 然后只做恢复和审查：
-1. 确认 pwd 是 /home/alex/DTAlex/learningGitHub/AgentMo。
+1. 确认 `pwd` 是包含 `AGENTS.md` 与 `package.json` 的 AgentMo 仓库根目录。
 2. 确认 git status、branch、HEAD。
 3. 审查当前未提交 diff 的范围。
 4. 运行 npm run check 和 git diff --check。
@@ -53,7 +54,7 @@ Then paste this as the first message:
 Project:
 
 ```text
-/home/alex/DTAlex/learningGitHub/AgentMo
+$AGENTMO_REPO
 ```
 
 Current branch:
@@ -137,7 +138,7 @@ git branch --show-current
 
 Acceptance:
 
-- `pwd` is `/home/alex/DTAlex/learningGitHub/AgentMo`.
+- `pwd` resolves to the AgentMo repository root containing `AGENTS.md` and `package.json`.
 - HEAD is `f5dd4ea` unless the user has committed after this document was refreshed.
 - The session explicitly states it will not touch `pi`, AgentHarness, or OpenClaw without instruction.
 
@@ -208,19 +209,22 @@ git diff --check
 Optional declared vertical slice:
 
 ```bash
+node ./bin/agentmo.js runtime-check --target openclaw
 WORK=/tmp/agentmo-session-migration-support-triage
 rm -rf "$WORK"
 mkdir -p "$WORK"
-node ./bin/agentmo.js discover-pack examples/support-triage.discovery.json --out "$WORK/discovery" --json
-node ./bin/agentmo.js need-report examples/support-triage.need.json --json
-node ./bin/agentmo.js design-plan "$WORK/discovery/agentmo-discovery-db.json" --need examples/support-triage.need.json --out "$WORK/agentmo-design-plan.json" --target openclaw --json
-node ./bin/agentmo.js blueprint-draft "$WORK/discovery/agentmo-discovery-db.json" --need examples/support-triage.need.json --design-plan "$WORK/agentmo-design-plan.json" --out "$WORK/support-triage.agentmo.json" --target openclaw --json
-node ./bin/agentmo.js handoff "$WORK/support-triage.agentmo.json" --target openclaw --out "$WORK/handoff" --json
-node ./bin/agentmo.js scaffold "$WORK/support-triage.agentmo.json" --target openclaw --out "$WORK/scaffold" --force
-node ./bin/agentmo.js run "$WORK/support-triage.agentmo.json" --target openclaw --workspace "$WORK/scaffold/openclaw/workspace" --message "Say exactly: ok" --out "$WORK/run" --json
+digest_file() { node -e 'const fs=require("node:fs");const crypto=require("node:crypto");fs.writeSync(1,"sha256:"+crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex"));' "$1"; }
+node ./bin/agentmo.js discover-pack examples/support-triage.discovery.json --out "$WORK/discovery" --json --digest "discovery-manifest=$(digest_file "examples/support-triage.discovery.json")"
+node ./bin/agentmo.js need-report examples/support-triage.need.json --json --digest "user-need=$(digest_file "examples/support-triage.need.json")"
+node ./bin/agentmo.js design-plan "$WORK/discovery/agentmo-discovery-db.json" --need examples/support-triage.need.json --out "$WORK/agentmo-design-plan.json" --target openclaw --json --digest "discovery-db=$(digest_file "$WORK/discovery/agentmo-discovery-db.json")" --digest "user-need=$(digest_file "examples/support-triage.need.json")"
+node ./bin/agentmo.js blueprint-draft "$WORK/discovery/agentmo-discovery-db.json" --need examples/support-triage.need.json --design-plan "$WORK/agentmo-design-plan.json" --out "$WORK/support-triage.agentmo.json" --target openclaw --json --digest "discovery-db=$(digest_file "$WORK/discovery/agentmo-discovery-db.json")" --digest "user-need=$(digest_file "examples/support-triage.need.json")" --digest "design-plan=$(digest_file "$WORK/agentmo-design-plan.json")"
+node ./bin/agentmo.js handoff "$WORK/support-triage.agentmo.json" --target openclaw --out "$WORK/handoff" --json --digest "blueprint=$(digest_file "$WORK/support-triage.agentmo.json")"
+node ./bin/agentmo.js scaffold "$WORK/support-triage.agentmo.json" --target openclaw --out "$WORK/scaffold" --force --digest "blueprint=$(digest_file "$WORK/support-triage.agentmo.json")"
+node ./bin/agentmo.js run-plan "$WORK/support-triage.agentmo.json" --target openclaw --workspace "$WORK/scaffold/openclaw/workspace" --message "Say exactly: ok" --json --digest "blueprint=$(digest_file "$WORK/support-triage.agentmo.json")" > "$WORK/runtime-plan.json"
+node ./bin/agentmo.js run "$WORK/runtime-plan.json" --workspace "$WORK/scaffold/openclaw/workspace" --message "Say exactly: ok" --out "$WORK/run" --json --digest "runtime-plan=$(digest_file "$WORK/runtime-plan.json")"
 RUN_STATE="$(find "$WORK/run/runs" -name agentmo-run-state.json | sort | tail -n 1)"
-node ./bin/agentmo.js run-eval "$RUN_STATE" --expect-status declared --json > "$WORK/run-eval.json"
-node ./bin/agentmo.js birth-report "$WORK/support-triage.agentmo.json" --build-state "$WORK/scaffold/agentmo-build-state.json" --run-state "$RUN_STATE" --run-eval "$WORK/run-eval.json" --expect-status declared --json
+node ./bin/agentmo.js run-eval "$RUN_STATE" --expect-status declared --json --digest "run-state=$(digest_file "$RUN_STATE")" > "$WORK/run-eval.json"
+node ./bin/agentmo.js birth-report "$WORK/support-triage.agentmo.json" --build-state "$WORK/scaffold/agentmo-build-state.json" --run-state "$RUN_STATE" --run-eval "$WORK/run-eval.json" --expect-status declared --json --digest "blueprint=$(digest_file "$WORK/support-triage.agentmo.json")" --digest "build-state=$(digest_file "$WORK/scaffold/agentmo-build-state.json")" --digest "run-state=$(digest_file "$RUN_STATE")" --digest "run-eval=$(digest_file "$WORK/run-eval.json")"
 ```
 
 Acceptance:
@@ -301,7 +305,7 @@ release/2026.07.10.md
 
 ## 6. Architecture invariants to preserve
 
-1. AgentMo is a three-stage AgentMother mechanism:
+1. AgentMo is a three-stage agent-building mechanism:
 
    ```text
    Discover -> Plan -> Produce
@@ -335,15 +339,19 @@ release/2026.07.10.md
 
 10. AgentHarness is currently an inspiration/governance reference, not a stable integrated dependency.
 
+11. Legacy artifact migration is the one explicit retained-handle filesystem path. Preview and apply independently bind source bytes through retained parent/file handles; publication, verification, staging recovery, truncate/write, and cleanup continue through retained handles rather than re-resolving an attacker-replaceable pathname. Candidate payload, receipt, and marker bytes must pass preflight before output handles open. This exception does not relax canonical artifact loaders or writers.
+
+12. AgentMo core remains Node.js `>=20`; OpenClaw target mutation separately requires `>=22.19.0 <23 || >=23.11.0` and must use `node ./bin/agentmo.js runtime-check --target openclaw` before effects. This preflight is compatibility evidence only.
+
 ## 7. What not to do in the new session
 
 Do not:
 
 - read `.env`;
 - print secret values;
-- modify `/home/alex/DTAlex/learningGitHub/pi`;
-- modify `/home/alex/DTAlex/learningGitHub/AgentHarness`;
-- modify `/home/alex/DTAlex/learningGitHub/openclaw`;
+- modify sibling project `../pi`;
+- modify sibling project `../AgentHarness`;
+- modify sibling project `../openclaw`;
 - run destructive git commands;
 - run `git add .`;
 - commit without explicit user request;

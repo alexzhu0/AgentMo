@@ -1,19 +1,21 @@
-import { readFile } from "node:fs/promises";
 import { containsSecretLikeValue, redactSecrets } from "./secret-redaction.js";
 import { validateSourceRefs } from "./source-refs.js";
 
 export const USER_NEED_SCHEMA_VERSION = "agentmo.user-need.v1";
 
-export async function loadUserNeed(filePath) {
-  const raw = await readFile(filePath, "utf8");
-  let parsed;
-  try {
-    parsed = JSON.parse(raw);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Invalid user-need JSON ${filePath}: ${message}`);
+export async function loadUserNeed(filePath, options = {}) {
+  if (options.subject !== "user-need") {
+    const { AgentMoUnsupportedArtifactError } = await import("./artifact-registry.js");
+    throw new AgentMoUnsupportedArtifactError("subject_identity_mismatch");
   }
-  return parsed;
+  const { loadAdmittedArtifact } = await import("./artifact-admission.js");
+  return (await loadAdmittedArtifact({
+    filePath,
+    subject: "user-need",
+    expectedDigest: options.expectedDigest,
+    maxBytes: options.maxBytes,
+    openInput: options.openInput,
+  })).value;
 }
 
 export function validateUserNeed(need) {

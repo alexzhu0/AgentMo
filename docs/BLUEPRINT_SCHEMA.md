@@ -1,10 +1,10 @@
-# AgentMother Blueprint Schema v0.1
+# AgentMo Blueprint Schema v0.1
 
 The current MVP uses JSON to avoid dependencies. YAML can be added later as an adapter, but JSON is the canonical executable format for v0.1.
 
 ## Required top-level fields
 
-- `agentmother_version`: must be `0.1`
+- `agentmo_version`: must be `0.1`
 - `agent_id`: lowercase kebab-case id
 - `runtime`: one of `pi`, `openclaw`, `codex`, `agentharness`, `external`
 - `status`: one of `draft`, `gestating`, `born`, `training`, `certified`, `released`, `deprecated`
@@ -87,6 +87,19 @@ The build-state sidecar uses `schemaVersion: "agentmo.build.v1"` and records the
 request, target/profile resolution, source blueprint metadata/hash, generated
 operation summaries, and `generatedAt` timestamp. It is a managed artifact and
 is not counted as a domain operation.
+
+## Durable admission and safe carriers
+
+Every durable artifact file is admitted under one canonical subject and one SHA-256 digest of its exact bytes before JSON decoding. Parsed, normalized, or reserialized JSON hashes are not admission authority. A valid schema or an upstream success flag cannot substitute for that subject binding.
+
+Persisted sensitive metadata is limited to exact closed carriers:
+
+- `SecretRef`: exactly `kind`, `source:"runtime-env"`, and a bounded environment variable `name`; it never contains the value.
+- `SecretPresence`: exactly `kind`, `source`, sorted `allowedNames`/`presentNames`/`missingNames`, and `valuesPersisted:false`.
+- `RedactedSummary`: exactly `kind`, `summaryKind`, `sha256`, `length`, `redactedLength`, bounded redacted `text`, and `redacted:true`.
+- Runtime host paths use `TransientPathRef` with `kind`, a fixed logical `name`, and `persisted:false`; the actual path must be supplied again at execution.
+
+Objects that resemble these carriers but add fields, use an unapproved source/name, or contain raw credential/runtime material fail closed.
 
 ## Domain genome
 
@@ -183,3 +196,7 @@ Required fields:
 
 - `latest_commit` or `release_ledger_path`
 - `known_risks`
+
+## Legacy migration context
+
+Legacy machine artifacts may contain `agentmother_version: "0.1"`. That field is accepted only by the explicit, value-blind migration path; current validators and emitters require `agentmo_version: "0.1"` and never dual-write the legacy identity.

@@ -1,7 +1,14 @@
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { validateDiscoveryManifest } from "./discovery.js";
+import {
+  assertPersistable,
+  PersistabilityError,
+  serializePersistableJson,
+  writePersistableJsonAtomic,
+  writePersistableTextAtomic,
+} from "./persistability.js";
 import {
   containsHostAbsolutePath,
   containsSecretLikeValue,
@@ -18,19 +25,43 @@ export const DISCOVERY_COVERAGE_FILENAME = "coverage.json";
 
 const MODULE_REPO_ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 
-export async function loadDiscoveryDb(filePath) {
-  const raw = await readFile(filePath, "utf8");
-  let parsed;
-  try {
-    parsed = JSON.parse(raw);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Invalid discovery-db JSON ${filePath}: ${message}`);
+export async function loadDiscoveryDb(filePath, options = {}) {
+  if (options.subject !== "discovery-db") {
+    const { AgentMoUnsupportedArtifactError } = await import("./artifact-registry.js");
+    throw new AgentMoUnsupportedArtifactError("subject_identity_mismatch");
   }
-  if (parsed?.schemaVersion !== DISCOVERY_DB_SCHEMA_VERSION) {
-    throw new Error(`Unsupported discovery-db schema: ${parsed?.schemaVersion ?? "missing"}`);
+  const { loadAdmittedArtifact } = await import("./artifact-admission.js");
+  return (await loadAdmittedArtifact({
+    filePath,
+    subject: "discovery-db",
+    expectedDigest: options.expectedDigest,
+    maxBytes: options.maxBytes,
+    openInput: options.openInput,
+  })).value;
+}
+
+export function validateDiscoveryDb(value) {
+  const errors = [];
+  if (!isObject(value)) return { ok: false, errors: ["Discovery DB must be an object."], warnings: [] };
+  if (value.schemaVersion !== DISCOVERY_DB_SCHEMA_VERSION) errors.push(`schemaVersion must be ${DISCOVERY_DB_SCHEMA_VERSION}`);
+  if (typeof value.agentId !== "string" || value.agentId.trim().length === 0) errors.push("agentId must be a non-empty string.");
+  for (const field of ["sources", "facts", "userNeedInputs", "forbiddenDataHandling"]) {
+    if (!Array.isArray(value[field])) errors.push(`${field} must be an array.`);
   }
-  return parsed;
+  if (!isObject(value.sourceManifest)) errors.push("sourceManifest must be an object.");
+  if (!isObject(value.outputs) || !Array.isArray(value.outputs?.database) || !Array.isArray(value.outputs?.retrieval)) {
+    errors.push("outputs must contain database and retrieval arrays.");
+  }
+  if (!isObject(value.coverage)) errors.push("coverage must be an object.");
+  if (!isObject(value.safety)) errors.push("safety must be an object.");
+  if (!isObject(value.validation) || value.validation.ok !== true) errors.push("validation.ok must be true.");
+  if (value.safety?.rawSecretsStored !== false
+    || value.safety?.rawTranscriptsStored !== false
+    || value.safety?.rawToolBodiesStored !== false) {
+    errors.push("safety raw-material flags must be false.");
+  }
+  if (value.safety?.workspaceOk === false || value.workspace?.ok === false) errors.push("workspace evidence must be safe.");
+  return { ok: errors.length === 0, errors, warnings: [] };
 }
 
 export function buildDiscoveryDb(manifest, options = {}) {
@@ -40,7 +71,7 @@ export function buildDiscoveryDb(manifest, options = {}) {
   const sources = sourceInventory.map((source) => sanitizeSource(source, options)).sort((left, right) => left.id.localeCompare(right.id));
   const facts = sources.flatMap((source) =>
     source.extractionFields.map((field, index) => ({
-      id: `${source.id}:field:${String(index + 1).padStart(2, "0")}`,
+      id: deriveDiscoveryRecordId(source.id, `field:${String(index + 1).padStart(2, "0")}`),
       sourceId: source.id,
       kind: "extraction_field",
       text: field,
@@ -93,6 +124,12 @@ export function buildDiscoveryDb(manifest, options = {}) {
     },
   };
   return db;
+}
+
+export function deriveDiscoveryRecordId(sourceId, suffix) {
+  const candidate = `${sourceId}:${suffix}`;
+  if (!containsSecretLikeValue(candidate) && !containsHostAbsolutePath(candidate)) return candidate;
+  return `source-${createHash("sha256").update(String(sourceId)).digest("hex")}:${suffix}`;
 }
 
 export function buildDiscoveryPack(manifest, options = {}) {
@@ -155,14 +192,14 @@ export function buildDiscoveryPack(manifest, options = {}) {
 }
 
 export async function writeDiscoveryPack(outDir, pack) {
+  const prepared = prepareDiscoveryPack(pack);
   const root = path.resolve(outDir);
-  await mkdir(root, { recursive: true });
   const discoveryDbPath = path.join(root, DISCOVERY_DB_FILENAME);
   const factsPath = path.join(root, DISCOVERY_FACTS_FILENAME);
   const coveragePath = path.join(root, DISCOVERY_COVERAGE_FILENAME);
-  await writeJsonAtomic(discoveryDbPath, pack.discoveryDb);
-  await writeTextAtomic(factsPath, pack.factsJsonl);
-  await writeJsonAtomic(coveragePath, pack.coverage);
+  await writePersistableJsonAtomic(discoveryDbPath, pack.discoveryDb, { subject: "discovery-db" });
+  await writePersistableTextAtomic(factsPath, prepared.factsJsonl, { subject: "discovery-facts" });
+  await writePersistableJsonAtomic(coveragePath, pack.coverage, { subject: "discovery-coverage" });
   return {
     outDir: ".",
     discoveryDbPath: DISCOVERY_DB_FILENAME,
@@ -346,14 +383,34 @@ function countBy(values) {
 }
 
 export async function writeJsonAtomic(filePath, value) {
-  await writeTextAtomic(filePath, `${JSON.stringify(value, null, 2)}\n`);
+  await writePersistableJsonAtomic(filePath, value, { subject: "discovery-json" });
 }
 
 export async function writeTextAtomic(filePath, content) {
-  await mkdir(path.dirname(filePath), { recursive: true });
-  const temporaryFile = `${filePath}.tmp-${process.pid}-${Date.now()}`;
-  await writeFile(temporaryFile, content, "utf8");
-  await rename(temporaryFile, filePath);
+  assertPersistable(content, { subject: "discovery-text" });
+  await writePersistableTextAtomic(filePath, content, { subject: "discovery-text" });
+}
+
+export function serializeDiscoveryJsonl(records, subject = "discovery-jsonl") {
+  assertPersistable(records, { subject });
+  const lines = records.map((record) => {
+    assertPersistable(record, { subject });
+    return JSON.stringify(record);
+  });
+  const text = lines.length > 0 ? `${lines.join("\n")}\n` : "";
+  assertPersistable(text, { subject });
+  return text;
+}
+
+function prepareDiscoveryPack(pack) {
+  assertPersistable(pack, { subject: "discovery-pack" });
+  const factsJsonl = serializeDiscoveryJsonl(pack.discoveryDb.facts, "discovery-facts");
+  if (pack.factsJsonl !== factsJsonl) throw new PersistabilityError("AGENTMO_PERSISTABILITY_CANDIDATE_MISMATCH");
+  return {
+    discoveryDbText: serializePersistableJson(pack.discoveryDb, { subject: "discovery-db" }),
+    factsJsonl,
+    coverageText: serializePersistableJson(pack.coverage, { subject: "discovery-coverage" }),
+  };
 }
 
 function isObject(value) {

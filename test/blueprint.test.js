@@ -1,10 +1,26 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { describe, it } from "node:test";
-import { readFile } from "node:fs/promises";
-import { DESIGN_CONTRACT_VERSION, validateBlueprint, evaluateQualityGates, summarizeBlueprint } from "../src/blueprint.js";
+import { mkdtemp, open, readFile, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import {
+  DESIGN_CONTRACT_VERSION,
+  TRANSITIONAL_BLUEPRINT_LOADER_CONSUMERS,
+  evaluateQualityGates,
+  loadAdmittedBlueprint,
+  summarizeBlueprint,
+  validateBlueprint,
+} from "../src/blueprint.js";
+
+const WIN9_BLUEPRINT = new URL("../examples/win9.agentmo.json", import.meta.url);
+
+function digestBytes(bytes) {
+  return `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+}
 
 async function loadExample() {
-  return JSON.parse(await readFile(new URL("../examples/win9.agentmo.json", import.meta.url), "utf8"));
+  return JSON.parse(await readFile(WIN9_BLUEPRINT, "utf8"));
 }
 
 async function loadSupportExample() {
@@ -12,6 +28,81 @@ async function loadSupportExample() {
 }
 
 describe("blueprint validation", () => {
+  it("admits exact blueprint bytes once and returns authentic provenance input", async () => {
+    const bytes = await readFile(WIN9_BLUEPRINT);
+    let opens = 0;
+    const admission = await loadAdmittedBlueprint(WIN9_BLUEPRINT, {
+      subject: "blueprint",
+      expectedDigest: digestBytes(bytes),
+      openInput: async (...args) => {
+        opens += 1;
+        return open(...args);
+      },
+    });
+
+    assert.equal(opens, 1);
+    assert.equal(admission.subject, "blueprint");
+    assert.equal(admission.identity, "0.1");
+    assert.equal(admission.digest, digestBytes(bytes));
+    assert.equal(admission.value.agent_id, "win9");
+    assert.equal(Object.isFrozen(admission.value), true);
+  });
+
+  it("fails closed for legacy, unknown, and wrong-subject blueprint inputs", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agentmo-blueprint-loader-"));
+    const legacy = new URL("./fixtures/migration/legacy-blueprint.json", import.meta.url);
+    const legacyBytes = await readFile(legacy);
+    await assert.rejects(
+      () => loadAdmittedBlueprint(legacy, {
+        subject: "blueprint",
+        expectedDigest: digestBytes(legacyBytes),
+      }),
+      (error) => error?.code === "AGENTMO_MIGRATION_REQUIRED",
+    );
+
+    const unknownPath = path.join(root, "unknown.json");
+    const unknown = await loadExample();
+    unknown.agentmo_version = "9.9";
+    const unknownBytes = Buffer.from(`${JSON.stringify(unknown, null, 2)}\n`, "utf8");
+    await writeFile(unknownPath, unknownBytes);
+    await assert.rejects(
+      () => loadAdmittedBlueprint(unknownPath, {
+        subject: "blueprint",
+        expectedDigest: digestBytes(unknownBytes),
+      }),
+      (error) => error?.code === "AGENTMO_UNSUPPORTED_ARTIFACT",
+    );
+
+    const canonicalBytes = await readFile(WIN9_BLUEPRINT);
+    await assert.rejects(
+      () => loadAdmittedBlueprint(WIN9_BLUEPRINT, {
+        subject: "handoff",
+        expectedDigest: digestBytes(canonicalBytes),
+      }),
+      (error) => error?.code === "AGENTMO_UNSUPPORTED_ARTIFACT",
+    );
+  });
+
+  it("keeps the transitional blueprint loader consumer count at zero", async () => {
+    assert.equal(Object.isFrozen(TRANSITIONAL_BLUEPRINT_LOADER_CONSUMERS), true);
+    assert.deepEqual(TRANSITIONAL_BLUEPRINT_LOADER_CONSUMERS, {});
+
+    const cliSource = await readFile(new URL("../src/cli.js", import.meta.url), "utf8");
+    const transitionalCalls = Array.from(cliSource.matchAll(/await loadBlueprint\(/gu));
+    assert.equal(transitionalCalls.length, 0);
+    for (const command of [
+      "validate", "report", "plan", "handoff", "run-plan", "status", "scaffold",
+      "birth-report", "domain-eval", "delivery-report",
+    ]) {
+      const branch = commandBranch(cliSource, command);
+      assert.match(branch, /await loadAdmittedBlueprint\(/u);
+      assert.doesNotMatch(branch, /await loadBlueprint\(/u);
+    }
+    const runBranch = commandBranch(cliSource, "run");
+    assert.match(runBranch, /await loadAdmittedArtifact\(/u);
+    assert.doesNotMatch(runBranch, /await loadBlueprint\(/u);
+  });
+
   it("accepts the Win9 reference blueprint", async () => {
     const blueprint = await loadExample();
     const result = validateBlueprint(blueprint);
@@ -158,3 +249,11 @@ describe("blueprint validation", () => {
     assert.equal(secretLike.errors.some((error) => error.includes("secret-like string values")), true);
   });
 });
+
+function commandBranch(source, command) {
+  const marker = `if (command === "${command}")`;
+  const start = source.indexOf(marker);
+  assert.notEqual(start, -1, `missing ${command} branch`);
+  const next = source.indexOf("\n  if (command === ", start + marker.length);
+  return source.slice(start, next === -1 ? source.length : next);
+}

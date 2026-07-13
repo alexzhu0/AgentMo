@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "agentmo.build.v1",
+  "generatedAt": "2026-01-01T00:00:00.000Z",
+  "agentId": "legacy-fixture",
+  "target": {
+    "id": "agentmo",
+    "label": "AgentMo",
+    "verificationHints": [],
+    "unsupportedSurfaces": []
+  },
+  "request": {
+    "blueprintPath": null,
+    "outputDir": null,
+    "target": "agentmo",
+    "force": false,
+    "profile": null
+  },
+  "resolution": {
+    "selectedTargetId": "agentmo",
+    "selectedProfileId": null,
+    "selectedModuleIds": ["default"],
+    "domainOperationCount": 0,
+    "warnings": []
+  },
+  "source": {
+    "agentmotherVersion": "0.1",
+    "blueprintVersion": "0.1",
+    "blueprintPath": null,
+    "blueprintHash": "a2404642c4a7a8ccf8853fd6242c4794dbc83f3573b8113642a484d53594c514"
+  },
+  "operations": []
+}

@@ -1,106 +1,254 @@
-import { readFile } from "node:fs/promises";
-import { auditEvidence } from "./evidence-audit.js";
+import { assertPersistable } from "./persistability.js";
 import { validateBlueprint } from "./blueprint.js";
 
 export const DOMAIN_EVAL_SCHEMA_VERSION = "agentmo.domain-eval.v1";
 export const DOMAIN_CASES_SCHEMA_VERSION = "agentmo.domain-cases.v1";
 
-export async function loadDomainCases(filePath) {
-  const raw = await readFile(filePath, "utf8");
-  try {
-    return JSON.parse(raw);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Invalid domain-cases JSON ${filePath}: ${message}`);
+const SHA256_DIGEST_PATTERN = /^sha256:[a-f0-9]{64}$/u;
+const SAFE_ID_PATTERN = /^[a-z0-9][a-z0-9._:-]{0,159}$/u;
+const MAX_CASES = 1_000;
+const MAX_REFS_PER_CASE = 100;
+
+export const DOMAIN_EVAL_REQUIRED_CHECK_IDS = Object.freeze([
+  "blueprint_valid",
+  "domain_cases_valid",
+  "source_admissions_exact",
+  "agent_id_match",
+  "target_match",
+  "required_case_classes_covered",
+  "case_thresholds_pass",
+  "hard_failures_absent",
+  "no_hard_failures",
+  "evaluator_provenance_present",
+  "rubric_provenance_present",
+  "bounded_evidence_refs",
+  "no_raw_or_secret_evidence",
+]);
+
+export async function loadDomainCases(filePath, options = {}) {
+  if (options.subject !== "domain-cases") {
+    throw domainError("AGENTMO_DOMAIN_CASES_SUBJECT_REQUIRED");
   }
+  const { loadAdmittedArtifact } = await import("./artifact-admission.js");
+  const admission = await loadAdmittedArtifact({
+    filePath,
+    subject: "domain-cases",
+    expectedDigest: options.expectedDigest,
+    maxBytes: options.maxBytes,
+    openInput: options.openInput,
+  });
+  return options.returnAdmission === true ? admission : admission.value;
 }
 
-export function buildDomainEval(blueprint, domainCases, options = {}) {
-  const validation = validateBlueprint(blueprint);
-  const cases = normalizeCases(domainCases);
-  const requiredCaseClasses = asStringArray(blueprint?.eval?.required_case_classes);
+export function validateDomainCasesArtifact(value) {
+  const errors = [];
+  try {
+    assertPersistable(value, { subject: "domain-cases" });
+  } catch {
+    return { ok: false, errors: ["domain_cases_not_persistable"] };
+  }
+
+  requireExactKeys(value, [
+    "schemaVersion",
+    "agentId",
+    "targetId",
+    "threshold",
+    "evaluator",
+    "rubric",
+    "cases",
+  ], "domain_cases_fields", errors);
+  if (value?.schemaVersion !== DOMAIN_CASES_SCHEMA_VERSION) errors.push("domain_cases_schema_invalid");
+  if (!safeId(value?.agentId)) errors.push("domain_cases_agent_id_invalid");
+  if (!safeId(value?.targetId)) errors.push("domain_cases_target_id_invalid");
+  if (!boundedScore(value?.threshold)) errors.push("domain_cases_threshold_invalid");
+  if (!validEvaluator(value?.evaluator)) errors.push("domain_cases_evaluator_invalid");
+  if (!validRubric(value?.rubric)) errors.push("domain_cases_rubric_invalid");
+  if (!Array.isArray(value?.cases) || value.cases.length === 0 || value.cases.length > MAX_CASES) {
+    errors.push("domain_cases_count_invalid");
+  } else {
+    const caseIds = new Set();
+    for (const domainCase of value.cases) {
+      if (!validDomainCase(domainCase)) errors.push("domain_case_invalid");
+      if (safeId(domainCase?.id) && caseIds.has(domainCase.id)) errors.push("domain_case_id_duplicate");
+      if (safeId(domainCase?.id)) caseIds.add(domainCase.id);
+    }
+  }
+  return validation(errors);
+}
+
+export async function buildDomainEval(blueprint, domainCases, options = {}) {
+  const blueprintValidation = validateBlueprint(blueprint);
+  const domainCasesValidation = validateDomainCasesArtifact(domainCases);
+  if (!blueprintValidation.ok) throw domainError("AGENTMO_DOMAIN_EVAL_BLUEPRINT_INVALID");
+  if (!domainCasesValidation.ok) throw domainError("AGENTMO_DOMAIN_CASES_INVALID");
+
+  const { admittedArtifactProvenance } = await import("./artifact-admission.js");
+  const sources = {
+    blueprint: admittedArtifactProvenance(options.admissions?.blueprint, {
+      subject: "blueprint",
+      value: blueprint,
+    }),
+    domainCases: admittedArtifactProvenance(options.admissions?.domainCases, {
+      subject: "domain-cases",
+      value: domainCases,
+    }),
+  };
+
+  const requiredCaseClasses = uniqueSorted(asSafeIdArray(blueprint.eval?.required_case_classes));
   const requiredClassSet = new Set(requiredCaseClasses);
-  const threshold = resolveThreshold(domainCases, options);
-  const casesAudit = auditEvidence(domainCases);
-  const evaluator = normalizeEvaluator(domainCases);
-  const rubric = normalizeRubric(domainCases, blueprint);
-  const casesAgentId = resolveAgentId(domainCases);
-  const requestedTargetId = options.target ?? null;
-  const casesTargetId = resolveTargetId(domainCases);
-  const effectiveTargetId = requestedTargetId ?? casesTargetId ?? blueprint?.runtime ?? null;
-  const blueprintTargetIds = blueprintTargetSet(blueprint);
-
-  const caseResults = cases.map((domainCase, index) => buildCaseResult(domainCase, index, threshold, requiredClassSet));
-  const coveredClasses = uniqueSorted(caseResults.map((result) => result.caseClass).filter((caseClass) => requiredClassSet.has(caseClass)));
-  const missingCaseClasses = requiredCaseClasses.filter((caseClass) => !coveredClasses.includes(caseClass));
-  const requiredCaseResults = caseResults.filter((result) => requiredClassSet.has(result.caseClass));
-  const hardFailures = caseResults.flatMap((result) => result.hardFailures.map((failure) => ({ caseId: result.caseId, failure })));
-  const evidenceFailures = caseResults.flatMap((result) =>
-    result.evidenceChecks.filter((item) => item.pass === false).map((item) => ({ caseId: result.caseId, message: item.message })),
+  const caseResults = domainCases.cases
+    .map((domainCase) => buildCaseResult(domainCase, requiredClassSet))
+    .sort((left, right) => left.caseId.localeCompare(right.caseId));
+  const coveredCaseClasses = uniqueSorted(
+    caseResults.filter((result) => result.required).map((result) => result.caseClass),
   );
-
-  const schemaOk = domainCases?.schemaVersion === DOMAIN_CASES_SCHEMA_VERSION;
+  const missingCaseClasses = requiredCaseClasses.filter((caseClass) => !coveredCaseClasses.includes(caseClass));
+  const requiredCaseResults = caseResults.filter((result) => result.required);
+  const requestedTargetId = options.target ?? null;
+  const effectiveTargetId = requestedTargetId ?? domainCases.targetId;
+  const targetMatch = targetMatchesBlueprint({
+    requestedTargetId,
+    casesTargetId: domainCases.targetId,
+    effectiveTargetId,
+    blueprintTargetIds: blueprintTargetSet(blueprint),
+  });
   const requiredCovered = requiredCaseClasses.length > 0 && missingCaseClasses.length === 0;
-  const caseThresholdsPass =
-    requiredCovered &&
-    requiredCaseResults.length > 0 &&
-    requiredCaseResults.every((result) => result.required === true && result.passed === true && result.scorePass === true);
-  const hardFailuresAbsent = hardFailures.length === 0;
-  const evaluatorProvenancePresent = hasEvaluatorProvenance(evaluator);
-  const rubricProvenancePresent = hasRubricProvenance(rubric);
-  const boundedEvidenceRefs = requiredCaseResults.length > 0 && requiredCaseResults.every((result) => result.boundedEvidenceRefs === true) && evidenceFailures.length === 0;
-  const noRawOrSecretEvidence = casesAudit.ok;
-  const agentIdMatch = nonEmptyString(casesAgentId) && casesAgentId === blueprint?.agent_id;
-  const targetMatch = targetMatchesBlueprint({ requestedTargetId, casesTargetId, effectiveTargetId, blueprintTargetIds });
+  const thresholdsPass = requiredCovered
+    && requiredCaseResults.length > 0
+    && requiredCaseResults.every((result) => result.passed && result.scorePass && result.hardFailureFree);
+  const hardFailuresAbsent = caseResults.every((result) => result.hardFailureFree);
+  const boundedEvidenceRefs = caseResults.every((result) => result.boundedEvidenceRefs);
 
-  const checks = [
-    check("blueprint_valid", validation.ok, validation.ok ? "blueprint validates" : "blueprint has validation errors"),
-    check("cases_schema", schemaOk, `domain cases schema is ${DOMAIN_CASES_SCHEMA_VERSION}`),
-    check("agent_id_match", agentIdMatch, "domain cases agentId matches blueprint agent_id"),
-    check("target_match", targetMatch, "requested/domain-cases target is covered by the blueprint runtime targets"),
-    check("required_case_classes_covered", requiredCovered, missingCaseClasses.length === 0 ? "all required case classes are covered" : `missing required case classes: ${missingCaseClasses.join(", ")}`),
-    check("case_thresholds_pass", caseThresholdsPass, "each required case passed and met its threshold"),
-    check("hard_failures_absent", hardFailuresAbsent, hardFailuresAbsent ? "no hard failures recorded" : `hard failures recorded: ${hardFailures.map((item) => `${item.caseId}:${item.failure}`).join(", ")}`),
-    check("no_hard_failures", hardFailuresAbsent, hardFailuresAbsent ? "no hard failures recorded" : "hard failures recorded"),
-    check("evaluator_provenance_present", evaluatorProvenancePresent, "evaluator identity and provenance are present"),
-    check("rubric_provenance_present", rubricProvenancePresent, "rubric provenance is present"),
-    check("bounded_evidence_refs", boundedEvidenceRefs, boundedEvidenceRefs ? "case evidence uses bounded refs" : "case evidence includes missing, raw, or unbounded refs"),
-    check("bounded_safe_evidence", boundedEvidenceRefs, boundedEvidenceRefs ? "case evidence uses bounded refs" : "case evidence includes missing, raw, or unbounded refs"),
-    check("no_raw_or_secret_evidence", noRawOrSecretEvidence, noRawOrSecretEvidence ? "domain cases contain no raw or secret-like evidence" : auditMessage(casesAudit)),
-    check("managed_evidence_sanitized", casesAudit.secretFindings.length === 0, casesAudit.secretFindings.length === 0 ? "managed evidence contains no secret-like values" : `secret-like values found: ${casesAudit.secretFindings.map((finding) => finding.pointer).join(", ")}`),
-  ];
-
+  const checks = buildCanonicalDomainChecks({
+    blueprintValid: true,
+    domainCasesValid: true,
+    sourceAdmissionsExact: true,
+    agentIdMatch: domainCases.agentId === blueprint.agent_id,
+    targetMatch,
+    requiredCovered,
+    thresholdsPass,
+    hardFailuresAbsent,
+    evaluatorProvenancePresent: validEvaluator(domainCases.evaluator),
+    rubricProvenancePresent: validRubric(domainCases.rubric),
+    boundedEvidenceRefs,
+    noRawOrSecretEvidence: true,
+  });
   const ok = checks.every((item) => item.pass);
-  return {
+  const report = {
     schemaVersion: DOMAIN_EVAL_SCHEMA_VERSION,
     ok,
-    agentId: blueprint?.agent_id ?? null,
+    agentId: blueprint.agent_id,
+    sources,
     target: {
       requested: requestedTargetId,
-      cases: casesTargetId,
+      cases: domainCases.targetId,
       effective: effectiveTargetId,
     },
     requiredCaseClasses,
-    coveredCaseClasses: coveredClasses,
+    coveredCaseClasses,
     missingCaseClasses,
-    threshold,
-    evaluator,
-    rubric,
+    threshold: domainCases.threshold,
+    evaluator: { ...domainCases.evaluator },
+    rubric: { ...domainCases.rubric },
     caseResults,
     checks,
-    audit: summarizeAudit(casesAudit),
-    validation: {
-      ok: validation.ok,
-      warnings: validation.warnings,
-      errors: validation.errors,
+    audit: {
+      ok: true,
+      findingCount: 0,
+      secretFindingCount: 0,
+      rawFindingCount: 0,
     },
+    validation: {
+      blueprintErrorCount: blueprintValidation.errors.length,
+      blueprintWarningCount: blueprintValidation.warnings.length,
+      domainCasesErrorCount: domainCasesValidation.errors.length,
+    },
+    runtimeCertifiedByDomainEval: false,
     domainCertifiedByDomainEval: ok,
+    deliveryReadyByDomainEval: false,
     productionApprovedByDomainEval: false,
     certificationBoundary: {
       runtimeCertifiedByDomainEval: false,
       domainCertifiedByDomainEval: ok,
+      deliveryReadyByDomainEval: false,
       productionApprovedByDomainEval: false,
     },
+  };
+  assertPersistable(report, { subject: "domain-eval" });
+  const reportValidation = validateDomainEvalArtifact(report, {
+    blueprint,
+    domainCases,
+    sources,
+  });
+  if (!reportValidation.ok) throw domainError("AGENTMO_DOMAIN_EVAL_INVALID");
+  return deepFreeze(report);
+}
+
+export function validateDomainEvalArtifact(value, options = {}) {
+  const errors = [];
+  try {
+    assertPersistable(value, { subject: "domain-eval" });
+  } catch {
+    return { ok: false, errors: ["domain_eval_not_persistable"] };
+  }
+
+  requireExactKeys(value, [
+    "schemaVersion",
+    "ok",
+    "agentId",
+    "sources",
+    "target",
+    "requiredCaseClasses",
+    "coveredCaseClasses",
+    "missingCaseClasses",
+    "threshold",
+    "evaluator",
+    "rubric",
+    "caseResults",
+    "checks",
+    "audit",
+    "validation",
+    "runtimeCertifiedByDomainEval",
+    "domainCertifiedByDomainEval",
+    "deliveryReadyByDomainEval",
+    "productionApprovedByDomainEval",
+    "certificationBoundary",
+  ], "domain_eval_fields", errors);
+  if (value?.schemaVersion !== DOMAIN_EVAL_SCHEMA_VERSION) errors.push("domain_eval_schema_invalid");
+  if (typeof value?.ok !== "boolean") errors.push("domain_eval_ok_invalid");
+  if (!safeId(value?.agentId)) errors.push("domain_eval_agent_id_invalid");
+  if (!validSources(value?.sources)) errors.push("domain_eval_sources_invalid");
+  if (!validTarget(value?.target)) errors.push("domain_eval_target_invalid");
+  if (!sortedUniqueSafeIds(value?.requiredCaseClasses)
+    || !sortedUniqueSafeIds(value?.coveredCaseClasses)
+    || !sortedUniqueSafeIds(value?.missingCaseClasses)) errors.push("domain_eval_case_classes_invalid");
+  if (!boundedScore(value?.threshold)) errors.push("domain_eval_threshold_invalid");
+  if (!validEvaluator(value?.evaluator)) errors.push("domain_eval_evaluator_invalid");
+  if (!validRubric(value?.rubric)) errors.push("domain_eval_rubric_invalid");
+  if (!Array.isArray(value?.caseResults)
+    || value.caseResults.length === 0
+    || value.caseResults.length > MAX_CASES
+    || !value.caseResults.every(validCaseResult)
+    || !isSortedBy(value.caseResults, "caseId")) errors.push("domain_eval_case_results_invalid");
+  const derivation = deriveDomainEvalAssessment(value, options);
+  if (!derivation.coverageMatches) errors.push("domain_eval_coverage_invalid");
+  if (!derivation.requiredFlagsMatch) errors.push("domain_eval_required_flags_invalid");
+  if (!validChecks(value?.checks, derivation.checks) || value?.ok !== derivation.ok) {
+    errors.push("domain_eval_checks_invalid");
+  }
+  if (!validAudit(value?.audit)) errors.push("domain_eval_audit_invalid");
+  if (!validValidationSummary(value?.validation)) errors.push("domain_eval_validation_invalid");
+  if (value?.runtimeCertifiedByDomainEval !== false
+    || value?.domainCertifiedByDomainEval !== derivation.ok
+    || value?.deliveryReadyByDomainEval !== false
+    || value?.productionApprovedByDomainEval !== false
+    || !validCertificationBoundary(value?.certificationBoundary, derivation.ok)) {
+    errors.push("domain_eval_certification_boundary_invalid");
+  }
+  const result = validation(errors);
+  return {
+    ...result,
+    domainCertified: result.ok && derivation.ok,
   };
 }
 
@@ -112,261 +260,398 @@ export function formatDomainEval(report) {
     `Target: ${report.target?.effective ?? "unspecified"}`,
     `Required case classes: ${report.requiredCaseClasses.join(", ") || "none"}`,
     `Covered case classes: ${report.coveredCaseClasses.join(", ") || "none"}`,
-    "Certification: domain-eval does not certify runtime or production approval",
+    "Certification: domain-eval does not certify runtime, delivery, or production approval",
   ];
-  for (const checkItem of report.checks) lines.push(`- ${checkItem.pass ? "PASS" : "FAIL"} ${checkItem.id}: ${checkItem.message}`);
+  for (const item of report.checks) lines.push(`- ${item.pass ? "PASS" : "FAIL"} ${item.id}`);
   return `${lines.join("\n")}\n`;
 }
 
-function buildCaseResult(domainCase, index, defaultThreshold, requiredClassSet) {
-  const caseClass = caseClassOf(domainCase);
-  const caseId = nonEmptyString(domainCase?.id) ? domainCase.id : `case-${index + 1}`;
-  const threshold = resolveCaseThreshold(domainCase, defaultThreshold);
-  const score = resolveScore(domainCase);
-  const passed = resolvePassed(domainCase, score, threshold);
-  const hardFailures = collectHardFailures(domainCase);
-  const evidence = collectEvidence(domainCase);
-  const evidenceChecks = evidence.length === 0
-    ? [check("evidence_refs_present", false, "case has no bounded evidence refs")]
-    : evidence.map((item, evidenceIndex) => check(`evidence_ref_${evidenceIndex + 1}`, isBoundedEvidence(item), evidenceMessage(item)));
-  const boundedEvidenceRefs = evidence.length > 0 && evidenceChecks.every((item) => item.pass);
-  const checks = [
-    check("case_class_present", nonEmptyString(caseClass), "case class is present"),
-    check("case_passed", passed === true, "case is marked passed"),
-    check("case_score_threshold", Number.isFinite(score) && Number.isFinite(threshold) && score >= threshold, "case score meets threshold"),
-    check("case_hard_failures_absent", hardFailures.length === 0, "case has no hard failures"),
-    check("case_bounded_evidence_refs", boundedEvidenceRefs, "case evidence uses bounded refs"),
-  ];
+function buildCaseResult(domainCase, requiredClassSet) {
+  const scorePass = domainCase.score >= domainCase.threshold;
+  const hardFailureFree = domainCase.hardFailureIds.length === 0;
   return {
-    caseId,
-    caseClass,
-    required: requiredClassSet.has(caseClass),
-    score,
-    threshold,
-    passed,
-    scorePass: Number.isFinite(score) && Number.isFinite(threshold) && score >= threshold,
-    hardFailures,
-    evidenceRefs: evidence.map((item) => evidenceRef(item)).filter(nonEmptyString),
+    caseId: domainCase.id,
+    caseClass: domainCase.caseClass,
+    required: requiredClassSet.has(domainCase.caseClass),
+    passed: domainCase.passed,
+    score: domainCase.score,
+    threshold: domainCase.threshold,
+    scorePass,
+    hardFailureIds: [...domainCase.hardFailureIds],
+    hardFailureCount: domainCase.hardFailureIds.length,
+    hardFailureFree,
+    evidenceRefs: [...domainCase.evidenceRefs],
+    evidenceRefCount: domainCase.evidenceRefs.length,
+    boundedEvidenceRefs: domainCase.evidenceRefs.every(boundedEvidenceRef),
+  };
+}
+
+function validDomainCase(value) {
+  return hasExactKeys(value, [
+    "id",
+    "caseClass",
+    "passed",
+    "score",
+    "threshold",
+    "hardFailureIds",
+    "evidenceRefs",
+  ])
+    && safeId(value.id)
+    && safeId(value.caseClass)
+    && typeof value.passed === "boolean"
+    && boundedScore(value.score)
+    && boundedScore(value.threshold)
+    && sortedUniqueSafeIds(value.hardFailureIds)
+    && Array.isArray(value.evidenceRefs)
+    && value.evidenceRefs.length > 0
+    && value.evidenceRefs.length <= MAX_REFS_PER_CASE
+    && sortedUniqueStrings(value.evidenceRefs)
+    && value.evidenceRefs.every(boundedEvidenceRef);
+}
+
+function validCaseResult(value) {
+  return hasExactKeys(value, [
+    "caseId",
+    "caseClass",
+    "required",
+    "passed",
+    "score",
+    "threshold",
+    "scorePass",
+    "hardFailureIds",
+    "hardFailureCount",
+    "hardFailureFree",
+    "evidenceRefs",
+    "evidenceRefCount",
+    "boundedEvidenceRefs",
+  ])
+    && safeId(value.caseId)
+    && safeId(value.caseClass)
+    && typeof value.required === "boolean"
+    && typeof value.passed === "boolean"
+    && boundedScore(value.score)
+    && boundedScore(value.threshold)
+    && value.scorePass === (value.score >= value.threshold)
+    && sortedUniqueSafeIds(value.hardFailureIds)
+    && value.hardFailureCount === value.hardFailureIds.length
+    && value.hardFailureFree === (value.hardFailureIds.length === 0)
+    && sortedUniqueStrings(value.evidenceRefs)
+    && value.evidenceRefs.length > 0
+    && value.evidenceRefs.length <= MAX_REFS_PER_CASE
+    && value.evidenceRefs.every(boundedEvidenceRef)
+    && value.evidenceRefCount === value.evidenceRefs.length
+    && value.boundedEvidenceRefs === true;
+}
+
+function validSources(value) {
+  return hasExactKeys(value, ["blueprint", "domainCases"])
+    && validProvenance(value.blueprint, "blueprint", "0.1")
+    && validProvenance(value.domainCases, "domain-cases", DOMAIN_CASES_SCHEMA_VERSION);
+}
+
+function validProvenance(value, subject, identity) {
+  return hasExactKeys(value, ["identity", "subject", "digest"])
+    && value.identity === identity
+    && value.subject === subject
+    && SHA256_DIGEST_PATTERN.test(value.digest);
+}
+
+function validTarget(value) {
+  return hasExactKeys(value, ["requested", "cases", "effective"])
+    && (value.requested === null || safeId(value.requested))
+    && safeId(value.cases)
+    && safeId(value.effective);
+}
+
+function validEvaluator(value) {
+  return hasExactKeys(value, ["id", "version", "provenanceRef"])
+    && safeId(value.id)
+    && boundedString(value.version)
+    && boundedReference(value.provenanceRef);
+}
+
+function validRubric(value) {
+  return hasExactKeys(value, ["id", "version", "digest", "provenanceRef"])
+    && safeId(value.id)
+    && boundedString(value.version)
+    && SHA256_DIGEST_PATTERN.test(value.digest)
+    && boundedReference(value.provenanceRef);
+}
+
+function deriveDomainEvalAssessment(value, options) {
+  const requiredCaseClasses = sortedUniqueSafeIds(value?.requiredCaseClasses)
+    ? value.requiredCaseClasses
+    : [];
+  const requiredClassSet = new Set(requiredCaseClasses);
+  const caseResults = Array.isArray(value?.caseResults) ? value.caseResults : [];
+  const derivedCoveredCaseClasses = uniqueSorted(
+    caseResults
+      .filter((result) => safeId(result?.caseClass) && requiredClassSet.has(result.caseClass))
+      .map((result) => result.caseClass),
+  );
+  const derivedMissingCaseClasses = requiredCaseClasses.filter(
+    (caseClass) => !derivedCoveredCaseClasses.includes(caseClass),
+  );
+  const coverageMatches = sameStringArray(value?.coveredCaseClasses, derivedCoveredCaseClasses)
+    && sameStringArray(value?.missingCaseClasses, derivedMissingCaseClasses)
+    && disjointExhaustivePartition(
+      requiredCaseClasses,
+      value?.coveredCaseClasses,
+      value?.missingCaseClasses,
+    );
+  const requiredFlagsMatch = caseResults.every(
+    (result) => result?.required === requiredClassSet.has(result?.caseClass),
+  );
+  const requiredCaseResults = caseResults.filter(
+    (result) => safeId(result?.caseClass) && requiredClassSet.has(result.caseClass),
+  );
+  const requiredCovered = requiredCaseClasses.length > 0 && derivedMissingCaseClasses.length === 0;
+  const thresholdsPass = requiredCovered
+    && requiredFlagsMatch
+    && requiredCaseResults.length > 0
+    && requiredCaseResults.every((result) => result?.passed === true
+      && boundedScore(result?.score)
+      && boundedScore(result?.threshold)
+      && result.score >= result.threshold
+      && Array.isArray(result?.hardFailureIds)
+      && result.hardFailureIds.length === 0);
+  const hardFailuresAbsent = caseResults.every(
+    (result) => Array.isArray(result?.hardFailureIds) && result.hardFailureIds.length === 0,
+  );
+  const boundedEvidenceRefs = caseResults.every(
+    (result) => Array.isArray(result?.evidenceRefs)
+      && result.evidenceRefs.length > 0
+      && result.evidenceRefs.every(boundedEvidenceRef),
+  );
+  const internalTargetMatch = validTarget(value?.target)
+    && (value.target.requested === null
+      ? value.target.effective === value.target.cases
+      : value.target.requested === value.target.cases && value.target.effective === value.target.requested);
+  const contextualTargetMatch = options?.blueprint
+    ? targetMatchesBlueprint({
+        requestedTargetId: value?.target?.requested ?? null,
+        casesTargetId: value?.target?.cases,
+        effectiveTargetId: value?.target?.effective,
+        blueprintTargetIds: blueprintTargetSet(options.blueprint),
+      })
+    : true;
+  const blueprintValid = options?.blueprint
+    ? validateBlueprint(options.blueprint).ok
+    : value?.validation?.blueprintErrorCount === 0;
+  const domainCasesValid = options?.domainCases
+    ? validateDomainCasesArtifact(options.domainCases).ok
+    : value?.validation?.domainCasesErrorCount === 0;
+  const sourceAdmissionsExact = validSources(value?.sources)
+    && (!options?.sources
+      || sameProvenance(value.sources.blueprint, options.sources.blueprint)
+        && sameProvenance(value.sources.domainCases, options.sources.domainCases));
+  const agentIdMatch = options?.blueprint
+    ? value?.agentId === options.blueprint?.agent_id
+      && (!options?.domainCases || options.domainCases.agentId === options.blueprint.agent_id)
+    : canonicalCheckPass(value?.checks, "agent_id_match");
+  const checks = buildCanonicalDomainChecks({
+    blueprintValid,
+    domainCasesValid,
+    sourceAdmissionsExact,
+    agentIdMatch,
+    targetMatch: internalTargetMatch && contextualTargetMatch,
+    requiredCovered,
+    thresholdsPass,
+    hardFailuresAbsent,
+    evaluatorProvenancePresent: validEvaluator(value?.evaluator),
+    rubricProvenancePresent: validRubric(value?.rubric),
     boundedEvidenceRefs,
+    noRawOrSecretEvidence: true,
+  });
+  return {
     checks,
-    evidenceChecks,
+    ok: checks.every((item) => item.pass),
+    coverageMatches,
+    requiredFlagsMatch,
   };
 }
 
-function normalizeCases(domainCases) {
-  if (Array.isArray(domainCases)) return domainCases;
-  if (Array.isArray(domainCases?.cases)) return domainCases.cases;
-  return [];
-}
-
-function caseClassOf(domainCase) {
-  return domainCase?.caseClass ?? domainCase?.case_class ?? domainCase?.class ?? domainCase?.taskClass ?? null;
-}
-
-function resolveAgentId(domainCases) {
-  if (Array.isArray(domainCases)) return null;
-  return domainCases?.agentId ?? domainCases?.agent_id ?? domainCases?.agent?.id ?? null;
-}
-
-function resolveTargetId(domainCases) {
-  if (Array.isArray(domainCases)) return null;
-  const target = domainCases?.target ?? domainCases?.targetId ?? domainCases?.target_id;
-  if (typeof target === "string") return target;
-  return target?.id ?? null;
-}
-
-function resolveThreshold(domainCases, options) {
-  const candidates = [
-    options.threshold,
-    domainCases?.threshold,
-    domainCases?.scoreThreshold,
-    domainCases?.score_threshold,
-    domainCases?.minimumScore,
-    domainCases?.minimum_score,
-    domainCases?.rubric?.threshold,
-    domainCases?.rubric?.minimumScore,
-    domainCases?.rubric?.minimum_score,
+function buildCanonicalDomainChecks(outcomes) {
+  const passes = [
+    outcomes.blueprintValid,
+    outcomes.domainCasesValid,
+    outcomes.sourceAdmissionsExact,
+    outcomes.agentIdMatch,
+    outcomes.targetMatch,
+    outcomes.requiredCovered,
+    outcomes.thresholdsPass,
+    outcomes.hardFailuresAbsent,
+    outcomes.hardFailuresAbsent,
+    outcomes.evaluatorProvenancePresent,
+    outcomes.rubricProvenancePresent,
+    outcomes.boundedEvidenceRefs,
+    outcomes.noRawOrSecretEvidence,
   ];
-  for (const candidate of candidates) {
-    const number = Number(candidate);
-    if (Number.isFinite(number)) return number;
-  }
-  return 1;
+  return DOMAIN_EVAL_REQUIRED_CHECK_IDS.map((id, index) => check(id, passes[index]));
 }
 
-function resolveCaseThreshold(domainCase, defaultThreshold) {
-  const candidates = [domainCase?.threshold, domainCase?.scoreThreshold, domainCase?.score_threshold, domainCase?.minimumScore, domainCase?.minimum_score, defaultThreshold];
-  for (const candidate of candidates) {
-    const number = Number(candidate);
-    if (Number.isFinite(number)) return number;
-  }
-  return 1;
+function validChecks(value, expectedChecks) {
+  return Array.isArray(value)
+    && value.length === DOMAIN_EVAL_REQUIRED_CHECK_IDS.length
+    && value.every((item, index) => hasExactKeys(item, ["id", "pass"])
+      && item.id === DOMAIN_EVAL_REQUIRED_CHECK_IDS[index]
+      && typeof item.pass === "boolean"
+      && item.pass === expectedChecks[index].pass);
 }
 
-function resolveScore(domainCase) {
-  const candidates = [domainCase?.score, domainCase?.result?.score, domainCase?.evaluation?.score, domainCase?.rubric?.score];
-  for (const candidate of candidates) {
-    const number = Number(candidate);
-    if (Number.isFinite(number)) return number;
-  }
-  return Number.NaN;
+function canonicalCheckPass(checks, id) {
+  const match = Array.isArray(checks) ? checks.find((item) => item?.id === id) : null;
+  return match?.pass === true;
 }
 
-function resolvePassed(domainCase, score, threshold) {
-  if (typeof domainCase?.passed === "boolean") return domainCase.passed;
-  if (typeof domainCase?.pass === "boolean") return domainCase.pass;
-  if (typeof domainCase?.result?.passed === "boolean") return domainCase.result.passed;
-  const status = String(domainCase?.status ?? domainCase?.result?.status ?? "").toLowerCase();
-  if (["pass", "passed", "ok", "success"].includes(status)) return true;
-  if (["fail", "failed", "failure", "error"].includes(status)) return false;
-  return Number.isFinite(score) && Number.isFinite(threshold) && score >= threshold;
+function disjointExhaustivePartition(required, covered, missing) {
+  if (!sortedUniqueSafeIds(covered) || !sortedUniqueSafeIds(missing)) return false;
+  const requiredSet = new Set(required);
+  const coveredSet = new Set(covered);
+  const missingSet = new Set(missing);
+  return covered.every((item) => requiredSet.has(item) && !missingSet.has(item))
+    && missing.every((item) => requiredSet.has(item) && !coveredSet.has(item))
+    && required.every((item) => coveredSet.has(item) !== missingSet.has(item));
 }
 
-function collectHardFailures(domainCase) {
-  const values = [];
-  if (Array.isArray(domainCase?.hardFailures)) values.push(...domainCase.hardFailures);
-  if (Array.isArray(domainCase?.hard_failures)) values.push(...domainCase.hard_failures);
-  if (domainCase?.hardFailure === true) values.push("hardFailure");
-  if (typeof domainCase?.hardFailure === "string") values.push(domainCase.hardFailure);
-  if (domainCase?.hard_failure === true) values.push("hard_failure");
-  if (typeof domainCase?.hard_failure === "string") values.push(domainCase.hard_failure);
-  return values.filter(nonEmptyString);
+function sameStringArray(left, right) {
+  return Array.isArray(left)
+    && left.length === right.length
+    && left.every((item, index) => item === right[index]);
 }
 
-function collectEvidence(domainCase) {
-  const evidence = [];
-  if (Array.isArray(domainCase?.evidence)) evidence.push(...domainCase.evidence);
-  if (Array.isArray(domainCase?.evidenceRefs)) evidence.push(...domainCase.evidenceRefs);
-  if (Array.isArray(domainCase?.evidence_refs)) evidence.push(...domainCase.evidence_refs);
-  if (nonEmptyString(domainCase?.evidenceRef)) evidence.push(domainCase.evidenceRef);
-  if (nonEmptyString(domainCase?.evidence_ref)) evidence.push(domainCase.evidence_ref);
-  return evidence;
+function sameProvenance(left, right) {
+  return left?.identity === right?.identity
+    && left?.subject === right?.subject
+    && left?.digest === right?.digest;
 }
 
-function isBoundedEvidence(item) {
-  const ref = evidenceRef(item);
-  if (!nonEmptyString(ref)) return false;
-  if (isUnboundedRef(ref)) return false;
-  if (typeof item === "object" && item !== null) {
-    const kind = String(item.type ?? item.kind ?? item.evidenceType ?? item.evidenceKind ?? "").toLowerCase();
-    if (isRawKind(kind)) return false;
-    return auditEvidence(item).secretFindings.length === 0 && auditEvidence(item).rawFindings.length === 0;
-  }
-  return auditEvidence(ref).ok;
+function validAudit(value) {
+  return hasExactKeys(value, ["ok", "findingCount", "secretFindingCount", "rawFindingCount"])
+    && value.ok === true
+    && value.findingCount === 0
+    && value.secretFindingCount === 0
+    && value.rawFindingCount === 0;
 }
 
-function evidenceRef(item) {
-  if (typeof item === "string") return item;
-  if (!item || typeof item !== "object") return null;
-  return item.ref ?? item.uri ?? item.factRef ?? item.fact_ref ?? item.sourceRef ?? item.source_ref ?? item.id ?? null;
+function validValidationSummary(value) {
+  return hasExactKeys(value, ["blueprintErrorCount", "blueprintWarningCount", "domainCasesErrorCount"])
+    && [value.blueprintErrorCount, value.blueprintWarningCount, value.domainCasesErrorCount].every(nonNegativeInteger)
+    && value.blueprintErrorCount === 0
+    && value.domainCasesErrorCount === 0;
 }
 
-function evidenceMessage(item) {
-  const ref = evidenceRef(item);
-  if (!nonEmptyString(ref)) return "evidence ref is missing";
-  if (isUnboundedRef(ref)) return `evidence ref is raw or unbounded: ${ref}`;
-  if (typeof item === "object" && item !== null) {
-    const kind = String(item.type ?? item.kind ?? item.evidenceType ?? item.evidenceKind ?? "").toLowerCase();
-    if (isRawKind(kind)) return `evidence kind is raw: ${kind}`;
-    const audit = auditEvidence(item);
-    if (!audit.ok) return auditMessage(audit);
-  }
-  return `bounded evidence ref: ${ref}`;
-}
-
-function isUnboundedRef(ref) {
-  const value = ref.trim().toLowerCase();
-  if (value.length === 0) return true;
-  if (value.startsWith("raw:") || value.startsWith("transcript:") || value.startsWith("stdout:") || value.startsWith("stderr:")) return true;
-  return ["raw-transcript", "raw-tool-body", "raw-output-preview", "stdout-preview", "stderr-preview"].some((marker) => value.includes(marker));
-}
-
-function isRawKind(kind) {
-  return ["raw-transcript", "raw-transcripts", "raw-tool-body", "raw-tool-bodies", "raw-output-preview", "raw-output-previews", "raw-stdout-preview", "raw-stderr-preview"].includes(kind);
-}
-
-function normalizeEvaluator(domainCases) {
-  const source = domainCases?.evaluator ?? domainCases?.evaluatedBy ?? domainCases?.evaluation?.evaluator ?? {};
-  return {
-    id: source.id ?? source.name ?? null,
-    name: source.name ?? null,
-    version: source.version ?? null,
-    provenance: source.provenance ?? source.provenanceRef ?? source.source ?? source.sourceRef ?? null,
-  };
-}
-
-function normalizeRubric(domainCases, blueprint) {
-  const source = domainCases?.rubric ?? domainCases?.rubricProvenance ?? domainCases?.evaluation?.rubric ?? {};
-  return {
-    id: source.id ?? null,
-    path: source.path ?? source.rubricPath ?? domainCases?.rubricPath ?? blueprint?.eval?.rubric_path ?? null,
-    version: source.version ?? null,
-    hash: source.hash ?? source.sha256 ?? null,
-    provenance: source.provenance ?? source.provenanceRef ?? source.source ?? source.sourceRef ?? null,
-  };
-}
-
-function hasEvaluatorProvenance(evaluator) {
-  return nonEmptyString(evaluator?.id) && hasProvenance(evaluator?.provenance);
-}
-
-function hasRubricProvenance(rubric) {
-  return (nonEmptyString(rubric?.path) || nonEmptyString(rubric?.id)) && (hasProvenance(rubric?.provenance) || nonEmptyString(rubric?.hash));
-}
-
-function hasProvenance(value) {
-  if (nonEmptyString(value)) return true;
-  if (Array.isArray(value)) return value.length > 0;
-  if (value && typeof value === "object") return Object.keys(value).length > 0;
-  return false;
+function validCertificationBoundary(value, ok) {
+  return hasExactKeys(value, [
+    "runtimeCertifiedByDomainEval",
+    "domainCertifiedByDomainEval",
+    "deliveryReadyByDomainEval",
+    "productionApprovedByDomainEval",
+  ])
+    && value.runtimeCertifiedByDomainEval === false
+    && value.domainCertifiedByDomainEval === ok
+    && value.deliveryReadyByDomainEval === false
+    && value.productionApprovedByDomainEval === false;
 }
 
 function blueprintTargetSet(blueprint) {
-  return new Set(
-    [
-      blueprint?.runtime,
-      ...asStringArray(blueprint?.pipeline?.produce?.runtime_targets),
-      ...(Array.isArray(blueprint?.runtime_profiles) ? blueprint.runtime_profiles.map((profile) => profile?.id) : []),
-    ].filter(nonEmptyString),
-  );
+  return new Set([
+    blueprint.runtime,
+    ...asSafeIdArray(blueprint.pipeline?.produce?.runtime_targets),
+    ...(Array.isArray(blueprint.runtime_profiles) ? blueprint.runtime_profiles.map((profile) => profile?.id).filter(safeId) : []),
+  ].filter(safeId));
 }
 
 function targetMatchesBlueprint({ requestedTargetId, casesTargetId, effectiveTargetId, blueprintTargetIds }) {
-  if (nonEmptyString(requestedTargetId) && nonEmptyString(casesTargetId) && requestedTargetId !== casesTargetId) return false;
-  if (!nonEmptyString(effectiveTargetId)) return true;
+  if (requestedTargetId !== null && !safeId(requestedTargetId)) return false;
+  if (requestedTargetId !== null && requestedTargetId !== casesTargetId) return false;
   return blueprintTargetIds.has(effectiveTargetId);
 }
 
-function summarizeAudit(audit) {
-  return {
-    ok: audit.ok,
-    secretFindingCount: audit.secretFindings.length,
-    rawFindingCount: audit.rawFindings.length,
-    findings: audit.findings.map((finding) => ({ kind: finding.kind, pointer: finding.pointer, message: finding.message })),
-  };
+function boundedEvidenceRef(value) {
+  return boundedReference(value)
+    && !/^(?:raw|prompt|transcript|stdout|stderr|tool-body|tool-output):/iu.test(value)
+    && !/(?:^|[-_.:/])(?:raw-)?(?:prompt|transcript|stdout|stderr|tool-body|tool-output)(?:$|[-_.:/])/iu.test(value);
 }
 
-function auditMessage(audit) {
-  const raw = audit.rawFindings.map((finding) => finding.pointer);
-  const secret = audit.secretFindings.map((finding) => finding.pointer);
-  const parts = [];
-  if (raw.length > 0) parts.push(`raw evidence markers found: ${raw.join(", ")}`);
-  if (secret.length > 0) parts.push(`secret-like values found: ${secret.join(", ")}`);
-  return parts.join("; ") || "evidence audit failed";
+function boundedReference(value) {
+  return typeof value === "string"
+    && value.length > 0
+    && value.length <= 512
+    && !value.includes("\0")
+    && !/^(?:file:|\/|[A-Za-z]:[\\/])/u.test(value);
 }
 
-function asStringArray(value) {
-  return Array.isArray(value) ? value.filter(nonEmptyString) : [];
+function boundedString(value) {
+  return typeof value === "string" && value.length > 0 && value.length <= 160 && !value.includes("\0");
+}
+
+function boundedScore(value) {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1;
+}
+
+function safeId(value) {
+  return typeof value === "string" && SAFE_ID_PATTERN.test(value);
+}
+
+function sortedUniqueSafeIds(value) {
+  return Array.isArray(value) && value.every(safeId) && sortedUniqueStrings(value);
+}
+
+function sortedUniqueStrings(value) {
+  return Array.isArray(value)
+    && new Set(value).size === value.length
+    && value.every((item, index) => typeof item === "string" && (index === 0 || value[index - 1] < item));
+}
+
+function asSafeIdArray(value) {
+  return Array.isArray(value) ? value.filter(safeId) : [];
 }
 
 function uniqueSorted(values) {
   return Array.from(new Set(values)).sort();
 }
 
-function nonEmptyString(value) {
-  return typeof value === "string" && value.trim().length > 0;
+function check(id, pass) {
+  return { id, pass: Boolean(pass) };
 }
 
-function check(id, pass, message) {
-  return { id, pass: Boolean(pass), message };
+function requireExactKeys(value, keys, error, errors) {
+  if (!hasExactKeys(value, keys)) errors.push(error);
+}
+
+function hasExactKeys(value, keys) {
+  if (!plainObject(value)) return false;
+  const actual = Object.keys(value);
+  return actual.length === keys.length && keys.every((key) => Object.hasOwn(value, key));
+}
+
+function plainObject(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function nonNegativeInteger(value) {
+  return Number.isSafeInteger(value) && value >= 0;
+}
+
+function isSortedBy(values, key) {
+  return values.every((value, index) => index === 0 || values[index - 1][key] < value[key]);
+}
+
+function validation(errors) {
+  const uniqueErrors = Array.from(new Set(errors)).sort();
+  return { ok: uniqueErrors.length === 0, errors: uniqueErrors };
+}
+
+function deepFreeze(value) {
+  if (!value || typeof value !== "object" || Object.isFrozen(value)) return value;
+  for (const child of Object.values(value)) deepFreeze(child);
+  return Object.freeze(value);
+}
+
+function domainError(code) {
+  const error = new Error("Domain evaluation artifact contract failed.");
+  error.name = "AgentMoDomainEvalError";
+  error.code = code;
+  return error;
 }

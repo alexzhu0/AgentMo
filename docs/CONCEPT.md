@@ -1,10 +1,10 @@
-# AgentMother Concept
+# AgentMo Concept
 
-AgentMother is a meta-agent engineering mechanism. Its job is not only to manufacture agents. Its job is to decide **what should be built**, plan **how it should be built**, then use coding agents to **produce the specified agent**.
+AgentMo is a meta-agent engineering mechanism. Its job is not only to manufacture agents. Its job is to decide **what should be built**, plan **how it should be built**, then use coding agents to **produce the specified agent**.
 
 ## Definition
 
-AgentMother is a Codex-driven three-stage incubation system:
+AgentMo is a Codex-driven three-stage system:
 
 ```text
 Discover -> Plan -> Produce
@@ -24,7 +24,7 @@ It accepts or materializes bounded domain data and user needs, converts valid co
 
 ### 1. Discover: form the Discovery Contract
 
-Discovery comes before AgentMo-generated design. Current AgentMo discovery commands materialize operator-provided manifests and approved source inputs; they do not claim live web search or crawling. AgentMother should first gather or accept:
+Discovery comes before AgentMo-generated design. Current AgentMo discovery commands materialize operator-provided manifests and approved source inputs; they do not claim live web search or crawling. AgentMo should first gather or accept:
 
 - source documents;
 - operational examples;
@@ -37,7 +37,7 @@ The output is not yet an agent. The output is a bounded Discovery Contract: `age
 
 ### 2. Plan: form the Agent Design / Blueprint Contract
 
-Planning combines a valid discovery database with user requirements. The discovery database may come from AgentMo Stage 1 or from another reviewed process; Stage 2 depends on the artifact contract, not the prior command path. AgentMother turns that into:
+Planning combines a valid discovery database with user requirements. The discovery database may come from AgentMo Stage 1 or from another reviewed process; Stage 2 depends on the artifact contract, not the prior command path. AgentMo turns that into:
 
 - domain genome;
 - task classes;
@@ -48,7 +48,7 @@ Planning combines a valid discovery database with user requirements. The discove
 - eval cases and rubric;
 - runtime target choice.
 
-The output is an executable blueprint/design contract with `agentmother_version: "0.1"`, inputs from `agentmo.user-need.v1`, eval requirements, and evidence policy. It can be reviewed before implementation.
+The output is an executable blueprint/design contract with `agentmo_version: "0.1"`, inputs from `agentmo.user-need.v1`, eval requirements, and evidence policy. It can be reviewed before implementation.
 
 ### 3. Produce: form the Delivery Evidence Contract
 
@@ -64,7 +64,7 @@ Scaffold, run-state, birth-report, domain-eval, and delivery-report artifacts do
 
 ## Not a prompt generator
 
-AgentMother does not stop at prompt text. A real domain agent needs:
+AgentMo does not stop at prompt text. A real domain agent needs:
 
 - discovery data and database outputs;
 - user-need planning artifacts;
@@ -102,7 +102,7 @@ AgentHarness Governance
   shapes policy, preflight, handoff, audit, manifest ideas
 
 AgentMo Blueprint
-  records the reusable mother contract for one domain agent
+  records the reusable AgentMo contract for one domain agent
 ```
 
 ## Primary output
@@ -117,7 +117,7 @@ The support-triage MVP demonstrates the full vertical composition. Other valid p
 
 ## Runtime profile rule
 
-AgentMother must not collapse all runtimes into one abstraction. Each runtime profile should say:
+AgentMo must not collapse all runtimes into one abstraction. Each runtime profile should say:
 
 - who owns the model loop;
 - who owns canonical thread/session history;

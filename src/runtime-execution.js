@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { assertCurrentOpenClawTargetRuntime } from "./runtime-compatibility.js";
 
 export const MAX_CAPTURED_OUTPUT_LENGTH = 8000;
 export const DEFAULT_RUNTIME_TIMEOUT_GRACE_MS = 1000;
@@ -14,6 +15,7 @@ export async function runRuntimeCommand(command, runtimeIdentity, options = {}) 
     let forceKill = null;
     let timeoutStartedAt = null;
     const timeoutMs = Number.isInteger(command.timeoutMs) && command.timeoutMs > 0 ? command.timeoutMs : 120000;
+    assertCurrentOpenClawTargetRuntime();
     const child = spawn(command.executable, command.args, {
       cwd: command.cwd ?? process.cwd(),
       env: buildRuntimeCommandEnv(runtimeIdentity?.sandboxScope, options.runtimeEnvValues),

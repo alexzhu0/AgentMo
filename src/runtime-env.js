@@ -1,4 +1,5 @@
-import path from "node:path";
+import { isProxy } from "node:util/types";
+import { isSecretPresence } from "./persistability.js";
 
 export const DEFAULT_RUNTIME_ENV_ALLOWLIST = [
   "DEEPSEEK_API_KEY",
@@ -10,12 +11,8 @@ export const DEFAULT_RUNTIME_ENV_ALLOWLIST = [
 ];
 
 export function resolveRuntimeEnv(options = {}) {
-  if (!hasEnvFile(options.envFile)) {
-    return { descriptor: null, values: {}, secretValues: [] };
-  }
-
   const allowedKeys = normalizeAllowedKeys(options.runtimeEnvAllowlist ?? DEFAULT_RUNTIME_ENV_ALLOWLIST);
-  const parsed = parseEnvFileContent(options.envFileContent ?? "");
+  const parsed = hasEnvFile(options.envFile) ? parseEnvFileContent(options.envFileContent ?? "") : Object.create(null);
   const values = {};
   const presentKeys = [];
   const missingKeys = [];
@@ -31,13 +28,11 @@ export function resolveRuntimeEnv(options = {}) {
 
   return {
     descriptor: {
-      envFile: {
-        basename: path.basename(options.envFile),
-        fullPathPersisted: false,
-      },
-      allowedKeys,
-      presentKeys,
-      missingKeys,
+      kind: "SecretPresence",
+      source: "runtime-env",
+      allowedNames: allowedKeys,
+      presentNames: presentKeys,
+      missingNames: missingKeys,
       valuesPersisted: false,
     },
     values,
@@ -46,8 +41,11 @@ export function resolveRuntimeEnv(options = {}) {
 }
 
 export function parseEnvFileContent(content) {
-  const entries = {};
-  const lines = String(content).split(/\r?\n/u);
+  if (typeof content !== "string") {
+    throw new Error("Runtime env content must be a string.");
+  }
+  const entries = Object.create(null);
+  const lines = content.split(/\r?\n/u);
   for (const line of lines) {
     const trimmed = line.trim();
     if (trimmed.length === 0 || trimmed.startsWith("#")) continue;
@@ -66,10 +64,10 @@ export function assertRuntimeEnvReady(descriptor, options = {}) {
   if (!options.live) return;
   const requiredKeys = requiredRuntimeEnvKeys(options);
   if (requiredKeys.length === 0) return;
-  if (!descriptor) {
+  if (!isSecretPresence(descriptor)) {
     throw new Error(`Missing required runtime env key(s): ${requiredKeys.join(", ")}.`);
   }
-  const missingRequiredKeys = requiredKeys.filter((key) => !descriptor.presentKeys.includes(key));
+  const missingRequiredKeys = requiredKeys.filter((key) => !descriptor.presentNames.includes(key));
   if (missingRequiredKeys.length > 0) {
     throw new Error(`Missing required runtime env key(s): ${missingRequiredKeys.join(", ")}.`);
   }
@@ -97,12 +95,23 @@ function hasEnvFile(envFile) {
 }
 
 function normalizeAllowedKeys(keys) {
+  if (!Array.isArray(keys) || isProxy(keys) || Object.getPrototypeOf(keys) !== Array.prototype) {
+    throw new Error("Runtime env allowlist must be a plain array.");
+  }
+  const values = [];
+  for (let index = 0; index < keys.length; index += 1) {
+    const descriptor = Object.getOwnPropertyDescriptor(keys, String(index));
+    if (!descriptor || !Object.hasOwn(descriptor, "value") || descriptor.enumerable !== true) {
+      throw new Error("Runtime env allowlist must contain ordinary values.");
+    }
+    values.push(descriptor.value);
+  }
   return Array.from(
     new Set(
-      keys
+      values
         .filter((key) => typeof key === "string")
         .map((key) => key.trim())
-        .filter((key) => /^[A-Za-z_][A-Za-z0-9_]*$/u.test(key)),
+        .filter((key) => /^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*$/u.test(key)),
     ),
   ).sort();
 }

@@ -1,11 +1,33 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { after, before, describe, it } from "node:test";
-import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, stat, symlink, writeFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import {
+  access,
+  appendFile,
+  copyFile,
+  lstat,
+  mkdir,
+  mkdtemp,
+  open,
+  readFile,
+  readdir,
+  realpath,
+  rename,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
+import { constants as FS_CONSTANTS, existsSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import {
+  buildDiscoveryWorkspace,
+  DISCOVERY_SOURCE_INTAKE_POLICY,
+  writeDiscoveryWorkspace,
+} from "../src/discovery-source-workspace.js";
 
 const CLI = fileURLToPath(new URL("../bin/agentmo.js", import.meta.url));
 const REPO_ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -30,7 +52,7 @@ after(async () => {
   }
 });
 
-function runCli(args) {
+function runCliRaw(args) {
   return new Promise((resolve) => {
     const child = spawn(process.execPath, [CLI, ...args], {
       cwd: REPO_ROOT,
@@ -46,6 +68,16 @@ function runCli(args) {
     });
     child.on("close", (code) => resolve({ code, stdout, stderr }));
   });
+}
+
+async function runCli(args) {
+  const [command, manifestPath, ...rest] = args;
+  if (["discover-report", "discover-pack", "discover-workspace"].includes(command) && !args.includes("--digest")) {
+    const bytes = await readFile(manifestPath);
+    const binding = `discovery-manifest=sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+    return runCliRaw([command, manifestPath, "--digest", binding, ...rest]);
+  }
+  return runCliRaw(args);
 }
 
 async function makeTempDir(prefix, parent = tmpdir()) {
@@ -101,6 +133,16 @@ function assertWorkspaceFailed(result, label = "discover-workspace") {
   const json = parseStdoutJson(result, label);
   assert.equal(json.schemaVersion, WORKSPACE_SCHEMA_VERSION);
   assert.equal(json.ok, false);
+  return json;
+}
+
+function assertAdmissionRejectedUnsafe(result, label) {
+  const json = parseStdoutJson(result, label);
+  assert.equal(result.code, 1, `${label} must fail closed`);
+  assert.equal(result.stderr, "");
+  assert.equal(json.schemaVersion, "agentmo.cli-error.v1");
+  assert.equal(json.ok, false);
+  assert.equal(json.code, "AGENTMO_ARTIFACT_UNSAFE_CONTENT");
   return json;
 }
 
@@ -243,6 +285,21 @@ describe("discover-workspace support-triage happy path", () => {
     assert.equal(json.discoveryDb?.agentId ?? json.agentId, "support-triage");
   });
 
+  it("requires a subject-bound manifest digest in a fresh CLI process", async () => {
+    const out = await makeTempDir("agentmo-discovery-workspace-no-digest-");
+    const withoutDigest = await runCliRaw([
+      "discover-workspace",
+      SUPPORT_DISCOVERY,
+      "--source-root",
+      ".",
+      "--out",
+      out,
+      "--json",
+    ]);
+    assert.equal(withoutDigest.code, 1);
+    assert.equal(JSON.parse(withoutDigest.stdout).code, "AGENTMO_ARTIFACT_DIGEST_REQUIRED");
+  });
+
   it("writes the required Stage 1 workspace artifact set", async () => {
     assertWorkspaceSucceeded(result);
     const files = await listRelativeFiles(out);
@@ -315,6 +372,10 @@ describe("discover-workspace support-triage happy path", () => {
       dbOnlyPath,
       "--need",
       SUPPORT_NEED,
+      "--digest",
+      `discovery-db=sha256:${createHash("sha256").update(await readFile(dbOnlyPath)).digest("hex")}`,
+      "--digest",
+      `user-need=sha256:${createHash("sha256").update(await readFile(SUPPORT_NEED)).digest("hex")}`,
       "--out",
       blueprintPath,
       "--target",
@@ -325,7 +386,10 @@ describe("discover-workspace support-triage happy path", () => {
     assert.equal(draft.code, 0, draft.stderr);
     const draftJson = parseStdoutJson(draft, "blueprint-draft");
     assert.equal(draftJson.report.ok, true);
-    assert.equal(draftJson.blueprint.design_contract.provenance.review_ref, "blueprint-draft:agentmo.discovery-db.v1+agentmo.user-need.v1");
+    assert.deepEqual(
+      draftJson.blueprint.design_contract.provenance.admitted_artifacts.map((item) => item.subject),
+      ["discovery-db", "user-need"],
+    );
   });
 });
 
@@ -371,48 +435,18 @@ describe("discover-workspace source-root and source-location safety", () => {
       sources: [sourceInventoryEntry("absolute-outside-source", absoluteOutsideRoot)],
     });
 
-    const json = assertWorkspaceFailed(result, "discover-workspace absolute outside source");
+    const json = assertAdmissionRejectedUnsafe(result, "discover-workspace absolute outside source");
     const diagnostics = await collectDiagnostics(result, out);
-    assert.match(diagnostics, /absolute|outside[-_ ]root|outside source[-_ ]root/u);
     assertNoRawSecret(diagnostics, outsideSentinel);
     assertNoHostAbsolutePaths(diagnostics, "absolute outside source diagnostics");
     for (const forbiddenPath of [absoluteOutsideRoot, sourceRoot, manifestPath, out]) {
       assertNoSpecificPath(diagnostics, forbiddenPath, "absolute outside source diagnostics");
     }
     assertNoHostAbsolutePaths(JSON.stringify(json), "absolute outside source stdout JSON");
-
-    const cards = await readSourceCards(out);
-    assert.equal(cards[0].sourceId, "absolute-outside-source");
-    assert.equal(cards[0].status, "rejected");
-    assert.equal(cards[0].location, null);
-
-    const discoveryDb = await readJson(path.join(out, DISCOVERY_DB_FILENAME));
-    const sourceRecord = discoveryDb.sources.find((source) => source.id === "absolute-outside-source");
-    assert.equal(sourceRecord.location, null);
-    const sourceFacts = discoveryDb.facts.filter((fact) => fact.sourceId === "absolute-outside-source");
-    assert.equal(sourceFacts.length > 0, true, "expected manifest extraction facts to remain");
-    for (const fact of sourceFacts) {
-      assert.deepEqual(fact.refs, []);
-      assert.equal(fact.ref?.location ?? null, null);
-    }
-
-    const factsText = await readFile(path.join(out, FACTS_FILENAME), "utf8");
-    const cardsText = await readFile(path.join(out, SOURCE_CARDS_FILENAME), "utf8");
-    const chunksText = await readFile(path.join(out, SOURCE_CHUNKS_FILENAME), "utf8");
-    const coverageText = await readFile(path.join(out, COVERAGE_FILENAME), "utf8");
-    for (const [label, text] of [
-      ["discovery DB", JSON.stringify(discoveryDb)],
-      ["facts.jsonl", factsText],
-      ["source-cards.json", cardsText],
-      ["source-chunks.jsonl", chunksText],
-      ["coverage.json", coverageText],
-    ]) {
-      assertNoHostAbsolutePaths(text, label);
-      assertNoSpecificPath(text, absoluteOutsideRoot, label);
-    }
+    assert.deepEqual(await listRelativeFiles(out), []);
   });
 
-  it("normalizes absolute in-root source locations before writing cards, chunks, and DB facts", async () => {
+  it("rejects absolute in-root source locations at durable admission", async () => {
     const sourceRoot = await makeRepoTempDir();
     const sourceFile = path.join(sourceRoot, "absolute-in-root.md");
     await writeText(sourceFile, "Absolute in-root source fixture with bounded evidence.\n");
@@ -422,30 +456,9 @@ describe("discover-workspace source-root and source-location safety", () => {
       sources: [sourceInventoryEntry("absolute-in-root-source", sourceFile)],
     });
 
-    assertWorkspaceSucceeded(result, "discover-workspace absolute in-root source");
-
-    const cards = await readSourceCards(out);
-    assert.equal(cards[0].status, "ingested");
-    assertSafeRelativeLocation(cards[0].location, "source card location");
-
-    const sourceChunksText = await readFile(path.join(out, SOURCE_CHUNKS_FILENAME), "utf8");
-    assert.equal(sourceChunksText.includes(sourceFile), false, "source chunks must not contain original absolute source path");
-    assert.equal(sourceChunksText.includes(REPO_ROOT), false, "source chunks must not contain repo root");
-    const chunks = await readJsonl(path.join(out, SOURCE_CHUNKS_FILENAME));
-    for (const chunk of chunks) {
-      for (const ref of chunk.refs) assertSafeRelativeLocation(ref, `chunk ${chunk.id} ref`);
-      assertSafeRelativeLocation(chunk.ref.location, `chunk ${chunk.id} ref.location`);
-    }
-
-    const discoveryDb = await readJson(path.join(out, DISCOVERY_DB_FILENAME));
-    const sourceRecord = discoveryDb.sources.find((source) => source.id === "absolute-in-root-source");
-    assertSafeRelativeLocation(sourceRecord.location, "discovery DB source location");
-    const sourceFacts = discoveryDb.facts.filter((fact) => fact.sourceId === "absolute-in-root-source");
-    assert.equal(sourceFacts.length > 0, true, "expected discovery DB facts for absolute in-root source");
-    for (const fact of sourceFacts) {
-      for (const ref of fact.refs ?? []) assertSafeRelativeLocation(ref, `fact ${fact.id} ref`);
-      if (fact.ref?.location) assertSafeRelativeLocation(fact.ref.location, `fact ${fact.id} ref.location`);
-    }
+    const json = assertAdmissionRejectedUnsafe(result, "discover-workspace absolute in-root source");
+    assertNoSpecificPath(JSON.stringify(json), sourceFile, "absolute in-root admission error");
+    assert.deepEqual(await listRelativeFiles(out), []);
   });
 
   it("uses null manifest path provenance for manifests outside the repo instead of leaking absolute paths", async () => {
@@ -548,6 +561,139 @@ describe("discover-workspace source-root and source-location safety", () => {
 });
 
 describe("discover-workspace fail-closed source intake", () => {
+  it("declares bounded non-artifact intake and rejects AgentMo durable JSON identities", async () => {
+    assert.equal(DISCOVERY_SOURCE_INTAKE_POLICY.status, "non-artifact-intake");
+    assert.equal(DISCOVERY_SOURCE_INTAKE_POLICY.durableArtifactIdentityAllowed, false);
+    assert.equal(Number.isInteger(DISCOVERY_SOURCE_INTAKE_POLICY.maxSourceBytes), true);
+
+    const sourceRoot = await makeRepoTempDir();
+    const durableSource = path.join(sourceRoot, "must-not-ingest.json");
+    await copyFile(PREBUILT_DISCOVERY_DB, durableSource);
+    const { result, out } = await runWorkspaceWithRepoSource({
+      sourceRoot,
+      sources: [sourceInventoryEntry("durable-artifact-canary", "must-not-ingest.json")],
+    });
+    assertWorkspaceFailed(result, "discover-workspace durable source identity");
+    const cards = await readSourceCards(out);
+    assert.equal(cards[0].rejectionCode, "durable_artifact_identity");
+    const chunks = await readJsonl(path.join(out, SOURCE_CHUNKS_FILENAME));
+    assert.deepEqual(chunks, []);
+  });
+
+  it("rejects oversized source documents before reading or chunking them", async () => {
+    const sourceRoot = await makeRepoTempDir();
+    const oversizedPath = path.join(sourceRoot, "oversized.md");
+    await writeText(oversizedPath, "x".repeat(DISCOVERY_SOURCE_INTAKE_POLICY.maxSourceBytes + 1));
+    const { result, out } = await runWorkspaceWithRepoSource({
+      sourceRoot,
+      sources: [sourceInventoryEntry("oversized-source", "oversized.md")],
+    });
+    assertWorkspaceFailed(result, "discover-workspace oversized source");
+    const cards = await readSourceCards(out);
+    assert.equal(cards[0].rejectionCode, "source_too_large");
+    assert.equal(cards[0].preview ?? null, null);
+  });
+
+  it("rejects a pathname swap after the single no-follow source open", async () => {
+    const sourceRoot = await makeRepoTempDir();
+    const sourcePath = path.join(sourceRoot, "swap.md");
+    const retainedPath = path.join(sourceRoot, "retained.md");
+    const replacementSentinel = "SOURCE_SWAP_REPLACEMENT_MUST_NOT_PERSIST";
+    await writeText(sourcePath, "Original bounded discovery source.\n");
+    let fileOpens = 0;
+    let swapped = false;
+    const sourceIntakeIo = {
+      lstat,
+      realpath,
+      async open(filePath, flags) {
+        fileOpens += 1;
+        assert.equal((flags & FS_CONSTANTS.O_NOFOLLOW) === FS_CONSTANTS.O_NOFOLLOW, true);
+        const handle = await open(filePath, flags);
+        return {
+          close: (...args) => handle.close(...args),
+          stat: (...args) => handle.stat(...args),
+          async read(...args) {
+            const result = await handle.read(...args);
+            if (!swapped && result.bytesRead > 0) {
+              await rename(sourcePath, retainedPath);
+              await writeText(sourcePath, `${replacementSentinel}\n`);
+              swapped = true;
+            }
+            return result;
+          },
+        };
+      },
+    };
+
+    const workspace = await buildDiscoveryWorkspace(
+      discoveryManifest([sourceInventoryEntry("swapped-source", "swap.md")]),
+      { repoRoot: REPO_ROOT, sourceRoot, sourceIntakeIo },
+    );
+
+    assert.equal(swapped, true);
+    assert.equal(fileOpens, 1);
+    assert.equal(workspace.ok, false);
+    assert.equal(workspace.sourceCards.cards[0].rejectionCode, "read_failed");
+    assert.deepEqual(workspace.sourceChunks, []);
+    assert.equal(JSON.stringify(workspace).includes(replacementSentinel), false);
+  });
+
+  it("rejects source growth through the retained handle without an unbounded read", async () => {
+    const sourceRoot = await makeRepoTempDir();
+    const sourcePath = path.join(sourceRoot, "growth.md");
+    await writeText(sourcePath, "Bounded source.\n");
+    const maxSourceBytes = 64;
+    let fileOpens = 0;
+    let grown = false;
+    const sourceIntakeIo = {
+      lstat,
+      realpath,
+      async open(filePath, flags) {
+        fileOpens += 1;
+        const handle = await open(filePath, flags);
+        return {
+          close: (...args) => handle.close(...args),
+          stat: (...args) => handle.stat(...args),
+          async read(...args) {
+            if (!grown) {
+              await appendFile(sourcePath, "G".repeat(maxSourceBytes + 1), "utf8");
+              grown = true;
+            }
+            return handle.read(...args);
+          },
+        };
+      },
+    };
+
+    const workspace = await buildDiscoveryWorkspace(
+      discoveryManifest([sourceInventoryEntry("grown-source", "growth.md")]),
+      { repoRoot: REPO_ROOT, sourceRoot, maxSourceBytes, sourceIntakeIo },
+    );
+
+    assert.equal(grown, true);
+    assert.equal(fileOpens, 1);
+    assert.equal(workspace.ok, false);
+    assert.equal(workspace.sourceCards.cards[0].rejectionCode, "source_too_large");
+    assert.deepEqual(workspace.sourceChunks, []);
+  });
+
+  it("preflights every workspace artifact before creating the output root", async () => {
+    const manifest = JSON.parse(await readFile(SUPPORT_DISCOVERY, "utf8"));
+    const workspace = await buildDiscoveryWorkspace(manifest, {
+      manifestPath: SUPPORT_DISCOVERY,
+      sourceRoot: ".",
+      repoRoot: REPO_ROOT,
+    });
+    workspace.sourceCards.cards[0].rawTranscript = "synthetic raw transcript";
+    const parent = await makeTempDir("agentmo-workspace-preflight-");
+    const out = path.join(parent, "must-not-exist");
+    await assert.rejects(
+      () => writeDiscoveryWorkspace(out, workspace),
+      (error) => typeof error.code === "string" && error.code.startsWith("AGENTMO_PERSISTABILITY_"),
+    );
+    await assert.rejects(() => access(out));
+  });
+
   it("rejects denied secret filenames before read and never emits their sentinel content", async () => {
     const sentinel = "DENIED_FILENAME_SENTINEL_CONTENT_NEVER_LEAKS";
     const deniedFilenames = [".env", ".env.local", "private.key", "token.pem"];
@@ -581,9 +727,8 @@ describe("discover-workspace fail-closed source intake", () => {
       sources: [sourceInventoryEntry("denied-absolute-private-key", secretFile)],
     });
 
-    const json = assertWorkspaceFailed(result, "discover-workspace denied absolute source");
+    const json = assertAdmissionRejectedUnsafe(result, "discover-workspace denied absolute source");
     const diagnostics = await collectDiagnostics(result, out);
-    assert.match(diagnostics, /denied|credential|rejected/u);
     assertNoRawPathOrName(diagnostics, "private.key", "denied absolute source diagnostics");
     assertNoRawSecret(diagnostics, sentinel);
     assertNoHostAbsolutePaths(diagnostics, "denied absolute source diagnostics");
@@ -591,39 +736,7 @@ describe("discover-workspace fail-closed source intake", () => {
       assertNoSpecificPath(diagnostics, forbiddenPath, "denied absolute source diagnostics");
     }
     assertNoHostAbsolutePaths(JSON.stringify(json), "denied absolute source stdout JSON");
-
-    const cards = await readSourceCards(out);
-    assert.equal(cards[0].sourceId, "denied-absolute-private-key");
-    assert.equal(cards[0].status, "rejected");
-    assert.equal(cards[0].location, null);
-    assert.equal(String(cards[0].reason).includes("private.key"), false);
-
-    const discoveryDb = await readJson(path.join(out, DISCOVERY_DB_FILENAME));
-    const sourceRecord = discoveryDb.sources.find((source) => source.id === "denied-absolute-private-key");
-    assert.equal(sourceRecord.location, null);
-    const sourceFacts = discoveryDb.facts.filter((fact) => fact.sourceId === "denied-absolute-private-key");
-    assert.equal(sourceFacts.length > 0, true, "expected manifest extraction facts to remain");
-    for (const fact of sourceFacts) {
-      assert.deepEqual(fact.refs ?? [], []);
-      assert.equal(fact.ref?.location ?? null, null);
-    }
-
-    const factsText = await readFile(path.join(out, FACTS_FILENAME), "utf8");
-    const cardsText = await readFile(path.join(out, SOURCE_CARDS_FILENAME), "utf8");
-    const chunksText = await readFile(path.join(out, SOURCE_CHUNKS_FILENAME), "utf8");
-    const coverageText = await readFile(path.join(out, COVERAGE_FILENAME), "utf8");
-    for (const [label, text] of [
-      ["discovery DB", JSON.stringify(discoveryDb)],
-      ["facts.jsonl", factsText],
-      ["source-cards.json", cardsText],
-      ["source-chunks.jsonl", chunksText],
-      ["coverage.json", coverageText],
-    ]) {
-      assertNoHostAbsolutePaths(text, label);
-      assertNoSpecificPath(text, secretFile, label);
-      assertNoRawPathOrName(text, "private.key", label);
-      assertNoRawSecret(text, sentinel);
-    }
+    assert.deepEqual(await listRelativeFiles(out), []);
   });
 
   it("scrubs host absolute paths from approved source previews, chunks, and facts", async () => {
@@ -777,7 +890,7 @@ describe("Stage 1 compatibility and Stage 2 safety gates", () => {
     assert.equal(JSON.parse(discoveryDbText).sourceManifest.path, null);
   });
 
-  it("normalizes repo-external absolute discover-pack source locations without leaking probe paths", async () => {
+  it("rejects repo-external absolute discover-pack source locations at durable admission", async () => {
     const probeRoot = await makeTempDir("agentmo-discover-pack-abs-source-probe-");
     const absoluteSource = path.join(probeRoot, "source.md");
     const manifestPath = path.join(probeRoot, "absolute-source.discovery.json");
@@ -786,40 +899,14 @@ describe("Stage 1 compatibility and Stage 2 safety gates", () => {
 
     const result = await runCli(["discover-pack", manifestPath, "--out", out, "--json"]);
 
-    assert.equal(result.code, 0, result.stderr);
-    const json = parseStdoutJson(result, "discover-pack external absolute source");
-    assert.equal(json.schemaVersion, "agentmo.discovery-pack.v1");
-    assert.equal(json.ok, true);
-    const stdoutSource = json.discoveryDb.sources.find((source) => source.id === "external-absolute-source");
-    assert.equal(stdoutSource.location, null);
-    assert.deepEqual(
-      json.discoveryDb.facts.filter((fact) => fact.sourceId === "external-absolute-source").map((fact) => fact.refs),
-      [[]],
-    );
-
-    const discoveryDbText = await readFile(path.join(out, DISCOVERY_DB_FILENAME), "utf8");
-    const factsText = await readFile(path.join(out, FACTS_FILENAME), "utf8");
-    const coverageText = await readFile(path.join(out, COVERAGE_FILENAME), "utf8");
-    const discoveryDb = JSON.parse(discoveryDbText);
-    const sourceRecord = discoveryDb.sources.find((source) => source.id === "external-absolute-source");
-    assert.equal(sourceRecord.location, null);
-    const sourceFacts = discoveryDb.facts.filter((fact) => fact.sourceId === "external-absolute-source");
-    assert.equal(sourceFacts.length > 0, true, "expected manifest extraction facts to remain");
-    for (const fact of sourceFacts) assert.deepEqual(fact.refs, []);
-
-    for (const [label, text] of [
-      ["discover-pack stdout", result.stdout],
-      ["discover-pack stderr", result.stderr],
-      ["discover-pack discovery DB", discoveryDbText],
-      ["discover-pack facts JSONL", factsText],
-      ["discover-pack coverage JSON", coverageText],
-    ]) {
-      assertNoHostAbsolutePaths(text, label);
-      for (const forbiddenPath of [absoluteSource, probeRoot, out]) assertNoSpecificPath(text, forbiddenPath, label);
+    const json = assertAdmissionRejectedUnsafe(result, "discover-pack external absolute source");
+    for (const forbiddenPath of [absoluteSource, probeRoot, out]) {
+      assertNoSpecificPath(JSON.stringify(json), forbiddenPath, "discover-pack absolute admission error");
     }
+    assert.deepEqual(await listRelativeFiles(out), []);
   });
 
-  it("scrubs host paths from durable manifest text in discover-pack and workspace artifacts", async () => {
+  it("rejects host paths in durable manifest text before any pack or workspace publication", async () => {
     const rawPaths = [
       "/etc/agentmo-source-id",
       "/root/agentmo-source-description",
@@ -860,39 +947,15 @@ describe("Stage 1 compatibility and Stage 2 safety gates", () => {
 
     const packOut = await makeTempDir("agentmo-managed-manifest-pack-out-");
     const packResult = await runCli(["discover-pack", manifestPath, "--out", packOut, "--json"]);
-    assert.equal(packResult.code, 1, "discover-pack should fail closed when manifest input needed managed redaction");
-    const packJson = parseStdoutJson(packResult, "discover-pack managed manifest redaction");
-    assert.equal(packJson.ok, false);
-    assert.equal(packJson.checks.find((check) => check.id === "input_redaction")?.pass, false);
-    assert.equal(packJson.checks.find((check) => check.id === "managed_evidence_sanitized")?.pass, true);
-
-    const packDiscoveryDbText = await readFile(path.join(packOut, DISCOVERY_DB_FILENAME), "utf8");
-    const packFactsText = await readFile(path.join(packOut, FACTS_FILENAME), "utf8");
-    const packCoverageText = await readFile(path.join(packOut, COVERAGE_FILENAME), "utf8");
-    for (const [label, text] of [
-      ["discover-pack stdout", packResult.stdout],
-      ["discover-pack stderr", packResult.stderr],
-      ["discover-pack discovery DB", packDiscoveryDbText],
-      ["discover-pack facts JSONL", packFactsText],
-      ["discover-pack coverage JSON", packCoverageText],
-    ]) {
-      for (const rawPath of rawPaths) assertNoSpecificPath(text, rawPath, label);
-      assertNoHostAbsolutePaths(text, label);
-      if (label !== "discover-pack stderr") assert.match(text, /\[REDACTED_PATH\]/u, `${label} must contain a redacted path marker`);
-    }
-    const packFacts = readJsonl(path.join(packOut, FACTS_FILENAME));
-    assert.equal((await packFacts).some((fact) => fact.text.includes("[REDACTED_PATH]")), true);
+    const packJson = assertAdmissionRejectedUnsafe(packResult, "discover-pack host-path manifest");
+    for (const rawPath of rawPaths) assertNoSpecificPath(JSON.stringify(packJson), rawPath, "discover-pack admission error");
+    assert.deepEqual(await listRelativeFiles(packOut), []);
 
     const workspaceOut = await makeTempDir("agentmo-managed-manifest-workspace-out-");
     const workspaceResult = await runCli(["discover-workspace", manifestPath, "--source-root", REPO_ROOT, "--out", workspaceOut, "--json"]);
-    const workspaceJson = assertWorkspaceFailed(workspaceResult, "discover-workspace managed manifest redaction");
-    assert.equal(workspaceJson.checks.find((check) => check.id === "manifest_input_redaction")?.pass, false);
-    assert.equal(workspaceJson.checks.find((check) => check.id === "managed_workspace_output_sanitized")?.pass, true);
-
-    const workspaceDiagnostics = await collectDiagnostics(workspaceResult, workspaceOut);
-    for (const rawPath of rawPaths) assertNoSpecificPath(workspaceDiagnostics, rawPath, "discover-workspace diagnostics");
-    assertNoHostAbsolutePaths(workspaceDiagnostics, "discover-workspace diagnostics");
-    assert.match(workspaceDiagnostics, /\[REDACTED_PATH\]/u);
+    const workspaceJson = assertAdmissionRejectedUnsafe(workspaceResult, "discover-workspace host-path manifest");
+    for (const rawPath of rawPaths) assertNoSpecificPath(JSON.stringify(workspaceJson), rawPath, "discover-workspace admission error");
+    assert.deepEqual(await listRelativeFiles(workspaceOut), []);
   });
 
   it("rejects an unsafe workspace discovery DB even when the legacy validation flag is true", async () => {
@@ -914,6 +977,10 @@ describe("Stage 1 compatibility and Stage 2 safety gates", () => {
       unsafeDbPath,
       "--need",
       SUPPORT_NEED,
+      "--digest",
+      `discovery-db=sha256:${createHash("sha256").update(await readFile(unsafeDbPath)).digest("hex")}`,
+      "--digest",
+      `user-need=sha256:${createHash("sha256").update(await readFile(SUPPORT_NEED)).digest("hex")}`,
       "--out",
       blueprintPath,
       "--target",
@@ -923,6 +990,6 @@ describe("Stage 1 compatibility and Stage 2 safety gates", () => {
 
     assert.notEqual(result.code, 0, "blueprint-draft must reject unsafe workspace DB safety state");
     assert.equal(existsSync(blueprintPath), false, "unsafe workspace DB must not produce a blueprint");
-    assert.match(result.stderr + result.stdout, /workspace|unsafe|safety|discovery-db/u);
+    assert.equal(JSON.parse(result.stdout).code, "AGENTMO_UNSUPPORTED_ARTIFACT");
   });
 });

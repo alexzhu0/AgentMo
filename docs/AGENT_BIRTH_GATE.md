@@ -1,5 +1,10 @@
 # AgentMo Birth Gate
 
+Birth and Delivery Reports are fail-closed, Produce-internal gates. They are non-self-certifying and revalidate bounded input evidence instead of inheriting upstream success claims.
+
+- `declared-ready` proves deterministic wiring only and does not certify runtime execution, domain quality, production readiness, or deployment approval.
+- `live-success` proves one isolated runtime execution only and does not certify domain quality, production readiness, or deployment approval.
+
 AgentMo birth is an evidence gate, not a branding claim.
 
 Birth is part of AgentMo stage 3: finish the Agent design, implementation, and delivery evidence loop. It follows stage 1 data discovery and stage 2 planning from user needs plus the discovery database.
@@ -7,10 +12,19 @@ Birth is part of AgentMo stage 3: finish the Agent design, implementation, and d
 ## Required command
 
 ```bash
-agentmo birth-report <blueprint.json> \
-  --build-state <agentmo-build-state.json> \
-  --run-state <agentmo-run-state.json> \
-  --run-eval <run-eval.json> \
+digest_file() { node -e 'const fs=require("node:fs");const crypto=require("node:crypto");fs.writeSync(1,"sha256:"+crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex"));' "$1"; }
+BLUEPRINT=path/to/blueprint.json
+BUILD_STATE=path/to/agentmo-build-state.json
+RUN_STATE=path/to/agentmo-run-state.json
+RUN_EVAL=path/to/run-eval.json
+agentmo birth-report "$BLUEPRINT" \
+  --digest "blueprint=$(digest_file "$BLUEPRINT")" \
+  --digest "build-state=$(digest_file "$BUILD_STATE")" \
+  --digest "run-state=$(digest_file "$RUN_STATE")" \
+  --digest "run-eval=$(digest_file "$RUN_EVAL")" \
+  --build-state "$BUILD_STATE" \
+  --run-state "$RUN_STATE" \
+  --run-eval "$RUN_EVAL" \
   --expect-status declared \
   --json
 ```
@@ -46,6 +60,7 @@ Missing, malformed, wrong-agent, stale, production-state, failed eval, secret-li
 - `domainCertifiedByRun: false`
 
 Birth evidence is necessary for promotion, but it is not domain quality certification and not production deployment approval.
+Every source artifact is independently admitted and cross-checked. An upstream `ok`, a passing birth report, or a stronger-looking field never transfers certification to another evidence level.
 
 ## Domain and delivery reports
 

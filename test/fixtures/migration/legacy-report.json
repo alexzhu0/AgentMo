@@ -1,0 +1,65 @@
+{
+  "kind": "agentmother_report",
+  "version": "0.1",
+  "ok": true,
+  "summary": {
+    "agent_id": "legacy-fixture",
+    "runtime": "external",
+    "runtime_profiles": [],
+    "runtime_certification": [],
+    "discovery_manifest_path": null,
+    "status": "draft",
+    "domain": "migration_fixture",
+    "pipeline_phases": ["discover", "plan", "produce"],
+    "main_agent": "legacy-fixture-main",
+    "specialist_count": 0,
+    "tool_count": 1,
+    "eval_case_classes": ["migration"],
+    "quality_gates": [
+      { "id": "domain_genome_defined", "label": "Domain genome defined", "status": "pass" },
+      { "id": "pipeline_defined", "label": "Discover-plan-produce pipeline defined", "status": "pass" },
+      { "id": "architecture_defined", "label": "Agent architecture defined", "status": "pass" },
+      { "id": "tool_contracts_defined", "label": "Tool contracts defined", "status": "pass" },
+      { "id": "evidence_store_defined", "label": "Evidence store defined", "status": "pass" },
+      { "id": "eval_suite_defined", "label": "Eval suite defined", "status": "pass" },
+      { "id": "governance_defined", "label": "Governance policy defined", "status": "pass" },
+      { "id": "release_trace_defined", "label": "Release trace defined", "status": "pass" }
+    ],
+    "ok": true
+  },
+  "lifecycle": {
+    "stage": "conceive",
+    "reason": "draft blueprint exists"
+  },
+  "gates": {
+    "passed": 8,
+    "failed": 0,
+    "items": [
+      { "id": "domain_genome_defined", "label": "Domain genome defined", "status": "pass" },
+      { "id": "pipeline_defined", "label": "Discover-plan-produce pipeline defined", "status": "pass" },
+      { "id": "architecture_defined", "label": "Agent architecture defined", "status": "pass" },
+      { "id": "tool_contracts_defined", "label": "Tool contracts defined", "status": "pass" },
+      { "id": "evidence_store_defined", "label": "Evidence store defined", "status": "pass" },
+      { "id": "eval_suite_defined", "label": "Eval suite defined", "status": "pass" },
+      { "id": "governance_defined", "label": "Governance policy defined", "status": "pass" },
+      { "id": "release_trace_defined", "label": "Release trace defined", "status": "pass" }
+    ]
+  },
+  "release_readiness": {
+    "status": "not_ready",
+    "reason": "agent is not certified or released"
+  },
+  "runtime_certification": [],
+  "discovery": {
+    "present": false,
+    "path": null,
+    "resolved_path": null,
+    "loaded": false,
+    "ok": null,
+    "summary": null,
+    "warnings": [],
+    "errors": []
+  },
+  "warnings": [],
+  "errors": []
+}

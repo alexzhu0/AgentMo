@@ -18,7 +18,7 @@ https://github.com/alexzhu0/AgentMo.git
 
 ## 1. 我们在做什么
 
-AgentMo 的目标不是写一个一次性的 prompt，而是做一个可以持续生产领域 Agent 的 **AgentMother 机制**。
+AgentMo 的目标不是写一个一次性的 prompt，而是做一套可以持续生产领域 Agent 的 **AgentMo 三阶段工程机制**。
 
 核心流程：
 

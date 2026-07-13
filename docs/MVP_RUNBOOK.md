@@ -10,10 +10,14 @@ Stage 3 Produce  -> Delivery Evidence Contract
 
 Current Stage 1 commands materialize operator-provided manifests and approved local fixtures. They do not perform live web search, web crawling, browser automation, or search API collection.
 
+Build, install/doctor, runtime smoke, birth, eval, delivery, and release evidence are Produce-internal gates. These artifacts do not certify one another, domain-wide quality, production readiness, or deployment approval.
+
+AgentMo core supports Node.js `>=20`; OpenClaw target mutation separately requires `>=22.19.0 <23 || >=23.11.0`. The authoritative operator preflight is `node ./bin/agentmo.js runtime-check --target openclaw`, and it must precede mutation without a copied range predicate.
+
 ## Contract architecture
 
 - **Stage 1 Discover** has two paths: `discover-pack` is manifest-only, and `discover-workspace` is approved local source intake. Both produce a valid discovery DB for Stage 2; workspace intake also writes supplemental source sidecars.
-- **Stage 2 Plan** consumes a valid discovery DB plus `agentmo.user-need.v1`, produces `agentmo.design-plan.v1`, then drafts a valid blueprint/design contract with `agentmother_version: "0.1"`, eval requirements, and evidence policy.
+- **Stage 2 Plan** consumes a valid discovery DB plus `agentmo.user-need.v1`, produces `agentmo.design-plan.v1`, then drafts a valid blueprint/design contract with `agentmo_version: "0.1"`, eval requirements, and evidence policy.
 - **Stage 3 Produce** consumes any valid blueprint/design contract and produces delivery evidence: `agentmo.handoff.v1`, `agentmo.build.v1`, `agentmo.run.v1`, `agentmo.run-eval.v1`, `agentmo.birth-report.v1`, `agentmo.domain-eval.v1`, and `agentmo.delivery.v1`.
 
 Stage 3 may start from an externally reviewed or business-provided valid blueprint/design contract when bounded provenance records the source, reviewed status, review reference, contract version, and non-secret notes. That provenance admits the design to Stage 3; it does not certify runtime behavior, domain-wide quality, production readiness, or deployment approval. If generated handoff wording names discovery pack or user-need artifacts, read those as provenance/review references for AgentMo-generated designs, not as mandatory command ancestry for externally reviewed designs.
@@ -32,7 +36,8 @@ Stage 1 has two supported paths. Use only one for a given discovery output direc
 WORK=/tmp/agentmo-stage1-only
 rm -rf "$WORK"
 mkdir -p "$WORK"
-node ./bin/agentmo.js discover-pack examples/support-triage.discovery.json --out "$WORK/discovery" --json
+digest_file() { node -e 'const fs=require("node:fs");const crypto=require("node:crypto");fs.writeSync(1,"sha256:"+crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex"));' "$1"; }
+node ./bin/agentmo.js discover-pack examples/support-triage.discovery.json --out "$WORK/discovery" --json --digest "discovery-manifest=$(digest_file "examples/support-triage.discovery.json")"
 ```
 
 Expected outputs:
@@ -50,7 +55,11 @@ $WORK/discovery/coverage.json
 Installed CLI form:
 
 ```bash
-agentmo discover-workspace <discovery.json> --source-root <dir> --out <dir> [--json]
+digest_file() { node -e 'const fs=require("node:fs");const crypto=require("node:crypto");fs.writeSync(1,"sha256:"+crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex"));' "$1"; }
+DISCOVERY_MANIFEST=path/to/discovery.json
+SOURCE_ROOT=path/to/source-root
+OUTPUT_ROOT=path/to/discovery-output
+agentmo discover-workspace "$DISCOVERY_MANIFEST" --source-root "$SOURCE_ROOT" --out "$OUTPUT_ROOT" --json --digest "discovery-manifest=$(digest_file "$DISCOVERY_MANIFEST")"
 ```
 
 Repo-local form:
@@ -59,7 +68,8 @@ Repo-local form:
 WORK=/tmp/agentmo-stage1-workspace
 rm -rf "$WORK"
 mkdir -p "$WORK"
-node ./bin/agentmo.js discover-workspace examples/support-triage.discovery.json --source-root . --out "$WORK/discovery" --json
+digest_file() { node -e 'const fs=require("node:fs");const crypto=require("node:crypto");fs.writeSync(1,"sha256:"+crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex"));' "$1"; }
+node ./bin/agentmo.js discover-workspace examples/support-triage.discovery.json --source-root . --out "$WORK/discovery" --json --digest "discovery-manifest=$(digest_file "examples/support-triage.discovery.json")"
 ```
 
 Expected outputs:
@@ -87,19 +97,25 @@ WORK=/tmp/agentmo-stage2-only
 rm -rf "$WORK"
 mkdir -p "$WORK"
 DISCOVERY_DB=/path/to/agentmo-discovery-db.json
-node ./bin/agentmo.js need-report examples/support-triage.need.json --json
+digest_file() { node -e 'const fs=require("node:fs");const crypto=require("node:crypto");fs.writeSync(1,"sha256:"+crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex"));' "$1"; }
+node ./bin/agentmo.js need-report examples/support-triage.need.json --json --digest "user-need=$(digest_file "examples/support-triage.need.json")"
 node ./bin/agentmo.js design-plan "$DISCOVERY_DB" \
+  --digest "discovery-db=$(digest_file "$DISCOVERY_DB")" \
+  --digest "user-need=$(digest_file "examples/support-triage.need.json")" \
   --need examples/support-triage.need.json \
   --out "$WORK/agentmo-design-plan.json" \
   --target openclaw \
   --json
 node ./bin/agentmo.js blueprint-draft "$DISCOVERY_DB" \
+  --digest "discovery-db=$(digest_file "$DISCOVERY_DB")" \
+  --digest "user-need=$(digest_file "examples/support-triage.need.json")" \
+  --digest "design-plan=$(digest_file "$WORK/agentmo-design-plan.json")" \
   --need examples/support-triage.need.json \
   --design-plan "$WORK/agentmo-design-plan.json" \
   --out "$WORK/support-triage.agentmo.json" \
   --target openclaw \
   --json
-node ./bin/agentmo.js validate "$WORK/support-triage.agentmo.json"
+node ./bin/agentmo.js validate "$WORK/support-triage.agentmo.json" --digest "blueprint=$(digest_file "$WORK/support-triage.agentmo.json")"
 ```
 
 Stop here when the goal is only a reviewed blueprint/design contract. A valid blueprint is not runtime evidence and does not certify domain-wide quality or production approval.
@@ -113,28 +129,48 @@ WORK=/tmp/agentmo-stage3-only
 rm -rf "$WORK"
 mkdir -p "$WORK"
 BLUEPRINT=examples/support-triage.agentmo.json
-node ./bin/agentmo.js validate "$BLUEPRINT"
-node ./bin/agentmo.js handoff "$BLUEPRINT" --target openclaw --out "$WORK/handoff" --json
-node ./bin/agentmo.js scaffold "$BLUEPRINT" --target openclaw --out "$WORK/scaffold"
-node ./bin/agentmo.js run "$BLUEPRINT" \
+RUNTIME_PLAN="$WORK/runtime-plan.json"
+digest_file() { node -e 'const fs=require("node:fs");const crypto=require("node:crypto");fs.writeSync(1,"sha256:"+crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex"));' "$1"; }
+node ./bin/agentmo.js validate "$BLUEPRINT" --digest "blueprint=$(digest_file "$BLUEPRINT")"
+node ./bin/agentmo.js handoff "$BLUEPRINT" --target openclaw --out "$WORK/handoff" --json --digest "blueprint=$(digest_file "$BLUEPRINT")"
+node ./bin/agentmo.js scaffold "$BLUEPRINT" --target openclaw --out "$WORK/scaffold" --digest "blueprint=$(digest_file "$BLUEPRINT")"
+node ./bin/agentmo.js run-plan "$BLUEPRINT" \
+  --digest "blueprint=$(digest_file "$BLUEPRINT")" \
   --target openclaw \
+  --workspace "$WORK/workspace" \
+  --message "Say exactly: ok" \
+  --json > "$RUNTIME_PLAN"
+node ./bin/agentmo.js run "$RUNTIME_PLAN" \
+  --digest "runtime-plan=$(digest_file "$RUNTIME_PLAN")" \
   --workspace "$WORK/workspace" \
   --message "Say exactly: ok" \
   --out "$WORK/run" \
   --json > "$WORK/run-state.stdout.json"
 RUN_STATE="$(find "$WORK/run/runs" -name agentmo-run-state.json | sort | tail -n 1)"
-node ./bin/agentmo.js run-eval "$RUN_STATE" --expect-status declared --json > "$WORK/run-eval.json"
+node ./bin/agentmo.js run-eval "$RUN_STATE" --expect-status declared --json --digest "run-state=$(digest_file "$RUN_STATE")" > "$WORK/run-eval.json"
 node ./bin/agentmo.js birth-report "$BLUEPRINT" \
+  --digest "blueprint=$(digest_file "$BLUEPRINT")" \
+  --digest "build-state=$(digest_file "$WORK/scaffold/agentmo-build-state.json")" \
+  --digest "run-state=$(digest_file "$RUN_STATE")" \
+  --digest "run-eval=$(digest_file "$WORK/run-eval.json")" \
   --build-state "$WORK/scaffold/agentmo-build-state.json" \
   --run-state "$RUN_STATE" \
   --run-eval "$WORK/run-eval.json" \
   --expect-status declared \
   --json > "$WORK/birth-report.json"
 node ./bin/agentmo.js domain-eval "$BLUEPRINT" \
+  --digest "blueprint=$(digest_file "$BLUEPRINT")" \
+  --digest "domain-cases=$(digest_file "examples/support-triage.domain-cases.json")" \
   --cases examples/support-triage.domain-cases.json \
   --target openclaw \
   --json > "$WORK/domain-eval.json"
 node ./bin/agentmo.js delivery-report "$BLUEPRINT" \
+  --digest "blueprint=$(digest_file "$BLUEPRINT")" \
+  --digest "build-state=$(digest_file "$WORK/scaffold/agentmo-build-state.json")" \
+  --digest "run-state=$(digest_file "$RUN_STATE")" \
+  --digest "run-eval=$(digest_file "$WORK/run-eval.json")" \
+  --digest "birth-report=$(digest_file "$WORK/birth-report.json")" \
+  --digest "domain-eval=$(digest_file "$WORK/domain-eval.json")" \
   --build-state "$WORK/scaffold/agentmo-build-state.json" \
   --run-state "$RUN_STATE" \
   --run-eval "$WORK/run-eval.json" \
@@ -166,41 +202,66 @@ discover-pack -> need-report -> design-plan -> blueprint-draft -> handoff -> sca
 WORK=/tmp/agentmo-support-triage-mvp
 rm -rf "$WORK"
 mkdir -p "$WORK"
+RUNTIME_PLAN="$WORK/runtime-plan.json"
 
-node ./bin/agentmo.js discover-pack examples/support-triage.discovery.json --out "$WORK/discovery" --json
-node ./bin/agentmo.js need-report examples/support-triage.need.json --json
+digest_file() { node -e 'const fs=require("node:fs");const crypto=require("node:crypto");fs.writeSync(1,"sha256:"+crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex"));' "$1"; }
+node ./bin/agentmo.js discover-pack examples/support-triage.discovery.json --out "$WORK/discovery" --json --digest "discovery-manifest=$(digest_file "examples/support-triage.discovery.json")"
+node ./bin/agentmo.js need-report examples/support-triage.need.json --json --digest "user-need=$(digest_file "examples/support-triage.need.json")"
 node ./bin/agentmo.js design-plan "$WORK/discovery/agentmo-discovery-db.json" \
+  --digest "discovery-db=$(digest_file "$WORK/discovery/agentmo-discovery-db.json")" \
+  --digest "user-need=$(digest_file "examples/support-triage.need.json")" \
   --need examples/support-triage.need.json \
   --out "$WORK/agentmo-design-plan.json" \
   --target openclaw \
   --json
 node ./bin/agentmo.js blueprint-draft "$WORK/discovery/agentmo-discovery-db.json" \
+  --digest "discovery-db=$(digest_file "$WORK/discovery/agentmo-discovery-db.json")" \
+  --digest "user-need=$(digest_file "examples/support-triage.need.json")" \
+  --digest "design-plan=$(digest_file "$WORK/agentmo-design-plan.json")" \
   --need examples/support-triage.need.json \
   --design-plan "$WORK/agentmo-design-plan.json" \
   --out "$WORK/support-triage.agentmo.json" \
   --target openclaw \
   --json
-node ./bin/agentmo.js handoff "$WORK/support-triage.agentmo.json" --target openclaw --out "$WORK/handoff" --json
-node ./bin/agentmo.js scaffold "$WORK/support-triage.agentmo.json" --target openclaw --out "$WORK/scaffold"
-node ./bin/agentmo.js run "$WORK/support-triage.agentmo.json" \
+node ./bin/agentmo.js handoff "$WORK/support-triage.agentmo.json" --target openclaw --out "$WORK/handoff" --json --digest "blueprint=$(digest_file "$WORK/support-triage.agentmo.json")"
+node ./bin/agentmo.js scaffold "$WORK/support-triage.agentmo.json" --target openclaw --out "$WORK/scaffold" --digest "blueprint=$(digest_file "$WORK/support-triage.agentmo.json")"
+node ./bin/agentmo.js run-plan "$WORK/support-triage.agentmo.json" \
+  --digest "blueprint=$(digest_file "$WORK/support-triage.agentmo.json")" \
   --target openclaw \
+  --workspace "$WORK/workspace" \
+  --message "Say exactly: ok" \
+  --json > "$RUNTIME_PLAN"
+node ./bin/agentmo.js run "$RUNTIME_PLAN" \
+  --digest "runtime-plan=$(digest_file "$RUNTIME_PLAN")" \
   --workspace "$WORK/workspace" \
   --message "Say exactly: ok" \
   --out "$WORK/run" \
   --json > "$WORK/run-state.stdout.json"
 RUN_STATE="$(find "$WORK/run/runs" -name agentmo-run-state.json | sort | tail -n 1)"
-node ./bin/agentmo.js run-eval "$RUN_STATE" --expect-status declared --json > "$WORK/run-eval.json"
+node ./bin/agentmo.js run-eval "$RUN_STATE" --expect-status declared --json --digest "run-state=$(digest_file "$RUN_STATE")" > "$WORK/run-eval.json"
 node ./bin/agentmo.js birth-report "$WORK/support-triage.agentmo.json" \
+  --digest "blueprint=$(digest_file "$WORK/support-triage.agentmo.json")" \
+  --digest "build-state=$(digest_file "$WORK/scaffold/agentmo-build-state.json")" \
+  --digest "run-state=$(digest_file "$RUN_STATE")" \
+  --digest "run-eval=$(digest_file "$WORK/run-eval.json")" \
   --build-state "$WORK/scaffold/agentmo-build-state.json" \
   --run-state "$RUN_STATE" \
   --run-eval "$WORK/run-eval.json" \
   --expect-status declared \
   --json > "$WORK/birth-report.json"
 node ./bin/agentmo.js domain-eval "$WORK/support-triage.agentmo.json" \
+  --digest "blueprint=$(digest_file "$WORK/support-triage.agentmo.json")" \
+  --digest "domain-cases=$(digest_file "examples/support-triage.domain-cases.json")" \
   --cases examples/support-triage.domain-cases.json \
   --target openclaw \
   --json > "$WORK/domain-eval.json"
 node ./bin/agentmo.js delivery-report "$WORK/support-triage.agentmo.json" \
+  --digest "blueprint=$(digest_file "$WORK/support-triage.agentmo.json")" \
+  --digest "build-state=$(digest_file "$WORK/scaffold/agentmo-build-state.json")" \
+  --digest "run-state=$(digest_file "$RUN_STATE")" \
+  --digest "run-eval=$(digest_file "$WORK/run-eval.json")" \
+  --digest "birth-report=$(digest_file "$WORK/birth-report.json")" \
+  --digest "domain-eval=$(digest_file "$WORK/domain-eval.json")" \
   --build-state "$WORK/scaffold/agentmo-build-state.json" \
   --run-state "$RUN_STATE" \
   --run-eval "$WORK/run-eval.json" \
@@ -212,7 +273,8 @@ node ./bin/agentmo.js delivery-report "$WORK/support-triage.agentmo.json" \
 To run the same composed demo with approved local source intake, replace only the first Stage 1 command:
 
 ```bash
-node ./bin/agentmo.js discover-workspace examples/support-triage.discovery.json --source-root . --out "$WORK/discovery" --json
+digest_file() { node -e 'const fs=require("node:fs");const crypto=require("node:crypto");fs.writeSync(1,"sha256:"+crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex"));' "$1"; }
+node ./bin/agentmo.js discover-workspace examples/support-triage.discovery.json --source-root . --out "$WORK/discovery" --json --digest "discovery-manifest=$(digest_file "examples/support-triage.discovery.json")"
 ```
 
 The downstream `design-plan` and `blueprint-draft` commands still consume `$WORK/discovery/agentmo-discovery-db.json`. It does not need `source-cards.json` or `source-chunks.jsonl`; those sidecars remain supplemental.
@@ -233,7 +295,9 @@ The support-triage deterministic fixture is sanitized, bounded evidence. It prov
 Declared evidence is enough for MVP wiring, not runtime promotion. For promotion, run an isolated live smoke and rerun `birth-report` with `--expect-status success`.
 
 ```bash
-scripts/openclaw-live-smoke.sh --blueprint examples/support-triage.agentmo.json --agent support-triage --message "Say exactly: ok" --openclaw-source-root /home/alex/DTAlex/learningGitHub/openclaw
+node ./bin/agentmo.js runtime-check --target openclaw &&
+OPENCLAW_SOURCE_ROOT="<openclaw-source-root>" &&
+scripts/openclaw-live-smoke.sh --blueprint examples/support-triage.agentmo.json --agent support-triage --message "Say exactly: ok" --openclaw-source-root "$OPENCLAW_SOURCE_ROOT"
 ```
 
 Do not claim OpenClaw production/domain certification from the live smoke, birth report, deterministic support-triage fixture, or delivery report alone. Production/domain certification needs separate reviewed domain eval/rubric evidence and approval.

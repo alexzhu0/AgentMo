@@ -1,381 +1,226 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { mkdtemp, readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
-import { buildBirthReport } from "../src/birth-report.js";
-import { BUILD_STATE_FILENAME } from "../src/build-state.js";
-import { buildRunEval, executeRuntimeRun } from "../src/run-state.js";
-import { scaffoldAgent } from "../src/scaffold.js";
+import {
+  buildBirthReport,
+  validateBirthReportArtifact,
+} from "../src/birth-report.js";
+import { assertPersistable } from "../src/persistability.js";
+import {
+  admitJsonValue,
+  buildAdmittedEvidence,
+} from "./helpers/admitted-reports.js";
 
-async function loadExample() {
-  return JSON.parse(await readFile(new URL("../examples/win9.agentmo.json", import.meta.url), "utf8"));
+function checkById(report, id) {
+  return report.checks.find((item) => item.id === id);
+}
+
+function clone(value) {
+  return JSON.parse(JSON.stringify(value));
 }
 
 describe("birth report", () => {
-  it("passes a declared birth gate without certifying runtime/domain behavior", async () => {
-    const blueprint = await loadExample();
-    const scaffoldDir = await mkdtemp(path.join(tmpdir(), "agentmo-birth-scaffold-"));
-    await scaffoldAgent(blueprint, scaffoldDir, { target: "openclaw" });
-    const buildState = JSON.parse(await readFile(path.join(scaffoldDir, BUILD_STATE_FILENAME), "utf8"));
-    const { runState } = await executeRuntimeRun(blueprint, {
-      target: "openclaw",
-      workspace: "/tmp/workspace",
-      message: "Say exactly: ok",
-      runId: "birth-declared",
-      now: "2026-07-06T00:00:00.000Z",
+  it("accepts exact declared evidence without promoting another evidence level", async () => {
+    const evidence = await buildAdmittedEvidence({
+      includeDomainEval: false,
+      runId: "birth-declared-exact",
     });
-    const runEval = buildRunEval(runState, { expectStatus: "declared" });
-    const report = buildBirthReport(blueprint, { buildState, runState, runEval, expectStatus: "declared" });
+    const report = evidence.birthReport;
+
     assert.equal(report.schemaVersion, "agentmo.birth-report.v1");
-    assert.equal(report.ok, true, report.checks.filter((check) => !check.pass).map((check) => check.id).join(", "));
-    assert.equal(report.artifactValid, true);
+    assert.equal(report.ok, true, report.checks.filter((item) => !item.pass).map((item) => item.id).join(", "));
+    assert.equal(validateBirthReportArtifact(report).ok, true);
+    assert.doesNotThrow(() => assertPersistable(report, { subject: "birth-report" }));
     assert.equal(report.birthReady, true);
-    assert.equal(report.promotionEligible, false);
     assert.equal(report.birthStatus, "declared-ready");
+    assert.equal(report.promotionEligible, false);
+    assert.deepEqual(report.evidenceLevels, {
+      declaredReady: true,
+      liveSuccess: false,
+      domainCertified: false,
+      deliveryReady: false,
+      productionApproved: false,
+    });
+    assert.equal(report.sources.blueprint.digest, evidence.blueprintAdmission.digest);
+    assert.equal(report.sources.buildState.digest, evidence.buildStateAdmission.digest);
+    assert.equal(report.sources.runState.digest, evidence.runStateAdmission.digest);
+    assert.equal(report.sources.runEval.digest, evidence.runEvalAdmission.digest);
+    assert.equal(JSON.stringify(report).includes(evidence.root), false);
+  });
+
+  it("records isolated live success without runtime promotion, domain, delivery, or production elevation", async () => {
+    const privateOutput = "api_key=synthetic-live-report-canary-123456";
+    const evidence = await buildAdmittedEvidence({
+      includeDomainEval: false,
+      live: true,
+      expectStatus: "success",
+      runId: "birth-live-exact",
+      runner: async () => ({
+        exitCode: 0,
+        stdout: JSON.stringify({ status: "ok", payloads: [{ text: privateOutput }], meta: { transport: "local" } }),
+        stderr: "",
+        timedOut: false,
+        durationMs: 1,
+      }),
+    });
+    const report = evidence.birthReport;
+
+    assert.equal(report.ok, true);
+    assert.equal(report.evidenceLevel, "live-success");
+    assert.equal(report.evidenceLevels.liveSuccess, true);
+    assert.equal(report.evidenceLevels.declaredReady, false);
+    assert.equal(report.promotionEligible, false);
+    assert.equal(report.evidenceLevels.domainCertified, false);
+    assert.equal(report.evidenceLevels.deliveryReady, false);
+    assert.equal(report.evidenceLevels.productionApproved, false);
     assert.equal(report.certificationBoundary.runtimeCertifiedByBirthReport, false);
-    assert.match(report.nextActions.join("\n"), /live smoke/u);
+    assert.equal(JSON.stringify(report).includes(privateOutput), false);
   });
 
-  it("fails closed for production-state run evidence", async () => {
-    const blueprint = await loadExample();
-    const scaffoldDir = await mkdtemp(path.join(tmpdir(), "agentmo-birth-prod-"));
-    await scaffoldAgent(blueprint, scaffoldDir, { target: "openclaw" });
-    const buildState = JSON.parse(await readFile(path.join(scaffoldDir, BUILD_STATE_FILENAME), "utf8"));
-    const { runState } = await executeRuntimeRun(blueprint, {
-      target: "openclaw",
-      workspace: "/tmp/workspace",
-      message: "Say exactly: ok",
-      runId: "birth-prod",
-      now: "2026-07-06T00:00:00.000Z",
+  it("keeps explicit failure evidence valid but not birth-ready", async () => {
+    const evidence = await buildAdmittedEvidence({
+      includeDomainEval: false,
+      live: true,
+      expectStatus: "failure",
+      runId: "birth-failure-exact",
+      runner: async () => ({ exitCode: 2, stdout: "", stderr: "", timedOut: false, durationMs: 1 }),
     });
-    runState.runtimeIdentity.sandboxScope.usesProductionState = true;
-    const runEval = buildRunEval(runState, { expectStatus: "declared" });
-    const report = buildBirthReport(blueprint, { buildState, runState, runEval, expectStatus: "declared" });
-    assert.equal(report.ok, false);
-    assert.equal(report.checks.find((check) => check.id === "sandbox_non_production").pass, false);
-    assert.equal(report.birthStatus, "blocked");
-  });
+    const report = evidence.birthReport;
 
-  it("fails closed when run-eval does not belong to the supplied run-state", async () => {
-    const blueprint = await loadExample();
-    const scaffoldDir = await mkdtemp(path.join(tmpdir(), "agentmo-birth-mismatch-"));
-    await scaffoldAgent(blueprint, scaffoldDir, { target: "openclaw" });
-    const buildState = JSON.parse(await readFile(path.join(scaffoldDir, BUILD_STATE_FILENAME), "utf8"));
-    const first = await executeRuntimeRun(blueprint, {
-      target: "openclaw",
-      workspace: "/tmp/workspace",
-      message: "Say exactly: ok",
-      runId: "birth-first",
-      now: "2026-07-06T00:00:00.000Z",
-    });
-    const second = await executeRuntimeRun(blueprint, {
-      target: "openclaw",
-      workspace: "/tmp/workspace",
-      message: "Say exactly: ok",
-      runId: "birth-second",
-      now: "2026-07-06T00:00:00.000Z",
-    });
-    const runEval = buildRunEval(second.runState, { expectStatus: "declared" });
-    const report = buildBirthReport(blueprint, { buildState, runState: first.runState, runEval, expectStatus: "declared" });
-    assert.equal(report.ok, false);
-    assert.equal(report.checks.find((check) => check.id === "run_eval_run_id").pass, false);
-  });
-
-  it("labels explicit failure evidence without declaring readiness", async () => {
-    const blueprint = await loadExample();
-    const scaffoldDir = await mkdtemp(path.join(tmpdir(), "agentmo-birth-failure-"));
-    await scaffoldAgent(blueprint, scaffoldDir, { target: "openclaw" });
-    const buildState = JSON.parse(await readFile(path.join(scaffoldDir, BUILD_STATE_FILENAME), "utf8"));
-    const { runState } = await executeRuntimeRun(
-      blueprint,
-      {
-        target: "openclaw",
-        workspace: "/tmp/workspace",
-        openClawStateDir: "/tmp/openclaw-state",
-        message: "Say exactly: ok",
-        runId: "birth-failure",
-        now: "2026-07-06T00:00:00.000Z",
-        live: true,
-      },
-      async () => ({ exitCode: 2, stdout: "", stderr: "", timedOut: false, durationMs: 1 }),
-    );
-    const runEval = buildRunEval(runState, { expectStatus: "failure" });
-    const report = buildBirthReport(blueprint, { buildState, runState, runEval, expectStatus: "failure" });
     assert.equal(report.ok, true);
     assert.equal(report.artifactValid, true);
-    assert.equal(report.birthReady, false);
-    assert.equal(report.promotionEligible, false);
     assert.equal(report.evidenceLevel, "failure");
     assert.equal(report.birthStatus, "failure-evidence");
-    assert.notEqual(report.birthStatus, "declared-ready");
-  });
-
-  it("passes live-success evidence for an isolated fake live run", async () => {
-    const blueprint = await loadExample();
-    const scaffoldDir = await mkdtemp(path.join(tmpdir(), "agentmo-birth-live-"));
-    await scaffoldAgent(blueprint, scaffoldDir, { target: "openclaw" });
-    const buildState = JSON.parse(await readFile(path.join(scaffoldDir, BUILD_STATE_FILENAME), "utf8"));
-    const { runState } = await executeRuntimeRun(
-      blueprint,
-      {
-        target: "openclaw",
-        workspace: "/tmp/workspace",
-        openClawStateDir: "/tmp/openclaw-state",
-        message: "Say exactly: ok",
-        runId: "birth-live",
-        now: "2026-07-06T00:00:00.000Z",
-        live: true,
-      },
-      async () => ({
-        exitCode: 0,
-        stdout: JSON.stringify({
-          status: "ok",
-          payloads: [{ text: "api_key=secret-value-123456" }],
-          meta: { transport: "local" },
-        }),
-        stderr: "",
-        timedOut: false,
-        durationMs: 1,
-      }),
-    );
-    const runEval = buildRunEval(runState, { expectStatus: "success" });
-    const report = buildBirthReport(blueprint, { buildState, runState, runEval, expectStatus: "success" });
-    assert.equal(runState.evidence.rawOutputPreviewStored, false);
-    assert.equal(runState.evidence.stdoutSummaryKind, "structured-json-summary");
-    assert.equal(JSON.stringify(runState).includes("secret-value-123456"), false);
-    assert.equal(report.ok, true, report.checks.filter((check) => !check.pass).map((check) => check.id).join(", "));
-    assert.equal(report.artifactValid, true);
-    assert.equal(report.birthReady, true);
-    assert.equal(report.promotionEligible, true);
-    assert.equal(report.evidenceLevel, "live-success");
-    assert.equal(report.birthStatus, "born");
-    assert.equal(report.certificationBoundary.domainCertifiedByBirthReport, false);
-  });
-
-  it("fails closed when live evidence stores raw runtime output previews", async () => {
-    const blueprint = await loadExample();
-    const scaffoldDir = await mkdtemp(path.join(tmpdir(), "agentmo-birth-raw-output-"));
-    await scaffoldAgent(blueprint, scaffoldDir, { target: "openclaw" });
-    const buildState = JSON.parse(await readFile(path.join(scaffoldDir, BUILD_STATE_FILENAME), "utf8"));
-    const { runState } = await executeRuntimeRun(
-      blueprint,
-      {
-        target: "openclaw",
-        workspace: "/tmp/workspace",
-        openClawStateDir: "/tmp/openclaw-state",
-        message: "Say exactly: ok",
-        runId: "birth-raw-output",
-        now: "2026-07-06T00:00:00.000Z",
-        live: true,
-      },
-      async () => ({ exitCode: 0, stdout: "ok", stderr: "", timedOut: false, durationMs: 1 }),
-    );
-    runState.execution.stdout = {
-      preview: "ok",
-      summaryKind: "raw-output-preview",
-      length: 2,
-      redactedLength: 2,
-      truncated: false,
-      rawPreviewStored: true,
-    };
-    runState.evidence.stdoutSummary = "ok";
-    runState.evidence.stdoutSummaryKind = "raw-output-preview";
-    runState.evidence.stdoutPreviewStored = true;
-    runState.evidence.rawOutputPreviewStored = true;
-    runState.evidence.rawTranscriptStored = true;
-    runState.evidence.rawToolBodiesStored = true;
-    const runEval = buildRunEval(runState, { expectStatus: "success" });
-    const report = buildBirthReport(blueprint, { buildState, runState, runEval, expectStatus: "success" });
-    assert.equal(runEval.ok, false);
-    assert.equal(report.ok, false);
-    assert.equal(report.artifactValid, false);
     assert.equal(report.birthReady, false);
-    assert.equal(report.checks.find((check) => check.id === "raw_output_preview_absent").pass, false);
+    assert.equal(Object.values(report.evidenceLevels).some(Boolean), false);
   });
 
-  it("fails birth-report closed when evidence summary stores raw output despite false flags", async () => {
-    const blueprint = await loadExample();
-    const scaffoldDir = await mkdtemp(path.join(tmpdir(), "agentmo-birth-raw-summary-"));
-    await scaffoldAgent(blueprint, scaffoldDir, { target: "openclaw" });
-    const buildState = JSON.parse(await readFile(path.join(scaffoldDir, BUILD_STATE_FILENAME), "utf8"));
-    const { runState } = await executeRuntimeRun(
-      blueprint,
-      {
-        target: "openclaw",
-        workspace: "/tmp/workspace",
-        openClawStateDir: "/tmp/openclaw-state",
-        message: "Say exactly: ok",
-        runId: "birth-raw-summary-evidence",
-        now: "2026-07-06T00:00:00.000Z",
-        live: true,
+  it("revalidates freshness when a separately admitted run-eval belongs to another run", async () => {
+    const first = await buildAdmittedEvidence({ includeDomainEval: false, runId: "birth-first-exact" });
+    const second = await buildAdmittedEvidence({ includeDomainEval: false, runId: "birth-second-exact" });
+    const report = await buildBirthReport(first.blueprint, {
+      buildState: first.buildState,
+      runState: first.runState,
+      runEval: second.runEval,
+      expectStatus: "declared",
+      admissions: {
+        blueprint: first.blueprintAdmission,
+        buildState: first.buildStateAdmission,
+        runState: first.runStateAdmission,
+        runEval: second.runEvalAdmission,
       },
-      async () => ({
-        exitCode: 0,
-        stdout: JSON.stringify({ status: "ok", payloads: [], meta: { transport: "local" } }),
-        stderr: "",
-        timedOut: false,
-        durationMs: 1,
-      }),
-    );
-    runState.evidence.stdoutSummaryKind = "raw-output-preview";
-    runState.evidence.stdoutSummary = "raw diagnostics";
-    runState.evidence.stdoutPreviewStored = false;
-    runState.evidence.rawOutputPreviewStored = false;
-    runState.evidence.rawTranscriptStored = false;
-    runState.evidence.rawToolBodiesStored = false;
+    });
 
-    const runEval = buildRunEval(runState, { expectStatus: "success" });
-    const report = buildBirthReport(blueprint, { buildState, runState, runEval, expectStatus: "success" });
-    assert.equal(runState.execution.stdout.summaryKind, "structured-json-summary");
-    assert.equal(runEval.ok, false);
     assert.equal(report.ok, false);
     assert.equal(report.birthReady, false);
-    assert.equal(runEval.checks.find((check) => check.id === "raw_output_preview_absent").pass, false);
-    assert.equal(report.checks.find((check) => check.id === "raw_output_preview_absent").pass, false);
+    assert.equal(checkById(report, "run_eval_run_state_provenance").pass, false);
+    assert.equal(checkById(report, "run_eval_run_id").pass, false);
+    assert.equal(report.evidenceLevels.domainCertified, false);
   });
 
-  it("fails birth-report closed when live provider env evidence is missing", async () => {
-    const blueprint = await loadExample();
-    const scaffoldDir = await mkdtemp(path.join(tmpdir(), "agentmo-birth-missing-env-"));
-    await scaffoldAgent(blueprint, scaffoldDir, { target: "openclaw" });
-    const buildState = JSON.parse(await readFile(path.join(scaffoldDir, BUILD_STATE_FILENAME), "utf8"));
-    const { runState } = await executeRuntimeRun(
-      blueprint,
-      {
-        target: "openclaw",
-        workspace: "/tmp/workspace",
-        openClawStateDir: "/tmp/openclaw-state",
-        provider: "deepseek",
-        envFile: "/tmp/agentmo/.env",
-        envFileContent: "DEEPSEEK_API_KEY=deepseek-secret-value\n",
-        message: "Say exactly: ok",
-        runId: "birth-missing-env",
-        now: "2026-07-06T00:00:00.000Z",
-        live: true,
-      },
-      async () => ({ exitCode: 0, stdout: JSON.stringify({ status: "ok", payloads: [], meta: { transport: "local" } }), stderr: "", timedOut: false, durationMs: 1 }),
-    );
-    runState.runtimeIdentity.runtimeEnv = null;
-    const runEval = buildRunEval(runState, { expectStatus: "success" });
-    const report = buildBirthReport(blueprint, { buildState, runState, runEval, expectStatus: "success" });
-
-    assert.equal(runEval.ok, false);
-    assert.equal(report.ok, false);
-    assert.equal(report.checks.find((check) => check.id === "runtime_env_ready").pass, false);
-  });
-
-  it("fails birth-report closed when timeout cleanup cannot prove process-group closure", async () => {
-    const blueprint = await loadExample();
-    const scaffoldDir = await mkdtemp(path.join(tmpdir(), "agentmo-birth-process-group-"));
-    await scaffoldAgent(blueprint, scaffoldDir, { target: "openclaw" });
-    const buildState = JSON.parse(await readFile(path.join(scaffoldDir, BUILD_STATE_FILENAME), "utf8"));
-    const { runState } = await executeRuntimeRun(
-      blueprint,
-      {
-        target: "openclaw",
-        workspace: "/tmp/workspace",
-        openClawStateDir: "/tmp/openclaw-state",
-        message: "Say exactly: ok",
-        runId: "birth-timeout-cleanup-failed",
-        now: "2026-07-06T00:00:00.000Z",
-        live: true,
-      },
-      async () => ({
-        exitCode: 124,
-        stdout: "",
-        stderr: "",
-        timedOut: true,
-        durationMs: 1250,
-        processGroupClosed: false,
-        processGroupCleanupFailed: true,
-        processGroupVerification: "still-alive-after-sigkill-grace",
-      }),
-    );
-    const runEval = buildRunEval(runState, { expectStatus: "failure" });
-    runEval.ok = true;
-    runEval.checks = runEval.checks.map((check) => (check.id === "process_group_closed" ? { ...check, pass: true } : check));
-    const report = buildBirthReport(blueprint, { buildState, runState, runEval, expectStatus: "failure" });
-
-    assert.equal(report.ok, false);
-    assert.equal(report.checks.find((check) => check.id === "process_group_closed").pass, false);
-  });
-
-  it("fails birth-report closed when timeout cleanup uses unsupported process-group verification", async () => {
-    const blueprint = await loadExample();
-    const scaffoldDir = await mkdtemp(path.join(tmpdir(), "agentmo-birth-unsupported-process-group-"));
-    await scaffoldAgent(blueprint, scaffoldDir, { target: "openclaw" });
-    const buildState = JSON.parse(await readFile(path.join(scaffoldDir, BUILD_STATE_FILENAME), "utf8"));
-    const { runState } = await executeRuntimeRun(
-      blueprint,
-      {
-        target: "openclaw",
-        workspace: "/tmp/workspace",
-        openClawStateDir: "/tmp/openclaw-state",
-        message: "Say exactly: ok",
-        runId: "birth-timeout-unsupported-process-group",
-        now: "2026-07-06T00:00:00.000Z",
-        live: true,
-      },
-      async () => ({
-        exitCode: 124,
-        stdout: "",
-        stderr: "",
-        timedOut: true,
-        durationMs: 1250,
-        processGroupClosed: false,
-        processGroupCleanupFailed: true,
-        processGroupVerification: "unsupported-process-group",
-      }),
-    );
-    const runEval = buildRunEval(runState, { expectStatus: "failure" });
-    const report = buildBirthReport(blueprint, { buildState, runState, runEval, expectStatus: "failure" });
-
-    assert.equal(runEval.ok, false);
-    assert.equal(report.ok, false);
-    assert.equal(report.checks.find((check) => check.id === "process_group_closed").pass, false);
-  });
-
-  it("fails birth-report closed when timeout cleanup lacks a positive process-group proof", async () => {
-    const blueprint = await loadExample();
-    const scaffoldDir = await mkdtemp(path.join(tmpdir(), "agentmo-birth-missing-process-group-proof-"));
-    await scaffoldAgent(blueprint, scaffoldDir, { target: "openclaw" });
-    const buildState = JSON.parse(await readFile(path.join(scaffoldDir, BUILD_STATE_FILENAME), "utf8"));
-    const invalidProofs = [
-      { runId: "birth-timeout-missing-process-group-proof", processGroupVerification: undefined },
-      { runId: "birth-timeout-invalid-process-group-proof", processGroupVerification: "unsupported-process-group" },
-    ];
-
-    for (const invalidProof of invalidProofs) {
-      const { runState } = await executeRuntimeRun(
-        blueprint,
-        {
-          target: "openclaw",
-          workspace: "/tmp/workspace",
-          openClawStateDir: "/tmp/openclaw-state",
-          message: "Say exactly: ok",
-          runId: invalidProof.runId,
-          now: "2026-07-06T00:00:00.000Z",
-          live: true,
+  it("rejects a valid artifact token in the wrong slot before report construction", async () => {
+    const evidence = await buildAdmittedEvidence({ includeDomainEval: false, runId: "birth-slot-swap" });
+    await assert.rejects(
+      () => buildBirthReport(evidence.blueprint, {
+        buildState: evidence.buildState,
+        runState: evidence.runState,
+        runEval: evidence.runEval,
+        expectStatus: "declared",
+        admissions: {
+          blueprint: evidence.blueprintAdmission,
+          buildState: evidence.buildStateAdmission,
+          runState: evidence.runStateAdmission,
+          runEval: evidence.runStateAdmission,
         },
-        async () => ({
-          exitCode: 124,
-          stdout: "",
-          stderr: "",
-          timedOut: true,
-          durationMs: 1250,
-          processGroupClosed: true,
-          processGroupCleanupFailed: false,
-          processGroupVerification: invalidProof.processGroupVerification,
-        }),
-      );
-      const runEval = buildRunEval(runState, { expectStatus: "failure" });
-      runEval.ok = true;
-      runEval.checks = runEval.checks.map((check) => (check.id === "process_group_closed" ? { ...check, pass: true } : check));
-      const report = buildBirthReport(blueprint, { buildState, runState, runEval, expectStatus: "failure" });
+      }),
+      (error) => error?.code === "AGENTMO_ARTIFACT_ADMISSION_RESULT_INVALID",
+    );
+  });
 
-      assert.equal(report.ok, false);
-      assert.equal(report.checks.find((check) => check.id === "process_group_closed").pass, false);
+  it("rejects unsafe source bytes and forged report boundaries value-blind", async () => {
+    const evidence = await buildAdmittedEvidence({ includeDomainEval: false, runId: "birth-hostile" });
+    const privateCanary = "api_key=synthetic-birth-canary-123456";
+    const unsafeRunState = { ...clone(evidence.runState), transcript: privateCanary };
+    await assert.rejects(
+      () => admitJsonValue("run-state", unsafeRunState, "birth-hostile-run-state"),
+      (error) => {
+        assert.equal(error.message.includes(privateCanary), false);
+        assert.equal(JSON.stringify(error).includes(privateCanary), false);
+        return ["AGENTMO_ARTIFACT_UNSAFE_CONTENT", "AGENTMO_UNSUPPORTED_ARTIFACT"].includes(error.code);
+      },
+    );
+
+    const forged = clone(evidence.birthReport);
+    forged.certificationBoundary.runtimeCertifiedByBirthReport = true;
+    assert.equal(validateBirthReportArtifact(forged).ok, false);
+    const pathBearing = { ...clone(evidence.birthReport), hostPath: "/private/birth-report-canary" };
+    assert.equal(validateBirthReportArtifact(pathBearing).ok, false);
+  });
+
+  it("rejects non-canonical check sets and source-outcome forgery", async () => {
+    const evidence = await buildAdmittedEvidence({ includeDomainEval: false, runId: "birth-check-contract" });
+    const baseline = evidence.birthReport;
+    const mutations = [];
+
+    const empty = clone(baseline);
+    empty.checks = [];
+    mutations.push(empty);
+    const missing = clone(baseline);
+    missing.checks.splice(3, 1);
+    mutations.push(missing);
+    const duplicate = clone(baseline);
+    duplicate.checks[3] = clone(duplicate.checks[2]);
+    mutations.push(duplicate);
+    const extra = clone(baseline);
+    extra.checks.push({ id: "unexpected_check", pass: true, message: "unexpected" });
+    mutations.push(extra);
+    const renamed = clone(baseline);
+    renamed.checks[4].id = "run_eval_shape";
+    mutations.push(renamed);
+    const reordered = clone(baseline);
+    [reordered.checks[0], reordered.checks[1]] = [reordered.checks[1], reordered.checks[0]];
+    mutations.push(reordered);
+    const outcomeForged = clone(baseline);
+    outcomeForged.checks[1].pass = false;
+    outcomeForged.ok = false;
+    outcomeForged.artifactValid = false;
+    outcomeForged.birthReady = false;
+    outcomeForged.birthStatus = "blocked";
+    outcomeForged.evidenceLevels.declaredReady = false;
+    outcomeForged.nextActions = ["Repair the independently failed evidence checks before rebuilding birth-report."];
+    mutations.push(outcomeForged);
+
+    for (const candidate of mutations) {
+      assert.equal(validateBirthReportArtifact(candidate).ok, false);
     }
+
+    const other = await buildAdmittedEvidence({ includeDomainEval: false, runId: "birth-check-other" });
+    const mismatched = await buildBirthReport(evidence.blueprint, {
+      buildState: evidence.buildState,
+      runState: evidence.runState,
+      runEval: other.runEval,
+      expectStatus: "declared",
+      admissions: {
+        blueprint: evidence.blueprintAdmission,
+        buildState: evidence.buildStateAdmission,
+        runState: evidence.runStateAdmission,
+        runEval: other.runEvalAdmission,
+      },
+    });
+    assert.equal(mismatched.ok, false);
+    const forgedPass = clone(mismatched);
+    forgedPass.checks = baseline.checks.map(clone);
+    forgedPass.ok = true;
+    forgedPass.artifactValid = true;
+    forgedPass.birthReady = true;
+    forgedPass.birthStatus = "declared-ready";
+    forgedPass.evidenceLevels.declaredReady = true;
+    assert.equal(validateBirthReportArtifact(forgedPass, {
+      blueprint: evidence.blueprint,
+      buildState: evidence.buildState,
+      runState: evidence.runState,
+      runEval: other.runEval,
+      expectStatus: "declared",
+      sources: mismatched.sources,
+    }).ok, false);
   });
 });

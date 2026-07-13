@@ -1,15 +1,27 @@
 import { createHash } from "node:crypto";
-import { realpath, readFile, stat } from "node:fs/promises";
+import { constants as FS_CONSTANTS } from "node:fs";
+import {
+  lstat as sourceIntakeLstat,
+  open as sourceIntakeOpen,
+  realpath as sourceIntakeRealpath,
+} from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   buildDiscoveryDb,
+  deriveDiscoveryRecordId,
   DISCOVERY_COVERAGE_FILENAME,
   DISCOVERY_DB_FILENAME,
   DISCOVERY_FACTS_FILENAME,
-  writeJsonAtomic,
-  writeTextAtomic,
+  serializeDiscoveryJsonl,
 } from "./discovery-db.js";
+import {
+  assertPersistable,
+  PersistabilityError,
+  serializePersistableJson,
+  writePersistableJsonAtomic,
+  writePersistableTextAtomic,
+} from "./persistability.js";
 import { containsHostAbsolutePath, containsSecretLikeValue, redactManagedText } from "./secret-redaction.js";
 
 export const DISCOVERY_WORKSPACE_SCHEMA_VERSION = "agentmo.discovery-workspace.v1";
@@ -38,17 +50,47 @@ const DENIED_FILENAMES = new Set([
 const DEFAULT_MAX_CHUNK_CHARS = 1200;
 const DEFAULT_MAX_CHUNKS_PER_SOURCE = 8;
 const DEFAULT_PREVIEW_CHARS = 400;
+const DEFAULT_MAX_SOURCE_BYTES = 256 * 1024;
+const DEFAULT_SOURCE_INTAKE_IO = Object.freeze({
+  lstat: sourceIntakeLstat,
+  open: sourceIntakeOpen,
+  realpath: sourceIntakeRealpath,
+});
+
+class SourceIntakeTooLargeError extends Error {
+  constructor() {
+    super("Source exceeds the bounded intake size.");
+    this.code = "AGENTMO_DISCOVERY_SOURCE_TOO_LARGE";
+  }
+}
+
+export const DISCOVERY_SOURCE_INTAKE_POLICY = Object.freeze({
+  status: "non-artifact-intake",
+  maxSourceBytes: DEFAULT_MAX_SOURCE_BYTES,
+  durableArtifactIdentityAllowed: false,
+  supportedExtensions: Object.freeze(Array.from(SUPPORTED_EXTENSIONS).sort()),
+  boundedReasons: Object.freeze([
+    "path-and-type-screening",
+    "retained-no-follow-handle",
+    "bounded-handle-read",
+    "before-and-after-root-path-binding",
+    "secret-and-host-path-screening",
+    "durable-artifact-identity-rejection",
+    "bounded-chunking",
+  ]),
+});
 
 export async function buildDiscoveryWorkspace(manifest, options = {}) {
   const repoRoot = path.resolve(options.repoRoot ?? MODULE_REPO_ROOT);
   const sourceRootInput = options.sourceRoot ?? ".";
+  const sourceIntakeIo = normalizeSourceIntakeIo(options.sourceIntakeIo);
   const baseDb = buildDiscoveryDb(manifest, {
     manifestPath: options.manifestPath,
     normalizeSourceLocations: false,
     applyDurableLocationPolicy: false,
   });
   const sources = Array.isArray(baseDb.sources) ? baseDb.sources : [];
-  const rootCheck = await resolveSourceRoot(sourceRootInput, repoRoot);
+  const rootCheck = await resolveSourceRoot(sourceRootInput, repoRoot, sourceIntakeIo);
   const safeSourceManifest = sanitizeWorkspaceSourceManifest(baseDb.sourceManifest, options.manifestPath, repoRoot);
   const cards = [];
   const chunks = [];
@@ -71,7 +113,7 @@ export async function buildDiscoveryWorkspace(manifest, options = {}) {
     }
   } else {
     for (const source of sources) {
-      const result = await ingestSource(source, rootCheck, options);
+      const result = await ingestSource(source, rootCheck, options, sourceIntakeIo);
       cards.push(result.card);
       chunks.push(...result.chunks);
       workspaceChecks.push(...result.checks);
@@ -182,22 +224,24 @@ export async function buildDiscoveryWorkspace(manifest, options = {}) {
     factsJsonl: factsJsonl.length > 0 ? `${factsJsonl}\n` : "",
     coverage,
     sourceCards,
+    sourceChunks: chunks,
     sourceChunksJsonl: sourceChunksJsonl.length > 0 ? `${sourceChunksJsonl}\n` : "",
   };
 }
 
 export async function writeDiscoveryWorkspace(outDir, workspace) {
+  const prepared = prepareDiscoveryWorkspace(workspace);
   const root = path.resolve(outDir);
   const discoveryDbPath = path.join(root, DISCOVERY_DB_FILENAME);
   const factsPath = path.join(root, DISCOVERY_FACTS_FILENAME);
   const coveragePath = path.join(root, DISCOVERY_COVERAGE_FILENAME);
   const sourceCardsPath = path.join(root, SOURCE_CARDS_FILENAME);
   const sourceChunksPath = path.join(root, SOURCE_CHUNKS_FILENAME);
-  await writeJsonAtomic(discoveryDbPath, workspace.discoveryDb);
-  await writeTextAtomic(factsPath, workspace.factsJsonl);
-  await writeJsonAtomic(coveragePath, workspace.coverage);
-  await writeJsonAtomic(sourceCardsPath, workspace.sourceCards);
-  await writeTextAtomic(sourceChunksPath, workspace.sourceChunksJsonl);
+  await writePersistableJsonAtomic(discoveryDbPath, workspace.discoveryDb, { subject: "discovery-db" });
+  await writePersistableTextAtomic(factsPath, prepared.factsJsonl, { subject: "discovery-facts" });
+  await writePersistableJsonAtomic(coveragePath, workspace.coverage, { subject: "discovery-coverage" });
+  await writePersistableJsonAtomic(sourceCardsPath, workspace.sourceCards, { subject: "discovery-source-cards" });
+  await writePersistableTextAtomic(sourceChunksPath, prepared.sourceChunksJsonl, { subject: "discovery-source-chunks" });
   return {
     outDir: ".",
     discoveryDbPath: DISCOVERY_DB_FILENAME,
@@ -226,27 +270,29 @@ export function formatDiscoveryWorkspace(workspace, paths = {}) {
   return `${lines.join("\n")}\n`;
 }
 
-async function resolveSourceRoot(sourceRootInput, repoRoot) {
+async function resolveSourceRoot(sourceRootInput, repoRoot, sourceIntakeIo) {
   const resolvedInput = path.resolve(sourceRootInput);
   let repoRealpath;
   let sourceRootRealpath;
   try {
-    repoRealpath = await realpath(repoRoot);
+    repoRealpath = await sourceIntakeIo.realpath(repoRoot);
   } catch (error) {
     return failedRootCheck(`repository root could not be resolved${safeErrorCode(error)}`);
   }
   try {
-    sourceRootRealpath = await realpath(resolvedInput);
+    sourceRootRealpath = await sourceIntakeIo.realpath(resolvedInput);
   } catch (error) {
     return failedRootCheck(`source-root could not be resolved${safeErrorCode(error)}`);
   }
+  let repoStat;
   let rootStat;
   try {
-    rootStat = await stat(sourceRootRealpath);
+    repoStat = await sourceIntakeIo.lstat(repoRealpath, { bigint: true });
+    rootStat = await sourceIntakeIo.lstat(sourceRootRealpath, { bigint: true });
   } catch (error) {
     return failedRootCheck(`source-root could not be inspected${safeErrorCode(error)}`);
   }
-  if (!rootStat.isDirectory()) {
+  if (repoStat.isSymbolicLink() || !repoStat.isDirectory() || rootStat.isSymbolicLink() || !rootStat.isDirectory()) {
     return failedRootCheck("source-root must be a directory");
   }
   if (!isPathInsideOrEqual(sourceRootRealpath, repoRealpath)) {
@@ -255,7 +301,9 @@ async function resolveSourceRoot(sourceRootInput, repoRoot) {
   return {
     ok: true,
     repoRoot: repoRealpath,
+    repoStat,
     sourceRoot: sourceRootRealpath,
+    sourceRootStat: rootStat,
     safeSourceRoot: normalizeSlashes(path.relative(repoRealpath, sourceRootRealpath)) || ".",
     check: {
       id: "source_root_inside_repo",
@@ -294,7 +342,7 @@ function safeWorkspaceManifestPath(manifestPath, repoRoot) {
   return normalizeSlashes(path.relative(absoluteRepoRoot, absoluteManifestPath)) || null;
 }
 
-async function ingestSource(source, rootCheck, options) {
+async function ingestSource(source, rootCheck, options, sourceIntakeIo) {
   const checks = [];
   const location = typeof source.location === "string" ? source.location : "";
   const baseCard = sourceCardBase(source, durableSourceLocation(location, rootCheck));
@@ -323,7 +371,7 @@ async function ingestSource(source, rootCheck, options) {
 
   let fileRealpath;
   try {
-    fileRealpath = await realpath(candidate);
+    fileRealpath = await sourceIntakeIo.realpath(candidate);
   } catch (error) {
     return rejectSource(baseCard, `source realpath failed before read${safeErrorCode(error)}`, "realpath_failed", checks);
   }
@@ -346,24 +394,39 @@ async function ingestSource(source, rootCheck, options) {
 
   let fileStat;
   try {
-    fileStat = await stat(fileRealpath);
+    fileStat = await sourceIntakeIo.lstat(fileRealpath, { bigint: true });
   } catch (error) {
     return rejectSource(safeBaseCard, `source stat failed before read${safeErrorCode(error)}`, "stat_failed", checks);
   }
-  if (!fileStat.isFile()) {
+  if (fileStat.isSymbolicLink() || !fileStat.isFile()) {
     return rejectSource(safeBaseCard, "source path is not a regular file", "not_file", checks);
   }
+  const maxSourceBytes = boundedMaximum(options.maxSourceBytes, DEFAULT_MAX_SOURCE_BYTES);
+  if (fileStat.size < 0n || fileStat.size > BigInt(maxSourceBytes) || fileStat.size > BigInt(Number.MAX_SAFE_INTEGER)) {
+    return rejectSource(safeBaseCard, "source exceeds the bounded intake size", "source_too_large", checks);
+  }
 
-  let raw;
+  let sourceBytes;
   try {
-    raw = await readFile(fileRealpath, "utf8");
+    sourceBytes = await captureSourceBytes({
+      candidate,
+      fileBefore: fileStat,
+      fileRealpath,
+      maxSourceBytes,
+      rootCheck,
+      sourceIntakeIo,
+    });
   } catch (error) {
+    if (error instanceof SourceIntakeTooLargeError) {
+      return rejectSource(safeBaseCard, "source exceeds the bounded intake size", "source_too_large", checks);
+    }
     return rejectSource(safeBaseCard, `source read failed${safeErrorCode(error)}`, "read_failed", checks);
   }
+  const raw = sourceBytes.toString("utf8");
 
   const parsed = parseSourceText(raw, realExtension);
   if (!parsed.ok) {
-    return rejectSource(safeBaseCard, parsed.reason, "parse_failed", checks);
+    return rejectSource(safeBaseCard, parsed.reason, parsed.code ?? "parse_failed", checks);
   }
 
   const rawSecretLike = containsSecretLikeValue(parsed.text);
@@ -389,7 +452,7 @@ async function ingestSource(source, rootCheck, options) {
     status: "ingested",
     reason: null,
     extension: realExtension,
-    byteSize: fileStat.size,
+    byteSize: sourceBytes.byteLength,
     contentHash: sha256(normalizedText),
     hashAlgorithm: "sha256:redacted-content",
     lineCount,
@@ -401,14 +464,14 @@ async function ingestSource(source, rootCheck, options) {
   };
 
   checks.push({
-    id: `source_ingested:${source.id}`,
+    id: sourceCheckId("source_ingested", source.id),
     pass: true,
     sourceId: source.id,
     message: `source ingested from ${card.location}`,
   });
   if (rawSecretLike) {
     checks.push({
-      id: `source_secret_detection:${source.id}`,
+      id: sourceCheckId("source_sensitive_detection", source.id),
       pass: false,
       sourceId: source.id,
       message: "source content contained secret-like values and was redacted",
@@ -416,7 +479,7 @@ async function ingestSource(source, rootCheck, options) {
   }
   if (outputSecretLike) {
     checks.push({
-      id: `source_output_secret_detection:${source.id}`,
+      id: sourceCheckId("source_output_sensitive_detection", source.id),
       pass: false,
       sourceId: source.id,
       message: "redacted source output still contains secret-like values",
@@ -424,7 +487,7 @@ async function ingestSource(source, rootCheck, options) {
   }
   if (outputHostPathLike) {
     checks.push({
-      id: `source_output_path_detection:${source.id}`,
+      id: sourceCheckId("source_output_path_detection", source.id),
       pass: false,
       sourceId: source.id,
       message: "redacted source output still contains host absolute paths",
@@ -433,10 +496,147 @@ async function ingestSource(source, rootCheck, options) {
   return { card, chunks, checks };
 }
 
+async function captureSourceBytes({
+  candidate,
+  fileBefore,
+  fileRealpath,
+  maxSourceBytes,
+  rootCheck,
+  sourceIntakeIo,
+}) {
+  let handle;
+  try {
+    handle = await sourceIntakeIo.open(fileRealpath, sourceReadFlags());
+    const retainedBefore = await handle.stat({ bigint: true });
+    if (
+      !retainedBefore.isFile()
+      || !sameStableIntakeStat(fileBefore, retainedBefore)
+      || retainedBefore.size > BigInt(maxSourceBytes)
+    ) {
+      throw new Error("Source identity changed before retained-handle read.");
+    }
+    await assertSourceRootAndPathBinding({
+      candidate,
+      fileRealpath,
+      retained: retainedBefore,
+      rootCheck,
+      sourceIntakeIo,
+    });
+
+    const bytes = await readSourceHandleBounded(handle, maxSourceBytes);
+    const retainedAfter = await handle.stat({ bigint: true });
+    if (
+      !sameStableIntakeStat(retainedBefore, retainedAfter)
+      || BigInt(bytes.byteLength) !== retainedAfter.size
+    ) {
+      throw new Error("Source metadata changed during retained-handle read.");
+    }
+    await assertSourceRootAndPathBinding({
+      candidate,
+      fileRealpath,
+      retained: retainedAfter,
+      rootCheck,
+      sourceIntakeIo,
+    });
+    return bytes;
+  } finally {
+    await handle?.close().catch(() => {});
+  }
+}
+
+async function assertSourceRootAndPathBinding({
+  candidate,
+  fileRealpath,
+  retained,
+  rootCheck,
+  sourceIntakeIo,
+}) {
+  const [
+    currentFile,
+    currentCandidateRealpath,
+    currentSourceRoot,
+    currentSourceRootRealpath,
+    currentRepoRoot,
+    currentRepoRootRealpath,
+  ] = await Promise.all([
+    sourceIntakeIo.lstat(fileRealpath, { bigint: true }),
+    sourceIntakeIo.realpath(candidate),
+    sourceIntakeIo.lstat(rootCheck.sourceRoot, { bigint: true }),
+    sourceIntakeIo.realpath(rootCheck.sourceRoot),
+    sourceIntakeIo.lstat(rootCheck.repoRoot, { bigint: true }),
+    sourceIntakeIo.realpath(rootCheck.repoRoot),
+  ]);
+  if (
+    currentCandidateRealpath !== fileRealpath
+    || currentSourceRootRealpath !== rootCheck.sourceRoot
+    || currentRepoRootRealpath !== rootCheck.repoRoot
+    || !isPathInsideOrEqual(currentCandidateRealpath, currentSourceRootRealpath)
+    || !isPathInsideOrEqual(currentSourceRootRealpath, currentRepoRootRealpath)
+    || currentFile.isSymbolicLink()
+    || !currentFile.isFile()
+    || currentSourceRoot.isSymbolicLink()
+    || !currentSourceRoot.isDirectory()
+    || currentRepoRoot.isSymbolicLink()
+    || !currentRepoRoot.isDirectory()
+    || !sameStableIntakeStat(retained, currentFile)
+    || !sameStableIntakeStat(rootCheck.sourceRootStat, currentSourceRoot)
+    || !sameStableIntakeStat(rootCheck.repoStat, currentRepoRoot)
+  ) {
+    throw new Error("Source root or path binding changed during intake.");
+  }
+}
+
+async function readSourceHandleBounded(handle, maxBytes) {
+  const chunks = [];
+  let position = 0;
+  while (position <= maxBytes) {
+    const remaining = maxBytes + 1 - position;
+    const chunk = Buffer.alloc(Math.min(64 * 1024, remaining));
+    const result = await handle.read(chunk, 0, chunk.length, position);
+    if (
+      !Number.isInteger(result?.bytesRead)
+      || result.bytesRead < 0
+      || result.bytesRead > chunk.length
+    ) {
+      throw new Error("Invalid bounded source read.");
+    }
+    if (result.bytesRead === 0) return Buffer.concat(chunks, position);
+    position += result.bytesRead;
+    if (position > maxBytes) throw new SourceIntakeTooLargeError();
+    chunks.push(chunk.subarray(0, result.bytesRead));
+  }
+  throw new SourceIntakeTooLargeError();
+}
+
+function sourceReadFlags() {
+  if (!Number.isInteger(FS_CONSTANTS.O_NOFOLLOW) || FS_CONSTANTS.O_NOFOLLOW === 0) {
+    throw new Error("No-follow source reads are unavailable.");
+  }
+  return FS_CONSTANTS.O_RDONLY | FS_CONSTANTS.O_NOFOLLOW;
+}
+
+function sameStableIntakeStat(left, right) {
+  return (
+    left.dev === right.dev
+    && left.ino === right.ino
+    && left.mode === right.mode
+    && left.nlink === right.nlink
+    && left.uid === right.uid
+    && left.gid === right.gid
+    && left.size === right.size
+    && left.mtimeNs === right.mtimeNs
+    && left.ctimeNs === right.ctimeNs
+  );
+}
+
 function parseSourceText(raw, extension) {
   if (extension === ".json") {
     try {
-      return { ok: true, text: stableStringify(JSON.parse(raw)) };
+      const value = JSON.parse(raw);
+      if (hasDurableAgentMoIdentity(value)) {
+        return { ok: false, code: "durable_artifact_identity", reason: "AgentMo durable artifacts are not source-document intake" };
+      }
+      return { ok: true, text: stableStringify(value) };
     } catch {
       return { ok: false, reason: "JSON source parse failed" };
     }
@@ -476,7 +676,7 @@ function chunkSourceText(source, text, options) {
     if (chunkText.length > 0) {
       const chunkNumber = chunks.length + 1;
       chunks.push({
-        id: `${source.id}:chunk:${String(chunkNumber).padStart(2, "0")}`,
+        id: deriveDiscoveryRecordId(source.id, `chunk:${String(chunkNumber).padStart(2, "0")}`),
         sourceId: source.id,
         kind: "source_chunk",
         text: chunkText,
@@ -549,7 +749,7 @@ function rejectSource(baseCard, reason, code, checks) {
     checks: [
       ...checks,
       {
-        id: `source_rejected:${baseCard.sourceId}`,
+        id: sourceCheckId("source_rejected", baseCard.sourceId),
         pass: false,
         sourceId: baseCard.sourceId,
         reason: code,
@@ -580,6 +780,10 @@ function sourceCardBase(source, location) {
     description: source.description,
     location: typeof location === "string" && location.length > 0 ? normalizeSlashes(location) : null,
   };
+}
+
+function sourceCheckId(kind, sourceId) {
+  return `${kind}:source-${sha256(sourceId)}`;
 }
 
 function buildWorkspaceCoverage({ baseCoverage, cards, chunks, checks, factCount, redactionCount, truncationCount }) {
@@ -675,7 +879,7 @@ function countBy(values) {
   for (const value of values.filter((item) => typeof item === "string" && item.length > 0).sort()) {
     counts[value] = (counts[value] ?? 0) + 1;
   }
-  return counts;
+  return Object.entries(counts).map(([code, count]) => ({ code, count }));
 }
 
 function isPathInsideOrEqual(candidate, root) {
@@ -725,6 +929,10 @@ function genericRejectionReason(code, fallback) {
       return "source stat failed before read";
     case "not_file":
       return "source path is not a regular file";
+    case "source_too_large":
+      return "source exceeds the bounded intake size";
+    case "durable_artifact_identity":
+      return "AgentMo durable artifacts are not source-document intake";
     case "read_failed":
       return "source read failed";
     case "parse_failed":
@@ -748,4 +956,47 @@ function safeErrorCode(error) {
 
 function isObject(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasDurableAgentMoIdentity(value) {
+  if (!isObject(value)) return false;
+  if (typeof value.schemaVersion === "string" && value.schemaVersion.startsWith("agentmo.")) return true;
+  if (typeof value.agentmo_version === "string" || typeof value.agentmother_version === "string") return true;
+  if (typeof value.kind === "string" && /^agentmo(?:ther)?_/u.test(value.kind)) return true;
+  return isObject(value.source)
+    && (typeof value.source.agentmoVersion === "string" || typeof value.source.agentmotherVersion === "string");
+}
+
+function boundedMaximum(value, maximum) {
+  return Number.isSafeInteger(value) && value > 0 ? Math.min(value, maximum) : maximum;
+}
+
+function normalizeSourceIntakeIo(value) {
+  const sourceIntakeIo = value ?? DEFAULT_SOURCE_INTAKE_IO;
+  if (
+    typeof sourceIntakeIo?.lstat !== "function"
+    || typeof sourceIntakeIo?.open !== "function"
+    || typeof sourceIntakeIo?.realpath !== "function"
+  ) {
+    throw new TypeError("Discovery source intake I/O adapter is invalid.");
+  }
+  return sourceIntakeIo;
+}
+
+function prepareDiscoveryWorkspace(workspace) {
+  assertPersistable(workspace, { subject: "discovery-workspace" });
+  const facts = Array.isArray(workspace.discoveryDb?.facts) ? workspace.discoveryDb.facts : [];
+  const sourceChunks = Array.isArray(workspace.sourceChunks) ? workspace.sourceChunks : [];
+  const factsJsonl = serializeDiscoveryJsonl(facts, "discovery-facts");
+  const sourceChunksJsonl = serializeDiscoveryJsonl(sourceChunks, "discovery-source-chunks");
+  if (workspace.factsJsonl !== factsJsonl || workspace.sourceChunksJsonl !== sourceChunksJsonl) {
+    throw new PersistabilityError("AGENTMO_PERSISTABILITY_CANDIDATE_MISMATCH");
+  }
+  return {
+    discoveryDbText: serializePersistableJson(workspace.discoveryDb, { subject: "discovery-db" }),
+    factsJsonl,
+    coverageText: serializePersistableJson(workspace.coverage, { subject: "discovery-coverage" }),
+    sourceCardsText: serializePersistableJson(workspace.sourceCards, { subject: "discovery-source-cards" }),
+    sourceChunksJsonl,
+  };
 }

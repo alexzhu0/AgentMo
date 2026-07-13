@@ -1,18 +1,18 @@
 # AgentMo
 
-AgentMo is a minimal **AgentMother** toolkit: it records what agent should be built, plans the agent from valid data plus user needs, then scaffolds a repo-native harness for coding-agent production.
+AgentMo is a minimal agent-building toolkit: it records what agent should be built, plans the agent from valid data plus user needs, then scaffolds a repo-native harness for coding-agent production.
 
 AgentMo has three explicit stages connected by artifact contracts, not mandatory command ancestry:
 
 1. **Discover -> Discovery Contract:** materialize bounded discovery evidence through either `discover-pack` (manifest-only) or `discover-workspace` (approved local source intake).
-2. **Plan -> Agent Design / Blueprint Contract:** combine a valid discovery database with `agentmo.user-need.v1` to produce `agentmo.design-plan.v1`, then draft a valid blueprint with `agentmother_version: "0.1"`, eval requirements, and evidence policy.
+2. **Plan -> Agent Design / Blueprint Contract:** combine a valid discovery database with `agentmo.user-need.v1` to produce `agentmo.design-plan.v1`, then draft a valid blueprint with `agentmo_version: "0.1"`, eval requirements, and evidence policy.
 3. **Produce -> Delivery Evidence Contract:** accept any valid AgentMo blueprint/design contract, including externally reviewed or business-provided designs with bounded provenance, then produce handoff, scaffold, run, eval, birth, domain-eval, and delivery evidence.
 
 The support-triage MVP is a composed vertical demo of those contracts. It is not the only valid path. The current `domain-eval` / `delivery-report` work belongs to stage 3: it closes delivery evidence after scaffold, run-state, run-eval, and birth-report exist.
 
 See `docs/STAGE_CONTRACTS.md` for the contract matrix, allowed inputs, forbidden coupling, and independent verification commands. Echo and future close collaborators should start with the tri-party collaboration protocol in `CONTRIBUTING.md`.
 
-AgentMother is not a chat prompt generator. It is a mechanism for building agents as software:
+AgentMo is not a chat prompt generator. It is a mechanism for building agents as software:
 
 ```text
 Discover what to build
@@ -33,26 +33,30 @@ Discover what to build
 AgentMo currently provides a dependency-free Node CLI:
 
 ```bash
-./bin/agentmo.js validate examples/win9.agentmo.json
-./bin/agentmo.js report examples/win9.agentmo.json
-./bin/agentmo.js report examples/win9.agentmo.json --json
-./bin/agentmo.js discover-report examples/win9.discovery.json --json
-./bin/agentmo.js discover-pack examples/support-triage.discovery.json --out /tmp/support-triage-discovery --json
-./bin/agentmo.js discover-workspace examples/support-triage.discovery.json --source-root . --out /tmp/support-triage-workspace-discovery --json
-./bin/agentmo.js need-report examples/support-triage.need.json --json
-./bin/agentmo.js design-plan /tmp/support-triage-discovery/agentmo-discovery-db.json --need examples/support-triage.need.json --out /tmp/support-triage-design-plan.json --target openclaw --json
-./bin/agentmo.js blueprint-draft /tmp/support-triage-discovery/agentmo-discovery-db.json --need examples/support-triage.need.json --design-plan /tmp/support-triage-design-plan.json --out /tmp/support-triage.agentmo.json --target openclaw --json
-./bin/agentmo.js handoff /tmp/support-triage.agentmo.json --target openclaw --out /tmp/support-triage-handoff --json
-./bin/agentmo.js plan examples/win9.agentmo.json --json
-./bin/agentmo.js scaffold examples/win9.agentmo.json --out /tmp/win9-agentmo-scaffold
-./bin/agentmo.js scaffold examples/win9.agentmo.json --target openclaw --out /tmp/win9-openclaw-scaffold
-./bin/agentmo.js status examples/win9.agentmo.json --build-state /tmp/win9-openclaw-scaffold/agentmo-build-state.json --json
-./bin/agentmo.js observe examples/win9.observation.json --json
-./bin/agentmo.js run-plan examples/win9.agentmo.json --target openclaw --workspace /tmp/win9-openclaw/workspace --agent win9 --provider deepseek --model deepseek/deepseek-v4-flash --thinking off --transport local --env-file .env --message "Say exactly: ok" --json
-./bin/agentmo.js birth-report /tmp/support-triage.agentmo.json --build-state /tmp/support-triage-scaffold/agentmo-build-state.json --run-state /tmp/support-triage-run/runs/<run_id>/agentmo-run-state.json --run-eval /tmp/support-triage-run-eval.json --expect-status declared --json > /tmp/support-triage-birth-report.json
-./bin/agentmo.js domain-eval /tmp/support-triage.agentmo.json --cases examples/support-triage.domain-cases.json --target openclaw --json > /tmp/support-triage-domain-eval.json
-./bin/agentmo.js delivery-report /tmp/support-triage.agentmo.json --build-state /tmp/support-triage-scaffold/agentmo-build-state.json --run-state /tmp/support-triage-run/runs/<run_id>/agentmo-run-state.json --run-eval /tmp/support-triage-run-eval.json --birth-report /tmp/support-triage-birth-report.json --domain-eval /tmp/support-triage-domain-eval.json --json
+digest_file() { node -e 'const fs=require("node:fs");const crypto=require("node:crypto");fs.writeSync(1,"sha256:"+crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex"));' "$1"; }
+./bin/agentmo.js validate examples/win9.agentmo.json --digest "blueprint=$(digest_file "examples/win9.agentmo.json")"
+./bin/agentmo.js report examples/win9.agentmo.json --digest "blueprint=$(digest_file "examples/win9.agentmo.json")"
+./bin/agentmo.js report examples/win9.agentmo.json --json --digest "blueprint=$(digest_file "examples/win9.agentmo.json")"
+./bin/agentmo.js discover-report examples/win9.discovery.json --json --digest "discovery-manifest=$(digest_file "examples/win9.discovery.json")"
+./bin/agentmo.js discover-pack examples/support-triage.discovery.json --out /tmp/support-triage-discovery --json --digest "discovery-manifest=$(digest_file "examples/support-triage.discovery.json")"
+./bin/agentmo.js discover-workspace examples/support-triage.discovery.json --source-root . --out /tmp/support-triage-workspace-discovery --json --digest "discovery-manifest=$(digest_file "examples/support-triage.discovery.json")"
+./bin/agentmo.js need-report examples/support-triage.need.json --json --digest "user-need=$(digest_file "examples/support-triage.need.json")"
+./bin/agentmo.js design-plan /tmp/support-triage-discovery/agentmo-discovery-db.json --need examples/support-triage.need.json --out /tmp/support-triage-design-plan.json --target openclaw --json --digest "discovery-db=$(digest_file "/tmp/support-triage-discovery/agentmo-discovery-db.json")" --digest "user-need=$(digest_file "examples/support-triage.need.json")"
+./bin/agentmo.js blueprint-draft /tmp/support-triage-discovery/agentmo-discovery-db.json --need examples/support-triage.need.json --design-plan /tmp/support-triage-design-plan.json --out /tmp/support-triage.agentmo.json --target openclaw --json --digest "discovery-db=$(digest_file "/tmp/support-triage-discovery/agentmo-discovery-db.json")" --digest "user-need=$(digest_file "examples/support-triage.need.json")" --digest "design-plan=$(digest_file "/tmp/support-triage-design-plan.json")"
+./bin/agentmo.js handoff /tmp/support-triage.agentmo.json --target openclaw --out /tmp/support-triage-handoff --json --digest "blueprint=$(digest_file "/tmp/support-triage.agentmo.json")"
+./bin/agentmo.js plan examples/win9.agentmo.json --json --digest "blueprint=$(digest_file "examples/win9.agentmo.json")"
+./bin/agentmo.js scaffold examples/win9.agentmo.json --out /tmp/win9-agentmo-scaffold --digest "blueprint=$(digest_file "examples/win9.agentmo.json")"
+./bin/agentmo.js scaffold examples/win9.agentmo.json --target openclaw --out /tmp/win9-openclaw-scaffold --digest "blueprint=$(digest_file "examples/win9.agentmo.json")"
+./bin/agentmo.js status examples/win9.agentmo.json --build-state /tmp/win9-openclaw-scaffold/agentmo-build-state.json --json --digest "blueprint=$(digest_file "examples/win9.agentmo.json")" --digest "build-state=$(digest_file "/tmp/win9-openclaw-scaffold/agentmo-build-state.json")"
+./bin/agentmo.js observe examples/win9.observation.json --json --digest "observation=$(digest_file "examples/win9.observation.json")"
+./bin/agentmo.js run-plan examples/win9.agentmo.json --target openclaw --workspace /tmp/win9-openclaw/workspace --agent win9 --provider deepseek --model deepseek/deepseek-v4-flash --thinking off --transport local --runtime-env-file .env --message "Say exactly: ok" --json --digest "blueprint=$(digest_file "examples/win9.agentmo.json")"
+RUN_STATE="/tmp/support-triage-run/runs/${RUN_ID:?set RUN_ID}/agentmo-run-state.json"
+./bin/agentmo.js birth-report /tmp/support-triage.agentmo.json --build-state /tmp/support-triage-scaffold/agentmo-build-state.json --run-state "$RUN_STATE" --run-eval /tmp/support-triage-run-eval.json --expect-status declared --json --digest "blueprint=$(digest_file "/tmp/support-triage.agentmo.json")" --digest "build-state=$(digest_file "/tmp/support-triage-scaffold/agentmo-build-state.json")" --digest "run-state=$(digest_file "$RUN_STATE")" --digest "run-eval=$(digest_file "/tmp/support-triage-run-eval.json")" > /tmp/support-triage-birth-report.json
+./bin/agentmo.js domain-eval /tmp/support-triage.agentmo.json --cases examples/support-triage.domain-cases.json --target openclaw --json --digest "blueprint=$(digest_file "/tmp/support-triage.agentmo.json")" --digest "domain-cases=$(digest_file "examples/support-triage.domain-cases.json")" > /tmp/support-triage-domain-eval.json
+./bin/agentmo.js delivery-report /tmp/support-triage.agentmo.json --build-state /tmp/support-triage-scaffold/agentmo-build-state.json --run-state "$RUN_STATE" --run-eval /tmp/support-triage-run-eval.json --birth-report /tmp/support-triage-birth-report.json --domain-eval /tmp/support-triage-domain-eval.json --json --digest "blueprint=$(digest_file "/tmp/support-triage.agentmo.json")" --digest "build-state=$(digest_file "/tmp/support-triage-scaffold/agentmo-build-state.json")" --digest "run-state=$(digest_file "$RUN_STATE")" --digest "run-eval=$(digest_file "/tmp/support-triage-run-eval.json")" --digest "birth-report=$(digest_file "/tmp/support-triage-birth-report.json")" --digest "domain-eval=$(digest_file "/tmp/support-triage-domain-eval.json")"
 ```
+
+Every durable file operand above carries one canonical `--digest` subject calculated from the exact file bytes at the invocation. AgentMo verifies that binding before JSON decode; a digest of parsed or reserialized JSON is not equivalent. Missing, duplicate, extra, mismatched, or stale bindings fail closed.
 
 Stage 1 has two explicit paths:
 
@@ -91,7 +95,8 @@ docs/OMX_SESSION_MIGRATION.md
 Use it when starting a fresh session or when work becomes mixed with sibling projects:
 
 ```bash
-cd /home/alex/DTAlex/learningGitHub/AgentMo
+export AGENTMO_REPO="<path-to-AgentMo>"
+cd "$AGENTMO_REPO"
 omx --madmax --xhigh
 ```
 
@@ -107,7 +112,7 @@ Those instructions are the project-specific contract for future coding agents wo
 
 ## Why this exists
 
-The Win9-on-Pi work showed a new development mode: use Codex to build another agent system on top of Pi. AgentMo captures that mode as a reusable three-stage mother mechanism.
+The Win9-on-Pi work showed a new development mode: use Codex to build another agent system on top of Pi. AgentMo captures that mode as a reusable three-stage agent-building mechanism.
 
 - Stage 1 discovery materializes approved source inputs into structured databases or retrieval corpora; current commands use operator-provided manifests and approved local source intake rather than claiming live web crawling.
 - Discovery can be recorded as an external `agentmo.discovery.v1` manifest. `discover-report` validates it, `discover-pack` materializes the manifest-only Discovery Contract, and `discover-workspace` reads approved local sources into DB-visible `source_chunk` facts plus supplemental source sidecars.
@@ -118,7 +123,7 @@ The Win9-on-Pi work showed a new development mode: use Codex to build another ag
 - Pi can act as the active runtime: local agents, tools, sessions, extension surface.
 - OpenClaw can be recorded as an active alternate architecture profile: Gateway, channel delivery, isolated agents, session trajectories, and plugin/runtime ownership boundaries.
 - AgentHarness-style control-plane ideas act as governance: policy, gates, audit, manifests.
-- AgentMo ties them together as a blueprint and lifecycle.
+- AgentMo ties them together through its blueprint and three-stage lifecycle.
 
 ## Quality rule
 
@@ -141,7 +146,7 @@ For Stage 3, an externally reviewed or business-provided valid blueprint/design 
 ```text
 bin/agentmo.js              CLI entrypoint
 src/blueprint.js            Blueprint validation and quality gates
-src/report.js               AgentMother readiness report
+src/report.js               AgentMo readiness report
 src/build-plan.js           Deterministic dry-run operation planner
 src/build-state.js          Managed scaffold sidecar state writer
 src/discovery.js            Discovery manifest validation and report builder
@@ -187,19 +192,20 @@ Plan JSON includes:
 
 ## Control status snapshots
 
-`agentmo status` emits `agentmo.control.v1`: a stable control snapshot for a future UI/control pane. It includes agent status, lifecycle stage, runtime profiles, certification metadata when present, pipeline completeness, quality gates, eval/evidence/release summaries, risks, and next actions.
+`agentmo status` emits `agentmo.control.v1`: a stable control snapshot for a future UI/control pane. It includes agent status, Produce maturity, runtime profiles, certification metadata when present, pipeline completeness, quality gates, eval/evidence/release summaries, risks, and next actions.
 
 Pass `--build-state <path>` after scaffold to attach the latest managed sidecar summary:
 
 ```bash
-./bin/agentmo.js status examples/win9.agentmo.json --build-state /tmp/win9-openclaw-scaffold/agentmo-build-state.json --json
+digest_file() { node -e 'const fs=require("node:fs");const crypto=require("node:crypto");fs.writeSync(1,"sha256:"+crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex"));' "$1"; }
+./bin/agentmo.js status examples/win9.agentmo.json --build-state /tmp/win9-openclaw-scaffold/agentmo-build-state.json --json --digest "blueprint=$(digest_file "examples/win9.agentmo.json")" --digest "build-state=$(digest_file "/tmp/win9-openclaw-scaffold/agentmo-build-state.json")"
 ```
 
 If build state is absent or unreadable, status remains available and reports the build-state section as unavailable.
 
 ## MVP birth loop
 
-The first executable AgentMother loop is a composed vertical demo of the three artifact contracts:
+The first executable AgentMo loop is a composed vertical demo of the three artifact contracts:
 
 ```text
 discover-pack or discover-workspace -> need-report -> design-plan -> blueprint-draft -> handoff -> scaffold/run/run-eval -> birth-report -> domain-eval -> delivery-report
@@ -224,6 +230,10 @@ See `docs/MVP_RUNBOOK.md` and `docs/AGENT_BIRTH_GATE.md`.
 ## OpenClaw target
 
 `--target openclaw` generates an OpenClaw-oriented runtime package:
+
+AgentMo core remains Node.js `>=20`, while OpenClaw target mutation requires `>=22.19.0 <23 || >=23.11.0`. Run `node ./bin/agentmo.js runtime-check --target openclaw` before any direct OpenClaw mutation; this CLI check is authoritative and is not runtime, domain, or production certification.
+
+`--runtime-env-file` is AgentMo's sole public runtime environment-file option. The collision-prone former spelling is intentionally not an alias because a Node launcher can consume it before AgentMo receives argv; the Bash live-smoke helper keeps its own local option. Phase 01.2 binds actual Node 20 execution to a [repository-owned distribution trust anchor](scripts/node20-distribution-trust.json), an [exact published receipt](release/evidence/2026.07.13-node20-core-receipt.json), and a [post-publication compatibility matrix](docs/RUNTIME_COMPATIBILITY.md). These are bounded mechanism records, not domain-quality or production certification.
 
 ```text
 openclaw/
@@ -282,10 +292,12 @@ Blueprints can also set `discovery_manifest_path`; `agentmo report` loads the ma
 ## Scripts
 
 ```bash
-npm run check
-cp .env.example .env
+npm run check &&
+node ./bin/agentmo.js runtime-check --target openclaw &&
+cp .env.example .env &&
 # fill DEEPSEEK_API_KEY in .env; .env is gitignored and value-blind in AgentMo evidence
-scripts/openclaw-live-smoke.sh --blueprint examples/win9.agentmo.json --agent win9 --message "Say exactly: ok" --openclaw-source-root /home/alex/DTAlex/learningGitHub/openclaw
+OPENCLAW_SOURCE_ROOT="<openclaw-source-root>" &&
+scripts/openclaw-live-smoke.sh --blueprint examples/win9.agentmo.json --agent win9 --message "Say exactly: ok" --openclaw-source-root "$OPENCLAW_SOURCE_ROOT"
 ```
 
 `check` runs syntax checks and the Node test suite. The OpenClaw live smoke script is optional, defaults to DeepSeek flash with `--thinking off`, uses temporary `OPENCLAW_STATE_DIR`, scaffold workspace, and run-output paths by default, refuses non-gitignored env files, reads only supported env keys, passes proxy env keys through when present without persisting their values, requires live execution success by default, and scrubs credential-bearing OpenClaw state unless `--keep-state` is explicit.

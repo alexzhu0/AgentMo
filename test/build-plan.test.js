@@ -6,6 +6,7 @@ import path from "node:path";
 import { buildPlan } from "../src/build-plan.js";
 import { BUILD_STATE_FILENAME } from "../src/build-state.js";
 import { scaffoldAgent } from "../src/scaffold.js";
+import { admitBlueprint } from "./helpers/admitted-blueprint.js";
 
 async function loadExample() {
   return JSON.parse(await readFile(new URL("../examples/win9.agentmo.json", import.meta.url), "utf8"));
@@ -98,10 +99,11 @@ describe("build plan", () => {
   });
 
   it("matches scaffold-applied domain output paths for each target", async () => {
-    const blueprint = await loadExample();
+    const admission = await admitBlueprint(new URL("../examples/win9.agentmo.json", import.meta.url));
+    const blueprint = admission.value;
     for (const target of ["agentmo", "openclaw"]) {
       const dir = await mkdtemp(path.join(tmpdir(), `agentmo-parity-${target}-`));
-      const result = await scaffoldAgent(blueprint, dir, { target });
+      const result = await scaffoldAgent(blueprint, dir, { admission, target });
       const plan = buildPlan(blueprint, { target, outputDir: dir });
       const plannedPaths = plan.operations.map((operation) => operation.relativePath).sort();
       assert.deepEqual(result.files, plannedPaths);

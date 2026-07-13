@@ -66,7 +66,7 @@ describe("target registry", () => {
     assert.deepEqual(plan.selectedModuleIds, ["default"]);
     assert.deepEqual(plan.warnings, [
       "No runtime profile matched target openclaw runtime openclaw; selectedProfileId is null.",
-      "runtime_profiles is not set; AgentMother can model multiple runtime architectures such as pi and openclaw.",
+      "runtime_profiles is not set; AgentMo can model multiple runtime architectures such as pi and openclaw.",
     ]);
   });
 });

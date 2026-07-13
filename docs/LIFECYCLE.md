@@ -1,109 +1,50 @@
-# AgentMother Lifecycle
+# AgentMo Lifecycle
 
-AgentMother's lifecycle has one top-level production path:
+AgentMo has exactly one top-level lifecycle:
 
 ```text
 Discover -> Plan -> Produce
 ```
 
-The older incubation vocabulary still fits inside that path:
-
-```text
-Discover -> Conceive -> Gestate -> Birth -> Train -> Certify -> Release -> Observe -> Evolve -> Reproduce
-```
+These stages are connected by validated artifacts, not mandatory command ancestry. Build, install, doctor, birth, eval, delivery, release, observation, and status labels are all Produce-internal maturity or governance surfaces; none is a fourth lifecycle stage.
 
 ## Discover
 
-Find what should be built before designing the agent.
+Discover finds and bounds what should be built before an agent is designed.
 
-Inputs:
+Inputs include domain data, source documents, operational examples, user needs, target-runtime constraints, and unacceptable failures.
 
-- domain data;
-- source documents;
-- operational examples;
-- user needs;
-- target runtime constraints;
-- unacceptable failures.
-
-Output: bounded source inventory, database/retrieval plan, and concrete user-need statement.
+Outputs are a sanitized source inventory, traceable discovery database, coverage evidence, and a concrete user-need brief. A valid Discovery Contract proves only that those inputs were materialized and bounded; it does not certify an agent design or runtime.
 
 ## Plan
 
-Convert discovered data plus user needs into a buildable plan.
+Plan turns a valid Discovery Contract plus reviewed user needs into a buildable Agent Design / Blueprint Contract.
 
-Outputs:
+Outputs include the domain genome, exact three-key `pipeline`, architecture, tool contracts, evidence policy, eval suite and rubric, runtime target decision, governance gates, and known risks. Current blueprints use `agentmo_version: "0.1"`.
 
-- `domain_genome` section;
-- `pipeline` section;
-- agent architecture;
-- tool contracts;
-- evidence policy;
-- eval suite and rubric;
-- runtime target decision;
-- release gates.
+A valid plan admits work to Produce. It does not certify runtime execution, domain quality, release readiness, or production approval.
 
 ## Produce
 
-Use Codex or another coding-agent runtime to implement the specified agent.
+Produce turns a valid blueprint/design contract into a reproducible Agent Package and bounded evidence. It may begin with an AgentMo-generated plan or another reviewed contract with explicit provenance.
 
-Outputs:
+Produce outputs include prompts, skills, tools, configs, handoff packages, runtime scaffolds, tests, eval artifacts, managed run evidence, delivery records, and release evidence.
 
-- prompts, skills, tools, configs, and runbooks;
-- generated runtime scaffold;
-- tests and eval evidence;
-- failure repairs;
-- version ledger and evidence index.
+### Produce maturity and status
 
-## Conceive
+`status` and report/control `produce_maturity` values describe progress inside Produce. Draft/conceive, gestate, birth, train, certify, release, and retire labels do not extend the top-level lifecycle.
 
-Clarify the agent's purpose, users, domain value, and unacceptable failures.
+- **Build and scaffold** materialize deterministic package assets and managed build state.
+- **Install and doctor** check target ownership, compatibility, and wiring before runtime promotion.
+- **Birth** is a fail-closed evidence gate over validated build, run, and eval inputs.
+- **Eval** records bounded case or runtime evidence; it does not create domain-wide certification.
+- **Delivery** revalidates and aggregates evidence without inheriting stronger claims from upstream status flags.
+- **Release** records the reviewed decision, version ledger, evidence references, known risks, and remaining approval boundaries.
 
-Output: intent brief.
+### Observation and change
 
-## Gestate
+Observe/evolve records are Produce-internal, proposal-only inputs to reviewed changes. They must not mutate a blueprint, scaffold, runtime, or eval automatically. A repaired version re-enters the relevant Produce gates and records fresh evidence.
 
-Build the domain genome: concepts, workflows, task classes, knowledge sources, risks, and success criteria.
+### Evidence boundary
 
-Output: `domain_genome` section in the blueprint.
-
-## Birth
-
-Create the minimum runnable harness: main agent, optional specialists, tool contracts, evidence store, and first eval pack.
-
-Output: scaffolded agent harness.
-
-## Train
-
-Run targeted evals, find route failures, hallucinations, context leaks, tool misuse, and slow paths.
-
-Output: bug fixes and regression cases.
-
-## Certify
-
-Require all quality gates to pass. Certification is evidence-based, not vibe-based.
-
-Output: readiness report and passing eval evidence.
-
-## Release
-
-Record commit, tag, test evidence, eval result, known risks, and decision rationale.
-
-Output: version ledger and evidence index.
-
-## Observe
-
-Collect production or field failures as evidence, not anecdotes.
-
-Output: backlog and run records.
-
-## Evolve
-
-Repair the agent with tests and reruns.
-
-Output: new version ledger entry.
-
-## Reproduce
-
-Use the mature blueprint as a template for a new domain agent.
-
-Output: new AgentMother blueprint.
+Produce evidence is non-self-certifying. `declared-ready` proves wiring and deterministic mechanism evidence only; `live-success` proves isolated runtime execution only. Neither status, a Birth Report, a bounded domain eval, a Delivery Report, nor a release ledger alone certifies domain-wide quality, production readiness, or deployment approval.

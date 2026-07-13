@@ -1,22 +1,27 @@
 # AgentMo Discovery Manifest
 
-Discovery manifests represent AgentMother's first stage: finding bounded data and user-need inputs before planning or production. They are input manifests only; they do not select scaffold modules, invoke planning, or mutate build behavior.
+Discovery manifests represent AgentMo's first stage: finding bounded data and user-need inputs before planning or production. They are input manifests only; they do not select scaffold modules, invoke planning, or mutate build behavior.
 
 ## CLI
 
 Manifest validation and reporting:
 
 ```bash
-./bin/agentmo.js discover-report examples/win9.discovery.json --json
-./bin/agentmo.js report examples/win9.agentmo.json --json
+digest_file() { node -e 'const fs=require("node:fs");const crypto=require("node:crypto");fs.writeSync(1,"sha256:"+crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex"));' "$1"; }
+./bin/agentmo.js discover-report examples/win9.discovery.json --json --digest "discovery-manifest=$(digest_file "examples/win9.discovery.json")"
+./bin/agentmo.js report examples/win9.agentmo.json --json --digest "blueprint=$(digest_file "examples/win9.agentmo.json")"
 ```
 
 Stage 1 materialization has two paths:
 
 ```bash
-./bin/agentmo.js discover-pack examples/support-triage.discovery.json --out /tmp/support-triage-discovery --json
-agentmo discover-workspace <discovery.json> --source-root <dir> --out <dir> [--json]
-./bin/agentmo.js discover-workspace examples/support-triage.discovery.json --source-root . --out /tmp/support-triage-workspace-discovery --json
+digest_file() { node -e 'const fs=require("node:fs");const crypto=require("node:crypto");fs.writeSync(1,"sha256:"+crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex"));' "$1"; }
+DISCOVERY_MANIFEST=path/to/discovery.json
+SOURCE_ROOT=path/to/source-root
+OUTPUT_ROOT=path/to/discovery-output
+./bin/agentmo.js discover-pack examples/support-triage.discovery.json --out /tmp/support-triage-discovery --json --digest "discovery-manifest=$(digest_file "examples/support-triage.discovery.json")"
+agentmo discover-workspace "$DISCOVERY_MANIFEST" --source-root "$SOURCE_ROOT" --out "$OUTPUT_ROOT" --json --digest "discovery-manifest=$(digest_file "$DISCOVERY_MANIFEST")"
+./bin/agentmo.js discover-workspace examples/support-triage.discovery.json --source-root . --out /tmp/support-triage-workspace-discovery --json --digest "discovery-manifest=$(digest_file "examples/support-triage.discovery.json")"
 ```
 
 `discover-report` validates and summarizes one manifest. `report` loads a manifest when the blueprint sets `discovery_manifest_path` and surfaces a bounded discovery summary plus warnings.

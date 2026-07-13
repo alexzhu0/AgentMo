@@ -1,97 +1,100 @@
-import { BIRTH_REPORT_SCHEMA_VERSION } from "./birth-report.js";
-import { BUILD_STATE_SCHEMA_VERSION } from "./build-state.js";
+import { BIRTH_REPORT_SCHEMA_VERSION, validateBirthReportArtifact } from "./birth-report.js";
+import { BUILD_STATE_SCHEMA_VERSION, validateBuildStateArtifact } from "./build-state.js";
 import { validateBlueprint } from "./blueprint.js";
-import { DOMAIN_EVAL_SCHEMA_VERSION } from "./domain-eval.js";
-import { auditEvidence, hashRuntimeJson, hashStableJson } from "./evidence-audit.js";
-import { RUN_EVAL_SCHEMA_VERSION, RUN_STATE_SCHEMA_VERSION } from "./run-state.js";
+import { DOMAIN_EVAL_SCHEMA_VERSION, validateDomainEvalArtifact } from "./domain-eval.js";
+import { assertPersistable } from "./persistability.js";
+import {
+  RUN_EVAL_SCHEMA_VERSION,
+  RUN_STATE_SCHEMA_VERSION,
+  validateRunEvalArtifact,
+  validateRunStateArtifact,
+} from "./run-state.js";
 
 export const DELIVERY_REPORT_SCHEMA_VERSION = "agentmo.delivery.v1";
 
-export function buildDeliveryReport(blueprint, options = {}) {
-  const buildState = options.buildState ?? null;
-  const runState = options.runState ?? null;
-  const runEval = options.runEval ?? null;
-  const birthReport = options.birthReport ?? null;
+const SHA256_DIGEST_PATTERN = /^sha256:[a-f0-9]{64}$/u;
+
+const DELIVERY_REPORT_BASE_CHECK_CONTRACT = freezeCheckContract([
+  ["blueprint_valid", "blueprint validates independently"],
+  ["build_state_valid", "build-state validates independently"],
+  ["run_state_valid", "run-state validates independently"],
+  ["run_eval_valid", "run-eval validates independently"],
+  ["birth_report_valid", "birth-report validates independently"],
+  ["agent_id_match", "all supplied artifacts have the same agent scope"],
+  ["target_match", "all supplied target scopes agree"],
+  ["build_state_blueprint_provenance", "build-state references the exact blueprint"],
+  ["run_state_blueprint_provenance", "run-state references the exact blueprint"],
+  ["run_eval_run_state_provenance", "run-eval references the exact run-state"],
+  ["run_eval_run_id", "run-eval run id matches run-state"],
+  ["birth_blueprint_provenance", "birth-report references the exact blueprint"],
+  ["birth_build_state_provenance", "birth-report references the exact build-state"],
+  ["birth_run_state_provenance", "birth-report references the exact run-state"],
+  ["birth_run_eval_provenance", "birth-report references the exact run-eval"],
+  ["birth_run_id", "birth-report run id matches run-state"],
+  ["birth_expectation_match", "birth and run expectations agree"],
+  ["birth_report_ok", "birth-report passes after independent validation"],
+  ["birth_non_certifying", "birth evidence does not elevate other evidence levels"],
+]);
+const DELIVERY_REPORT_OPTIONAL_DOMAIN_CHECK_CONTRACT = freezeCheckContract([
+  ["domain_eval_optional", "domain-eval is explicitly absent"],
+]);
+const DELIVERY_REPORT_DOMAIN_CHECK_CONTRACT = freezeCheckContract([
+  ["domain_eval_valid", "domain-eval validates independently"],
+  ["domain_eval_blueprint_provenance", "domain-eval references the exact blueprint"],
+  ["domain_eval_non_transitive", "domain evidence does not elevate runtime, delivery, or production"],
+  ["domain_eval_ok", "supplied bounded domain evaluation passes"],
+]);
+
+export const DELIVERY_REPORT_REQUIRED_CHECK_IDS = Object.freeze({
+  withoutDomainEval: Object.freeze([
+    ...DELIVERY_REPORT_BASE_CHECK_CONTRACT.map((item) => item.id),
+    ...DELIVERY_REPORT_OPTIONAL_DOMAIN_CHECK_CONTRACT.map((item) => item.id),
+  ]),
+  withDomainEval: Object.freeze([
+    ...DELIVERY_REPORT_BASE_CHECK_CONTRACT.map((item) => item.id),
+    ...DELIVERY_REPORT_DOMAIN_CHECK_CONTRACT.map((item) => item.id),
+  ]),
+});
+
+export async function buildDeliveryReport(blueprint, options = {}) {
+  const buildState = options.buildState;
+  const runState = options.runState;
+  const runEval = options.runEval;
+  const birthReport = options.birthReport;
   const domainEval = options.domainEval ?? null;
-  const validation = validateBlueprint(blueprint);
-  const stableBlueprintHash = hashStableJson(blueprint);
-  const runtimeBlueprintHash = hashRuntimeJson(blueprint);
-  const blueprintTargets = blueprintTargetSet(blueprint);
-  const buildTargetId = buildState?.target?.id ?? buildState?.resolution?.selectedTargetId ?? null;
-  const runTargetId = runState?.target?.id ?? null;
-  const domainTargetId = domainEvalTargetId(domainEval);
-  const evidenceAudit = auditEvidence({ buildState, runState, runEval, birthReport, domainEval });
-  const evidenceLevel = resolveEvidenceLevel(runState);
+  const domainAdmission = options.admissions?.domainEval ?? null;
+  if ((domainEval === null) !== (domainAdmission === null)) throw deliveryError("AGENTMO_DELIVERY_OPTIONAL_INPUT_INVALID");
 
-  const buildStatePresent = isObject(buildState);
-  const runStatePresent = isObject(runState);
-  const runEvalPresent = isObject(runEval);
-  const birthReportPresent = isObject(birthReport);
-  const buildStateSchema = buildState?.schemaVersion === BUILD_STATE_SCHEMA_VERSION;
-  const runStateSchema = runState?.schemaVersion === RUN_STATE_SCHEMA_VERSION;
-  const runEvalSchema = runEval?.schemaVersion === RUN_EVAL_SCHEMA_VERSION;
-  const birthReportSchema = birthReport?.schemaVersion === BIRTH_REPORT_SCHEMA_VERSION;
-  const agentIdMatch =
-    nonEmptyString(blueprint?.agent_id) &&
-    buildState?.agentId === blueprint.agent_id &&
-    runState?.agentId === blueprint.agent_id &&
-    birthReport?.agentId === blueprint.agent_id &&
-    (domainEval === null || domainEval?.agentId === blueprint.agent_id);
-  const targetMatch =
-    nonEmptyString(buildTargetId) &&
-    buildTargetId === runTargetId &&
-    blueprintTargets.has(buildTargetId) &&
-    (!nonEmptyString(domainTargetId) || domainTargetId === buildTargetId);
-  const buildStateBlueprintHashMatch = buildState?.source?.blueprintHash === stableBlueprintHash;
-  const runStateBlueprintHashMatch = runState?.source?.blueprintHash === runtimeBlueprintHash;
-  const runEvalRunIdMatch = nonEmptyString(runState?.runId) && runEval?.runId === runState.runId;
-  const birthReportExpectationMatch =
-    birthReport?.expectedStatus === runEval?.expectedStatus &&
-    birthReport?.actualStatus === runState?.execution?.status &&
-    runEval?.actualStatus === runState?.execution?.status &&
-    birthReport?.evidenceLevel === evidenceLevel;
-  const birthReportNonCertifying = hasNonCertifyingBoundary({ birthReport, runState, runEval });
-  const validDomainEvalCertification = hasValidDomainEvalCertification({ domainEval, blueprint });
-  const domainEvalValid = domainEval === null || validDomainEvalCertification;
-  const domainCertified = domainEval !== null && validDomainEvalCertification;
-
-  const checks = [
-    check("blueprint_valid", validation.ok, validation.ok ? "blueprint validates" : "blueprint has validation errors"),
-    check("blueprint_validation", validation.ok, validation.ok ? "blueprint validates" : "blueprint has validation errors"),
-    check("build_state_present", buildStatePresent, "build-state artifact is present"),
-    check("build_state_schema", buildStateSchema, `build-state schema is ${BUILD_STATE_SCHEMA_VERSION}`),
-    check("run_state_present", runStatePresent, "run-state artifact is present"),
-    check("run_state_schema", runStateSchema, `run-state schema is ${RUN_STATE_SCHEMA_VERSION}`),
-    check("run_eval_present", runEvalPresent, "run-eval artifact is present"),
-    check("run_eval_schema", runEvalSchema, `run-eval schema is ${RUN_EVAL_SCHEMA_VERSION}`),
-    check("birth_report_present", birthReportPresent, "birth-report artifact is present"),
-    check("birth_report_schema", birthReportSchema, `birth-report schema is ${BIRTH_REPORT_SCHEMA_VERSION}`),
-    check("agent_id_match", agentIdMatch, "blueprint, build-state, run-state, birth-report, and domain-eval agent ids match"),
-    check("target_match", targetMatch, "build-state, run-state, domain-eval, and blueprint target evidence match"),
-    check("build_state_blueprint_hash_match", buildStateBlueprintHashMatch, "build-state stable blueprint hash matches supplied blueprint"),
-    check("run_state_blueprint_hash_match", runStateBlueprintHashMatch, "run-state runtime JSON blueprint hash matches supplied blueprint"),
-    check("run_eval_run_id_match", runEvalRunIdMatch, "run-eval runId matches run-state runId"),
-    check("run_eval_run_id", runEvalRunIdMatch, "run-eval runId matches run-state runId"),
-    check("birth_report_expectation_match", birthReportExpectationMatch, "birth-report expected/actual/evidenceLevel match run artifacts"),
-    check("birth_expectation_matches", birthReportExpectationMatch, "birth-report expected/actual/evidenceLevel match run artifacts"),
-    check("birth_report_ok", birthReport?.ok === true, "birth-report passed its fail-closed gate"),
-    ...(domainEval === null
-      ? [check("domain_eval_optional", true, "domain-eval artifact was not supplied; domain certification remains false")]
-      : [check("domain_eval_ok", domainEval?.schemaVersion === DOMAIN_EVAL_SCHEMA_VERSION && domainEval?.ok === true, "domain-eval artifact is valid and passing")]),
-    check("birth_report_non_certifying", birthReportNonCertifying, "birth/report/run evidence does not certify runtime or domain behavior"),
-    check("certification_boundary", birthReportNonCertifying, "birth/report/run evidence does not certify runtime or domain behavior"),
-    check("evidence_no_raw_or_secret", evidenceAudit.ok, evidenceAudit.ok ? "managed evidence contains no raw or secret-like evidence" : auditMessage(evidenceAudit)),
-    check("no_raw_transcripts", !hasRawTranscriptFinding(evidenceAudit), "managed evidence does not store raw transcripts"),
-    check("no_raw_tool_bodies", !hasRawToolBodyFinding(evidenceAudit), "managed evidence does not store raw tool bodies"),
-    check("raw_output_preview_absent", !hasRawOutputPreviewFinding(evidenceAudit), "managed evidence does not store raw stdout/stderr previews"),
-    check("managed_evidence_sanitized", evidenceAudit.secretFindings.length === 0, evidenceAudit.secretFindings.length === 0 ? "managed evidence contains no secret-like values" : `secret-like values found: ${evidenceAudit.secretFindings.map((finding) => finding.pointer).join(", ")}`),
-    check("domain_eval_optional_or_valid", domainEvalValid, domainEval === null ? "domain-eval is optional and absent" : "domain-eval schema, agent id, ok status, and certification boundary are valid"),
-  ];
-
-  const ok = checks.every((item) => item.pass);
-  const runtimePromotionEligible = ok && birthReport?.promotionEligible === true && birthReport?.evidenceLevel === "live-success";
-  const deliveryReady = ok && runtimePromotionEligible && domainCertified;
-  return {
+  const { admittedArtifactProvenance } = await import("./artifact-admission.js");
+  const sources = {
+    blueprint: admittedArtifactProvenance(options.admissions?.blueprint, { subject: "blueprint", value: blueprint }),
+    buildState: admittedArtifactProvenance(options.admissions?.buildState, { subject: "build-state", value: buildState }),
+    runState: admittedArtifactProvenance(options.admissions?.runState, { subject: "run-state", value: runState }),
+    runEval: admittedArtifactProvenance(options.admissions?.runEval, { subject: "run-eval", value: runEval }),
+    birthReport: admittedArtifactProvenance(options.admissions?.birthReport, { subject: "birth-report", value: birthReport }),
+    domainEval: domainEval === null
+      ? null
+      : admittedArtifactProvenance(domainAdmission, { subject: "domain-eval", value: domainEval }),
+  };
+  const assessment = deriveDeliveryAssessment({
+    blueprint,
+    buildState,
+    runState,
+    runEval,
+    birthReport,
+    domainEval,
+    sources,
+  });
+  const {
+    validation,
+    buildTargetId,
+    runTargetId,
+    domainTargetId,
+    checks,
+    ok,
+    domainCertified,
+  } = assessment;
+  const report = {
     schemaVersion: DELIVERY_REPORT_SCHEMA_VERSION,
     ok,
     agentId: blueprint?.agent_id ?? null,
@@ -100,32 +103,12 @@ export function buildDeliveryReport(blueprint, options = {}) {
       runState: runTargetId,
       domainEval: domainTargetId,
     },
-    runtimePromotionEligible,
     domainCertified,
-    deliveryReady,
-    artifacts: {
-      blueprint: {
-        available: true,
-        path: options.blueprintPath ?? null,
-        valid: validation.ok,
-      },
-      buildState: artifactSummary(buildState, options.buildStatePath, BUILD_STATE_SCHEMA_VERSION),
-      runState: artifactSummary(runState, options.runStatePath, RUN_STATE_SCHEMA_VERSION),
-      runEval: artifactSummary(runEval, options.runEvalPath, RUN_EVAL_SCHEMA_VERSION),
-      birthReport: artifactSummary(birthReport, options.birthReportPath, BIRTH_REPORT_SCHEMA_VERSION),
-      domainEval: domainEval === null ? { available: false, path: options.domainEvalPath ?? null, ok: false } : artifactSummary(domainEval, options.domainEvalPath, DOMAIN_EVAL_SCHEMA_VERSION),
-    },
-    hashes: {
-      stableBlueprintHash,
-      runtimeBlueprintHash,
-      buildStateBlueprintHash: buildState?.source?.blueprintHash ?? null,
-      runStateBlueprintHash: runState?.source?.blueprintHash ?? null,
-    },
-    evidence: {
-      audit: summarizeAudit(evidenceAudit),
-      runEvidenceLevel: evidenceLevel,
-      birthEvidenceLevel: birthReport?.evidenceLevel ?? null,
-    },
+    runtimePromotionEligible: false,
+    deliveryReady: false,
+    productionApproved: false,
+    sources,
+    evidenceLevels: assessment.evidenceLevels,
     checks,
     validation: {
       ok: validation.ok,
@@ -135,150 +118,327 @@ export function buildDeliveryReport(blueprint, options = {}) {
     certificationBoundary: {
       runtimeCertifiedByDeliveryReport: false,
       domainCertifiedByDeliveryReport: false,
+      deliveryReadyByDeliveryReport: false,
       productionApprovedByDeliveryReport: false,
-      runtimeCertifiedByBirthReport: birthReport?.certificationBoundary?.runtimeCertifiedByBirthReport === true,
-      domainCertifiedByBirthReport: birthReport?.certificationBoundary?.domainCertifiedByBirthReport === true,
-      runtimeCertifiedByRun: runEval?.certificationBoundary?.runtimeCertifiedByRun === true || runState?.certificationBoundary?.runEvidenceCertifiesRuntime === true,
-      domainCertifiedByRun: runEval?.certificationBoundary?.domainCertifiedByRun === true,
-      runtimeCertifiedByDomainEval: domainEval?.certificationBoundary?.runtimeCertifiedByDomainEval === true,
       domainCertifiedByDomainEval: domainCertified,
-      productionApprovedByDomainEval: domainEval?.certificationBoundary?.productionApprovedByDomainEval === true,
-      domainCertifiedByDomainEvalSource: domainEval === null
-        ? { available: false }
-        : {
-            available: true,
-            schemaVersion: domainEval?.schemaVersion ?? null,
-            ok: domainEval?.ok === true,
-            agentId: domainEval?.agentId ?? null,
-            target: domainEval?.target ?? null,
-          },
     },
-    nextActions: nextActions({ ok, domainCertified, runtimePromotionEligible, deliveryReady }),
+    nextActions: assessment.nextActions,
   };
+  assertDeliveryReportCandidate(report, {
+    blueprint,
+    buildState,
+    runState,
+    runEval,
+    birthReport,
+    domainEval,
+    sources,
+  });
+  return report;
+}
+
+export function validateDeliveryReportArtifact(report, options = {}) {
+  const errors = [];
+  try {
+    assertPersistable(report, { subject: "delivery-report" });
+    requireExactKeys(report, [
+      "schemaVersion", "ok", "agentId", "target", "domainCertified", "runtimePromotionEligible",
+      "deliveryReady", "productionApproved", "sources", "evidenceLevels", "checks", "validation",
+      "certificationBoundary", "nextActions",
+    ], "delivery_report", errors);
+    if (report?.schemaVersion !== DELIVERY_REPORT_SCHEMA_VERSION) errors.push("invalid_schema_version");
+    if (typeof report?.ok !== "boolean" || !nonEmptyString(report?.agentId)) errors.push("invalid_identity");
+    if (report?.runtimePromotionEligible !== false || report?.deliveryReady !== false || report?.productionApproved !== false) errors.push("invalid_promotion_boundary");
+    if (!validTarget(report?.target, report?.sources?.domainEval)) errors.push("invalid_target");
+    if (!validSources(report?.sources)) errors.push("invalid_sources");
+    if (!validEvidenceLevels(report?.evidenceLevels, report?.domainCertified)) errors.push("invalid_evidence_levels");
+    if (!validChecks(report?.checks, report, report?.sources?.domainEval !== null)) errors.push("invalid_checks");
+    if (!validValidation(report?.validation)) errors.push("invalid_validation");
+    if (!hasExactKeys(report?.certificationBoundary, [
+      "runtimeCertifiedByDeliveryReport", "domainCertifiedByDeliveryReport", "deliveryReadyByDeliveryReport",
+      "productionApprovedByDeliveryReport", "domainCertifiedByDomainEval",
+    ])
+      || report.certificationBoundary.runtimeCertifiedByDeliveryReport !== false
+      || report.certificationBoundary.domainCertifiedByDeliveryReport !== false
+      || report.certificationBoundary.deliveryReadyByDeliveryReport !== false
+      || report.certificationBoundary.productionApprovedByDeliveryReport !== false
+      || report.certificationBoundary.domainCertifiedByDomainEval !== report.domainCertified) errors.push("invalid_certification_boundary");
+    if (report.domainCertified !== report.evidenceLevels.domainCertified || !stringArray(report?.nextActions)) errors.push("invalid_domain_boundary");
+    if (hasDeliveryValidationContext(options)) {
+      const derivation = deriveDeliveryAssessment(options);
+      if (!sameJson(report.sources, options.sources)
+        || !sameJson(report.checks, derivation.checks)
+        || report.ok !== derivation.ok
+        || report.agentId !== options.blueprint?.agent_id
+        || report.target?.buildState !== derivation.buildTargetId
+        || report.target?.runState !== derivation.runTargetId
+        || report.target?.domainEval !== derivation.domainTargetId
+        || report.domainCertified !== derivation.domainCertified
+        || !sameJson(report.evidenceLevels, derivation.evidenceLevels)
+        || !sameJson(report.validation, derivation.validation)
+        || !sameJson(report.nextActions, derivation.nextActions)) {
+        errors.push("delivery_report_source_derivation_invalid");
+      }
+    }
+  } catch {
+    errors.push("unsafe_delivery_report_shape");
+  }
+  return { ok: errors.length === 0, errors };
 }
 
 export function formatDeliveryReport(report) {
   const lines = [
     `AgentMo delivery report: ${report.agentId ?? "unknown"}`,
     `Status: ${report.ok ? "pass" : "fail"}`,
-    `Domain certified by domain-eval: ${report.domainCertified ? "yes" : "no"}`,
-    `Runtime promotion eligible: ${report.runtimePromotionEligible ? "yes" : "no"}`,
-    `Delivery ready: ${report.deliveryReady ? "yes" : "no"}`,
-    "Certification: delivery-report aggregates source evidence; bounded domain status comes only from supplied domain-eval, and runtime/production/domain-wide approval is not implied",
+    `Bounded domain certification: ${report.domainCertified ? "yes" : "no"}`,
+    "Runtime promotion eligible: no",
+    "Delivery ready: no",
+    "Production approved: no",
+    "Certification: delivery aggregation does not promote runtime, delivery, or production evidence levels",
   ];
-  for (const checkItem of report.checks) lines.push(`- ${checkItem.pass ? "PASS" : "FAIL"} ${checkItem.id}: ${checkItem.message}`);
-  if (report.nextActions.length > 0) {
-    lines.push("", "Next actions:");
-    for (const action of report.nextActions) lines.push(`- ${action}`);
-  }
+  for (const item of report.checks) lines.push(`- ${item.pass ? "PASS" : "FAIL"} ${item.id}: ${item.message}`);
   return `${lines.join("\n")}\n`;
 }
 
-function artifactSummary(artifact, path, expectedSchemaVersion) {
+function deriveDeliveryAssessment({
+  blueprint,
+  buildState,
+  runState,
+  runEval,
+  birthReport,
+  domainEval,
+  sources,
+}) {
+  const blueprintValidation = validateBlueprint(blueprint);
+  const validation = {
+    ok: blueprintValidation.ok,
+    warnings: blueprintValidation.warnings,
+    errors: blueprintValidation.errors,
+  };
+  const buildTargetId = buildState?.target?.id ?? null;
+  const runTargetId = runState?.target?.id ?? null;
+  const domainTargetId = domainEval?.target?.effective ?? null;
+  const runEvalValidation = validateRunEvalArtifact(runEval, {
+    runState,
+    source: sources?.runState,
+  });
+  const birthReportValidation = validateBirthReportArtifact(birthReport, {
+    blueprint,
+    buildState,
+    runState,
+    runEval,
+    expectStatus: runEval?.expectedStatus,
+    sources: {
+      blueprint: sources?.blueprint,
+      buildState: sources?.buildState,
+      runState: sources?.runState,
+      runEval: sources?.runEval,
+    },
+  });
+  const domainEvalValidation = domainEval === null
+    ? null
+    : validateDomainEvalArtifact(domainEval, { blueprint });
+  const domainCertified = domainEval !== null
+    && domainEvalValidation.ok
+    && domainEvalValidation.domainCertified === true;
+  const basePasses = [
+    blueprintValidation.ok,
+    validateBuildStateArtifact(buildState).ok,
+    validateRunStateArtifact(runState).ok,
+    runEvalValidation.ok,
+    birthReportValidation.ok,
+    buildState?.agentId === blueprint?.agent_id
+      && runState?.agentId === blueprint?.agent_id
+      && birthReport?.agentId === blueprint?.agent_id
+      && (domainEval === null || domainEval?.agentId === blueprint?.agent_id),
+    buildTargetId === runTargetId && (domainEval === null || domainTargetId === runTargetId),
+    sameProvenance(buildState?.source, sources?.blueprint),
+    sameProvenance(runState?.source?.blueprint, sources?.blueprint),
+    sameProvenance(runEval?.source, sources?.runState),
+    runEval?.runId === runState?.runId,
+    sameProvenance(birthReport?.sources?.blueprint, sources?.blueprint),
+    sameProvenance(birthReport?.sources?.buildState, sources?.buildState),
+    sameProvenance(birthReport?.sources?.runState, sources?.runState),
+    sameProvenance(birthReport?.sources?.runEval, sources?.runEval),
+    birthReport?.runtimeEvidence?.runId === runState?.runId,
+    birthReport?.expectedStatus === runEval?.expectedStatus
+      && birthReport?.actualStatus === runState?.execution?.status
+      && runEval?.actualStatus === runState?.execution?.status,
+    birthReportValidation.ok && birthReportValidation.artifactValid === true,
+    birthReport?.promotionEligible === false
+      && birthReport?.evidenceLevels?.domainCertified === false
+      && birthReport?.evidenceLevels?.deliveryReady === false
+      && birthReport?.evidenceLevels?.productionApproved === false,
+  ];
+  const baseChecks = buildChecksFromContract(DELIVERY_REPORT_BASE_CHECK_CONTRACT, basePasses);
+  const domainChecks = domainEval === null
+    ? buildChecksFromContract(DELIVERY_REPORT_OPTIONAL_DOMAIN_CHECK_CONTRACT, [true])
+    : buildChecksFromContract(DELIVERY_REPORT_DOMAIN_CHECK_CONTRACT, [
+        domainEvalValidation.ok,
+        sameProvenance(domainEval?.sources?.blueprint, sources?.blueprint),
+        domainEvalValidation.ok
+          && domainEval?.certificationBoundary?.runtimeCertifiedByDomainEval === false
+          && domainEval?.certificationBoundary?.deliveryReadyByDomainEval === false
+          && domainEval?.certificationBoundary?.productionApprovedByDomainEval === false,
+        domainCertified,
+      ]);
+  const checks = [...baseChecks, ...domainChecks];
+  const ok = checks.every((item) => item.pass);
+  const evidenceLevels = {
+    declaredReady: birthReportValidation.ok && birthReport?.evidenceLevels?.declaredReady === true,
+    liveSuccess: birthReportValidation.ok && birthReport?.evidenceLevels?.liveSuccess === true,
+    domainCertified,
+    deliveryReady: false,
+    productionApproved: false,
+  };
   return {
-    available: isObject(artifact),
-    path: path ?? null,
-    schemaVersion: artifact?.schemaVersion ?? null,
-    expectedSchemaVersion,
-    ok: artifact?.ok ?? null,
+    validation,
+    buildTargetId,
+    runTargetId,
+    domainTargetId,
+    checks,
+    ok,
+    domainCertified,
+    evidenceLevels,
+    nextActions: nextActions({
+      ok,
+      domainCertified,
+      liveSuccess: evidenceLevels.liveSuccess,
+    }),
   };
 }
 
-function resolveEvidenceLevel(runState) {
-  if (runState?.execution?.status === "success" && runState.execution.executed === true && runState.execution.live === true) return "live-success";
-  if (runState?.execution?.status === "failure") return "failure";
-  return "declared";
+function buildChecksFromContract(contract, passes) {
+  return contract.map((spec, index) => check(spec.id, passes[index], spec.message));
 }
 
-function hasNonCertifyingBoundary({ birthReport, runState, runEval }) {
-  return (
-    birthReport?.certificationBoundary?.runtimeCertifiedByBirthReport === false &&
-    birthReport?.certificationBoundary?.domainCertifiedByBirthReport === false &&
-    birthReport?.certificationBoundary?.runtimeCertifiedByRun === false &&
-    birthReport?.certificationBoundary?.domainCertifiedByRun === false &&
-    runState?.certificationBoundary?.runEvidenceCertifiesRuntime === false &&
-    runEval?.certificationBoundary?.runtimeCertifiedByRun === false &&
-    runEval?.certificationBoundary?.domainCertifiedByRun === false
-  );
+function freezeCheckContract(entries) {
+  return Object.freeze(entries.map(([id, message]) => Object.freeze({ id, message })));
 }
 
-function hasValidDomainEvalCertification({ domainEval, blueprint }) {
-  return (
-    isObject(domainEval) &&
-    domainEval.schemaVersion === DOMAIN_EVAL_SCHEMA_VERSION &&
-    domainEval.ok === true &&
-    nonEmptyString(blueprint?.agent_id) &&
-    domainEval.agentId === blueprint.agent_id &&
-    domainEval.runtimeCertifiedByDomainEval !== true &&
-    domainEval.productionApprovedByDomainEval !== true &&
-    domainEval.certificationBoundary?.runtimeCertifiedByDomainEval === false &&
-    domainEval.certificationBoundary?.productionApprovedByDomainEval === false &&
-    domainEval.certificationBoundary?.domainCertifiedByDomainEval === true &&
-    domainEval.domainCertifiedByDomainEval === true
-  );
+function hasDeliveryValidationContext(options) {
+  return options
+    && Object.hasOwn(options, "blueprint")
+    && Object.hasOwn(options, "buildState")
+    && Object.hasOwn(options, "runState")
+    && Object.hasOwn(options, "runEval")
+    && Object.hasOwn(options, "birthReport")
+    && Object.hasOwn(options, "domainEval")
+    && Object.hasOwn(options, "sources");
 }
 
-function domainEvalTargetId(domainEval) {
-  if (!domainEval) return null;
-  return domainEval.target?.effective ?? domainEval.target?.cases ?? domainEval.targetId ?? domainEval.target?.id ?? null;
+function validTarget(value, domainSource) {
+  return hasExactKeys(value, ["buildState", "runState", "domainEval"])
+    && value.buildState === "openclaw"
+    && value.runState === "openclaw"
+    && (domainSource === null ? value.domainEval === null : value.domainEval === "openclaw");
 }
 
-function blueprintTargetSet(blueprint) {
-  return new Set(
-    [
-      blueprint?.runtime,
-      ...(Array.isArray(blueprint?.runtime_profiles) ? blueprint.runtime_profiles.map((profile) => profile?.id) : []),
-      ...(Array.isArray(blueprint?.pipeline?.produce?.runtime_targets) ? blueprint.pipeline.produce.runtime_targets : []),
-    ].filter(nonEmptyString),
-  );
+function validSources(value) {
+  return hasExactKeys(value, ["blueprint", "buildState", "runState", "runEval", "birthReport", "domainEval"])
+    && validProvenance(value.blueprint, "blueprint", "0.1")
+    && validProvenance(value.buildState, "build-state", BUILD_STATE_SCHEMA_VERSION)
+    && validProvenance(value.runState, "run-state", RUN_STATE_SCHEMA_VERSION)
+    && validProvenance(value.runEval, "run-eval", RUN_EVAL_SCHEMA_VERSION)
+    && validProvenance(value.birthReport, "birth-report", BIRTH_REPORT_SCHEMA_VERSION)
+    && (value.domainEval === null || validProvenance(value.domainEval, "domain-eval", DOMAIN_EVAL_SCHEMA_VERSION));
 }
 
-function hasRawTranscriptFinding(audit) {
-  return audit.rawFindings.some((finding) => /rawTranscripts?Stored|rawTranscripts?\b/u.test(finding.pointer));
+function validEvidenceLevels(value, domainCertified) {
+  return hasExactKeys(value, ["declaredReady", "liveSuccess", "domainCertified", "deliveryReady", "productionApproved"])
+    && typeof value.declaredReady === "boolean"
+    && typeof value.liveSuccess === "boolean"
+    && !(value.declaredReady && value.liveSuccess)
+    && value.domainCertified === domainCertified
+    && value.deliveryReady === false
+    && value.productionApproved === false;
 }
 
-function hasRawToolBodyFinding(audit) {
-  return audit.rawFindings.some((finding) => /rawToolBod(?:y|ies)Stored|rawToolBod(?:y|ies)\b/u.test(finding.pointer));
+function validChecks(value, report, hasDomainEval) {
+  const contract = [
+    ...DELIVERY_REPORT_BASE_CHECK_CONTRACT,
+    ...(hasDomainEval ? DELIVERY_REPORT_DOMAIN_CHECK_CONTRACT : DELIVERY_REPORT_OPTIONAL_DOMAIN_CHECK_CONTRACT),
+  ];
+  return Array.isArray(value)
+    && value.length === contract.length
+    && value.every((item, index) => hasExactKeys(item, ["id", "pass", "message"])
+      && item.id === contract[index].id
+      && item.message === contract[index].message
+      && typeof item.pass === "boolean"
+      && standaloneDeliveryCheckMatches(item, report))
+    && report?.ok === value.every((item) => item.pass);
 }
 
-function hasRawOutputPreviewFinding(audit) {
-  return audit.rawFindings.some((finding) => /rawOutputPreviews?Stored|rawOutputPreviews?\b|stdoutPreviews?Stored|stdoutPreviews?\b|stderrPreviews?Stored|stderrPreviews?\b|rawPreviews?Stored|summaryKind|SummaryKind|rawStdoutPreviews?\b|rawStderrPreviews?\b/u.test(finding.pointer));
-}
-
-function summarizeAudit(audit) {
-  return {
-    ok: audit.ok,
-    secretFindingCount: audit.secretFindings.length,
-    rawFindingCount: audit.rawFindings.length,
-    findings: audit.findings.map((finding) => ({ kind: finding.kind, pointer: finding.pointer, message: finding.message })),
+function standaloneDeliveryCheckMatches(item, report) {
+  const hasDomainEval = report?.sources?.domainEval !== null;
+  const expected = {
+    blueprint_valid: report?.validation?.ok === true,
+    target_match: report?.target?.buildState === report?.target?.runState
+      && (!hasDomainEval || report?.target?.domainEval === report?.target?.runState),
+    domain_eval_optional: !hasDomainEval,
+    domain_eval_ok: report?.domainCertified === true,
   };
+  return !Object.hasOwn(expected, item.id) || item.pass === expected[item.id];
 }
 
-function auditMessage(audit) {
-  const raw = audit.rawFindings.map((finding) => finding.pointer);
-  const secret = audit.secretFindings.map((finding) => finding.pointer);
-  const parts = [];
-  if (raw.length > 0) parts.push(`raw evidence markers found: ${raw.join(", ")}`);
-  if (secret.length > 0) parts.push(`secret-like values found: ${secret.join(", ")}`);
-  return parts.join("; ") || "evidence audit failed";
+function validValidation(value) {
+  return hasExactKeys(value, ["ok", "warnings", "errors"])
+    && value.ok === true && stringArray(value.warnings) && stringArray(value.errors);
 }
 
-function nextActions({ ok, domainCertified, runtimePromotionEligible, deliveryReady }) {
-  if (!ok) return ["Fix failed delivery checks, rerun source evidence commands, then regenerate delivery-report."];
-  if (!domainCertified) return ["Run domain-eval with deterministic bounded cases before bounded case-suite domain certification claims."];
-  if (!runtimePromotionEligible) return ["Collect live-success birth evidence before runtime promotion or delivery-ready claims."];
-  if (!deliveryReady) return ["Resolve remaining delivery readiness blockers before release."];
-  return [];
+function nextActions({ ok, domainCertified, liveSuccess }) {
+  if (!ok) return ["Repair invalid or mismatched source evidence before rebuilding delivery-report."];
+  if (!domainCertified) return ["Supply an independently admitted bounded domain evaluation if domain certification is required."];
+  if (!liveSuccess) return ["Collect isolated live evidence independently; bounded domain evidence does not imply live success."];
+  return ["Use a separate reviewed release decision; aggregation does not establish delivery or production approval."];
 }
 
-function isObject(value) {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
+function sameProvenance(left, right) {
+  return left?.identity === right?.identity && left?.subject === right?.subject && left?.digest === right?.digest;
+}
+
+function validProvenance(value, subject, identity) {
+  return hasExactKeys(value, ["identity", "subject", "digest"])
+    && value.identity === identity && value.subject === subject && SHA256_DIGEST_PATTERN.test(value.digest);
+}
+
+function assertDeliveryReportCandidate(report, options) {
+  assertPersistable(report, { subject: "delivery-report" });
+  if (!validateDeliveryReportArtifact(report, options).ok) throw deliveryError("AGENTMO_DELIVERY_REPORT_INVALID");
+}
+
+function check(id, pass, message) {
+  return { id, pass: Boolean(pass), message };
+}
+
+function requireExactKeys(value, keys, label, errors) {
+  if (!hasExactKeys(value, keys)) errors.push(`${label}_fields_invalid`);
+}
+
+function hasExactKeys(value, keys) {
+  if (!plainObject(value)) return false;
+  const actual = Object.keys(value);
+  return actual.length === keys.length && keys.every((key) => Object.hasOwn(value, key));
+}
+
+function plainObject(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null);
 }
 
 function nonEmptyString(value) {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-function check(id, pass, message) {
-  return { id, pass: Boolean(pass), message };
+function stringArray(value) {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+function sameJson(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function deliveryError(code) {
+  const error = new Error("Delivery report artifact operation failed.");
+  error.code = code;
+  return error;
 }

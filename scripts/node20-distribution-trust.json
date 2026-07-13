@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "agentmo.node20-distribution-trust.v1",
+  "distributions": [
+    {
+      "version": "20.20.2",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "archiveName": "node-v20.20.2-darwin-arm64.tar.gz",
+      "archiveSha256": "466e05f3477c20dfb723054dfebffe55bc74660ee77f612166fca121dacb65b6",
+      "checksumManifestSha256": "c6f74825d6ddf350ef06600c67fec6ea2f7996cf438a78c3cb2a89b29d4320ed",
+      "archiveMember": "node-v20.20.2-darwin-arm64/bin/node",
+      "archiveMemberSha256": "38de4fc456c0c439bac48c727d378f749abb4e31f4116703bb1ee9a746fccbb6",
+      "executableSha256": "38de4fc456c0c439bac48c727d378f749abb4e31f4116703bb1ee9a746fccbb6"
+    }
+  ]
+}

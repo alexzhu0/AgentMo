@@ -1,23 +1,28 @@
 import { createHash } from "node:crypto";
-import { readFile, rename, writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
-import { DESIGN_CONTRACT_VERSION, validateBlueprint } from "./blueprint.js";
+import {
+  admittedArtifactProvenance,
+  ArtifactAdmissionError,
+} from "./artifact-admission.js";
+import { renderDigestBindings } from "./artifact-subjects.js";
+import {
+  BLUEPRINT_IDENTITY_FIELD,
+  BLUEPRINT_SCHEMA_VERSION,
+  DESIGN_CONTRACT_VERSION,
+  validateBlueprint,
+} from "./blueprint.js";
 import { DESIGN_PLAN_SCHEMA_VERSION, validateDesignPlan } from "./design-plan.js";
 import { DISCOVERY_DB_SCHEMA_VERSION } from "./discovery-db.js";
+import {
+  PersistabilityError,
+  serializePersistableJson,
+  writePersistableJsonAtomic,
+} from "./persistability.js";
 import { validateSourceRefs } from "./source-refs.js";
 import { USER_NEED_SCHEMA_VERSION, validateUserNeed } from "./user-need.js";
 
 export const BLUEPRINT_DRAFT_SCHEMA_VERSION = "agentmo.blueprint-draft.v1";
-
-export async function loadJsonFile(filePath, subject) {
-  const raw = await readFile(filePath, "utf8");
-  try {
-    return JSON.parse(raw);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Invalid ${subject} JSON ${filePath}: ${message}`);
-  }
-}
+const ADMITTED_BLUEPRINT_DRAFT_CANDIDATES = new WeakSet();
 
 export function draftBlueprint(discoveryDb, userNeed, options = {}) {
   assertDraftInputs(discoveryDb, userNeed);
@@ -25,6 +30,9 @@ export function draftBlueprint(discoveryDb, userNeed, options = {}) {
   const agentId = sanitizeAgentId(userNeed.agent_id ?? discoveryDb.agentId);
   const runtime = resolveRuntime(options.target, options.runtime);
   if (designPlan !== null) assertDesignPlanForDraft(designPlan, { agentId, domain: userNeed.domain, runtime });
+  const admittedInputs = options.admissions === undefined
+    ? null
+    : admittedBlueprintInputs(discoveryDb, userNeed, designPlan, options.admissions);
   const sourceIds = Array.isArray(discoveryDb.sources) ? discoveryDb.sources.map((source) => source.id).filter(nonEmptyString) : [];
   const sourceDescriptions = Array.isArray(discoveryDb.sources)
     ? discoveryDb.sources.map((source) => `${source.id}: ${source.description}`).filter(nonEmptyString)
@@ -42,14 +50,14 @@ export function draftBlueprint(discoveryDb, userNeed, options = {}) {
     forbidden_when: userNeed.hard_failures,
     evidence_policy: "Use bounded discovery-db fact refs and disclose missing or unverified source coverage.",
   }));
-  const releaseTrace = sourceHash({ discoveryDb, userNeed });
+  const releaseTrace = sourceHash(admittedInputs ?? { discoveryDb, userNeed });
 
-  return {
-    agentmother_version: "0.1",
+  const blueprint = {
+    [BLUEPRINT_IDENTITY_FIELD]: BLUEPRINT_SCHEMA_VERSION,
     agent_id: agentId,
     runtime,
     status: "draft",
-    design_contract: buildDesignContractProvenance(designPlan, options.designPlanPath),
+    design_contract: buildDesignContractProvenance(admittedInputs),
     domain_genome: {
       domain: userNeed.domain,
       purpose: userNeed.problem,
@@ -67,7 +75,7 @@ export function draftBlueprint(discoveryDb, userNeed, options = {}) {
       stores: ["agentmo-discovery-db.json", "facts.jsonl", "coverage.json", "agentmo-birth-report.json"],
       required_artifacts: ["discovery pack", "user-need report", "blueprint validation", "handoff package", "birth report"],
       audit_rules: [
-        "Do not store credential values, raw transcripts, raw tool bodies, or production runtime state in managed evidence.",
+        "Do not store credential values, full conversation logs, full tool responses, or production runtime state in managed evidence.",
         "Use bounded fact refs from the discovery pack and disclose unknowns.",
         "Do not claim runtime/domain certification from declared evidence or scaffold smoke alone.",
       ],
@@ -105,18 +113,21 @@ export function draftBlueprint(discoveryDb, userNeed, options = {}) {
       ],
     },
     runtime_profiles: buildRuntimeProfiles(runtime, userNeed, options),
-    pipeline: buildPipeline(discoveryDb, userNeed, runtime, { designPlan, designPlanPath: options.designPlanPath }),
-    stage2_planning:
-      designPlan === null
-        ? undefined
-        : {
+    pipeline: buildPipeline(discoveryDb, userNeed, runtime, { designPlan, target: options.target }),
+    ...(designPlan === null
+      ? {}
+      : {
+          stage2_planning: {
             schemaVersion: designPlan.schemaVersion,
-            review_ref: designPlanReviewRef(designPlan, options.designPlanPath),
+            ...(admittedInputs?.designPlan ? { admission: admittedInputs.designPlan } : {}),
             requirement_count: Array.isArray(designPlan.requirementsTrace) ? designPlan.requirementsTrace.length : 0,
             gap_count: Array.isArray(designPlan.gaps) ? designPlan.gaps.length : 0,
             evidence_policy: "bounded refs only; full Stage 2 evidence map remains in the design-plan artifact",
           },
+        }),
   };
+  if (admittedInputs !== null) ADMITTED_BLUEPRINT_DRAFT_CANDIDATES.add(blueprint);
+  return blueprint;
 }
 
 export function buildBlueprintDraftReport(blueprint, options = {}) {
@@ -133,11 +144,14 @@ export function buildBlueprintDraftReport(blueprint, options = {}) {
 }
 
 export async function writeBlueprintDraft(filePath, blueprint) {
+  if (!ADMITTED_BLUEPRINT_DRAFT_CANDIDATES.has(blueprint)) {
+    throw new PersistabilityError("AGENTMO_PERSISTABILITY_UNADMITTED_CANDIDATE");
+  }
+  const validation = validateBlueprint(blueprint);
+  if (!validation.ok) throw new PersistabilityError("AGENTMO_PERSISTABILITY_INVALID_CANDIDATE");
+  serializePersistableJson(blueprint, { subject: "blueprint-draft" });
   const target = path.resolve(filePath);
-  await mkdir(path.dirname(target), { recursive: true });
-  const temporaryFile = `${target}.tmp-${process.pid}-${Date.now()}`;
-  await writeFile(temporaryFile, `${JSON.stringify(blueprint, null, 2)}\n`, "utf8");
-  await rename(temporaryFile, target);
+  await writePersistableJsonAtomic(target, blueprint, { subject: "blueprint-draft" });
   return target;
 }
 
@@ -199,27 +213,20 @@ function assertDesignPlanForDraft(designPlan, { agentId, domain, runtime }) {
   if (designPlan.targetRuntime !== runtime) throw new Error(`design-plan target runtime ${designPlan.targetRuntime} does not match blueprint runtime ${runtime}.`);
 }
 
-function buildDesignContractProvenance(designPlan = null, designPlanPath = null) {
-  if (designPlan !== null) {
-    return {
-      provenance: {
-        source: "agentmo-stage2",
-        reviewed: true,
-        review_ref: designPlanReviewRef(designPlan, designPlanPath),
-        contract_version: DESIGN_CONTRACT_VERSION,
-        notes:
-          "Generated by AgentMo Stage 2 from a validated design-plan contract; this is an admission record only, not runtime/domain certification.",
-      },
-    };
-  }
+function buildDesignContractProvenance(admittedInputs) {
+  const admittedArtifacts = admittedInputs === null
+    ? []
+    : [admittedInputs.discoveryDb, admittedInputs.userNeed, admittedInputs.designPlan].filter(Boolean);
   return {
     provenance: {
       source: "agentmo-stage2",
-      reviewed: true,
-      review_ref: "blueprint-draft:agentmo.discovery-db.v1+agentmo.user-need.v1",
+      reviewed: admittedInputs !== null,
+      ...(admittedInputs === null ? {} : { review_ref: admissionReviewRef(admittedArtifacts) }),
       contract_version: DESIGN_CONTRACT_VERSION,
-      notes:
-        "Generated by AgentMo Stage 2 from validated discovery-db and user-need artifacts; this is an admission record only, not runtime/domain certification.",
+      notes: admittedInputs === null
+        ? "In-memory Stage 2 draft; persistence requires exact admitted inputs and does not certify runtime or domain behavior."
+        : "Generated from exact admitted Stage 2 artifacts; admission does not certify runtime or domain behavior.",
+      admitted_artifacts: admittedArtifacts,
     },
   };
 }
@@ -229,7 +236,7 @@ function buildPipeline(discoveryDb, userNeed, runtime, options = {}) {
     "agentmo-discovery-db.json",
     "facts.jsonl",
     "agentmo.user-need.v1",
-    ...(options.designPlan ? ["agentmo.design-plan.v1", boundedPath(options.designPlanPath) ?? "agentmo-design-plan.json"] : []),
+    ...(options.designPlan ? ["agentmo.design-plan.v1"] : []),
     ...(Array.isArray(userNeed.source_refs) ? userNeed.source_refs : []),
   ];
   const planningOutputs = options.designPlan
@@ -255,15 +262,10 @@ function buildPipeline(discoveryDb, userNeed, runtime, options = {}) {
       coding_tools: ["Codex", "AgentMo CLI", runtime === "openclaw" ? "OpenClaw" : "selected runtime"],
       runtime_targets: [runtime],
       generated_outputs: ["agent prompt/workspace", "tool contract implementation", "eval fixtures", "runbook", "birth report"],
-      verification_steps: ["agentmo validate", "agentmo scaffold", "agentmo run-eval", "agentmo birth-report", "npm run check"],
+      verification_steps: buildVerificationCommands(runtime, options.target),
       done_when: ["declared birth gate passes", "live-success birth gate passes before runtime promotion", "known risks are recorded"],
     },
   };
-}
-
-function designPlanReviewRef(designPlan, designPlanPath) {
-  const bounded = boundedPath(designPlanPath);
-  return `design-plan:${bounded ?? `${designPlan.schemaVersion}:${designPlan.agentId}`}`;
 }
 
 function boundedPath(filePath) {
@@ -278,22 +280,47 @@ function buildRuntimeProfiles(runtime, userNeed, options) {
     status: runtime === "openclaw" ? "experimental" : "planned",
     purpose: `${runtime} runtime profile for ${userNeed.agent_id} MVP production path.`,
     owned_surfaces: ["generated workspace", "agent config", "runbook", "birth report"],
-    evidence_boundaries: ["bounded discovery pack", "managed run-state", "birth-report summary", "no raw transcripts by default"],
+    evidence_boundaries: ["bounded discovery pack", "managed run-state", "birth-report summary", "no full conversation logs by default"],
     source_refs: userNeed.source_refs ?? [],
     transfer_rules: ["Keep provider, model, runtime, channel, and target evidence separate."],
     supported_assets: ["generated scaffold", "handoff package", "declared run evidence"],
     unsupported_surfaces: ["production deployment", "domain certification", "runtime parity without live-success eval evidence"],
     install_or_onramp: `Use agentmo handoff --target ${options.target ?? "openclaw"} and run the birth gate before promotion.`,
-    verification_commands: [
-      "agentmo validate <blueprint>",
-      "agentmo birth-report <blueprint> --build-state <agentmo-build-state.json> --run-state <run-state.json> --run-eval <run-eval.json> --expect-status declared",
-      "npm run check",
-    ],
+    verification_commands: buildVerificationCommands(runtime, options.target),
     risk_notes: ["Draft runtime profile is not certified until live-success birth evidence exists."],
     owner: "AgentMo MVP operator",
     last_verified_at: "2026-07-06",
   };
   return [baseProfile];
+}
+
+function buildVerificationCommands(runtime, requestedTarget) {
+  const target = requestedTarget ?? (runtime === "openclaw" ? "openclaw" : "agentmo");
+  const blueprintPath = "<blueprint.json>";
+  const runtimePlanPath = "<runtime-plan.json>";
+  const buildStatePath = "<agentmo-build-state.json>";
+  const runStatePath = "<run-state.json>";
+  const runEvalPath = "<run-eval.json>";
+  const birthReportPath = "<birth-report.json>";
+  const commands = [
+    `agentmo validate "${blueprintPath}" ${renderDigestBindings("validate", { blueprint: blueprintPath })}`,
+    `agentmo scaffold "${blueprintPath}" ${renderDigestBindings("scaffold", { blueprint: blueprintPath })} --target "${target}" --out "<runtime-output>"`,
+  ];
+  if (runtime === "openclaw") {
+    commands.push(
+      `agentmo run-plan "${blueprintPath}" ${renderDigestBindings("run-plan", { blueprint: blueprintPath })} --target "openclaw" --workspace "<runtime-workspace>" --message "<smoke-message>" --json > "${runtimePlanPath}"`,
+      `agentmo run "${runtimePlanPath}" ${renderDigestBindings("run", { "runtime-plan": runtimePlanPath })} --workspace "<runtime-workspace>" --message "<smoke-message>" --out "<run-output>" --json`,
+      `agentmo run-eval "${runStatePath}" ${renderDigestBindings("run-eval", { "run-state": runStatePath })} --expect-status "declared" --json > "${runEvalPath}"`,
+      `agentmo birth-report "${blueprintPath}" ${renderDigestBindings("birth-report", {
+        blueprint: blueprintPath,
+        "build-state": buildStatePath,
+        "run-state": runStatePath,
+        "run-eval": runEvalPath,
+      })} --build-state "${buildStatePath}" --run-state "${runStatePath}" --run-eval "${runEvalPath}" --expect-status "declared" --json > "${birthReportPath}"`,
+    );
+  }
+  commands.push("npm run check");
+  return commands;
 }
 
 function defaultTool(agentId, userNeed) {
@@ -330,6 +357,45 @@ function sourceHash(value) {
   return createHash("sha256").update(stableStringify(value)).digest("hex");
 }
 
+function admittedBlueprintInputs(discoveryDb, userNeed, designPlan, admissions) {
+  const expectedKeys = designPlan === null
+    ? ["discoveryDb", "userNeed"]
+    : ["discoveryDb", "userNeed", "designPlan"];
+  if (!isObject(admissions) || !hasExactKeys(admissions, expectedKeys)) {
+    throw new ArtifactAdmissionError("AGENTMO_ARTIFACT_ADMISSION_RESULT_INVALID");
+  }
+  return {
+    discoveryDb: admittedArtifactProvenance(admissions.discoveryDb, {
+      subject: "discovery-db",
+      value: discoveryDb,
+    }),
+    userNeed: admittedArtifactProvenance(admissions.userNeed, {
+      subject: "user-need",
+      value: userNeed,
+    }),
+    ...(designPlan === null
+      ? {}
+      : {
+          designPlan: admittedArtifactProvenance(admissions.designPlan, {
+            subject: "design-plan",
+            value: designPlan,
+          }),
+        }),
+  };
+}
+
+function admissionReviewRef(admittedArtifacts) {
+  const digest = createHash("sha256")
+    .update(admittedArtifacts.map((item) => `${item.subject}=${item.digest}`).join("\n"))
+    .digest("hex");
+  return `admitted-inputs:sha256:${digest}`;
+}
+
+function hasExactKeys(value, expected) {
+  const keys = Object.keys(value);
+  return keys.length === expected.length && expected.every((key) => keys.includes(key));
+}
+
 function stableStringify(value) {
   if (Array.isArray(value)) return `[${value.map((item) => stableStringify(item)).join(",")}]`;
   if (value && typeof value === "object") {
@@ -343,4 +409,8 @@ function stableStringify(value) {
 
 function nonEmptyString(value) {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+function isObject(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

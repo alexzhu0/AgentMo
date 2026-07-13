@@ -1,20 +1,69 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-import { mkdtemp, readFile, readdir } from "node:fs/promises";
+import { mkdtemp, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { buildRuntimePlan, FRESH_RUN_SESSION_KEY_PLACEHOLDER, RUNTIME_PLAN_SCHEMA_VERSION, RUNTIME_PROXY_ENV_KEYS } from "../src/runtime-plan.js";
+import { describe, it } from "node:test";
+import { digestRawBytes } from "../src/artifact-admission.js";
+import {
+  buildRuntimePlan,
+  FRESH_RUN_SESSION_KEY_PLACEHOLDER,
+  RUNTIME_PLAN_SCHEMA_VERSION,
+  RUNTIME_PROXY_ENV_KEYS,
+  TRANSIENT_MESSAGE_PLACEHOLDER,
+  validateRuntimePlanArtifact,
+} from "../src/runtime-plan.js";
+import { assertPersistable, isRedactedSummary } from "../src/persistability.js";
+import { admitBlueprint } from "./helpers/admitted-blueprint.js";
+import { buildAndAdmitRuntimePlan as createAdmittedRuntimePlan } from "./helpers/admitted-runtime.js";
 
-async function loadExample() {
-  return JSON.parse(await readFile(new URL("../examples/win9.agentmo.json", import.meta.url), "utf8"));
+const BLUEPRINT = new URL("../examples/win9.agentmo.json", import.meta.url);
+
+async function buildPlan(options) {
+  const admission = await admitBlueprint(BLUEPRINT);
+  const plan = await buildRuntimePlan(admission.value, { ...options, admission });
+  return { admission, plan };
+}
+
+function transientPath(name) {
+  return { kind: "TransientPathRef", name, persisted: false };
 }
 
 describe("runtime plan", () => {
-  it("builds deterministic OpenClaw runtime plans without writing files", async () => {
-    const blueprint = await loadExample();
+  it("keeps message bytes and host paths transient while closing the durable plan", async () => {
+    const blueprintAdmission = await admitBlueprint(BLUEPRINT);
+    const canary = "plan-message-canary";
+    const { runtimePlan: plan } = await createAdmittedRuntimePlan(blueprintAdmission.value, {
+      target: "openclaw",
+      workspace: "/private/host/workspace-canary",
+      openClawSourceRoot: "/private/host/source-canary",
+      openClawStateDir: "/private/host/state-canary",
+      messageFile: "/private/host/message-canary.txt",
+      messageFileContent: canary,
+    });
+
+    assert.equal(validateRuntimePlanArtifact(plan).ok, true);
+    assert.equal(isRedactedSummary(plan.message.summary), true);
+    assert.equal(plan.message.sourceDigest, digestRawBytes(Buffer.from(canary)));
+    assert.equal(plan.message.byteLength, Buffer.byteLength(canary));
+    assert.deepEqual(plan.runtimeIdentity.workspace, transientPath("workspace"));
+    assert.deepEqual(plan.runtimeIdentity.sandboxScope.workspaceRoot, transientPath("workspace"));
+    assert.deepEqual(plan.runtimeIdentity.sandboxScope.sourceRoot, transientPath("openclaw-source-root"));
+    assert.deepEqual(plan.runtimeIdentity.sandboxScope.state, transientPath("openclaw-state"));
+    assert.deepEqual(plan.command.cwd, transientPath("openclaw-source-root"));
+    assert.equal(plan.command.args.includes(TRANSIENT_MESSAGE_PLACEHOLDER), true);
+    assert.doesNotThrow(() => assertPersistable(plan, { subject: "runtime-plan" }));
+    const serialized = JSON.stringify(plan);
+    for (const forbidden of [canary, "/private/host", "message-canary.txt"]) {
+      assert.equal(serialized.includes(forbidden), false);
+    }
+  });
+
+  it("builds deterministic admitted OpenClaw runtime plans without writing the workspace", async () => {
+    const admission = await admitBlueprint(BLUEPRINT);
     const workspace = await mkdtemp(path.join(tmpdir(), "agentmo-runtime-plan-"));
-    const first = buildRuntimePlan(blueprint, { target: "openclaw", workspace, message: "ping" });
-    const second = buildRuntimePlan(blueprint, { target: "openclaw", workspace, message: "ping" });
+    const options = { admission, target: "openclaw", workspace, message: "ping" };
+    const first = await buildRuntimePlan(admission.value, options);
+    const second = await buildRuntimePlan(admission.value, options);
 
     assert.deepEqual(first, second);
     assert.equal(first.schemaVersion, RUNTIME_PLAN_SCHEMA_VERSION);
@@ -22,6 +71,7 @@ describe("runtime plan", () => {
     assert.equal(first.target.id, "openclaw");
     assert.equal(first.selectedRuntimeProfileId, "openclaw");
     assert.equal(first.executionSessionPolicy, "fresh-per-run");
+    assert.deepEqual(first.source, { identity: "0.1", subject: "blueprint", digest: admission.digest });
     assert.deepEqual(first.runtimeIdentity.selector.routingSelector, { agent: "win9" });
     assert.equal(first.runtimeIdentity.selector.executionSelector.sessionKey, FRESH_RUN_SESSION_KEY_PLACEHOLDER);
     assert.equal(first.runtimeIdentity.selector.executionSelector.generated, true);
@@ -33,23 +83,36 @@ describe("runtime plan", () => {
     assert.equal(first.runtimeIdentity.backend, "openclaw-cli");
     assert.equal(first.runtimeIdentity.transport, "unknown");
     assert.equal(first.runtimeIdentity.fallbackFrom, null);
-    assert.equal(first.runtimeIdentity.sandboxScope.workspaceRoot, path.resolve(workspace));
+    assert.deepEqual(first.runtimeIdentity.workspace, transientPath("workspace"));
+    assert.deepEqual(first.runtimeIdentity.sandboxScope.workspaceRoot, transientPath("workspace"));
+    assert.equal(first.runtimeIdentity.sandboxScope.state, null);
+    assert.equal(first.runtimeIdentity.sandboxScope.sourceRoot, null);
     assert.equal(first.runtimeIdentity.sandboxScope.usesProductionState, false);
-    assert.equal(first.runtimeIdentity.sandboxScope.stateDir, null);
+    assert.equal(first.command.cwd, null);
     assert.equal(first.command.timeoutMs, 120000);
-    assert.equal(first.message.messageMode, "inline");
-    assert.equal(first.message.inlineMessage, "ping");
+    assert.equal(first.message.sourceDigest, digestRawBytes(Buffer.from("ping")));
+    assert.equal(first.message.byteLength, 4);
+    assert.equal(isRedactedSummary(first.message.summary), true);
     assert.equal(first.command.executable, "openclaw");
-    assert.deepEqual(first.command.args, ["agent", "--json", "--agent", "win9", "--session-key", FRESH_RUN_SESSION_KEY_PLACEHOLDER, "--message", "ping"]);
+    assert.deepEqual(first.command.args, [
+      "agent",
+      "--json",
+      "--agent",
+      "win9",
+      "--session-key",
+      FRESH_RUN_SESSION_KEY_PLACEHOLDER,
+      "--message",
+      TRANSIENT_MESSAGE_PLACEHOLDER,
+    ]);
     assert.equal(first.command.mutatesOpenClawState, false);
     assert.equal(first.certificationBoundary.runEvidenceCertifiesRuntime, false);
-    assert.equal(first.unsupportedSurfaces.includes("Runtime certification is not implied by scaffold generation."), true);
+    assert.equal(first.unsupportedSurfaceDigests.length > 0, true);
+    assert.equal(first.unsupportedSurfaceDigests.every((digest) => /^sha256:[a-f0-9]{64}$/u.test(digest)), true);
     assert.deepEqual(await readdir(workspace), []);
   });
 
-  it("builds source checkout command plans", async () => {
-    const blueprint = await loadExample();
-    const plan = buildRuntimePlan(blueprint, {
+  it("builds source-checkout command templates without retaining the checkout path or message", async () => {
+    const { plan } = await buildPlan({
       target: "openclaw",
       workspace: "/tmp/workspace",
       openClawSourceRoot: "/tmp/openclaw-source",
@@ -74,7 +137,7 @@ describe("runtime plan", () => {
     assert.equal(plan.runtimeIdentity.selector.executionSelector.sessionKey, "smoke-session");
     assert.equal(plan.runtimeIdentity.selector.executionSelector.generated, false);
     assert.equal(plan.command.executable, "pnpm");
-    assert.equal(plan.command.cwd, path.resolve("/tmp/openclaw-source"));
+    assert.deepEqual(plan.command.cwd, transientPath("openclaw-source-root"));
     assert.deepEqual(plan.command.args, [
       "openclaw",
       "agent",
@@ -89,13 +152,16 @@ describe("runtime plan", () => {
       "--session-key",
       "smoke-session",
       "--message",
-      "ping",
+      TRANSIENT_MESSAGE_PLACEHOLDER,
     ]);
+    const serialized = JSON.stringify(plan);
+    assert.equal(serialized.includes("/tmp/openclaw-source"), false);
+    assert.equal(serialized.includes("ping"), false);
   });
 
-  it("records env-file key presence without persisting secret values", async () => {
-    const blueprint = await loadExample();
-    const plan = buildRuntimePlan(blueprint, {
+  it("records exact SecretPresence and message summaries without env values", async () => {
+    const message = "use deepseek-secret-value carefully";
+    const { plan } = await buildPlan({
       target: "openclaw",
       workspace: "/tmp/workspace",
       openClawStateDir: "/tmp/openclaw-state",
@@ -105,25 +171,34 @@ describe("runtime plan", () => {
       envFile: "/tmp/agentmo/.env",
       envFileContent:
         "DEEPSEEK_API_KEY=deepseek-secret-value\nDEEPSEEK_BASE_URL=https://api.deepseek.com\nOPENCLAW_GATEWAY_URL=ws://127.0.0.1:28765\nOPENCLAW_GATEWAY_PORT=28765\nIGNORED=value\n",
-      message: "use deepseek-secret-value carefully",
+      message,
     });
 
-    assert.deepEqual(plan.runtimeIdentity.runtimeEnv.envFile, { basename: ".env", fullPathPersisted: false });
+    assert.deepEqual(Object.keys(plan.runtimeIdentity.runtimeEnv), [
+      "kind",
+      "source",
+      "allowedNames",
+      "presentNames",
+      "missingNames",
+      "valuesPersisted",
+    ]);
+    assert.equal(plan.runtimeIdentity.runtimeEnv.kind, "SecretPresence");
     assert.equal(plan.runtimeIdentity.runtimeEnv.valuesPersisted, false);
-    assert.deepEqual(plan.runtimeIdentity.runtimeEnv.presentKeys, [
+    assert.deepEqual(plan.runtimeIdentity.runtimeEnv.presentNames, [
       "DEEPSEEK_API_KEY",
       "DEEPSEEK_BASE_URL",
       "OPENCLAW_GATEWAY_PORT",
       "OPENCLAW_GATEWAY_URL",
     ]);
-    assert.equal(plan.runtimeIdentity.runtimeEnv.allowedKeys.includes("IGNORED"), false);
+    assert.equal(plan.runtimeIdentity.runtimeEnv.allowedNames.includes("IGNORED"), false);
     assert.equal(plan.runtimeIdentity.sandboxScope.environmentAllowlist.includes("DEEPSEEK_API_KEY"), true);
     assert.equal(plan.runtimeIdentity.sandboxScope.environmentAllowlist.includes("OPENCLAW_GATEWAY_URL"), true);
-    assert.equal(plan.runtimeIdentity.sandboxScope.environmentAllowlist.includes("OPENCLAW_GATEWAY_PORT"), true);
-    assert.equal(plan.message.messageMode, "file");
-    assert.equal(plan.message.messagePreview.includes("deepseek-secret-value"), false);
-    assert.equal(JSON.stringify(plan).includes("deepseek-secret-value"), false);
-    assert.equal(JSON.stringify(plan).includes("/tmp/agentmo/.env"), false);
+    assert.equal(plan.message.sourceDigest, digestRawBytes(Buffer.from(message)));
+    assert.equal(plan.message.byteLength, Buffer.byteLength(message));
+    assert.equal(isRedactedSummary(plan.message.summary), true);
+    const serialized = JSON.stringify(plan);
+    assert.equal(serialized.includes("deepseek-secret-value"), false);
+    assert.equal(serialized.includes("/tmp/agentmo/.env"), false);
   });
 
   it("allowlists proxy env keys for runtime reachability without persisting proxy values", async () => {
@@ -132,8 +207,7 @@ describe("runtime plan", () => {
     process.env.HTTPS_PROXY = "http://127.0.0.1:7897";
 
     try {
-      const blueprint = await loadExample();
-      const plan = buildRuntimePlan(blueprint, {
+      const { plan } = await buildPlan({
         target: "openclaw",
         workspace: "/tmp/workspace",
         provider: "deepseek",
@@ -154,91 +228,108 @@ describe("runtime plan", () => {
     }
   });
 
-  it("plans message-file provenance for multiline inline messages", async () => {
-    const blueprint = await loadExample();
-    const plan = buildRuntimePlan(blueprint, { target: "openclaw", workspace: "/tmp/workspace", message: "line 1\nline 2" });
+  it("represents multiline inline messages only by exact digest, byte length, and summary", async () => {
+    const message = "line 1\nline 2";
+    const { plan } = await buildPlan({ target: "openclaw", workspace: "/tmp/workspace", message });
 
-    assert.equal(plan.message.messageMode, "file");
-    assert.equal(plan.message.inlineMessage, null);
-    assert.equal(plan.message.messageFile.planned, true);
-    assert.match(plan.message.messageFile.path, /^messages\/[a-f0-9]{16}\.txt$/u);
-    assert.equal(plan.command.args.includes("--message-file"), true);
-    assert.equal(plan.command.args.includes(plan.message.messageFile.path), true);
+    assert.equal(plan.message.sourceDigest, digestRawBytes(Buffer.from(message)));
+    assert.equal(plan.message.byteLength, Buffer.byteLength(message));
+    assert.equal(isRedactedSummary(plan.message.summary), true);
+    assert.equal(Object.hasOwn(plan.message, "inlineMessage"), false);
+    assert.equal(Object.hasOwn(plan.message, "messageFile"), false);
+    assert.equal(plan.command.args.includes("--message-file"), false);
+    assert.equal(plan.command.args.includes(TRANSIENT_MESSAGE_PLACEHOLDER), true);
+    assert.equal(JSON.stringify(plan).includes(message), false);
   });
 
-  it("plans existing message-file provenance", async () => {
-    const blueprint = await loadExample();
-    const plan = buildRuntimePlan(blueprint, {
+  it("represents message-file input without retaining its host path or bytes", async () => {
+    const message = "from file";
+    const { plan } = await buildPlan({
       target: "openclaw",
       workspace: "/tmp/workspace",
       messageFile: "/tmp/message.txt",
-      messageFileContent: "from file",
+      messageFileContent: message,
     });
 
-    assert.equal(plan.message.messageMode, "file");
-    assert.equal(plan.message.messageLength, "from file".length);
-    assert.equal(plan.message.messageFile.path, path.resolve("/tmp/message.txt"));
-    assert.equal(plan.message.messageFile.planned, false);
-    assert.equal(plan.message.messageFile.digestVerified, true);
+    assert.equal(plan.message.sourceDigest, digestRawBytes(Buffer.from(message)));
+    assert.equal(plan.message.byteLength, Buffer.byteLength(message));
+    assert.equal(isRedactedSummary(plan.message.summary), true);
+    assert.equal(Object.hasOwn(plan.message, "messageFile"), false);
+    assert.equal(plan.command.args.includes(TRANSIENT_MESSAGE_PLACEHOLDER), true);
+    const serialized = JSON.stringify(plan);
+    assert.equal(serialized.includes("/tmp/message.txt"), false);
+    assert.equal(serialized.includes(message), false);
   });
 
-  it("records sandbox scope and redacts secret-like message evidence", async () => {
-    const blueprint = await loadExample();
-    const plan = buildRuntimePlan(blueprint, {
+  it("records transient sandbox scope and summarizes secret-like messages", async () => {
+    const message = "api_key=secret sk-abcdefghijklmnop";
+    const { plan } = await buildPlan({
       target: "openclaw",
       workspace: "/tmp/workspace",
       openClawStateDir: "/tmp/openclaw-state",
-      message: "api_key=secret sk-abcdefghijklmnop",
+      message,
       timeoutMs: 5000,
     });
 
-    assert.equal(plan.runtimeIdentity.sandboxScope.stateDir, path.resolve("/tmp/openclaw-state"));
+    assert.deepEqual(plan.runtimeIdentity.sandboxScope.state, transientPath("openclaw-state"));
     assert.equal(plan.runtimeIdentity.sandboxScope.usesProductionState, false);
     assert.equal(plan.command.timeoutMs, 5000);
-    assert.equal(plan.message.messageMode, "file");
-    assert.equal(plan.message.messagePreview.includes("secret"), false);
-    assert.equal(plan.message.messagePreview.includes("[REDACTED_SECRET]"), true);
-    assert.equal(JSON.stringify(plan).includes("api_key=secret"), false);
-    assert.equal(JSON.stringify(plan).includes("sk-abcdefghijklmnop"), false);
+    assert.equal(plan.message.sourceDigest, digestRawBytes(Buffer.from(message)));
+    assert.equal(plan.message.byteLength, Buffer.byteLength(message));
+    assert.equal(isRedactedSummary(plan.message.summary), true);
+    assert.equal(plan.message.summary.text.includes("secret"), false);
+    const serialized = JSON.stringify(plan);
+    assert.equal(serialized.includes("api_key=secret"), false);
+    assert.equal(serialized.includes("sk-abcdefghijklmnop"), false);
+    assert.equal(serialized.includes("/tmp/openclaw-state"), false);
   });
 
-  it("rejects unsupported or incomplete runtime requests", async () => {
-    const blueprint = await loadExample();
-    assert.throws(() => buildRuntimePlan(blueprint, { target: "agentmo", workspace: "/tmp/workspace", message: "ping" }), /Runtime planning supports target openclaw/u);
-    assert.throws(() => buildRuntimePlan(blueprint, { target: "openclaw", message: "ping" }), /Missing required workspace path/u);
-    assert.throws(() => buildRuntimePlan(blueprint, { target: "openclaw", workspace: "/tmp/workspace" }), /Missing message input/u);
-    assert.throws(
-      () =>
-        buildRuntimePlan(blueprint, {
-          target: "openclaw",
-          workspace: "/tmp/workspace",
-          message: "ping",
-          openClawStateDir: "/tmp/state",
-          useProductionOpenClawState: true,
-        }),
+  it("rejects unsupported or incomplete runtime requests after authentic blueprint admission", async () => {
+    const admission = await admitBlueprint(BLUEPRINT);
+    const build = (options) => buildRuntimePlan(admission.value, { ...options, admission });
+
+    await assert.rejects(
+      () => build({ target: "agentmo", workspace: "/tmp/workspace", message: "ping" }),
+      /Runtime planning supports target openclaw/u,
+    );
+    await assert.rejects(
+      () => build({ target: "openclaw", message: "ping" }),
+      /Missing required workspace path/u,
+    );
+    await assert.rejects(
+      () => build({ target: "openclaw", workspace: "/tmp/workspace" }),
+      /Missing message input/u,
+    );
+    await assert.rejects(
+      () => build({
+        target: "openclaw",
+        workspace: "/tmp/workspace",
+        message: "ping",
+        openClawStateDir: "/tmp/state",
+        useProductionOpenClawState: true,
+      }),
       /Pass either --openclaw-state-dir or --use-production-openclaw-state/u,
     );
-    assert.throws(
-      () => buildRuntimePlan(blueprint, { target: "openclaw", workspace: "/tmp/workspace", message: "ping", timeoutMs: 0 }),
+    await assert.rejects(
+      () => build({ target: "openclaw", workspace: "/tmp/workspace", message: "ping", timeoutMs: 0 }),
       /--timeout-ms must be a positive integer/u,
     );
-    assert.throws(
-      () => buildRuntimePlan(blueprint, { target: "openclaw", workspace: "/tmp/workspace", message: "ping", transport: "telepathy" }),
+    await assert.rejects(
+      () => build({ target: "openclaw", workspace: "/tmp/workspace", message: "ping", transport: "telepathy" }),
       /Unsupported --transport telepathy/u,
     );
-    assert.throws(
-      () => buildRuntimePlan(blueprint, { target: "openclaw", workspace: "/tmp/workspace", message: "ping", thinking: "forever" }),
+    await assert.rejects(
+      () => build({ target: "openclaw", workspace: "/tmp/workspace", message: "ping", thinking: "forever" }),
       /Unsupported --thinking forever/u,
     );
-    assert.throws(
-      () =>
-        buildRuntimePlan(blueprint, {
-          target: "openclaw",
-          workspace: "/tmp/workspace",
-          sessionKey: "one",
-          sessionId: "two",
-          message: "ping",
-        }),
+    await assert.rejects(
+      () => build({
+        target: "openclaw",
+        workspace: "/tmp/workspace",
+        sessionKey: "one",
+        sessionId: "two",
+        message: "ping",
+      }),
       /Pass at most one of --session-key, --session-id, or --to/u,
     );
   });

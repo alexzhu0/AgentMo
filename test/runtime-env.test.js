@@ -1,8 +1,28 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { assertRuntimeEnvReady, parseEnvFileContent, resolveRuntimeEnv } from "../src/runtime-env.js";
+import { isSecretPresence } from "../src/persistability.js";
 
 describe("runtime env descriptor", () => {
+  it("uses the exact SecretPresence carrier for durable environment evidence", () => {
+    const runtimeEnv = resolveRuntimeEnv({
+      envFile: "/private/host/canary/.env",
+      envFileContent: "DEEPSEEK_API_KEY=runtime-secret-canary\n",
+    });
+
+    assert.equal(isSecretPresence(runtimeEnv.descriptor), true);
+    assert.deepEqual(Object.keys(runtimeEnv.descriptor), [
+      "kind",
+      "source",
+      "allowedNames",
+      "presentNames",
+      "missingNames",
+      "valuesPersisted",
+    ]);
+    assert.equal(JSON.stringify(runtimeEnv.descriptor).includes("runtime-secret-canary"), false);
+    assert.equal(JSON.stringify(runtimeEnv.descriptor).includes("/private/host/canary"), false);
+  });
+
   it("parses dotenv files and records only key presence", () => {
     const parsed = parseEnvFileContent(`
 # comment
@@ -25,10 +45,8 @@ IGNORED=value
     assert.equal(runtimeEnv.values.OPENCLAW_GATEWAY_URL, "ws://127.0.0.1:28765");
     assert.equal(runtimeEnv.values.OPENCLAW_GATEWAY_PORT, "28765");
     assert.equal("IGNORED" in runtimeEnv.values, false);
-    assert.equal(runtimeEnv.descriptor.envFile.basename, ".env");
-    assert.equal(runtimeEnv.descriptor.envFile.fullPathPersisted, false);
     assert.equal(runtimeEnv.descriptor.valuesPersisted, false);
-    assert.deepEqual(runtimeEnv.descriptor.presentKeys, [
+    assert.deepEqual(runtimeEnv.descriptor.presentNames, [
       "DEEPSEEK_API_KEY",
       "DEEPSEEK_BASE_URL",
       "OPENCLAW_GATEWAY_PORT",

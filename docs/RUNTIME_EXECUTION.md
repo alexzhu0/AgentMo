@@ -1,13 +1,18 @@
 # AgentMo Runtime Execution
 
+Runtime execution, live smoke, run-eval, birth, delivery, and release evidence are Produce-internal gates. A run result does not certify runtime parity, domain-wide quality, production readiness, or deployment approval by itself.
+
 AgentMo runtime execution is evidence-first. It prepares, records, replays, and evaluates OpenClaw runtime evidence without treating that evidence as runtime/domain certification.
+
+AgentMo core supports Node.js `>=20`; direct OpenClaw target mutation separately requires `>=22.19.0 <23 || >=23.11.0`. `node ./bin/agentmo.js runtime-check --target openclaw` is the sole operator preflight; do not replace it with shell version arithmetic or treat it as live-success evidence.
 
 ## Dry-run planning
 
 `agentmo run-plan` prepares an OpenClaw command descriptor and evidence schema without starting OpenClaw, writing OpenClaw state, writing run-state, or certifying runtime behavior.
 
 ```bash
-node ./bin/agentmo.js run-plan examples/win9.agentmo.json --target openclaw --workspace /tmp/win9-openclaw/openclaw/workspace --agent win9 --provider deepseek --model deepseek/deepseek-v4-flash --thinking off --channel local-cli --transport local --env-file .env --message "Say exactly: ok" --json
+digest_file() { node -e 'const fs=require("node:fs");const crypto=require("node:crypto");fs.writeSync(1,"sha256:"+crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex"));' "$1"; }
+node ./bin/agentmo.js run-plan examples/win9.agentmo.json --target openclaw --workspace /tmp/win9-openclaw/openclaw/workspace --agent win9 --provider deepseek --model deepseek/deepseek-v4-flash --thinking off --channel local-cli --transport local --runtime-env-file .env --message "Say exactly: ok" --json --digest "blueprint=$(digest_file "examples/win9.agentmo.json")"
 ```
 
 The plan records:
@@ -27,8 +32,10 @@ When proxy variables are present in the operator process (`HTTP_PROXY`, `HTTPS_P
 
 ```bash
 RUN_OUT=/tmp/agentmo-runtime-output
-node ./bin/agentmo.js run examples/win9.agentmo.json --target openclaw --workspace /tmp/win9-openclaw/openclaw/workspace --agent win9 --message "Say exactly: ok" --out "$RUN_OUT" --json
-node ./bin/agentmo.js status examples/win9.agentmo.json --run-dir "$RUN_OUT" --json
+RUNTIME_PLAN=/tmp/win9-runtime-plan.json
+digest_file() { node -e 'const fs=require("node:fs");const crypto=require("node:crypto");fs.writeSync(1,"sha256:"+crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex"));' "$1"; }
+node ./bin/agentmo.js run-plan examples/win9.agentmo.json --target openclaw --workspace /tmp/win9-openclaw/openclaw/workspace --agent win9 --message "Say exactly: ok" --json --digest "blueprint=$(digest_file "examples/win9.agentmo.json")" > "$RUNTIME_PLAN"
+node ./bin/agentmo.js run "$RUNTIME_PLAN" --workspace /tmp/win9-openclaw/openclaw/workspace --message "Say exactly: ok" --out "$RUN_OUT" --json --digest "runtime-plan=$(digest_file "$RUNTIME_PLAN")"
 ```
 
 Each run-state stores command descriptor, selected target, execution status, stdout/stderr evidence summaries, message provenance, source blueprint hash, replay policy, and layer-separated runtime identity. Structured OpenClaw JSON output is summarized as structured metadata. Unstructured stdout/stderr is summarized as digest/length metadata only, not as a raw preview. Run-state evidence does not store raw transcripts or unrestricted tool bodies.
@@ -37,12 +44,14 @@ Secret-like inline messages are refused when they would be copied into AgentMo-m
 ## Replay and evaluation
 
 ```bash
-RUN_STATE="$RUN_OUT/runs/<run_id>/agentmo-run-state.json"
-node ./bin/agentmo.js run-report "$RUN_STATE" --json
-node ./bin/agentmo.js replay-run "$RUN_STATE" --out /tmp/agentmo-runtime-replay --json
-node ./bin/agentmo.js run-eval "$RUN_STATE" --expect-status declared --json
-node ./bin/agentmo.js observe-run "$RUN_STATE" --out /tmp/agentmo-runtime-observation.json --json
-node ./bin/agentmo.js observe /tmp/agentmo-runtime-observation.json --json
+RUN_STATE="$RUN_OUT/runs/${RUN_ID:?set RUN_ID}/agentmo-run-state.json"
+digest_file() { node -e 'const fs=require("node:fs");const crypto=require("node:crypto");fs.writeSync(1,"sha256:"+crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex"));' "$1"; }
+node ./bin/agentmo.js status examples/win9.agentmo.json --run-state "$RUN_STATE" --json --digest "blueprint=$(digest_file "examples/win9.agentmo.json")" --digest "run-state=$(digest_file "$RUN_STATE")"
+node ./bin/agentmo.js run-report "$RUN_STATE" --json --digest "run-state=$(digest_file "$RUN_STATE")"
+node ./bin/agentmo.js replay-run "$RUN_STATE" --out /tmp/agentmo-runtime-replay --json --digest "run-state=$(digest_file "$RUN_STATE")"
+node ./bin/agentmo.js run-eval "$RUN_STATE" --expect-status declared --json --digest "run-state=$(digest_file "$RUN_STATE")"
+node ./bin/agentmo.js observe-run "$RUN_STATE" --out /tmp/agentmo-runtime-observation.json --json --digest "run-state=$(digest_file "$RUN_STATE")"
+node ./bin/agentmo.js observe /tmp/agentmo-runtime-observation.json --json --digest "observation=$(digest_file "/tmp/agentmo-runtime-observation.json")"
 ```
 
 - `run-report` summarizes evidence and emits an observation reference such as `agentmo-run:<run_id>`.
@@ -58,17 +67,32 @@ Runtime evidence belongs to stage 3 delivery closure, after stage 1 discovery ha
 Use `domain-eval` for independent domain-quality evidence and `delivery-report` to aggregate/revalidate the full evidence set:
 
 ```bash
-node ./bin/agentmo.js birth-report <blueprint.json> \
-  --build-state <agentmo-build-state.json> \
+digest_file() { node -e 'const fs=require("node:fs");const crypto=require("node:crypto");fs.writeSync(1,"sha256:"+crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex"));' "$1"; }
+BLUEPRINT=path/to/blueprint.json
+BUILD_STATE=path/to/agentmo-build-state.json
+RUN_EVAL=path/to/run-eval.json
+DOMAIN_CASES=path/to/domain-cases.json
+node ./bin/agentmo.js birth-report "$BLUEPRINT" \
+  --digest "blueprint=$(digest_file "$BLUEPRINT")" \
+  --digest "build-state=$(digest_file "$BUILD_STATE")" \
+  --digest "run-state=$(digest_file "$RUN_STATE")" \
+  --digest "run-eval=$(digest_file "$RUN_EVAL")" \
+  --build-state "$BUILD_STATE" \
   --run-state "$RUN_STATE" \
-  --run-eval <run-eval.json> \
+  --run-eval "$RUN_EVAL" \
   --expect-status declared \
   --json > /tmp/agentmo-birth-report.json
-node ./bin/agentmo.js domain-eval <blueprint.json> --cases <domain-cases.json> --target openclaw --json > /tmp/agentmo-domain-eval.json
-node ./bin/agentmo.js delivery-report <blueprint.json> \
-  --build-state <agentmo-build-state.json> \
+node ./bin/agentmo.js domain-eval "$BLUEPRINT" --cases "$DOMAIN_CASES" --target openclaw --json --digest "blueprint=$(digest_file "$BLUEPRINT")" --digest "domain-cases=$(digest_file "$DOMAIN_CASES")" > /tmp/agentmo-domain-eval.json
+node ./bin/agentmo.js delivery-report "$BLUEPRINT" \
+  --digest "blueprint=$(digest_file "$BLUEPRINT")" \
+  --digest "build-state=$(digest_file "$BUILD_STATE")" \
+  --digest "run-state=$(digest_file "$RUN_STATE")" \
+  --digest "run-eval=$(digest_file "$RUN_EVAL")" \
+  --digest "birth-report=$(digest_file "/tmp/agentmo-birth-report.json")" \
+  --digest "domain-eval=$(digest_file "/tmp/agentmo-domain-eval.json")" \
+  --build-state "$BUILD_STATE" \
   --run-state "$RUN_STATE" \
-  --run-eval <run-eval.json> \
+  --run-eval "$RUN_EVAL" \
   --birth-report /tmp/agentmo-birth-report.json \
   --domain-eval /tmp/agentmo-domain-eval.json \
   --json > /tmp/agentmo-delivery-report.json
@@ -92,9 +116,11 @@ Live OpenClaw execution is opt-in and outside mandatory checks. It requires `--o
 Use the helper script for the default isolated path:
 
 ```bash
-cp .env.example .env
+node ./bin/agentmo.js runtime-check --target openclaw &&
+cp .env.example .env &&
 # fill DEEPSEEK_API_KEY in .env; .env is gitignored and value-blind in AgentMo evidence
-scripts/openclaw-live-smoke.sh --blueprint examples/win9.agentmo.json --agent win9 --message "Say exactly: ok" --openclaw-source-root /home/alex/DTAlex/learningGitHub/openclaw
+OPENCLAW_SOURCE_ROOT="<openclaw-source-root>" &&
+scripts/openclaw-live-smoke.sh --blueprint examples/win9.agentmo.json --agent win9 --message "Say exactly: ok" --openclaw-source-root "$OPENCLAW_SOURCE_ROOT"
 ```
 
 The helper defaults to DeepSeek flash (`deepseek/deepseek-v4-flash`) and local embedded OpenClaw execution. It scaffolds an isolated OpenClaw workspace, uses a temporary `OPENCLAW_STATE_DIR`, writes run/report/eval/status/helper summaries under a temporary run-output directory, requires live execution success by default, and deletes credential-bearing OpenClaw state on success or failure unless `--keep-state` is explicit. Pass `--keep-state` only for explicit debugging and treat that path as credential-bearing. The helper reads only supported env keys instead of exporting a whole env file, and passes proxy env keys through when present without writing their values into AgentMo evidence. The advanced `--transport gateway` path generates an ephemeral gateway token when one is not already present, starts a loopback gateway, passes runtime keys through a temporary env file, and stops/deletes those helper credentials at exit.
@@ -102,12 +128,16 @@ The helper defaults to DeepSeek flash (`deepseek/deepseek-v4-flash`) and local e
 Manual equivalent:
 
 ```bash
+node ./bin/agentmo.js runtime-check --target openclaw
 RUN_ID="$(date +%Y%m%dT%H%M%S)-agentmo-live"
 export OPENCLAW_STATE_DIR="/tmp/agentmo-openclaw-state-${RUN_ID}"
 WORKSPACE="/tmp/agentmo-openclaw-workspace-${RUN_ID}"
 RUN_OUT="/tmp/agentmo-openclaw-runs-${RUN_ID}"
+RUNTIME_PLAN="/tmp/agentmo-openclaw-runtime-plan-${RUN_ID}.json"
 mkdir -p "$OPENCLAW_STATE_DIR" "$WORKSPACE" "$RUN_OUT"
-node ./bin/agentmo.js run examples/win9.agentmo.json --target openclaw --workspace "$WORKSPACE" --openclaw-state-dir "$OPENCLAW_STATE_DIR" --agent win9 --provider deepseek --model deepseek/deepseek-v4-flash --thinking off --channel local-cli --transport local --env-file .env --message "Say exactly: ok" --out "$RUN_OUT" --live --json
+digest_file() { node -e 'const fs=require("node:fs");const crypto=require("node:crypto");fs.writeSync(1,"sha256:"+crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex"));' "$1"; }
+node ./bin/agentmo.js run-plan examples/win9.agentmo.json --target openclaw --workspace "$WORKSPACE" --openclaw-state-dir "$OPENCLAW_STATE_DIR" --agent win9 --provider deepseek --model deepseek/deepseek-v4-flash --thinking off --channel local-cli --transport local --runtime-env-file .env --message "Say exactly: ok" --json --digest "blueprint=$(digest_file "examples/win9.agentmo.json")" > "$RUNTIME_PLAN"
+node ./bin/agentmo.js run "$RUNTIME_PLAN" --workspace "$WORKSPACE" --openclaw-state-dir "$OPENCLAW_STATE_DIR" --runtime-env-file .env --message "Say exactly: ok" --out "$RUN_OUT" --live --json --digest "runtime-plan=$(digest_file "$RUNTIME_PLAN")"
 ```
 
 For source checkout mode, add `--openclaw-source-root /path/to/openclaw`; AgentMo plans `pnpm openclaw agent ...`.
@@ -119,7 +149,7 @@ Command and replay descriptors always request OpenClaw JSON output with `--json`
 - `run-plan` does not write files.
 - `run` writes only managed AgentMo run-state under the explicit `--out` directory.
 - AgentMo does not automatically write production `~/.openclaw`.
-- AgentMo does not persist credential values from `--env-file`; durable evidence stores only basename/key presence and redacted summaries.
+- AgentMo does not persist credential values from `--runtime-env-file`; durable evidence stores only basename/key presence and redacted summaries. The Bash live-smoke helper owns a separate local `--env-file` option and does not pass that option through the Node launcher.
 - AgentMo may pass proxy env values to the live child process when the key is allowlisted, but durable evidence stores only proxy key names.
 - Runtime evidence is mechanism evidence, not runtime/domain certification.
 - Provider, model, runtime, channel, transport, fallback, fallback evidence, selector, workspace, sandbox scope, and evidence boundaries remain separate fields.

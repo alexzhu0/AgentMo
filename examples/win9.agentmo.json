@@ -1,5 +1,5 @@
 {
-  "agentmother_version": "0.1",
+  "agentmo_version": "0.1",
   "agent_id": "win9",
   "runtime": "pi",
   "status": "certified",
@@ -291,16 +291,16 @@
       "status": "active",
       "purpose": "Latest OpenClaw source is the alternate runtime architecture reference for Gateway/channel delivery, isolated multi-agent workspaces, session trajectories, plugin hooks, and runtime ownership boundaries.",
       "owned_surfaces": [
-        "/home/alex/DTAlex/learningGitHub/openclaw/openclaw.mjs",
-        "/home/alex/DTAlex/learningGitHub/openclaw/src/agents/",
-        "/home/alex/DTAlex/learningGitHub/openclaw/src/gateway/",
-        "/home/alex/DTAlex/learningGitHub/openclaw/src/channels/",
-        "/home/alex/DTAlex/learningGitHub/openclaw/src/context-engine/",
-        "/home/alex/DTAlex/learningGitHub/openclaw/docs/agent-runtime-architecture.md",
-        "/home/alex/DTAlex/learningGitHub/openclaw/docs/concepts/agent-runtimes.md",
-        "/home/alex/DTAlex/learningGitHub/openclaw/docs/concepts/multi-agent.md",
-        "/home/alex/DTAlex/learningGitHub/openclaw/docs/concepts/agent-workspace.md",
-        "/home/alex/DTAlex/learningGitHub/openclaw/docs/concepts/agent-loop.md"
+        "openclaw/openclaw.mjs",
+        "openclaw/src/agents/",
+        "openclaw/src/gateway/",
+        "openclaw/src/channels/",
+        "openclaw/src/context-engine/",
+        "openclaw/docs/agent-runtime-architecture.md",
+        "openclaw/docs/concepts/agent-runtimes.md",
+        "openclaw/docs/concepts/multi-agent.md",
+        "openclaw/docs/concepts/agent-workspace.md",
+        "openclaw/docs/concepts/agent-loop.md"
       ],
       "evidence_boundaries": [
         "OpenClaw runtime id is openclaw; provider, model, runtime, and channel are separate layers.",
@@ -310,7 +310,7 @@
         "Port OpenClaw concepts into Pi/AgentMo through explicit runtime profile transfer rules instead of assuming API compatibility."
       ],
       "source_refs": [
-        "/home/alex/DTAlex/learningGitHub/openclaw@5bcd25f0fb",
+        "openclaw@5bcd25f0fb",
         "package openclaw@2026.6.11",
         "docs/agent-runtime-architecture.md",
         "docs/concepts/agent-runtimes.md",
@@ -327,7 +327,7 @@
         "Preserve OpenClaw isolation semantics: workspace is memory/cwd, agentDir is auth/state/session scope, and sessions are per-agent evidence.",
         "Treat Gateway, channels, nodes, and bindings as delivery/control-plane surfaces around the domain agent, not as the domain genome itself.",
         "Use OpenClaw plugin hooks and session lifecycle ideas as architecture inputs only when the active runtime exposes equivalent hooks.",
-        "Keep OpenClaw trajectory/session inspection conservative and bounded when designing AgentMother evidence gates."
+        "Keep OpenClaw trajectory/session inspection conservative and bounded when designing AgentMo evidence gates."
       ],
       "supported_assets": [
         "OpenClaw-oriented scaffold workspace files",
@@ -341,8 +341,10 @@
       ],
       "install_or_onramp": "Generate with agentmo scaffold --target openclaw, inspect openclaw/RUNBOOK.md, then run OpenClaw-specific integration checks before any runtime promotion.",
       "verification_commands": [
-        "node ./bin/agentmo.js scaffold examples/win9.agentmo.json --target openclaw --out /tmp/win9-openclaw-scaffold --force",
-        "node ./bin/agentmo.js plan examples/win9.agentmo.json --target openclaw --json",
+        "node ./bin/agentmo.js validate \"examples/win9.agentmo.json\" --digest \"blueprint=$(node -e 'const fs=require(\"node:fs\");const crypto=require(\"node:crypto\");fs.writeSync(1,\"sha256:\"+crypto.createHash(\"sha256\").update(fs.readFileSync(process.argv[1])).digest(\"hex\"));' \"examples/win9.agentmo.json\")\"",
+        "node ./bin/agentmo.js scaffold \"examples/win9.agentmo.json\" --digest \"blueprint=$(node -e 'const fs=require(\"node:fs\");const crypto=require(\"node:crypto\");fs.writeSync(1,\"sha256:\"+crypto.createHash(\"sha256\").update(fs.readFileSync(process.argv[1])).digest(\"hex\"));' \"examples/win9.agentmo.json\")\" --target \"openclaw\" --out \"win9-openclaw-scaffold\" --force",
+        "node ./bin/agentmo.js run-plan \"examples/win9.agentmo.json\" --digest \"blueprint=$(node -e 'const fs=require(\"node:fs\");const crypto=require(\"node:crypto\");fs.writeSync(1,\"sha256:\"+crypto.createHash(\"sha256\").update(fs.readFileSync(process.argv[1])).digest(\"hex\"));' \"examples/win9.agentmo.json\")\" --target \"openclaw\" --workspace \"<runtime-workspace>\" --message \"<smoke-message>\" --json > \"win9-runtime-plan.json\"",
+        "node ./bin/agentmo.js run \"win9-runtime-plan.json\" --digest \"runtime-plan=$(node -e 'const fs=require(\"node:fs\");const crypto=require(\"node:crypto\");fs.writeSync(1,\"sha256:\"+crypto.createHash(\"sha256\").update(fs.readFileSync(process.argv[1])).digest(\"hex\"));' \"win9-runtime-plan.json\")\" --workspace \"<runtime-workspace>\" --message \"<smoke-message>\" --out \"<run-output>\" --json",
         "npm run check"
       ],
       "risk_notes": [
@@ -394,7 +396,7 @@
         "Known failure modes from benchmark history"
       ],
       "planning_outputs": [
-        "AgentMother blueprint",
+        "AgentMo blueprint",
         "Domain genome and task classes",
         "Main/specialist agent architecture",
         "Tool contracts and evidence policies",

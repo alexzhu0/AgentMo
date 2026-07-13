@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { describe, it } from "node:test";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { access, mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -10,11 +11,17 @@ import {
   DISCOVERY_DB_FILENAME,
   DISCOVERY_FACTS_FILENAME,
   formatDiscoveryPack,
+  loadDiscoveryDb,
   writeDiscoveryPack,
 } from "../src/discovery-db.js";
 import { containsHostAbsolutePath, redactManagedText, REDACTED_PATH } from "../src/secret-redaction.js";
 
 const REPO_ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
+const PREBUILT_DB = new URL("../examples/fixtures/support-triage/prebuilt-discovery-db.json", import.meta.url);
+
+function digest(bytes) {
+  return `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+}
 
 async function loadSupportDiscovery() {
   return JSON.parse(await readFile(new URL("../examples/support-triage.discovery.json", import.meta.url), "utf8"));
@@ -27,6 +34,22 @@ function assertNoHostPaths(text, label, extraPath = null) {
 }
 
 describe("discovery db", () => {
+  it("loads canonical discovery DB bytes only with the exact database subject and digest", async () => {
+    const bytes = await readFile(PREBUILT_DB);
+    const db = await loadDiscoveryDb(PREBUILT_DB, {
+      subject: "discovery-db",
+      expectedDigest: digest(bytes),
+    });
+    assert.equal(db.schemaVersion, "agentmo.discovery-db.v1");
+    assert.equal(db.agentId, "support-triage");
+    await assert.rejects(
+      () => loadDiscoveryDb(PREBUILT_DB, {
+        subject: "discovery-manifest",
+        expectedDigest: digest(bytes),
+      }),
+      (error) => error.code === "AGENTMO_UNSUPPORTED_ARTIFACT",
+    );
+  });
   it("redacts generic POSIX host absolute paths without treating ordinary URLs as host paths", () => {
     for (const hostPath of [
       "/etc/agentmo-secret-path",
@@ -199,5 +222,27 @@ describe("discovery db", () => {
     assert.equal(pack.discoveryDb.safety.redactedInputStringCount > 0, true);
     assert.equal(JSON.stringify(pack.discoveryDb).includes("secret-value-123456"), false);
     assert.equal(JSON.stringify(pack.discoveryDb).includes("[REDACTED_SECRET]"), true);
+  });
+
+  it("preflights the complete pack and every derived JSONL record before creating output", async () => {
+    const manifest = await loadSupportDiscovery();
+    const mutations = [
+      (pack) => { pack.discoveryDb.facts[0].rawTranscript = "synthetic raw transcript"; },
+      (pack) => { pack.coverage.hostPath = "/Users/synthetic-agentmo/private.txt"; },
+      (pack) => { pack.factsJsonl += '{"id":"unbound-extra"}\n'; },
+    ];
+    for (const [index, mutate] of mutations.entries()) {
+      const pack = buildDiscoveryPack(structuredClone(manifest), {
+        manifestPath: "examples/support-triage.discovery.json",
+      });
+      mutate(pack);
+      const parent = await mkdtemp(path.join(tmpdir(), `agentmo-pack-preflight-${index}-`));
+      const out = path.join(parent, "must-not-exist");
+      await assert.rejects(
+        () => writeDiscoveryPack(out, pack),
+        (error) => typeof error.code === "string" && error.code.startsWith("AGENTMO_PERSISTABILITY_"),
+      );
+      await assert.rejects(() => access(out));
+    }
   });
 });

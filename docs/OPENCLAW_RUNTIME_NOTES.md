@@ -1,17 +1,29 @@
 # OpenClaw Runtime Notes
 
+OpenClaw materialization, doctor checks, live smoke, eval, birth, delivery, and release evidence are Produce-internal gates in AgentMo. They do not certify runtime parity, domain-wide quality, production readiness, or deployment approval by themselves.
+
+## Runtime compatibility preflight
+
+AgentMo core remains Node.js `>=20`. OpenClaw target mutation separately requires `>=22.19.0 <23 || >=23.11.0`; the range is owned by AgentMo's runtime compatibility module, not by shell or documentation logic. Run the canonical zero-subject check before direct mutation:
+
+```bash
+node ./bin/agentmo.js runtime-check --target openclaw
+```
+
+This observation is a current-process compatibility gate only. It is not `live-success`, domain-quality evidence, or production approval.
+
 Source inspected for AgentMo runtime profiling:
 
-- Local source: `/home/alex/DTAlex/learningGitHub/openclaw`
+- Local source: `<openclaw-source-root>` (operator-selected; not read by default)
 - Commit: `5bcd25f0fb fix(discord): gate guild metadata reads [AI] (#98966)`
 - Package: `openclaw@2026.6.11`
 - CLI bin: `openclaw -> openclaw.mjs`
 
 ## Architecture facts to preserve
 
-OpenClaw separates four layers that AgentMother must not collapse:
+OpenClaw separates four layers that AgentMo must not collapse:
 
-| Layer | OpenClaw examples | AgentMother implication |
+| Layer | OpenClaw examples | AgentMo implication |
 | --- | --- | --- |
 | Provider | `openai`, `anthropic`, `github-copilot` | Auth/model catalog ownership. |
 | Model | `gpt-5.5`, `claude-opus-4-6` | Selected inference target. |
@@ -22,9 +34,9 @@ The built-in OpenClaw runtime id is `openclaw`. Plugin harnesses can register mo
 
 ## Runtime layout
 
-OpenClaw's runtime architecture maps to AgentMother profile fields as follows:
+OpenClaw's runtime architecture maps to AgentMo profile fields as follows:
 
-| OpenClaw surface | Meaning for AgentMother |
+| OpenClaw surface | Meaning for AgentMo |
 | --- | --- |
 | `src/agents/embedded-agent-runner/` | Attempt loop, provider stream adapters, model selection, compaction, session wiring. |
 | `src/agents/sessions/` | Session persistence, extension loading, resource discovery, skills, prompts, themes. |
@@ -44,7 +56,7 @@ OpenClaw defines an agent as a fully scoped brain:
 - auth profiles: per-agent credentials and model profiles;
 - session store: `~/.openclaw/agents/<agentId>/sessions`.
 
-AgentMother should preserve this as a reusable rule: workspace, auth, and session evidence must be scoped per agent unless sharing is explicit. Do not reuse an `agentDir` across agents.
+AgentMo should preserve this as a reusable rule: workspace, auth, and session evidence must be scoped per agent unless sharing is explicit. Do not reuse an `agentDir` across agents.
 
 ## Session and evidence rule
 
@@ -55,7 +67,7 @@ OpenClaw session inspection is bounded by default:
 - trajectory exports live inside `.openclaw/trajectory-exports/` under the selected workspace;
 - cleanup and compaction are explicit session-maintenance paths.
 
-AgentMother should encode equivalent evidence boundaries for every runtime profile: default to bounded summaries, require explicit audit expansion, and never treat raw transcripts as normal prompt context.
+AgentMo should encode equivalent evidence boundaries for every runtime profile: default to bounded summaries, require explicit audit expansion, and never treat raw transcripts as normal prompt context.
 
 ## Agent loop rule
 

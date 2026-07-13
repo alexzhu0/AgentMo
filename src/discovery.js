@@ -1,6 +1,5 @@
-import { readFile } from "node:fs/promises";
-
 export const DISCOVERY_SCHEMA_VERSION = "agentmo.discovery.v1";
+export const DISCOVERY_MANIFEST_SUBJECT = "discovery-manifest";
 
 const VALID_SOURCE_TYPES = new Set([
   "document",
@@ -14,14 +13,16 @@ const VALID_SOURCE_TYPES = new Set([
 
 const VALID_TRUST_LEVELS = new Set(["verified", "trusted", "derived", "unverified", "unknown"]);
 
-export async function loadDiscoveryManifest(path) {
-  const raw = await readFile(path, "utf8");
-  try {
-    return JSON.parse(raw);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Invalid JSON discovery manifest ${path}: ${message}`);
-  }
+export async function loadDiscoveryManifest(filePath, options = {}) {
+  await assertDiscoveryLoaderSubject(options.subject, DISCOVERY_MANIFEST_SUBJECT);
+  const { loadAdmittedArtifact } = await import("./artifact-admission.js");
+  return (await loadAdmittedArtifact({
+    filePath,
+    subject: DISCOVERY_MANIFEST_SUBJECT,
+    expectedDigest: options.expectedDigest,
+    maxBytes: options.maxBytes,
+    openInput: options.openInput,
+  })).value;
 }
 
 export function validateDiscoveryManifest(manifest) {
@@ -192,4 +193,10 @@ function isObject(value) {
 
 function nonEmptyString(value) {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+async function assertDiscoveryLoaderSubject(actual, expected) {
+  if (actual === expected) return;
+  const { AgentMoUnsupportedArtifactError } = await import("./artifact-registry.js");
+  throw new AgentMoUnsupportedArtifactError("subject_identity_mismatch");
 }

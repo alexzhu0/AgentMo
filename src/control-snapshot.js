@@ -1,23 +1,55 @@
-import { readFile } from "node:fs/promises";
-import { createHash } from "node:crypto";
-import { buildMotherReport } from "./report.js";
+import {
+  AgentMoUnsupportedArtifactError,
+} from "./artifact-registry.js";
+import {
+  ArtifactAdmissionError,
+  admittedArtifactProvenance,
+  loadAdmittedArtifact,
+} from "./artifact-admission.js";
+import { buildBlueprintAssessment } from "./report.js";
 
 export const CONTROL_SNAPSHOT_SCHEMA_VERSION = "agentmo.control.v1";
 
 const PIPELINE_PHASES = ["discover", "plan", "produce"];
 
-export async function loadBuildState(path) {
-  const raw = await readFile(path, "utf8");
-  try {
-    return JSON.parse(raw);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Invalid JSON build-state ${path}: ${message}`);
+export async function loadBuildState(path, options = {}) {
+  if (options.subject !== "build-state") {
+    throw new AgentMoUnsupportedArtifactError("subject_identity_mismatch");
   }
+  const admission = await loadAdmittedArtifact({
+    filePath: path,
+    subject: "build-state",
+    expectedDigest: options.expectedDigest,
+    maxBytes: options.maxBytes,
+    openInput: options.openInput,
+  });
+  const blueprintSource = admittedArtifactProvenance(options.blueprintAdmission, {
+    subject: "blueprint",
+    value: options.blueprintAdmission?.value,
+  });
+  if (admission.value.agentId !== options.blueprintAdmission.value.agent_id
+    || admission.value.source.identity !== blueprintSource.identity
+    || admission.value.source.subject !== blueprintSource.subject
+    || admission.value.source.digest !== blueprintSource.digest) {
+    throw new ArtifactAdmissionError("AGENTMO_ARTIFACT_ADMISSION_RESULT_INVALID");
+  }
+  return admission.value;
 }
 
 export function buildControlSnapshot(blueprint, options = {}) {
-  const report = buildMotherReport(blueprint);
+  const assessment = buildBlueprintAssessment(blueprint);
+  const report = {
+    ok: assessment.validation.ok,
+    warnings: assessment.validation.warnings,
+    errors: assessment.validation.errors,
+    produce_maturity: assessment.produceMaturity,
+    gates: assessment.gates,
+    release_readiness: {
+      status: "not_evaluated",
+      reason: "Control status does not establish delivery or production approval.",
+      productionApproved: false,
+    },
+  };
   const validation = {
     ok: report.ok,
     warnings: [...report.warnings],
@@ -25,14 +57,20 @@ export function buildControlSnapshot(blueprint, options = {}) {
   };
 
   const latestBuildState = summarizeBuildState(options.buildState, options.buildStatePath, options.buildStateError);
-  const latestRunState = summarizeRunState(blueprint, options.runState, options.runStatePath, options.runStateError);
+  const blueprintProvenance = resolveBlueprintProvenance(blueprint, options.blueprintAdmission);
+  const latestRunState = summarizeRunState(
+    blueprintProvenance,
+    options.runState,
+    options.runStatePath,
+    options.runStateError,
+  );
   const risks = summarizeRisks(blueprint, validation, latestRunState);
 
   return {
     schemaVersion: CONTROL_SNAPSHOT_SCHEMA_VERSION,
     agentId: blueprint?.agent_id ?? null,
     status: blueprint?.status ?? "unknown",
-    lifecycle: report.lifecycle,
+    produce_maturity: report.produce_maturity,
     runtime: summarizeRuntime(blueprint),
     runtimeCertification: summarizeRuntimeCertification(blueprint),
     pipeline: summarizePipeline(blueprint),
@@ -58,7 +96,7 @@ export function formatControlSnapshot(snapshot) {
   const lines = [
     `AgentMo status: ${snapshot.agentId ?? "unknown"}`,
     `Status: ${snapshot.status}`,
-    `Lifecycle: ${snapshot.lifecycle.stage} (${snapshot.lifecycle.reason})`,
+    `Produce maturity: ${snapshot.produce_maturity.stage} (${snapshot.produce_maturity.reason})`,
     `Runtime: ${snapshot.runtime.primary ?? "unknown"}`,
     `Runtime profiles: ${snapshot.runtime.profiles.map((profile) => profile.id).join(", ") || "none"}`,
     `Pipeline complete: ${snapshot.pipeline.completed}/${snapshot.pipeline.total}`,
@@ -185,7 +223,7 @@ function summarizeBuildState(buildState, buildStatePath, buildStateError) {
   };
 }
 
-function summarizeRunState(blueprint, runState, runStatePath, runStateError) {
+function summarizeRunState(blueprintProvenance, runState, runStatePath, runStateError) {
   if (runStateError) {
     return {
       available: false,
@@ -200,13 +238,18 @@ function summarizeRunState(blueprint, runState, runStatePath, runStateError) {
       reason: runStatePath ? "not_loaded" : "not_supplied",
     };
   }
-  const currentBlueprintHash = hashString(JSON.stringify(blueprint));
-  const storedBlueprintHash = runState.source?.blueprintHash ?? null;
-  const stale = Boolean(storedBlueprintHash && storedBlueprintHash !== currentBlueprintHash);
+  const storedBlueprintProvenance = runState.source?.blueprint ?? null;
+  const storedProvenancePresent = validBlueprintProvenance(storedBlueprintProvenance);
+  const admittedProvenancePresent = validBlueprintProvenance(blueprintProvenance);
+  const provenanceMatches = storedProvenancePresent
+    && admittedProvenancePresent
+    && sameProvenance(storedBlueprintProvenance, blueprintProvenance);
+  const stale = storedProvenancePresent && admittedProvenancePresent && !provenanceMatches;
+  const freshness = provenanceMatches ? "current" : stale ? "stale" : "unverifiable";
   const missingSandbox = !runState.runtimeIdentity?.sandboxScope;
   const productionState = runState.runtimeIdentity?.sandboxScope?.usesProductionState === true;
   const runEvidenceCertifiesRuntime = runState.certificationBoundary?.runEvidenceCertifiesRuntime === true;
-  const usable = !stale && !missingSandbox && !productionState && !runEvidenceCertifiesRuntime;
+  const usable = provenanceMatches && !missingSandbox && !productionState && !runEvidenceCertifiesRuntime;
   return {
     available: true,
     usable,
@@ -234,20 +277,22 @@ function summarizeRunState(blueprint, runState, runStatePath, runStateError) {
       sandboxScope: runState.runtimeIdentity?.sandboxScope ?? null,
     },
     message: {
-      mode: runState.message?.messageMode ?? null,
-      hash: runState.message?.messageHash ?? null,
-      length: runState.message?.messageLength ?? null,
-      preview: runState.message?.messagePreview ?? null,
+      sourceDigest: runState.message?.sourceDigest ?? null,
+      byteLength: runState.message?.byteLength ?? null,
+      summary: runState.message?.summary ?? null,
     },
     replay: {
       eligible: Boolean(runState.replay?.eligible),
       policy: runState.replay?.policy ?? null,
       replayFidelity: runState.replay?.replayFidelity ?? runState.message?.replayFidelityIfMaterialAvailable ?? null,
     },
-    freshness: stale ? "stale" : "current",
+    freshness,
     stale,
     evidenceQualification: {
       usable,
+      admittedBlueprintProvenancePresent: admittedProvenancePresent,
+      storedBlueprintProvenancePresent: storedProvenancePresent,
+      blueprintProvenanceMatches: provenanceMatches,
       missingSandbox,
       productionState,
       runEvidenceCertifiesRuntime,
@@ -300,7 +345,10 @@ function summarizeRisks(blueprint, validation, latestRunState) {
     risks.add(`Latest run-state is unavailable: ${latestRunState.reason}`);
   }
   if (latestRunState?.stale) {
-    risks.add("Latest run-state blueprint hash is stale.");
+    risks.add("Latest run-state blueprint provenance is stale.");
+  }
+  if (latestRunState?.available && !latestRunState?.evidenceQualification?.blueprintProvenanceMatches && !latestRunState?.stale) {
+    risks.add("Latest run-state blueprint provenance cannot be verified.");
   }
   if (latestRunState?.execution?.status === "failure") {
     risks.add(`Latest run-state ${latestRunState.runId ?? "unknown"} recorded execution failure.`);
@@ -323,7 +371,10 @@ function summarizeNextActions(report, latestBuildState, latestRunState, risks) {
   if (report.gates.failed > 0) actions.push("Repair failed quality gates and rerun validation.");
   if (!latestBuildState.available) actions.push("Run agentmo scaffold and pass --build-state to connect status to generated output.");
   if (!latestRunState.available) actions.push("Run agentmo run or pass --run-state/--run-dir to connect status to runtime evidence.");
-  if (latestRunState.stale) actions.push("Refresh runtime evidence because the run-state blueprint hash is stale.");
+  if (latestRunState.stale) actions.push("Refresh runtime evidence because the run-state blueprint provenance is stale.");
+  if (latestRunState.available && !latestRunState.evidenceQualification?.blueprintProvenanceMatches && !latestRunState.stale) {
+    actions.push("Supply exact admitted blueprint provenance before relying on runtime evidence.");
+  }
   if (latestRunState.execution?.status === "failure") actions.push("Inspect failed runtime evidence and create an observe proposal if it indicates a blueprint/scaffold change.");
   if (latestRunState.evidenceQualification?.missingSandbox) actions.push("Refresh runtime evidence with sandbox scope metadata before relying on it.");
   if (latestRunState.evidenceQualification?.productionState) actions.push("Review production OpenClaw state usage before treating run evidence as safe.");
@@ -337,6 +388,20 @@ function asStringArray(value) {
   return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
 }
 
-function hashString(value) {
-  return createHash("sha256").update(value).digest("hex");
+function resolveBlueprintProvenance(blueprint, admission) {
+  try {
+    return admittedArtifactProvenance(admission, { subject: "blueprint", value: blueprint });
+  } catch {
+    return null;
+  }
+}
+
+function validBlueprintProvenance(value) {
+  return value?.identity === "0.1"
+    && value?.subject === "blueprint"
+    && /^sha256:[a-f0-9]{64}$/u.test(value?.digest ?? "");
+}
+
+function sameProvenance(left, right) {
+  return left.identity === right.identity && left.subject === right.subject && left.digest === right.digest;
 }

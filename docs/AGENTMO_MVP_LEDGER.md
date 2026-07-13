@@ -114,3 +114,23 @@ Known risks:
 
 - Initial evidence matching is deterministic and lexical; future semantic retrieval can improve coverage without changing the artifact boundary.
 - GitHub release publication is not implied by this ledger entry until the commit/tag/release step is performed separately.
+
+## 2026-07-12 — Phase 01.1 artifact safety closure
+
+Scope:
+
+- Closed maintained README/docs command examples against the production durable-subject registry and exact file-byte digest contract.
+- Corrected documented runtime execution to `run-plan <blueprint> -> runtime-plan -> run <runtime-plan>` while keeping Stage 2 `design-plan` distinct from scaffold dry-run `plan`.
+- Closed the exact loader/read/write/lifecycle/serializer/output/shell inventory with zero pending and zero unclassified rows.
+- Documented closed evidence carriers, retained-handle legacy migration recovery, zero-write preflight failures, raw runtime-material exclusion, and non-transitive certification.
+
+Observed verification:
+
+- Focused command/registry/inventory gate: 14/14 tests passed.
+- Repository gate: 383/383 tests passed across 41 suites.
+- Whitespace gate passed.
+
+Evidence boundary:
+
+- These results prove deterministic admission, persistence, command, and documentation closure in the local test harness.
+- No provider call, live OpenClaw smoke, external runtime certification, domain-wide quality approval, or production approval was performed or inferred.

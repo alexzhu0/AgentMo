@@ -1,5 +1,7 @@
 # Observe / Evolve Records
 
+Observation is Produce-internal and proposal-only. An observation record does not self-certify a repair, and it must not mutate a blueprint, scaffold, runtime, tool, or eval automatically.
+
 AgentMo observation records capture failures and improvement proposals without mutating a blueprint, tool contract, eval suite, or generated runtime scaffold.
 
 The foundation format is deliberately small:
@@ -35,6 +37,8 @@ An observation is evidence, not authority. Do not promote a recommended blueprin
 `agentmo observe <observation.json> --json` validates and summarizes the record. It never applies `recommendedBlueprintChange` automatically.
 
 `agentmo observe-run <run-state.json> --out <observation.json> --json` creates the same proposal-only observation shape from managed runtime evidence. Use it for failed, declared, or partial run-state sidecars when the evidence suggests a reviewed regression or blueprint/scaffold change may be needed.
+
+The derived observation carries only bounded managed evidence. It never copies raw runtime output, credentials, transcripts, or tool bodies, and neither the source run-state nor the observation transfers certification to a proposed change.
 
 ## Rollback
 

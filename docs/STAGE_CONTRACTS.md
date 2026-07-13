@@ -15,7 +15,7 @@ The support-triage MVP remains the composed vertical demo of these contracts. It
 | Stage | Purpose | Accepted inputs | Produced outputs | Forbidden process dependency |
 | --- | --- | --- | --- | --- |
 | Stage 1 Discover | Materialize bounded source inventory, sanitized facts, and coverage. | `agentmo.discovery.v1` manifest. `discover-pack` uses it as manifest-only input; `discover-workspace` also reads approved local source files under a repo-bound `--source-root`. | `agentmo.discovery-db.v1`, `facts.jsonl`, `coverage.json`; workspace intake also writes `source-cards.json` and `source-chunks.jsonl`. | Stage 2 planner implementation, blueprint files, Stage 3 runtime target or run evidence. |
-| Stage 2 Plan | Convert valid discovery facts plus user need into an auditable plan and buildable agent design. | `agentmo.discovery-db.v1` plus `agentmo.user-need.v1`, regardless of how the discovery DB was created. | `agentmo.design-plan.v1` plus a valid AgentMo blueprint/design contract with `agentmother_version: "0.1"`, eval requirements, and evidence policy. | Stage 1 command path, original discovery manifest, Stage 3 scaffold/run/birth/delivery commands. |
+| Stage 2 Plan | Convert valid discovery facts plus user need into an auditable plan and buildable agent design. | `agentmo.discovery-db.v1` plus `agentmo.user-need.v1`, regardless of how the discovery DB was created. | `agentmo.design-plan.v1` plus a valid AgentMo blueprint/design contract with `agentmo_version: "0.1"`, eval requirements, and evidence policy. | Stage 1 command path, original discovery manifest, Stage 3 scaffold/run/birth/delivery commands. |
 | Stage 3 Produce | Turn a valid design contract into handoff, scaffold, run evidence, eval evidence, and delivery closure artifacts. | Valid blueprint/design contract and explicit target/runtime options. The design may be AgentMo-generated or externally reviewed/business-provided with bounded provenance. | `agentmo.handoff.v1`, `agentmo.build.v1`, `agentmo.run.v1`, `agentmo.run-eval.v1`, `agentmo.birth-report.v1`, `agentmo.domain-eval.v1`, `agentmo.delivery.v1`. | Discovery DB/user-need generation process, Stage 1 commands, Stage 2 commands. |
 
 ## Stage 1 Discover -> Discovery Contract
@@ -84,8 +84,9 @@ A valid Discovery Contract proves only that discovery artifacts were materialize
 WORK=/tmp/agentmo-stage-contracts
 rm -rf "$WORK"
 mkdir -p "$WORK"
-node ./bin/agentmo.js discover-pack examples/support-triage.discovery.json --out "$WORK/discovery" --json
-node ./bin/agentmo.js discover-workspace examples/support-triage.discovery.json --source-root . --out "$WORK/discovery-workspace" --json
+digest_file() { node -e 'const fs=require("node:fs");const crypto=require("node:crypto");fs.writeSync(1,"sha256:"+crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex"));' "$1"; }
+node ./bin/agentmo.js discover-pack examples/support-triage.discovery.json --out "$WORK/discovery" --json --digest "discovery-manifest=$(digest_file "examples/support-triage.discovery.json")"
+node ./bin/agentmo.js discover-workspace examples/support-triage.discovery.json --source-root . --out "$WORK/discovery-workspace" --json --digest "discovery-manifest=$(digest_file "examples/support-triage.discovery.json")"
 ```
 
 ## Stage 2 Plan -> Agent Design / Blueprint Contract
@@ -99,7 +100,7 @@ Stage 2 owns user-need interpretation, the `agentmo.design-plan.v1` planning con
 - `agentmo-discovery-db.json` with `schemaVersion: "agentmo.discovery-db.v1"`.
 - User need JSON with `schemaVersion: "agentmo.user-need.v1"`.
 
-The discovery DB may come from `discover-pack`, `discover-workspace`, an imported database, or a manual/external process. Stage 2 depends on artifact validity, not on Stage 1 command ancestry. A workspace DB with failing validation or `safety.workspaceOk:false` is not a valid Stage 2 input.
+The discovery DB may come from `discover-pack`, `discover-workspace`, an imported database, or a manual/external process. Stage 2 depends on exact raw-byte digest admission plus artifact validity, not on Stage 1 command ancestry. For `design-plan`, the externally calculated digest of each input is bound once to its canonical subject before AgentMo decodes or parses either file. A workspace DB with failing validation or `safety.workspaceOk:false` is not a valid Stage 2 input.
 
 ### Produced output artifacts
 
@@ -107,7 +108,7 @@ Stage 2 produces a valid `agentmo.design-plan.v1` plus a valid AgentMo blueprint
 
 - `agentmo.design-plan.v1` records requirements trace, evidence map, gaps, architecture plan, tool contract plan, eval plan, evidence policy, governance gates, and certification boundary;
 
-- `agentmother_version: "0.1"`;
+- `agentmo_version: "0.1"`;
 - explicit `agent_id`, `runtime`, and target/runtime profile information where applicable;
 - `domain_genome`, `architecture`, `tools`, `eval`, `evidence`, `governance`, and `release.known_risks`;
 - evidence audit rules that forbid credential values, raw transcripts, raw tool bodies, raw stdout/stderr previews, and production runtime state in managed evidence;
@@ -116,7 +117,7 @@ Stage 2 produces a valid `agentmo.design-plan.v1` plus a valid AgentMo blueprint
 ### Validators and commands
 
 - `agentmo need-report <need.json> [--json]`
-- `agentmo design-plan <agentmo-discovery-db.json> --need <need.json> --out <agentmo-design-plan.json> [--target agentmo|openclaw] [--json]`
+- `agentmo design-plan <agentmo-discovery-db.json> --need <need.json> --digest discovery-db=<sha256:...> --digest user-need=<sha256:...> --out <agentmo-design-plan.json> [--target agentmo|openclaw] [--json]`
 - `agentmo blueprint-draft <agentmo-discovery-db.json> --need <need.json> --design-plan <agentmo-design-plan.json> --out <blueprint.json> [--target agentmo|openclaw] [--json]`
 - `agentmo validate <blueprint.json>`
 - Pure helpers: `validateUserNeed`, `loadDiscoveryDb`, `buildDesignPlan`, `validateDesignPlan`, `draftBlueprint`, `validateBlueprint`.
@@ -134,13 +135,14 @@ Stage 2 must not require:
 
 - The blueprint validates before Stage 3 admission.
 - Unsafe workspace DBs fail closed before design-plan or blueprint drafting.
+- Per D-13, `design-plan` hashes the single captured raw `Buffer` for each input before UTF-8 decode, duplicate-member inspection, JSON parse, content audit, identity lookup, or schema validation.
 - `source_refs` fail closed on absolute paths, parent traversal, `.env`/key/cert/token-like refs, URL credentials, and non-http(s) schemes.
 - The design-plan describes trace/gaps/eval/governance before blueprint claims.
 - A drafted blueprint is still a plan; it is not runtime evidence.
 
 ### Certification boundary
 
-A valid Agent Design / Blueprint Contract does not certify runtime execution, domain-wide quality, production deployment, or customer approval. It only admits the design to Stage 3 production work.
+A matching digest proves only that the supplied raw bytes are the bytes admitted under the named schema contract. It does not prove source approval, runtime execution, domain-wide quality, production deployment, or customer approval. A valid Agent Design / Blueprint Contract only admits the design to Stage 3 production work.
 
 ### Independent verification command
 
@@ -148,18 +150,25 @@ Use any prebuilt valid discovery DB; this command does not invoke `discover-pack
 
 ```bash
 DISCOVERY_DB=/path/to/agentmo-discovery-db.json
+USER_NEED=examples/support-triage.need.json
+digest_file() { node -e 'const fs=require("node:fs");const crypto=require("node:crypto");fs.writeSync(1,"sha256:"+crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex"));' "$1"; }
 node ./bin/agentmo.js design-plan "$DISCOVERY_DB" \
-  --need examples/support-triage.need.json \
+  --digest "discovery-db=$(digest_file "$DISCOVERY_DB")" \
+  --digest "user-need=$(digest_file "$USER_NEED")" \
+  --need "$USER_NEED" \
   --out /tmp/support-triage-design-plan.json \
   --target openclaw \
   --json
 node ./bin/agentmo.js blueprint-draft "$DISCOVERY_DB" \
+  --digest "discovery-db=$(digest_file "$DISCOVERY_DB")" \
+  --digest "user-need=$(digest_file "examples/support-triage.need.json")" \
+  --digest "design-plan=$(digest_file "/tmp/support-triage-design-plan.json")" \
   --need examples/support-triage.need.json \
   --design-plan /tmp/support-triage-design-plan.json \
   --out /tmp/support-triage.agentmo.json \
   --target openclaw \
   --json
-node ./bin/agentmo.js validate /tmp/support-triage.agentmo.json
+node ./bin/agentmo.js validate /tmp/support-triage.agentmo.json --digest "blueprint=$(digest_file "/tmp/support-triage.agentmo.json")"
 ```
 
 ## Stage 3 Produce -> Delivery Evidence Contract
@@ -170,7 +179,7 @@ Stage 3 owns coding/runtime handoff, scaffold/build state, run-state evidence, r
 
 ### Accepted input artifacts
 
-- Valid AgentMo blueprint/design contract with `agentmother_version: "0.1"`.
+- Valid AgentMo blueprint/design contract with `agentmo_version: "0.1"`.
 - Explicit target/runtime options required by the chosen command.
 - Optional bounded provenance for Stage 3 admission:
   - `source`: `agentmo-stage2` or `external-reviewed`;
@@ -196,11 +205,14 @@ Stage 3 may accept an externally reviewed or business-provided design contract w
 - `agentmo validate <blueprint.json>`
 - `agentmo handoff <blueprint.json> --target agentmo|openclaw --out <dir> [--json]`
 - `agentmo scaffold <blueprint.json> --target agentmo|openclaw --out <dir>`
-- `agentmo run <blueprint.json> --target openclaw --workspace <dir> --message <text> --out <dir> [--json]`
+- `agentmo run-plan <blueprint.json> --digest blueprint=<exact-sha256> --target openclaw --workspace <dir> --message <text> [--json] > <runtime-plan.json>`
+- `agentmo run <runtime-plan.json> --digest runtime-plan=<exact-sha256> --workspace <dir> --message <text> --out <dir> [--json]`
 - `agentmo run-eval <run-state.json> --expect-status declared|success|failure [--json]`
 - `agentmo birth-report <blueprint.json> --build-state <agentmo-build-state.json> --run-state <agentmo-run-state.json> --run-eval <run-eval.json> --expect-status declared|success|failure [--json]`
 - `agentmo domain-eval <blueprint.json> --cases <cases.json> [--target agentmo|openclaw] [--json]`
 - `agentmo delivery-report <blueprint.json> --build-state <agentmo-build-state.json> --run-state <agentmo-run-state.json> --run-eval <run-eval.json> --birth-report <birth-report.json> [--domain-eval <domain-eval.json>] [--json]`
+
+`run` never consumes blueprint bytes directly: `run-plan` first emits the runtime-plan, then `run` admits those exact bytes. If the requested output already contains `agentmo-run-index.json`, the update must also supply `--digest run-index=<exact-sha256>` for that existing index; an unbound index is rejected rather than silently merged.
 
 ### Forbidden reads and dependencies
 
@@ -231,28 +243,48 @@ WORK=/tmp/agentmo-stage3-only
 rm -rf "$WORK"
 mkdir -p "$WORK"
 BLUEPRINT=examples/support-triage.agentmo.json
-node ./bin/agentmo.js validate "$BLUEPRINT"
-node ./bin/agentmo.js handoff "$BLUEPRINT" --target openclaw --out "$WORK/handoff" --json
-node ./bin/agentmo.js scaffold "$BLUEPRINT" --target openclaw --out "$WORK/scaffold"
-node ./bin/agentmo.js run "$BLUEPRINT" \
+RUNTIME_PLAN="$WORK/runtime-plan.json"
+digest_file() { node -e 'const fs=require("node:fs");const crypto=require("node:crypto");fs.writeSync(1,"sha256:"+crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex"));' "$1"; }
+node ./bin/agentmo.js validate "$BLUEPRINT" --digest "blueprint=$(digest_file "$BLUEPRINT")"
+node ./bin/agentmo.js handoff "$BLUEPRINT" --target openclaw --out "$WORK/handoff" --json --digest "blueprint=$(digest_file "$BLUEPRINT")"
+node ./bin/agentmo.js scaffold "$BLUEPRINT" --target openclaw --out "$WORK/scaffold" --digest "blueprint=$(digest_file "$BLUEPRINT")"
+node ./bin/agentmo.js run-plan "$BLUEPRINT" \
+  --digest "blueprint=$(digest_file "$BLUEPRINT")" \
   --target openclaw \
+  --workspace "$WORK/workspace" \
+  --message "Say exactly: ok" \
+  --json > "$RUNTIME_PLAN"
+node ./bin/agentmo.js run "$RUNTIME_PLAN" \
+  --digest "runtime-plan=$(digest_file "$RUNTIME_PLAN")" \
   --workspace "$WORK/workspace" \
   --message "Say exactly: ok" \
   --out "$WORK/run" \
   --json > "$WORK/run-state.stdout.json"
 RUN_STATE="$(find "$WORK/run/runs" -name agentmo-run-state.json | sort | tail -n 1)"
-node ./bin/agentmo.js run-eval "$RUN_STATE" --expect-status declared --json > "$WORK/run-eval.json"
+node ./bin/agentmo.js run-eval "$RUN_STATE" --expect-status declared --json --digest "run-state=$(digest_file "$RUN_STATE")" > "$WORK/run-eval.json"
 node ./bin/agentmo.js birth-report "$BLUEPRINT" \
+  --digest "blueprint=$(digest_file "$BLUEPRINT")" \
+  --digest "build-state=$(digest_file "$WORK/scaffold/agentmo-build-state.json")" \
+  --digest "run-state=$(digest_file "$RUN_STATE")" \
+  --digest "run-eval=$(digest_file "$WORK/run-eval.json")" \
   --build-state "$WORK/scaffold/agentmo-build-state.json" \
   --run-state "$RUN_STATE" \
   --run-eval "$WORK/run-eval.json" \
   --expect-status declared \
   --json > "$WORK/birth-report.json"
 node ./bin/agentmo.js domain-eval "$BLUEPRINT" \
+  --digest "blueprint=$(digest_file "$BLUEPRINT")" \
+  --digest "domain-cases=$(digest_file "examples/support-triage.domain-cases.json")" \
   --cases examples/support-triage.domain-cases.json \
   --target openclaw \
   --json > "$WORK/domain-eval.json"
 node ./bin/agentmo.js delivery-report "$BLUEPRINT" \
+  --digest "blueprint=$(digest_file "$BLUEPRINT")" \
+  --digest "build-state=$(digest_file "$WORK/scaffold/agentmo-build-state.json")" \
+  --digest "run-state=$(digest_file "$RUN_STATE")" \
+  --digest "run-eval=$(digest_file "$WORK/run-eval.json")" \
+  --digest "birth-report=$(digest_file "$WORK/birth-report.json")" \
+  --digest "domain-eval=$(digest_file "$WORK/domain-eval.json")" \
   --build-state "$WORK/scaffold/agentmo-build-state.json" \
   --run-state "$RUN_STATE" \
   --run-eval "$WORK/run-eval.json" \

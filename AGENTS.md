@@ -8,7 +8,7 @@ AgentMo is the active project in this repository. Treat this file as the local o
 
 ## Project intent
 
-AgentMo implements the **AgentMother** mechanism:
+AgentMo implements its canonical three-stage mechanism:
 
 ```text
 Discover -> Plan -> Produce
@@ -100,6 +100,13 @@ git diff --check
 ```
 
 If changing Stage 2 planning, run `node --test test/design-plan.test.js` and the Stage 2 contract test set documented in `docs/MVP_RUNBOOK.md`. If changing the composed MVP birth-loop, also verify the support-triage vertical slice described in `docs/OMX_SESSION_MIGRATION.md` or `docs/MVP_RUNBOOK.md`.
+
+Runtime compatibility changes must preserve these controls:
+
+- `--runtime-env-file` is AgentMo's only public runtime environment-file option; do not restore a colliding launcher alias. The Bash live-smoke helper owns its environment-file option locally.
+- `scripts/node20-distribution-trust.json` is repository-owned policy. Runtime selectors must match it exactly and callers or environment variables must not override the trust anchor.
+- Run the Node 20 producer into a new, absent temporary receipt path. Publish those exact bytes only after success, then run the post-publication consumers. Consumer tests must not enter the producer manifest or accept historical trust-marker environment variables.
+- Runtime receipts and compatibility rows prove bounded mechanism execution only; they do not certify domain quality, production readiness, or wider OpenClaw compatibility.
 
 ## Release records
 

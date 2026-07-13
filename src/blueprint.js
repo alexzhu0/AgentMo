@@ -1,11 +1,14 @@
-import { readFile } from "node:fs/promises";
 import { containsSecretLikeValue } from "./secret-redaction.js";
 
-export const SCHEMA_VERSION = "0.1";
+export const AGENTMO_PRODUCT_NAME = "AgentMo";
+export const BLUEPRINT_IDENTITY_FIELD = "agentmo_version";
+export const BLUEPRINT_SCHEMA_VERSION = "0.1";
+export const CANONICAL_PIPELINE_PHASES = Object.freeze(["discover", "plan", "produce"]);
 export const DESIGN_CONTRACT_VERSION = "agentmo.design-contract.v1";
+export const TRANSITIONAL_BLUEPRINT_LOADER_CONSUMERS = Object.freeze({});
 
 export const REQUIRED_TOP_LEVEL_FIELDS = [
-  "agentmother_version",
+  BLUEPRINT_IDENTITY_FIELD,
   "agent_id",
   "runtime",
   "status",
@@ -34,6 +37,7 @@ export const QUALITY_GATES = [
     label: "Discover-plan-produce pipeline defined",
     check: (blueprint) =>
       isObject(blueprint.pipeline) &&
+      hasExactPipelinePhases(blueprint.pipeline) &&
       isObject(blueprint.pipeline.discover) &&
       isObject(blueprint.pipeline.plan) &&
       isObject(blueprint.pipeline.produce) &&
@@ -104,14 +108,19 @@ const RUNTIME_CERTIFICATION_ARRAY_FIELDS = [
   "risk_notes",
 ];
 
-export async function loadBlueprint(path) {
-  const raw = await readFile(path, "utf8");
-  try {
-    return JSON.parse(raw);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Invalid JSON blueprint ${path}: ${message}`);
+export async function loadAdmittedBlueprint(filePath, options = {}) {
+  if (options.subject !== "blueprint") {
+    const { AgentMoUnsupportedArtifactError } = await import("./artifact-registry.js");
+    throw new AgentMoUnsupportedArtifactError("subject_identity_mismatch");
   }
+  const { loadAdmittedArtifact } = await import("./artifact-admission.js");
+  return loadAdmittedArtifact({
+    filePath,
+    subject: "blueprint",
+    expectedDigest: options.expectedDigest,
+    maxBytes: options.maxBytes,
+    openInput: options.openInput,
+  });
 }
 
 export function validateBlueprint(blueprint) {
@@ -126,8 +135,8 @@ export function validateBlueprint(blueprint) {
     if (!(field in blueprint)) errors.push(`Missing required field: ${field}`);
   }
 
-  if (blueprint.agentmother_version !== SCHEMA_VERSION) {
-    errors.push(`agentmother_version must be ${SCHEMA_VERSION}`);
+  if (blueprint[BLUEPRINT_IDENTITY_FIELD] !== BLUEPRINT_SCHEMA_VERSION) {
+    errors.push(`${BLUEPRINT_IDENTITY_FIELD} must be ${BLUEPRINT_SCHEMA_VERSION}`);
   }
 
   if (!nonEmptyString(blueprint.agent_id)) {
@@ -211,6 +220,10 @@ function validatePipeline(value, errors) {
     return;
   }
 
+  if (!hasExactPipelinePhases(value)) {
+    errors.push(`pipeline must contain exactly these phases: ${CANONICAL_PIPELINE_PHASES.join(", ")}.`);
+  }
+
   validateDiscoverPhase(value.discover, errors);
   validatePlanPhase(value.plan, errors);
   validateProducePhase(value.produce, errors);
@@ -255,13 +268,19 @@ function validateProducePhase(value, errors) {
 
 function summarizePipelinePhases(value) {
   if (!isObject(value)) return [];
-  return ["discover", "plan", "produce"].filter((phase) => isObject(value[phase]));
+  return CANONICAL_PIPELINE_PHASES.filter((phase) => isObject(value[phase]));
+}
+
+function hasExactPipelinePhases(value) {
+  if (!isObject(value)) return false;
+  const keys = Object.keys(value);
+  return keys.length === CANONICAL_PIPELINE_PHASES.length && CANONICAL_PIPELINE_PHASES.every((phase) => keys.includes(phase));
 }
 
 function validateRuntimeProfiles(blueprint, errors, warnings) {
   const value = blueprint.runtime_profiles;
   if (value === undefined) {
-    warnings.push("runtime_profiles is not set; AgentMother can model multiple runtime architectures such as pi and openclaw.");
+    warnings.push("runtime_profiles is not set; AgentMo can model multiple runtime architectures such as pi and openclaw.");
     return;
   }
   if (!Array.isArray(value)) {

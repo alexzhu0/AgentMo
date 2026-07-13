@@ -1,177 +1,290 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { buildBirthReport } from "../src/birth-report.js";
-import { BUILD_STATE_FILENAME } from "../src/build-state.js";
-import { buildDeliveryReport } from "../src/delivery-report.js";
-import { buildDomainEval, loadDomainCases } from "../src/domain-eval.js";
-import { buildRunEval, executeRuntimeRun } from "../src/run-state.js";
-import { scaffoldAgent } from "../src/scaffold.js";
-
-async function loadSupportTriageBlueprint() {
-  return JSON.parse(await readFile(new URL("../examples/support-triage.agentmo.json", import.meta.url), "utf8"));
-}
-
-async function loadSupportTriageCases() {
-  return loadDomainCases(new URL("../examples/support-triage.domain-cases.json", import.meta.url));
-}
-
-async function buildDeclaredEvidence(runId) {
-  const blueprint = await loadSupportTriageBlueprint();
-  const domainCases = await loadSupportTriageCases();
-  const scaffoldDir = await mkdtemp(path.join(tmpdir(), "agentmo-delivery-scaffold-"));
-  await scaffoldAgent(blueprint, scaffoldDir, { target: "openclaw" });
-  const buildState = JSON.parse(await readFile(path.join(scaffoldDir, BUILD_STATE_FILENAME), "utf8"));
-  const { runState } = await executeRuntimeRun(blueprint, {
-    target: "openclaw",
-    workspace: path.join(scaffoldDir, "workspace"),
-    message: "Say exactly: ok",
-    runId,
-    now: "2026-07-07T00:00:00.000Z",
-  });
-  const runEval = buildRunEval(runState, { expectStatus: "declared" });
-  const birthReport = buildBirthReport(blueprint, { buildState, runState, runEval, expectStatus: "declared" });
-  const domainEval = buildDomainEval(blueprint, domainCases, { target: "openclaw" });
-
-  return { blueprint, buildState, runState, runEval, birthReport, domainEval };
-}
-
-function buildReport(artifacts, overrides = {}) {
-  return buildDeliveryReport(artifacts.blueprint, {
-    buildState: artifacts.buildState,
-    runState: artifacts.runState,
-    runEval: artifacts.runEval,
-    birthReport: artifacts.birthReport,
-    domainEval: artifacts.domainEval,
-    ...overrides,
-  });
-}
+import { describe, it } from "node:test";
+import { digestRawBytes, loadAdmittedArtifact } from "../src/artifact-admission.js";
+import { buildDeliveryReport, validateDeliveryReportArtifact } from "../src/delivery-report.js";
+import { validateDomainEvalArtifact } from "../src/domain-eval.js";
+import { assertPersistable } from "../src/persistability.js";
+import {
+  admitJsonValue,
+  buildAdmittedDelivery,
+  buildAdmittedEvidence,
+} from "./helpers/admitted-reports.js";
 
 function checkById(report, id) {
-  return report.checks.find((check) => check.id === id);
+  return report.checks.find((item) => item.id === id);
 }
 
-function failedCheckIds(report) {
-  return report.checks.filter((check) => !check.pass).map((check) => check.id).join(", ");
+function deliveryOptions(evidence, overrides = {}) {
+  const domainEval = Object.hasOwn(overrides, "domainEval") ? overrides.domainEval : evidence.domainEval;
+  const admissions = {
+    blueprint: evidence.blueprintAdmission,
+    buildState: evidence.buildStateAdmission,
+    runState: evidence.runStateAdmission,
+    runEval: evidence.runEvalAdmission,
+    birthReport: evidence.birthReportAdmission,
+    domainEval: Object.hasOwn(overrides.admissions ?? {}, "domainEval")
+      ? overrides.admissions.domainEval
+      : evidence.domainEvalAdmission,
+    ...(overrides.admissions ?? {}),
+  };
+  return {
+    buildState: overrides.buildState ?? evidence.buildState,
+    runState: overrides.runState ?? evidence.runState,
+    runEval: overrides.runEval ?? evidence.runEval,
+    birthReport: overrides.birthReport ?? evidence.birthReport,
+    domainEval,
+    admissions,
+  };
+}
+
+async function admitEquivalentBlueprintWithDifferentBytes(evidence) {
+  const root = await mkdtemp(path.join(tmpdir(), "agentmo-delivery-blueprint-variant-"));
+  const file = path.join(root, "blueprint.json");
+  const bytes = Buffer.from(JSON.stringify(evidence.blueprint), "utf8");
+  await writeFile(file, bytes);
+  const admission = await loadAdmittedArtifact({
+    filePath: file,
+    subject: "blueprint",
+    expectedDigest: digestRawBytes(bytes),
+  });
+  assert.notEqual(admission.digest, evidence.blueprintAdmission.digest);
+  return admission;
 }
 
 describe("delivery report", () => {
-  it("passes declared evidence with domain certification but no runtime promotion or delivery readiness", async () => {
-    const artifacts = await buildDeclaredEvidence("delivery-declared-ok");
-
-    assert.equal(artifacts.runEval.ok, true);
-    assert.equal(artifacts.birthReport.ok, true);
-    assert.equal(artifacts.domainEval.ok, true);
-
-    const report = buildReport(artifacts);
+  it("aggregates exact declared and domain evidence without promoting runtime, delivery, or production", async () => {
+    const { deliveryReport: report } = await buildAdmittedDelivery({ runId: "delivery-declared-domain" });
 
     assert.equal(report.schemaVersion, "agentmo.delivery.v1");
-    assert.equal(report.ok, true, failedCheckIds(report));
+    assert.equal(report.ok, true);
+    assert.equal(validateDeliveryReportArtifact(report).ok, true);
+    assert.doesNotThrow(() => assertPersistable(report, { subject: "delivery-report" }));
     assert.equal(report.domainCertified, true);
     assert.equal(report.runtimePromotionEligible, false);
     assert.equal(report.deliveryReady, false);
+    assert.equal(report.productionApproved, false);
+    assert.deepEqual(report.evidenceLevels, {
+      declaredReady: true,
+      liveSuccess: false,
+      domainCertified: true,
+      deliveryReady: false,
+      productionApproved: false,
+    });
     assert.equal(report.certificationBoundary.runtimeCertifiedByDeliveryReport, false);
     assert.equal(report.certificationBoundary.domainCertifiedByDeliveryReport, false);
+    assert.equal(report.certificationBoundary.deliveryReadyByDeliveryReport, false);
     assert.equal(report.certificationBoundary.productionApprovedByDeliveryReport, false);
     assert.equal(report.certificationBoundary.domainCertifiedByDomainEval, true);
+    assert.equal(checkById(report, "domain_eval_non_transitive").pass, true);
   });
 
-  it("passes without domain-eval while leaving domain certification false", async () => {
-    const artifacts = await buildDeclaredEvidence("delivery-no-domain-eval");
-    const report = buildReport(artifacts, { domainEval: null });
-
-    assert.equal(report.ok, true, failedCheckIds(report));
-    assert.equal(report.domainCertified, false);
-    assert.equal(report.artifacts.domainEval.available, false);
-    assert.equal(checkById(report, "domain_eval_optional").pass, true);
-    assert.match(report.nextActions.join("\n"), /domain-eval/u);
-  });
-
-  it("fails closed when domain-eval claims runtime certification", async () => {
-    const artifacts = await buildDeclaredEvidence("delivery-domain-eval-runtime-cert");
-    assert.equal(artifacts.domainEval.ok, true);
-    assert.equal(artifacts.domainEval.certificationBoundary.runtimeCertifiedByDomainEval, false);
-
-    const domainEval = {
-      ...artifacts.domainEval,
-      certificationBoundary: {
-        ...artifacts.domainEval.certificationBoundary,
-        runtimeCertifiedByDomainEval: true,
-      },
-    };
-    const report = buildReport(artifacts, { domainEval });
-
-    assert.equal(report.ok, false);
-    assert.equal(checkById(report, "domain_eval_optional_or_valid").pass, false);
-    assert.equal(report.domainCertified, false);
-  });
-
-  it("fails closed when domain-eval claims production approval", async () => {
-    const artifacts = await buildDeclaredEvidence("delivery-domain-eval-production-approval");
-    assert.equal(artifacts.domainEval.ok, true);
-    assert.equal(artifacts.domainEval.certificationBoundary.productionApprovedByDomainEval, false);
-
-    const domainEval = {
-      ...artifacts.domainEval,
-      certificationBoundary: {
-        ...artifacts.domainEval.certificationBoundary,
-        productionApprovedByDomainEval: true,
-      },
-    };
-    const report = buildReport(artifacts, { domainEval });
-
-    assert.equal(report.ok, false);
-    assert.equal(checkById(report, "domain_eval_optional_or_valid").pass, false);
-    assert.equal(report.domainCertified, false);
-  });
-
-  it("fails closed when run-eval does not match the run-state", async () => {
-    const artifacts = await buildDeclaredEvidence("delivery-run-eval-mismatch");
-    const report = buildReport(artifacts, { runEval: { ...artifacts.runEval, runId: "different-run" } });
-
-    assert.equal(report.ok, false);
-    assert.equal(checkById(report, "run_eval_run_id_match").pass, false);
-    assert.equal(checkById(report, "run_eval_run_id").pass, false);
-  });
-
-  it("fails closed when the birth-report expectation does not match run evidence", async () => {
-    const artifacts = await buildDeclaredEvidence("delivery-birth-expectation-mismatch");
-    const birthReport = buildBirthReport(artifacts.blueprint, {
-      buildState: artifacts.buildState,
-      runState: artifacts.runState,
-      runEval: artifacts.runEval,
-      expectStatus: "success",
+  it("treats domain-eval absence as exact optional evidence, never implicit certification", async () => {
+    const evidence = await buildAdmittedEvidence({
+      runId: "delivery-domain-absent",
+      includeDomainEval: false,
     });
-    const report = buildReport(artifacts, { birthReport });
+    const report = await buildDeliveryReport(evidence.blueprint, deliveryOptions(evidence));
 
-    assert.equal(birthReport.ok, false);
-    assert.equal(report.ok, false);
-    assert.equal(checkById(report, "birth_report_expectation_match").pass, false);
-    assert.equal(checkById(report, "birth_expectation_matches").pass, false);
-    assert.equal(checkById(report, "birth_report_ok").pass, false);
+    assert.equal(report.ok, true);
+    assert.equal(report.sources.domainEval, null);
+    assert.equal(report.target.domainEval, null);
+    assert.equal(report.domainCertified, false);
+    assert.equal(report.evidenceLevels.domainCertified, false);
+    assert.equal(report.runtimePromotionEligible, false);
+    assert.equal(report.deliveryReady, false);
+    assert.equal(report.productionApproved, false);
+    assert.equal(checkById(report, "domain_eval_optional").pass, true);
+    assert.match(report.nextActions.join("\n"), /domain evaluation/u);
+
+    const withDomain = await buildAdmittedEvidence({ runId: "delivery-domain-pairing" });
+    await assert.rejects(
+      () => buildDeliveryReport(withDomain.blueprint, deliveryOptions(withDomain, {
+        domainEval: null,
+        admissions: { domainEval: withDomain.domainEvalAdmission },
+      })),
+      (error) => error?.code === "AGENTMO_DELIVERY_OPTIONAL_INPUT_INVALID",
+    );
+    await assert.rejects(
+      () => buildDeliveryReport(withDomain.blueprint, deliveryOptions(withDomain, {
+        admissions: { domainEval: null },
+      })),
+      (error) => error?.code === "AGENTMO_DELIVERY_OPTIONAL_INPUT_INVALID",
+    );
   });
 
-  it("fails closed when managed evidence contains raw markers", async () => {
-    const artifacts = await buildDeclaredEvidence("delivery-raw-evidence");
-    artifacts.runState.evidence.rawTranscriptStored = true;
-    const report = buildReport(artifacts);
+  it("rejects forged admissions, family swaps, and byte swaps before aggregation", async () => {
+    const evidence = await buildAdmittedEvidence({ runId: "delivery-admission-rejection" });
+    const forgedRunStateAdmission = Object.freeze({ ...evidence.runStateAdmission });
+    await assert.rejects(
+      () => buildDeliveryReport(evidence.blueprint, deliveryOptions(evidence, {
+        admissions: { runState: forgedRunStateAdmission },
+      })),
+      (error) => error?.code === "AGENTMO_ARTIFACT_ADMISSION_RESULT_INVALID",
+    );
+    await assert.rejects(
+      () => buildDeliveryReport(evidence.blueprint, deliveryOptions(evidence, {
+        admissions: { runState: evidence.runEvalAdmission },
+      })),
+      (error) => error?.code === "AGENTMO_ARTIFACT_ADMISSION_RESULT_INVALID",
+    );
 
-    assert.equal(report.ok, false);
-    assert.equal(checkById(report, "evidence_no_raw_or_secret").pass, false);
-    assert.equal(checkById(report, "no_raw_transcripts").pass, false);
-    assert.equal(report.evidence.audit.rawFindingCount > 0, true);
+    const fixture = await admitJsonValue("run-state", evidence.runState, "delivery-byte-swap");
+    await writeFile(fixture.file, Buffer.concat([fixture.bytes, Buffer.from(" ")]));
+    await assert.rejects(
+      () => loadAdmittedArtifact({
+        filePath: fixture.file,
+        subject: "run-state",
+        expectedDigest: fixture.admission.digest,
+      }),
+      (error) => error?.code === "AGENTMO_ARTIFACT_DIGEST_MISMATCH",
+    );
   });
 
-  it("fails closed when managed evidence contains secret-like values", async () => {
-    const artifacts = await buildDeclaredEvidence("delivery-secret-evidence");
-    artifacts.runState.evidence.sanitizedNote = "api_key=delivery-secret-123456";
-    const report = buildReport(artifacts);
+  it("fails aggregation for an independently admitted run-eval from another run", async () => {
+    const evidence = await buildAdmittedEvidence({ runId: "delivery-run-eval-base" });
+    const otherRun = await buildAdmittedEvidence({
+      blueprintAdmission: evidence.blueprintAdmission,
+      runId: "delivery-run-eval-other",
+      includeDomainEval: false,
+    });
+    const report = await buildDeliveryReport(evidence.blueprint, deliveryOptions(evidence, {
+      runEval: otherRun.runEval,
+      admissions: { runEval: otherRun.runEvalAdmission },
+    }));
 
+    assert.equal(validateDeliveryReportArtifact(report).ok, true);
     assert.equal(report.ok, false);
-    assert.equal(checkById(report, "evidence_no_raw_or_secret").pass, false);
-    assert.equal(checkById(report, "managed_evidence_sanitized").pass, false);
-    assert.equal(report.evidence.audit.secretFindingCount > 0, true);
+    assert.equal(checkById(report, "run_eval_run_state_provenance").pass, false);
+    assert.equal(checkById(report, "run_eval_run_id").pass, false);
+    assert.equal(checkById(report, "birth_run_eval_provenance").pass, false);
+    assert.equal(report.runtimePromotionEligible, false);
+    assert.equal(report.deliveryReady, false);
+    assert.equal(report.productionApproved, false);
+  });
+
+  it("fails aggregation for an independently admitted birth-report from another run", async () => {
+    const evidence = await buildAdmittedEvidence({ runId: "delivery-birth-base" });
+    const otherRun = await buildAdmittedEvidence({
+      blueprintAdmission: evidence.blueprintAdmission,
+      runId: "delivery-birth-other",
+      includeDomainEval: false,
+    });
+    const report = await buildDeliveryReport(evidence.blueprint, deliveryOptions(evidence, {
+      birthReport: otherRun.birthReport,
+      admissions: { birthReport: otherRun.birthReportAdmission },
+    }));
+
+    assert.equal(validateDeliveryReportArtifact(report).ok, true);
+    assert.equal(report.ok, false);
+    assert.equal(checkById(report, "birth_run_state_provenance").pass, false);
+    assert.equal(checkById(report, "birth_run_eval_provenance").pass, false);
+    assert.equal(checkById(report, "birth_run_id").pass, false);
+    assert.equal(report.runtimePromotionEligible, false);
+    assert.equal(report.deliveryReady, false);
+    assert.equal(report.productionApproved, false);
+  });
+
+  it("fails aggregation for a valid domain-eval bound to independently admitted blueprint bytes", async () => {
+    const evidence = await buildAdmittedEvidence({ runId: "delivery-domain-base" });
+    const alternateBlueprint = await admitEquivalentBlueprintWithDifferentBytes(evidence);
+    const alternate = await buildAdmittedEvidence({
+      blueprintAdmission: alternateBlueprint,
+      runId: "delivery-domain-alternate",
+    });
+    assert.equal(alternate.domainEval.ok, true);
+    assert.equal(alternate.domainEval.sources.blueprint.digest, alternateBlueprint.digest);
+
+    const report = await buildDeliveryReport(evidence.blueprint, deliveryOptions(evidence, {
+      domainEval: alternate.domainEval,
+      admissions: { domainEval: alternate.domainEvalAdmission },
+    }));
+
+    assert.equal(validateDeliveryReportArtifact(report).ok, true);
+    assert.equal(report.ok, false);
+    assert.equal(checkById(report, "domain_eval_valid").pass, true);
+    assert.equal(checkById(report, "domain_eval_blueprint_provenance").pass, false);
+    assert.equal(checkById(report, "domain_eval_non_transitive").pass, true);
+    assert.equal(report.domainCertified, true);
+    assert.equal(report.runtimePromotionEligible, false);
+    assert.equal(report.deliveryReady, false);
+    assert.equal(report.productionApproved, false);
+  });
+
+  it("rejects forged transitive promotion claims without mutating admitted evidence", async () => {
+    const { deliveryReport } = await buildAdmittedDelivery({ runId: "delivery-boundary-forgery" });
+    const runtimePromotion = { ...structuredClone(deliveryReport), runtimePromotionEligible: true };
+    const deliveryReady = { ...structuredClone(deliveryReport), deliveryReady: true };
+    const productionApproved = { ...structuredClone(deliveryReport), productionApproved: true };
+
+    assert.equal(validateDeliveryReportArtifact(runtimePromotion).ok, false);
+    assert.equal(validateDeliveryReportArtifact(deliveryReady).ok, false);
+    assert.equal(validateDeliveryReportArtifact(productionApproved).ok, false);
+    assert.equal(deliveryReport.runtimePromotionEligible, false);
+    assert.equal(deliveryReport.deliveryReady, false);
+    assert.equal(deliveryReport.productionApproved, false);
+  });
+
+  it("rejects non-canonical checks and never delivers contradictory domain coverage", async () => {
+    const evidence = await buildAdmittedDelivery({ runId: "delivery-check-contract" });
+    const baseline = evidence.deliveryReport;
+    const mutations = [];
+
+    const empty = structuredClone(baseline);
+    empty.checks = [];
+    mutations.push(empty);
+    const missing = structuredClone(baseline);
+    missing.checks.splice(4, 1);
+    mutations.push(missing);
+    const duplicate = structuredClone(baseline);
+    duplicate.checks[4] = structuredClone(duplicate.checks[3]);
+    mutations.push(duplicate);
+    const extra = structuredClone(baseline);
+    extra.checks.push({ id: "unexpected_check", pass: true, message: "unexpected" });
+    mutations.push(extra);
+    const renamed = structuredClone(baseline);
+    renamed.checks[5].id = "scope_match";
+    mutations.push(renamed);
+    const reordered = structuredClone(baseline);
+    [reordered.checks[0], reordered.checks[1]] = [reordered.checks[1], reordered.checks[0]];
+    mutations.push(reordered);
+    const outcomeForged = structuredClone(baseline);
+    outcomeForged.checks[0].pass = false;
+    outcomeForged.ok = false;
+    outcomeForged.nextActions = ["Repair invalid or mismatched source evidence before rebuilding delivery-report."];
+    mutations.push(outcomeForged);
+
+    for (const candidate of mutations) {
+      assert.equal(validateDeliveryReportArtifact(candidate).ok, false);
+    }
+
+    const contradictoryDomain = structuredClone(evidence.domainEval);
+    assert.equal(contradictoryDomain.requiredCaseClasses.length, 3);
+    contradictoryDomain.coveredCaseClasses = [];
+    contradictoryDomain.missingCaseClasses = [];
+    for (const result of contradictoryDomain.caseResults) result.required = false;
+    contradictoryDomain.ok = true;
+    contradictoryDomain.domainCertifiedByDomainEval = true;
+    contradictoryDomain.certificationBoundary.domainCertifiedByDomainEval = true;
+    for (const item of contradictoryDomain.checks) item.pass = true;
+
+    assert.equal(validateDomainEvalArtifact(contradictoryDomain).ok, false);
+    await assert.rejects(
+      () => admitJsonValue("domain-eval", contradictoryDomain, "delivery-contradictory-domain"),
+      (error) => error?.code === "AGENTMO_UNSUPPORTED_ARTIFACT",
+    );
+    assert.equal(validateDeliveryReportArtifact(baseline, {
+      blueprint: evidence.blueprint,
+      buildState: evidence.buildState,
+      runState: evidence.runState,
+      runEval: evidence.runEval,
+      birthReport: evidence.birthReport,
+      domainEval: contradictoryDomain,
+      sources: baseline.sources,
+    }).ok, false);
+    assert.equal(baseline.deliveryReady, false);
+    assert.equal(baseline.productionApproved, false);
   });
 });

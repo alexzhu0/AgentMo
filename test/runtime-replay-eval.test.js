@@ -1,16 +1,19 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import {
   buildRunEval,
   buildRunReport,
-  executeRuntimeRun,
-  loadRunState,
-  replayRunState,
   RUN_STATE_FILENAME,
 } from "../src/run-state.js";
+import {
+  admitRunStateValue,
+  executeAdmittedRuntimeRun,
+  loadAdmittedRunStateFile,
+  replayAdmittedRunState,
+} from "./helpers/admitted-runtime.js";
 
 async function loadExample() {
   return JSON.parse(await readFile(new URL("../examples/win9.agentmo.json", import.meta.url), "utf8"));
@@ -18,7 +21,7 @@ async function loadExample() {
 
 async function createParentRunState() {
   const blueprint = await loadExample();
-  const { runState } = await executeRuntimeRun(blueprint, {
+  const { runState } = await executeAdmittedRuntimeRun(blueprint, {
     target: "openclaw",
     workspace: "/tmp/agentmo-workspace",
     message: "Say exactly: ok",
@@ -60,8 +63,9 @@ describe("runtime replay and eval", () => {
   it("replays into a fresh child session by default and writes child state", async () => {
     const runState = await createParentRunState();
     const out = await mkdtemp(path.join(tmpdir(), "agentmo-replay-"));
-    const replay = await replayRunState(runState, {
+    const replay = await replayAdmittedRunState(runState, {
       out,
+      message: "Say exactly: ok",
       runId: "child-run",
       now: "2026-07-03T00:01:00.000Z",
     });
@@ -78,14 +82,14 @@ describe("runtime replay and eval", () => {
     assert.equal(replay.runState.command.args.includes(childSession), true);
     assert.equal(replay.runState.command.args.includes(parentSession), false);
 
-    const saved = await loadRunState(path.join(out, "runs", "child-run", RUN_STATE_FILENAME));
+    const saved = (await loadAdmittedRunStateFile(path.join(out, "runs", "child-run", RUN_STATE_FILENAME))).value;
     assert.equal(saved.runId, "child-run");
     assert.equal(saved.parentRunId, "parent-run");
   });
 
   it("preserves OpenClaw local transport and model flags during replay", async () => {
     const blueprint = await loadExample();
-    const parent = await executeRuntimeRun(blueprint, {
+    const parent = await executeAdmittedRuntimeRun(blueprint, {
       target: "openclaw",
       workspace: "/tmp/agentmo-workspace",
       transport: "local",
@@ -95,7 +99,8 @@ describe("runtime replay and eval", () => {
       runId: "model-parent",
       now: "2026-07-03T00:00:00.000Z",
     });
-    const replay = await replayRunState(parent.runState, {
+    const replay = await replayAdmittedRunState(parent.runState, {
+      message: "Say exactly: ok",
       runId: "model-child",
       now: "2026-07-03T00:01:00.000Z",
     });
@@ -113,7 +118,8 @@ describe("runtime replay and eval", () => {
 
   it("reuses the original session only with explicit resume-session", async () => {
     const runState = await createParentRunState();
-    const replay = await replayRunState(runState, {
+    const replay = await replayAdmittedRunState(runState, {
+      message: "Say exactly: ok",
       runId: "resume-run",
       now: "2026-07-03T00:02:00.000Z",
       resumeSession: true,
@@ -132,7 +138,7 @@ describe("runtime replay and eval", () => {
 
   it("records live replay mutation flags against isolated state", async () => {
     const blueprint = await loadExample();
-    const parent = await executeRuntimeRun(blueprint, {
+    const parent = await executeAdmittedRuntimeRun(blueprint, {
       target: "openclaw",
       workspace: "/tmp/agentmo-workspace",
       openClawStateDir: "/tmp/openclaw-state",
@@ -140,10 +146,13 @@ describe("runtime replay and eval", () => {
       runId: "live-replay-parent",
       now: "2026-07-03T00:00:00.000Z",
     });
-    const replay = await replayRunState(
+    const replay = await replayAdmittedRunState(
       parent.runState,
       {
         live: true,
+        workspace: "/tmp/agentmo-workspace",
+        openClawStateDir: "/tmp/openclaw-state",
+        message: "Say exactly: ok",
         runId: "live-replay-child",
         now: "2026-07-03T00:08:00.000Z",
       },
@@ -158,7 +167,7 @@ describe("runtime replay and eval", () => {
 
   it("passes env-file values and redaction context into live replay", async () => {
     const blueprint = await loadExample();
-    const parent = await executeRuntimeRun(blueprint, {
+    const parent = await executeAdmittedRuntimeRun(blueprint, {
       target: "openclaw",
       workspace: "/tmp/agentmo-workspace",
       openClawStateDir: "/tmp/openclaw-state",
@@ -173,10 +182,11 @@ describe("runtime replay and eval", () => {
     });
     await assert.rejects(
       () =>
-        replayRunState(
+        replayAdmittedRunState(
           parent.runState,
           {
             live: true,
+            message: "Say exactly: ok",
             runId: "live-replay-env-missing",
             now: "2026-07-03T00:08:00.000Z",
           },
@@ -186,10 +196,13 @@ describe("runtime replay and eval", () => {
     );
 
     let observedDeepSeekKey = null;
-    const replay = await replayRunState(
+    const replay = await replayAdmittedRunState(
       parent.runState,
       {
         live: true,
+        workspace: "/tmp/agentmo-workspace",
+        openClawStateDir: "/tmp/openclaw-state",
+        message: "Say exactly: ok",
         envFile: "/tmp/agentmo/.env",
         envFileContent: "DEEPSEEK_API_KEY=replay-secret\nOPENCLAW_GATEWAY_URL=ws://127.0.0.1:28765\n",
         runId: "live-replay-env-child",
@@ -202,18 +215,17 @@ describe("runtime replay and eval", () => {
     );
 
     assert.equal(observedDeepSeekKey, "replay-secret");
-    assert.equal(replay.runState.runtimeIdentity.runtimeEnv.envFile.basename, ".env");
-    assert.deepEqual(replay.runState.runtimeIdentity.runtimeEnv.presentKeys, ["DEEPSEEK_API_KEY", "OPENCLAW_GATEWAY_URL"]);
+    assert.deepEqual(replay.runState.runtimeIdentity.runtimeEnv.presentNames, ["DEEPSEEK_API_KEY", "OPENCLAW_GATEWAY_URL"]);
     assert.equal(replay.runState.execution.stdout.summaryKind, "unstructured-digest-summary");
-    assert.equal(replay.runState.execution.stdout.preview.includes("replay-secret"), false);
-    assert.equal(replay.runState.execution.stdout.preview.includes("[REDACTED_SECRET]"), false);
+    assert.equal(replay.runState.execution.stdout.text.includes("replay-secret"), false);
+    assert.equal(replay.runState.execution.stdout.text.includes("[REDACTED_SECRET]"), false);
     assert.equal(JSON.stringify(replay.runState).includes("replay-secret"), false);
     assert.equal(replay.runState.runtimeIdentity.sandboxScope.environmentAllowlist.includes("OPENCLAW_GATEWAY_URL"), true);
   });
 
   it("fresh replay rewrites session-id and to selectors into a generated child session-key", async () => {
     const blueprint = await loadExample();
-    const sessionIdParent = await executeRuntimeRun(blueprint, {
+    const sessionIdParent = await executeAdmittedRuntimeRun(blueprint, {
       target: "openclaw",
       workspace: "/tmp/agentmo-workspace",
       sessionId: "parent-session-id",
@@ -221,7 +233,8 @@ describe("runtime replay and eval", () => {
       runId: "session-id-parent",
       now: "2026-07-03T00:00:00.000Z",
     });
-    const sessionIdReplay = await replayRunState(sessionIdParent.runState, {
+    const sessionIdReplay = await replayAdmittedRunState(sessionIdParent.runState, {
+      message: "Say exactly: ok",
       runId: "session-id-child",
       now: "2026-07-03T00:04:00.000Z",
     });
@@ -234,7 +247,7 @@ describe("runtime replay and eval", () => {
     assert.equal(sessionIdReplay.runState.command.args.includes("parent-session-id"), false);
     assert.equal(sessionIdReplay.runState.command.args.includes("--session-key"), true);
 
-    const toParent = await executeRuntimeRun(blueprint, {
+    const toParent = await executeAdmittedRuntimeRun(blueprint, {
       target: "openclaw",
       workspace: "/tmp/agentmo-workspace",
       to: "telegram:abc",
@@ -242,7 +255,8 @@ describe("runtime replay and eval", () => {
       runId: "to-parent",
       now: "2026-07-03T00:00:00.000Z",
     });
-    const toReplay = await replayRunState(toParent.runState, {
+    const toReplay = await replayAdmittedRunState(toParent.runState, {
+      message: "Say exactly: ok",
       runId: "to-child",
       now: "2026-07-03T00:05:00.000Z",
     });
@@ -254,26 +268,22 @@ describe("runtime replay and eval", () => {
     assert.equal(toReplay.runState.command.args.includes("telegram:abc"), false);
   });
 
-  it("labels replay fidelity reconstructed when exact message material is unavailable", async () => {
+  it("labels replay fidelity unavailable when message material is not re-supplied", async () => {
     const runState = await createParentRunState();
-    const reconstructed = JSON.parse(JSON.stringify(runState));
-    reconstructed.message.inlineMessage = null;
-    reconstructed.message.messageFile = null;
-
-    const replay = await replayRunState(reconstructed, {
+    const replay = await replayAdmittedRunState(runState, {
       runId: "reconstructed-run",
       now: "2026-07-03T00:03:00.000Z",
     });
 
-    assert.equal(replay.runState.replay.replayFidelity, "reconstructed");
-    assert.equal(buildRunEval(replay.runState).ok, false);
-    assert.equal(buildRunEval(replay.runState).checks.find((check) => check.id === "message_provenance").pass, false);
+    assert.equal(replay.runState.replay.replayFidelity, "unavailable");
+    assert.equal(buildRunEval(replay.runState).ok, true);
+    assert.equal(buildRunEval(replay.runState).checks.find((check) => check.id === "message_provenance").pass, true);
   });
 
-  it("verifies message-file digest before labeling replay fidelity exact", async () => {
+  it("requires newly supplied matching bytes before labeling replay fidelity exact", async () => {
     const blueprint = await loadExample();
     const out = await mkdtemp(path.join(tmpdir(), "agentmo-message-fidelity-"));
-    const parent = await executeRuntimeRun(blueprint, {
+    const parent = await executeAdmittedRuntimeRun(blueprint, {
       target: "openclaw",
       workspace: "/tmp/agentmo-workspace",
       message: "line 1\nline 2",
@@ -282,18 +292,19 @@ describe("runtime replay and eval", () => {
       now: "2026-07-03T00:00:00.000Z",
     });
 
-    const exact = await replayRunState(parent.runState, {
+    const exact = await replayAdmittedRunState(parent.runState, {
+      message: "line 1\nline 2",
       runId: "message-child",
       now: "2026-07-03T00:06:00.000Z",
     });
     assert.equal(exact.runState.replay.replayFidelity, "exact");
 
-    await writeFile(parent.runState.message.messageFile.path, "tampered", "utf8");
-    const tamperedEval = buildRunEval(parent.runState, { requireExactReplay: true });
+    const tamperedEval = buildRunEval(parent.runState, { requireExactReplay: true, message: "tampered" });
     assert.equal(tamperedEval.ok, false);
-    assert.equal(tamperedEval.checks.find((check) => check.id === "message_provenance").pass, false);
+    assert.equal(tamperedEval.checks.find((check) => check.id === "message_provenance").pass, true);
     assert.equal(tamperedEval.checks.find((check) => check.id === "require_exact_replay").pass, false);
-    const reconstructed = await replayRunState(parent.runState, {
+    const reconstructed = await replayAdmittedRunState(parent.runState, {
+      message: "tampered",
       runId: "message-tampered-child",
       now: "2026-07-03T00:07:00.000Z",
     });
@@ -304,10 +315,16 @@ describe("runtime replay and eval", () => {
     const runState = await createParentRunState();
     const missingCommand = JSON.parse(JSON.stringify(runState));
     delete missingCommand.command;
-    await assert.rejects(() => replayRunState(missingCommand, { runId: "bad-run" }), /command descriptor/u);
+    await assert.rejects(
+      () => admitRunStateValue(missingCommand),
+      (error) => error.code === "AGENTMO_UNSUPPORTED_ARTIFACT",
+    );
 
     const missingSandbox = JSON.parse(JSON.stringify(runState));
     delete missingSandbox.runtimeIdentity.sandboxScope;
-    await assert.rejects(() => replayRunState(missingSandbox, { runId: "bad-sandbox" }), /sandbox scope/u);
+    await assert.rejects(
+      () => admitRunStateValue(missingSandbox),
+      (error) => error.code === "AGENTMO_UNSUPPORTED_ARTIFACT",
+    );
   });
 });

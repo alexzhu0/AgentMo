@@ -1,4 +1,4 @@
-# AgentMother Quality Gates
+# AgentMo Quality Gates
 
 AgentMo v0.1 validates eight default quality gates.
 
@@ -21,4 +21,4 @@ The pipeline gate is first-class: AgentMo should not jump straight to agent manu
 
 ## Why gates matter
 
-AgentMother treats agents as software systems. A domain agent without gates may still chat, but it cannot be certified, reproduced, or trusted as an engineering artifact.
+AgentMo treats agents as software systems. A domain agent without gates may still chat, but it cannot be certified, reproduced, or trusted as an engineering artifact.

@@ -1,7 +1,14 @@
-import { createHash } from "node:crypto";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
+import {
+  admittedArtifactProvenance,
+  ArtifactAdmissionError,
+} from "./artifact-admission.js";
 import { DISCOVERY_DB_SCHEMA_VERSION } from "./discovery-db.js";
+import {
+  PersistabilityError,
+  serializePersistableJson,
+  writePersistableJsonAtomic,
+} from "./persistability.js";
 import { validateSourceRefs } from "./source-refs.js";
 import { USER_NEED_SCHEMA_VERSION, validateUserNeed } from "./user-need.js";
 
@@ -9,6 +16,8 @@ export const DESIGN_PLAN_SCHEMA_VERSION = "agentmo.design-plan.v1";
 
 const REQUIREMENT_TYPES = new Set(["primary_task", "success_criterion", "hard_failure"]);
 const COVERAGE_LEVELS = new Set(["supported", "partial", "missing"]);
+const ADMITTED_DESIGN_PLAN_CANDIDATES = new WeakSet();
+const SHA256_DIGEST_PATTERN = /^sha256:[a-f0-9]{64}$/u;
 const STOP_WORDS = new Set([
   "a",
   "an",
@@ -33,20 +42,24 @@ const STOP_WORDS = new Set([
   "cases",
 ]);
 
-export async function loadDesignPlan(filePath) {
-  const raw = await readFile(filePath, "utf8");
-  let parsed;
-  try {
-    parsed = JSON.parse(raw);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Invalid design-plan JSON ${filePath}: ${message}`);
+export async function loadDesignPlan(filePath, options = {}) {
+  if (options.subject !== "design-plan") {
+    const { AgentMoUnsupportedArtifactError } = await import("./artifact-registry.js");
+    throw new AgentMoUnsupportedArtifactError("subject_identity_mismatch");
   }
-  return parsed;
+  const { loadAdmittedArtifact } = await import("./artifact-admission.js");
+  return (await loadAdmittedArtifact({
+    filePath,
+    subject: "design-plan",
+    expectedDigest: options.expectedDigest,
+    maxBytes: options.maxBytes,
+    openInput: options.openInput,
+  })).value;
 }
 
 export function buildDesignPlan(discoveryDb, userNeed, options = {}) {
   assertDesignPlanInputs(discoveryDb, userNeed, options);
+  const source = admittedDesignPlanSource(discoveryDb, userNeed, options.admissions);
   const targetRuntime = resolveRuntime(options.target, options.runtime);
   const sourceIds = collectSourceIds(discoveryDb);
   const factIds = collectFactIds(discoveryDb);
@@ -72,18 +85,7 @@ export function buildDesignPlan(discoveryDb, userNeed, options = {}) {
     agentId: sanitizeId(userNeed.agent_id),
     domain: sanitizeString(userNeed.domain),
     targetRuntime,
-    source: {
-      discoveryDb: {
-        schemaVersion: discoveryDb.schemaVersion,
-        agentId: discoveryDb.agentId,
-        validationOk: discoveryDb.validation?.ok === true,
-      },
-      userNeed: {
-        schemaVersion: userNeed.schemaVersion,
-        agentId: userNeed.agent_id,
-      },
-      releaseTrace: sourceHash({ discoveryDb, userNeed, targetRuntime }),
-    },
+    source,
     userNeedSummary: summarizeNeed(userNeed, sourceRefValidation.refs),
     discoverySummary: summarizeDiscoveryDb(discoveryDb),
     requirementsTrace,
@@ -112,6 +114,7 @@ export function buildDesignPlan(discoveryDb, userNeed, options = {}) {
     },
     validation,
   };
+  ADMITTED_DESIGN_PLAN_CANDIDATES.add(plan);
   return plan;
 }
 
@@ -125,6 +128,7 @@ export function validateDesignPlan(plan) {
   requireString(plan, "agentId", errors);
   requireString(plan, "domain", errors);
   requireString(plan, "targetRuntime", errors);
+  validateDesignPlanSource(plan.source, errors);
   if (!Array.isArray(plan.requirementsTrace) || plan.requirementsTrace.length === 0) {
     errors.push("requirementsTrace must be a non-empty array.");
   } else {
@@ -184,12 +188,68 @@ export function formatDesignPlanReport(report) {
 }
 
 export async function writeDesignPlan(filePath, plan) {
+  if (!ADMITTED_DESIGN_PLAN_CANDIDATES.has(plan)) {
+    throw new PersistabilityError("AGENTMO_PERSISTABILITY_UNADMITTED_CANDIDATE");
+  }
+  const validation = validateDesignPlan(plan);
+  if (!validation.ok) throw new PersistabilityError("AGENTMO_PERSISTABILITY_INVALID_CANDIDATE");
+  serializePersistableJson(plan, { subject: "design-plan" });
   const target = path.resolve(filePath);
-  await mkdir(path.dirname(target), { recursive: true });
-  const temporaryFile = `${target}.tmp-${process.pid}-${Date.now()}`;
-  await writeFile(temporaryFile, `${JSON.stringify(plan, null, 2)}\n`, "utf8");
-  await rename(temporaryFile, target);
+  await writePersistableJsonAtomic(target, plan, { subject: "design-plan" });
   return filePath;
+}
+
+function admittedDesignPlanSource(discoveryDb, userNeed, admissions) {
+  if (!isObject(admissions)
+    || !hasExactKeys(admissions, ["discoveryDb", "userNeed"])) {
+    throw new ArtifactAdmissionError("AGENTMO_ARTIFACT_ADMISSION_RESULT_INVALID");
+  }
+  return {
+    discoveryDb: admittedArtifactProvenance(admissions.discoveryDb, {
+      subject: "discovery-db",
+      value: discoveryDb,
+    }),
+    userNeed: admittedArtifactProvenance(admissions.userNeed, {
+      subject: "user-need",
+      value: userNeed,
+    }),
+  };
+}
+
+function validateDesignPlanSource(source, errors) {
+  if (!isObject(source) || !hasExactKeys(source, ["discoveryDb", "userNeed"])) {
+    errors.push("source must contain exact discoveryDb and userNeed admission provenance.");
+    return;
+  }
+  validateAdmissionProvenance(
+    source.discoveryDb,
+    "discovery-db",
+    DISCOVERY_DB_SCHEMA_VERSION,
+    "source.discoveryDb",
+    errors,
+  );
+  validateAdmissionProvenance(
+    source.userNeed,
+    "user-need",
+    USER_NEED_SCHEMA_VERSION,
+    "source.userNeed",
+    errors,
+  );
+}
+
+function validateAdmissionProvenance(value, subject, identity, fieldPath, errors) {
+  if (!isObject(value) || !hasExactKeys(value, ["identity", "subject", "digest"])) {
+    errors.push(`${fieldPath} must be exact identity, subject, and digest provenance.`);
+    return;
+  }
+  if (value.identity !== identity) errors.push(`${fieldPath}.identity must be ${identity}.`);
+  if (value.subject !== subject) errors.push(`${fieldPath}.subject must be ${subject}.`);
+  if (!SHA256_DIGEST_PATTERN.test(value.digest)) errors.push(`${fieldPath}.digest must be an exact sha256 digest.`);
+}
+
+function hasExactKeys(value, expected) {
+  const keys = Object.keys(value);
+  return keys.length === expected.length && expected.every((key) => keys.includes(key));
 }
 
 function assertDesignPlanInputs(discoveryDb, userNeed, options = {}) {
@@ -548,19 +608,4 @@ function isObject(value) {
 
 function nonEmptyString(value) {
   return typeof value === "string" && value.trim().length > 0;
-}
-
-function sourceHash(value) {
-  return createHash("sha256").update(stableStringify(value)).digest("hex");
-}
-
-function stableStringify(value) {
-  if (Array.isArray(value)) return `[${value.map((item) => stableStringify(item)).join(",")}]`;
-  if (value && typeof value === "object") {
-    return `{${Object.keys(value)
-      .sort()
-      .map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`)
-      .join(",")}}`;
-  }
-  return JSON.stringify(value);
 }

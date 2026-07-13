@@ -9,3 +9,9 @@ coverage/
 .env.*.local
 
 .omx/
+
+# Local upstream source mirrors used for AgentMo research.
+.reference-repos/
+
+# Local pnpm cache used by isolated upstream source mirrors.
+.pnpm-store/

@@ -1,0 +1,70 @@
+{
+  "agentmother_version": "0.1",
+  "agent_id": "legacy-fixture",
+  "runtime": "external",
+  "status": "draft",
+  "domain_genome": {
+    "domain": "migration_fixture",
+    "purpose": "Exercise the legacy blueprint writer contract.",
+    "task_classes": ["migration"],
+    "knowledge_sources": [],
+    "hard_failures": []
+  },
+  "pipeline": {
+    "discover": {
+      "purpose": "Discover fixture inputs.",
+      "data_sources": ["fixture"],
+      "database_outputs": ["source manifest"],
+      "user_need_inputs": [],
+      "done_when": []
+    },
+    "plan": {
+      "purpose": "Plan fixture behavior.",
+      "planning_inputs": [],
+      "planning_outputs": ["blueprint"],
+      "decision_gates": [],
+      "done_when": []
+    },
+    "produce": {
+      "purpose": "Produce fixture artifacts.",
+      "coding_tools": ["node"],
+      "runtime_targets": ["external"],
+      "generated_outputs": ["fixture package"],
+      "verification_steps": [],
+      "done_when": []
+    }
+  },
+  "architecture": {
+    "main_agent": "legacy-fixture-main",
+    "specialists": [],
+    "routing_modes": []
+  },
+  "tools": [
+    {
+      "name": "fixture-reader",
+      "purpose": "Read bounded fixture data.",
+      "allowed_when": ["fixture migration"],
+      "forbidden_when": [],
+      "evidence_policy": "Store only bounded summaries."
+    }
+  ],
+  "evidence": {
+    "stores": ["fixture ledger"],
+    "required_artifacts": ["migration receipt"],
+    "audit_rules": []
+  },
+  "eval": {
+    "cases_path": "evals/CASES.md",
+    "rubric_path": "evals/RUBRIC.md",
+    "required_case_classes": ["migration"],
+    "hard_failures": []
+  },
+  "governance": {
+    "policies": ["Migration is explicit."],
+    "quality_gates": ["schema validation"]
+  },
+  "release": {
+    "release_ledger_path": "history/VERSION_LEDGER.md",
+    "known_risks": []
+  }
+}

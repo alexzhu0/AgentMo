@@ -1,53 +1,59 @@
-import { mkdir, rename, writeFile } from "node:fs/promises";
-import path from "node:path";
-import { OBSERVATION_SCHEMA_VERSION } from "./observation.js";
-import { RUN_STATE_SCHEMA_VERSION } from "./run-state.js";
+import { createHash } from "node:crypto";
+import { admittedArtifactProvenance } from "./artifact-admission.js";
+import {
+  OBSERVATION_SCHEMA_VERSION,
+  validateObservationRecord,
+} from "./observation.js";
+import {
+  serializePersistableJson,
+  writePersistableJsonAtomic,
+} from "./persistability.js";
+import { validateRunStateArtifact } from "./run-state.js";
 
 export function buildRunObservation(runState, options = {}) {
-  if (runState?.schemaVersion !== RUN_STATE_SCHEMA_VERSION) {
-    throw new Error(`Cannot build observation for unsupported run-state schema: ${runState?.schemaVersion ?? "missing"}`);
+  if (!validateRunStateArtifact(runState).ok) {
+    throw observationError("AGENTMO_OBSERVATION_RUN_STATE_INVALID");
   }
-
-  const runId = nonEmptyString(runState.runId) ?? "unknown-run";
-  const agentId = nonEmptyString(runState.agentId) ?? "unknown-agent";
-  const executionStatus = nonEmptyString(runState.execution?.status) ?? "unknown";
-  const targetId = nonEmptyString(runState.target?.id) ?? "unknown-target";
-  const source = `agentmo-run:${runId}`;
-  const evidenceRefs = uniqueStrings([options.runStatePath, source]);
+  const source = admittedArtifactProvenance(options.admission, {
+    subject: "run-state",
+    value: runState,
+  });
+  const runId = runState.runId;
+  const agentId = runState.agentId;
+  const executionStatus = runState.execution.status;
+  const targetId = runState.target.id;
   const failureMode = describeFailureMode(runState, executionStatus, targetId);
-
-  return {
+  const observation = {
     schemaVersion: OBSERVATION_SCHEMA_VERSION,
     agentId,
     source,
     failureMode,
-    evidenceRefs,
     proposedRegression: {
-      id: `${sanitizeId(agentId)}-${sanitizeId(runId)}-runtime-evidence`,
+      id: regressionId(agentId, runId),
       description: `Preserve coverage for ${targetId} run ${runId}: ${failureMode}.`,
-      expectedEvidence: "A bounded run-state, run-report, run-eval output, and reviewed fix evidence before any blueprint or scaffold change.",
+      expectedEvidence: "A bounded run-state, run-report, run-eval output, and reviewed fix before any governed artifact change.",
     },
     recommendedBlueprintChange: {
       section: "runtime_profiles",
-      proposal:
-        "Review this run evidence before changing runtime profile, scaffold, prompts, tools, or evals; do not apply changes automatically from run-state evidence.",
+      proposal: "Review the admitted run evidence before proposing a runtime-profile change; apply nothing automatically.",
     },
     status: "proposed",
     runEvidence: {
       runId,
-      parentRunId: runState.parentRunId ?? null,
+      parentRunId: runState.parentRunId,
       targetId,
-      runtime: runState.runtimeIdentity?.runtime ?? null,
-      provider: runState.runtimeIdentity?.provider ?? null,
-      model: runState.runtimeIdentity?.model ?? null,
-      channel: runState.runtimeIdentity?.channel ?? null,
-      transport: runState.runtimeIdentity?.transport ?? null,
-      fallbackFrom: runState.runtimeIdentity?.fallbackFrom ?? null,
+      runtime: runState.runtimeIdentity.runtime,
+      provider: boundedMetadata(runState.runtimeIdentity.provider, 128),
+      model: boundedMetadata(runState.runtimeIdentity.model, 256),
+      channel: boundedMetadata(runState.runtimeIdentity.channel, 128),
+      transport: runState.runtimeIdentity.transport,
+      fallbackFrom: boundedMetadata(runState.runtimeIdentity.fallbackFrom, 128),
       executionStatus,
-      exitCode: runState.execution?.exitCode ?? null,
-      timedOut: Boolean(runState.execution?.timedOut),
-      replayFidelity: runState.replay?.replayFidelity ?? runState.message?.replayFidelityIfMaterialAvailable ?? null,
-      sandboxScope: runState.runtimeIdentity?.sandboxScope ?? null,
+      exitCode: runState.execution.exitCode,
+      timedOut: runState.execution.timedOut,
+      replayFidelity: runState.replay.replayFidelity,
+      stdoutSummary: cloneJson(runState.execution.stdout),
+      stderrSummary: cloneJson(runState.execution.stderr),
       certificationBoundary: {
         runtimeCertifiedByRun: false,
         domainCertifiedByRun: false,
@@ -55,45 +61,67 @@ export function buildRunObservation(runState, options = {}) {
     },
     mutation: {
       autoApplied: false,
-      reason: "observe-run creates proposal-only evidence; blueprint, tool, eval, and scaffold changes require separate review and verification.",
+      blueprintMutated: false,
+      scaffoldMutated: false,
+      runtimeMutated: false,
+      evalsMutated: false,
+      reason: "observe-run writes proposal evidence only; governed artifacts require separate review and verification.",
     },
   };
+  assertObservationCandidate(observation);
+  return observation;
 }
 
-export async function writeRunObservation(filePath, observation) {
-  const resolved = path.resolve(filePath);
-  await mkdir(path.dirname(resolved), { recursive: true });
-  const temporaryFile = `${resolved}.tmp-${process.pid}-${Date.now()}`;
-  await writeFile(temporaryFile, `${JSON.stringify(observation, null, 2)}\n`, "utf8");
-  await rename(temporaryFile, resolved);
-  return resolved;
+export async function writeRunObservation(filePath, observation, options = {}) {
+  assertObservationCandidate(observation);
+  serializePersistableJson(observation, { subject: "observation" });
+  const writerOptions = options.io ? { io: options.io } : {};
+  return writePersistableJsonAtomic(filePath, observation, {
+    subject: "observation",
+    ...writerOptions,
+  });
 }
 
 function describeFailureMode(runState, executionStatus, targetId) {
   if (executionStatus === "failure") {
-    const exitCode = runState.execution?.exitCode ?? "unknown";
-    const timeout = runState.execution?.timedOut ? " after timeout" : "";
+    const exitCode = runState.execution.exitCode ?? "unknown";
+    const timeout = runState.execution.timedOut ? " after timeout" : "";
     return `${targetId} runtime execution failed${timeout} with exit code ${exitCode}`;
   }
   if (executionStatus === "declared") {
     return `${targetId} runtime execution is declared but not live-verified`;
   }
-  if (executionStatus === "success") {
-    return `${targetId} runtime execution produced success evidence that still requires domain eval certification`;
-  }
-  return `${targetId} runtime execution status is ${executionStatus}`;
+  return `${targetId} runtime execution produced success evidence that still requires domain eval certification`;
 }
 
-function nonEmptyString(value) {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-function uniqueStrings(values) {
-  return Array.from(new Set(values.filter((value) => typeof value === "string" && value.trim().length > 0)));
+function assertObservationCandidate(observation) {
+  const validation = validateObservationRecord(observation);
+  if (!validation.ok) throw observationError("AGENTMO_OBSERVATION_INVALID");
 }
 
 function sanitizeId(value) {
   return String(value).replace(/[^A-Za-z0-9_.-]+/gu, "-").replace(/^-+|-+$/gu, "") || "evidence";
+}
+
+function regressionId(agentId, runId) {
+  const stem = `${sanitizeId(agentId)}-${sanitizeId(runId)}`;
+  const suffix = "-runtime-evidence";
+  if (stem.length + suffix.length <= 128) return `${stem}${suffix}`;
+  const digest = createHash("sha256").update(stem).digest("hex").slice(0, 24);
+  return `${sanitizeId(agentId).slice(0, 64)}-${digest}${suffix}`;
+}
+
+function boundedMetadata(value, maximumBytes) {
+  if (typeof value !== "string" || value.trim().length === 0) return null;
+  return Buffer.byteLength(value) <= maximumBytes ? value : null;
+}
+
+function cloneJson(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function observationError(code) {
+  const error = new Error("Observation artifact operation failed.");
+  error.code = code;
+  return error;
 }

@@ -133,6 +133,11 @@ if [[ "$TRANSPORT" != "local" && "$TRANSPORT" != "gateway" ]]; then
   exit 2
 fi
 
+if ! node ./bin/agentmo.js runtime-check --target openclaw >/dev/null 2>&1; then
+  printf '%s\n' "OpenClaw runtime preflight rejected the current Node.js process." >&2
+  exit 1
+fi
+
 if [[ -z "$ENV_FILE" && -f .env ]]; then
   ENV_FILE=".env"
 fi
@@ -172,6 +177,11 @@ read_env_key() {
   done <"$file"
 }
 
+digest_file() {
+  local file="$1"
+  node -e 'const fs=require("node:fs");const crypto=require("node:crypto");fs.writeSync(1,"sha256:"+crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex"));' "$file"
+}
+
 if [[ -n "$ENV_FILE" ]]; then
   if ! git check-ignore -q -- "$ENV_FILE"; then
     echo "Refusing to use env file that is not ignored by git: $ENV_FILE" >&2
@@ -199,15 +209,16 @@ WORKSPACE="$SCAFFOLD_ROOT/openclaw/workspace"
 RUN_OUT="$(mktemp -d "/tmp/agentmo-openclaw-runs-${RUN_ID}.XXXXXX")"
 SUMMARY_FILE="$RUN_OUT/agentmo-live-smoke-summary.json"
 SCRUB_REPORT="$RUN_OUT/agentmo-live-smoke-scrub.json"
+RUNTIME_PLAN="$RUN_OUT/agentmo-runtime-plan.json"
 RUN_REPORT="$RUN_OUT/agentmo-run-report.json"
 RUN_EVAL="$RUN_OUT/agentmo-run-eval.json"
 RUN_STATUS="$RUN_OUT/agentmo-status.json"
-GATEWAY_LOG="$RUN_OUT/openclaw-gateway.log"
+GATEWAY_LOG="$OPENCLAW_STATE_DIR/openclaw-gateway.log"
 GATEWAY_URL=""
 GATEWAY_STARTED=false
 GATEWAY_TOKEN_GENERATED=false
 
-node ./bin/agentmo.js scaffold "$BLUEPRINT" --target openclaw --out "$SCAFFOLD_ROOT" --force >/dev/null
+node ./bin/agentmo.js scaffold "$BLUEPRINT" --digest "blueprint=$(digest_file "$BLUEPRINT")" --target openclaw --out "$SCAFFOLD_ROOT" --force >/dev/null
 
 OPENCLAW_CMD=(openclaw)
 if [[ -n "$OPENCLAW_SOURCE_ROOT" ]]; then
@@ -237,7 +248,7 @@ run_openclaw() {
   fi
 }
 
-run_openclaw agents add "$AGENT" --workspace "$WORKSPACE" --model "$MODEL" --non-interactive --json >"$RUN_OUT/openclaw-agent-add.json"
+run_openclaw agents add "$AGENT" --workspace "$WORKSPACE" --model "$MODEL" --non-interactive --json >"$OPENCLAW_STATE_DIR/openclaw-agent-add.json"
 
 EFFECTIVE_ENV_FILE="$ENV_FILE"
 if [[ "$TRANSPORT" == "gateway" ]]; then
@@ -267,7 +278,7 @@ fi
 
 ENV_ARGS=()
 if [[ -n "$EFFECTIVE_ENV_FILE" ]]; then
-  ENV_ARGS=(--env-file "$EFFECTIVE_ENV_FILE")
+  ENV_ARGS=(--runtime-env-file "$EFFECTIVE_ENV_FILE")
 fi
 
 SOURCE_ARGS=()
@@ -275,7 +286,8 @@ if [[ -n "$OPENCLAW_SOURCE_ROOT" ]]; then
   SOURCE_ARGS=(--openclaw-source-root "$OPENCLAW_SOURCE_ROOT")
 fi
 
-node ./bin/agentmo.js run "$BLUEPRINT" \
+node ./bin/agentmo.js run-plan "$BLUEPRINT" \
+  --digest "blueprint=$(digest_file "$BLUEPRINT")" \
   --target openclaw \
   --workspace "$WORKSPACE" \
   --openclaw-state-dir "$OPENCLAW_STATE_DIR" \
@@ -287,6 +299,15 @@ node ./bin/agentmo.js run "$BLUEPRINT" \
   --transport "$TRANSPORT" \
   --timeout-ms "$TIMEOUT_MS" \
   --message "$MESSAGE" \
+  "${ENV_ARGS[@]}" \
+  "${SOURCE_ARGS[@]}" \
+  --json >"$RUNTIME_PLAN"
+
+node ./bin/agentmo.js run "$RUNTIME_PLAN" \
+  --digest "runtime-plan=$(digest_file "$RUNTIME_PLAN")" \
+  --workspace "$WORKSPACE" \
+  --openclaw-state-dir "$OPENCLAW_STATE_DIR" \
+  --message "$MESSAGE" \
   --out "$RUN_OUT" \
   "${ENV_ARGS[@]}" \
   "${SOURCE_ARGS[@]}" \
@@ -296,89 +317,38 @@ node ./bin/agentmo.js run "$BLUEPRINT" \
 RUN_STATE="$(find "$RUN_OUT/runs" -name agentmo-run-state.json -print | sort | tail -n 1)"
 RUN_EVAL_EXIT=0
 RUN_STATUS_EXIT=0
-node ./bin/agentmo.js run-report "$RUN_STATE" --json >"$RUN_REPORT"
-node ./bin/agentmo.js run-eval "$RUN_STATE" --expect-status success --json >"$RUN_EVAL" || RUN_EVAL_EXIT=$?
-node ./bin/agentmo.js status "$BLUEPRINT" --run-dir "$RUN_OUT" --json >"$RUN_STATUS" || RUN_STATUS_EXIT=$?
+node ./bin/agentmo.js run-report "$RUN_STATE" --digest "run-state=$(digest_file "$RUN_STATE")" --json >"$RUN_REPORT"
+node ./bin/agentmo.js run-eval "$RUN_STATE" --digest "run-state=$(digest_file "$RUN_STATE")" --expect-status success --json >"$RUN_EVAL" || RUN_EVAL_EXIT=$?
+node ./bin/agentmo.js status "$BLUEPRINT" --digest "blueprint=$(digest_file "$BLUEPRINT")" --digest "run-state=$(digest_file "$RUN_STATE")" --run-state "$RUN_STATE" --json >"$RUN_STATUS" || RUN_STATUS_EXIT=$?
 
 cleanup_runtime_artifacts
 
-OUTPUT="$SCRUB_REPORT" \
-OPENCLAW_STATE_ACTION="$OPENCLAW_STATE_ACTION" \
-GENERATED_RUNTIME_ENV_ACTION="$GENERATED_RUNTIME_ENV_ACTION" \
+OUTPUT_FILE="$SCRUB_REPORT" \
+STATE_ACTION="$OPENCLAW_STATE_ACTION" \
+RUNTIME_ENVIRONMENT_ACTION="$GENERATED_RUNTIME_ENV_ACTION" \
 GATEWAY_PROCESS_ACTION="$GATEWAY_PROCESS_ACTION" \
 KEEP_STATE="$KEEP_STATE" \
-node <<'NODE'
-const fs = require("node:fs");
+node ./scripts/live-smoke-summary.js scrub
 
-const scrubReport = {
-  schemaVersion: "agentmo.live-smoke-scrub.v1",
-  credentialBearingOpenClawState: process.env.OPENCLAW_STATE_ACTION,
-  generatedRuntimeEnvFile: process.env.GENERATED_RUNTIME_ENV_ACTION,
-  gatewayProcess: process.env.GATEWAY_PROCESS_ACTION,
-  keepState: process.env.KEEP_STATE === "1",
-};
-
-fs.writeFileSync(process.env.OUTPUT, `${JSON.stringify(scrubReport, null, 2)}\n`);
-NODE
-
-OUTPUT="$SUMMARY_FILE" \
-BLUEPRINT="$BLUEPRINT" \
-AGENT="$AGENT" \
-PROVIDER="$PROVIDER" \
-MODEL="$MODEL" \
-THINKING="$THINKING" \
+OUTPUT_FILE="$SUMMARY_FILE" \
+AGENT_ID="$AGENT" \
+PROVIDER_ID="$PROVIDER" \
+MODEL_ID="$MODEL" \
+THINKING_MODE="$THINKING" \
 TIMEOUT_MS="$TIMEOUT_MS" \
-TRANSPORT="$TRANSPORT" \
+TRANSPORT_REQUESTED="$TRANSPORT" \
 GATEWAY_STARTED="$GATEWAY_STARTED" \
-GATEWAY_TOKEN_GENERATED="$GATEWAY_TOKEN_GENERATED" \
-GATEWAY_URL="$GATEWAY_URL" \
-WORKSPACE="$WORKSPACE" \
-RUN_OUT="$RUN_OUT" \
-RUN_STATE="$RUN_STATE" \
-RUN_REPORT="$RUN_REPORT" \
-RUN_EVAL="$RUN_EVAL" \
-RUN_STATUS="$RUN_STATUS" \
-SCRUB_REPORT="$SCRUB_REPORT" \
+GATEWAY_EPHEMERAL_AUTHENTICATION_GENERATED="$GATEWAY_TOKEN_GENERATED" \
+BLUEPRINT_DIGEST="$(digest_file "$BLUEPRINT")" \
+RUNTIME_PLAN_DIGEST="$(digest_file "$RUNTIME_PLAN")" \
+RUN_STATE_DIGEST="$(digest_file "$RUN_STATE")" \
+RUN_REPORT_DIGEST="$(digest_file "$RUN_REPORT")" \
+RUN_EVAL_DIGEST="$(digest_file "$RUN_EVAL")" \
+STATUS_DIGEST="$(digest_file "$RUN_STATUS")" \
+SCRUB_REPORT_DIGEST="$(digest_file "$SCRUB_REPORT")" \
 RUN_EVAL_EXIT="$RUN_EVAL_EXIT" \
-RUN_STATUS_EXIT="$RUN_STATUS_EXIT" \
-node <<'NODE'
-const fs = require("node:fs");
-
-function parseInteger(value, name) {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed)) throw new Error(`${name} must be an integer.`);
-  return parsed;
-}
-
-const summary = {
-  schemaVersion: "agentmo.live-smoke-summary.v1",
-  blueprint: process.env.BLUEPRINT,
-  agent: process.env.AGENT,
-  provider: process.env.PROVIDER,
-  model: process.env.MODEL,
-  thinking: process.env.THINKING,
-  timeoutMs: parseInteger(process.env.TIMEOUT_MS, "TIMEOUT_MS"),
-  transportRequested: process.env.TRANSPORT,
-  gatewayStarted: process.env.GATEWAY_STARTED === "true",
-  gatewayTokenGenerated: process.env.GATEWAY_TOKEN_GENERATED === "true",
-  gatewayUrl: process.env.GATEWAY_URL,
-  workspace: process.env.WORKSPACE,
-  runOut: process.env.RUN_OUT,
-  runState: process.env.RUN_STATE,
-  runReport: process.env.RUN_REPORT,
-  runEval: process.env.RUN_EVAL,
-  status: process.env.RUN_STATUS,
-  scrubReport: process.env.SCRUB_REPORT,
-  runEvalExitCode: parseInteger(process.env.RUN_EVAL_EXIT, "RUN_EVAL_EXIT"),
-  statusExitCode: parseInteger(process.env.RUN_STATUS_EXIT, "RUN_STATUS_EXIT"),
-  credentialValuesPersisted: false,
-  certificationClaimed: false,
-};
-
-fs.writeFileSync(process.env.OUTPUT, `${JSON.stringify(summary, null, 2)}\n`);
-NODE
-
-cat "$SUMMARY_FILE"
+STATUS_EXIT="$RUN_STATUS_EXIT" \
+node ./scripts/live-smoke-summary.js summary
 if [[ "$RUN_EVAL_EXIT" -ne 0 ]]; then
   exit "$RUN_EVAL_EXIT"
 fi
