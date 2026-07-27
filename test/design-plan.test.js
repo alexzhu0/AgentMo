@@ -106,10 +106,104 @@ describe("design plan", () => {
     assert.equal(plan.requirementsTrace.length, expectedTraceCount);
     assert.equal(plan.evidenceMap.length, expectedTraceCount);
     assert.equal(plan.requirementsTrace.every((entry) => ["supported", "partial", "missing"].includes(entry.coverage)), true);
-    assert.equal(plan.requirementsTrace.some((entry) => entry.coverage === "supported"), true);
+    assert.equal(
+      plan.requirementsTrace.some((entry) => entry.coverage === "supported"),
+      false,
+      "manifest extraction-field declarations must not certify collected evidence",
+    );
+    assert.equal(plan.gaps.length, expectedTraceCount);
 
     const validation = validateDesignPlan(plan);
     assert.equal(validation.ok, true, validation.errors.join("\n"));
+  });
+
+  it("only marks requirements supported from multiple trusted source chunks", async () => {
+    const { discoveryDb, need, admissions } = await supportInputs();
+    const evidencedDb = structuredClone(discoveryDb);
+    evidencedDb.facts.push(
+      {
+        id: "ticket-taxonomy:chunk:01",
+        sourceId: "ticket-taxonomy",
+        kind: "source_chunk",
+        text: "Support operations classify every ticket category before choosing its priority.",
+        trustLevel: "trusted",
+        refs: ["examples/fixtures/support-triage/ticket-taxonomy.json"],
+        tags: ["database", "json"],
+      },
+      {
+        id: "support-policy-handbook:chunk:01",
+        sourceId: "support-policy-handbook",
+        kind: "source_chunk",
+        text: "Ticket category and priority determine the required escalation path.",
+        trustLevel: "verified",
+        refs: ["examples/fixtures/support-triage/policy-handbook.md"],
+        tags: ["document", "md"],
+      },
+    );
+    const evidencedAdmission = await admitValue(evidencedDb, "discovery-db");
+    const evidencedInputs = {
+      discoveryDb: evidencedAdmission.value,
+      need,
+      admissions: { ...admissions, discoveryDb: evidencedAdmission },
+    };
+
+    const plan = buildDesignPlan(
+      evidencedInputs.discoveryDb,
+      need,
+      planOptions(evidencedInputs),
+    );
+    const classification = plan.requirementsTrace.find(
+      (entry) => entry.requirementId === "primary-task-01",
+    );
+
+    assert.equal(classification.coverage, "supported");
+    assert.deepEqual(classification.matchedSourceIds, [
+      "support-policy-handbook",
+      "ticket-taxonomy",
+    ]);
+  });
+
+  it("caps unverified source chunks at partial coverage", async () => {
+    const { discoveryDb, need, admissions } = await supportInputs();
+    const unverifiedDb = structuredClone(discoveryDb);
+    unverifiedDb.facts.push(
+      {
+        id: "ticket-taxonomy:chunk:01",
+        sourceId: "ticket-taxonomy",
+        kind: "source_chunk",
+        text: "Support operations classify every ticket category before choosing its priority.",
+        trustLevel: "unverified",
+        refs: ["examples/fixtures/support-triage/ticket-taxonomy.json"],
+        tags: ["database", "json"],
+      },
+      {
+        id: "support-policy-handbook:chunk:01",
+        sourceId: "support-policy-handbook",
+        kind: "source_chunk",
+        text: "Ticket category and priority determine the required escalation path.",
+        trustLevel: "unverified",
+        refs: ["examples/fixtures/support-triage/policy-handbook.md"],
+        tags: ["document", "md"],
+      },
+    );
+    const unverifiedAdmission = await admitValue(unverifiedDb, "discovery-db");
+    const unverifiedInputs = {
+      discoveryDb: unverifiedAdmission.value,
+      need,
+      admissions: { ...admissions, discoveryDb: unverifiedAdmission },
+    };
+
+    const plan = buildDesignPlan(
+      unverifiedInputs.discoveryDb,
+      need,
+      planOptions(unverifiedInputs),
+    );
+    const classification = plan.requirementsTrace.find(
+      (entry) => entry.requirementId === "primary-task-01",
+    );
+
+    assert.equal(classification.coverage, "partial");
+    assert.equal(plan.gaps.some((gap) => gap.requirementId === classification.requirementId), true);
   });
 
   it("maps hard failures into eval and governance gates", async () => {

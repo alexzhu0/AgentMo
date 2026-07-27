@@ -25,7 +25,7 @@ const EXACT_BYTE_HELPER = /digest_file\s*\(\)\s*\{[^\n]*createHash\("sha256"\)[^
 const CANONICAL_OPENCLAW_PREFLIGHT = new RegExp(`${EXECUTABLE}\\s+runtime-check\\s+--target\\s+(?:"openclaw"|'openclaw'|openclaw)\\b`, "u");
 const LIVE_SMOKE_CALLER = /(?:^|\s)(?:\.\/)?scripts\/openclaw-live-smoke\.sh\b/u;
 const MAX_SHELL_NESTING = 2;
-const ZERO_SUBJECT_COMMANDS = Object.freeze(new Set(["runtime-check"]));
+const ZERO_SUBJECT_COMMANDS = Object.freeze(new Set(["artifact-contract", "runtime-check"]));
 const EXPECTED_GENERATED_CALLER_SURFACES = Object.freeze([
   "src/scaffold-files.js:openclaw/config/channel-bindings.examples.md",
   "src/scaffold-files.js:openclaw/RUNBOOK.md",
@@ -107,6 +107,10 @@ describe("maintained command documentation", () => {
       EXACT_BYTE_HELPER,
     );
     assert.doesNotThrow(() => assertDocumentInvocation("agentmo runtime-check --target openclaw", "zero-subject-canary"));
+    assert.doesNotThrow(() => assertDocumentInvocation(
+      "agentmo artifact-contract discovery-manifest --json",
+      "artifact-contract-zero-subject-canary",
+    ));
     assert.throws(
       () => assertDocumentInvocation('agentmo runtime-check --target openclaw --digest "blueprint=$(digest_file \"$BLUEPRINT\")"', "zero-subject-digest-canary"),
       assert.AssertionError,
@@ -262,6 +266,51 @@ describe("maintained command documentation", () => {
     assert.throws(() => assertPortableMarkdownPaths("cd /home/alex/project", "posix-host-canary"), assert.AssertionError);
     assert.throws(() => assertPortableMarkdownPaths("cd C:\\Users\\alex\\project", "windows-host-canary"), assert.AssertionError);
   });
+
+  it("keeps Builder v1 docs on the append-only CLI and indexes every dated release once", async () => {
+    const readme = await readFile(path.join(REPO_ROOT, "README.md"), "utf8");
+    const runbook = await readFile(path.join(REPO_ROOT, "docs/MVP_RUNBOOK.md"), "utf8");
+    const currentRelease = await readFile(path.join(REPO_ROOT, "release/2026.07.22.md"), "utf8");
+    const documentedCommands = Array.from(
+      readme.matchAll(/```text\n([\s\S]*?)```/gu),
+      (match) => match[1],
+    ).join("\n");
+
+    assert.doesNotMatch(documentedCommands, /\bbuilder\s+(?:uninstall|purge)\b/u);
+    assert.doesNotMatch(documentedCommands, /--remove-host-selector\b/u);
+    assert.doesNotMatch(documentedCommands, /\bbuilder\s+codex-uat\s+(?:begin|finalize)\b/u);
+    for (const action of ["start", "record", "scenario-arm", "terminal", "inspect", "resume", "continue"]) {
+      assert.match(documentedCommands, new RegExp(`\\bbuilder\\s+codex-uat\\s+${action}\\b`, "u"), action);
+    }
+    assert.match(documentedCommands, /builder behavior[\s\S]*--uat-journal[\s\S]*--uat-candidate/u);
+    assert.match(runbook, /--uat-journal <journal-file>/u);
+    assert.match(runbook, /--journal.*<attempt-dir>\/attempt\.journal/u);
+    assert.doesNotMatch(runbook, /--(?:uat-)?journal <attempt-dir>/u);
+    assert.match(currentRelease, /--journal <journal-file>/u);
+    assert.doesNotMatch(currentRelease, /--journal <attempt-dir>/u);
+    assert.match(documentedCommands, /verify-codex-uat-candidate\.js preview/u);
+    assert.match(documentedCommands, /verify-codex-uat-candidate\.js decide approve/u);
+
+    for (const markdown of [readme, runbook, currentRelease]) {
+      assert.match(markdown, /projected-v2/u);
+      assert.match(markdown, /immutable version-qualified/u);
+      assert.match(markdown, /external (?:human )?decision authority|externalDecisionAuthorityRequired/iu);
+      assert.match(markdown, /nonterminal/iu);
+    }
+
+    const releaseDirectory = path.join(REPO_ROOT, "release");
+    const datedFiles = (await readdir(releaseDirectory))
+      .filter((name) => /^\d{4}\.\d{2}\.\d{2}\.md$/u.test(name))
+      .sort()
+      .reverse();
+    const releaseIndex = await readFile(path.join(releaseDirectory, "README.md"), "utf8");
+    const indexedFiles = Array.from(
+      releaseIndex.matchAll(/\[`(\d{4}\.\d{2}\.\d{2}\.md)`\]\(\.\/\1\)/gu),
+      (match) => match[1],
+    );
+    assert.deepEqual(indexedFiles, datedFiles);
+    assert.equal(new Set(indexedFiles).size, indexedFiles.length);
+  });
 });
 
 function assertPortableMarkdownPaths(markdown, label) {
@@ -275,9 +324,17 @@ function assertDocumentInvocation(invocation, label) {
   assert.ok(commandMatch, `${label}: unsupported AgentMo executable form`);
   const command = commandMatch[1];
   if (ZERO_SUBJECT_COMMANDS.has(command)) {
-    assert.equal(command, "runtime-check", `${label}: unknown zero-subject command`);
-    assert.match(invocation, CANONICAL_OPENCLAW_PREFLIGHT, `${label}: runtime-check contract drifted`);
-    assert.doesNotMatch(invocation, /--digest\b/u, `${label}: runtime-check must remain zero-subject`);
+    assert.equal(CLI_OUTPUT_OWNERS[command], "non-artifact", `${label}: zero-subject command must remain non-artifact`);
+    assert.doesNotMatch(invocation, /--digest\b/u, `${label}: ${command} must remain zero-subject`);
+    if (command === "runtime-check") {
+      assert.match(invocation, CANONICAL_OPENCLAW_PREFLIGHT, `${label}: runtime-check contract drifted`);
+    } else {
+      assert.match(
+        invocation,
+        /(?:^|\s)artifact-contract\s+(?:discovery-manifest|user-need)(?:\s+--json)?(?:\s|$)/u,
+        `${label}: artifact-contract subject drifted`,
+      );
+    }
     return;
   }
   if (!Object.hasOwn(DURABLE_COMMAND_SUBJECTS, command) && command !== "migrate") {

@@ -113,7 +113,7 @@ AgentMo v1 通过八个可独立验证的纵向增量，把现有 contract-first
 
 ### Phase 2: 可安装且可恢复的 Codex Builder
 
-**Goal:** 开发者可以从打包产物在干净 Codex 环境中安装并运行 AgentMo Builder，在暂停、压缩、重启、升级或卸载前后保持工作流可恢复且资产归属可证明。
+**Goal:** As a developer installing AgentMo Builder in Codex, I want to install and run the packaged Builder on a clean Codex host and recover its workflow across pause, compaction, restart, upgrade, and uninstall with provable asset ownership, so that I can use and audit AgentMo Builder safely without depending on the AgentMo source repository.
 **Mode:** mvp
 **Depends on:** Phase 1.2
 **Requirements:** CORE-05, BLDR-01, BLDR-02, BLDR-03, BLDR-04, BLDR-05, BLDR-06, BLDR-07
@@ -126,7 +126,121 @@ AgentMo v1 通过八个可独立验证的纵向增量，把现有 contract-first
   4. 开发者在人工暂停、上下文压缩、会话重启或重复事件后可从持久工件恢复，且 behavior eval 能观察正确 trigger、non-trigger、恢复和事件去重。
   5. 开发者升级或卸载 Builder 时只改变 receipt、marker 与 digest 证明属于 AgentMo 的资产并保留未知/已修改资产；adapter 作者也可依中立版本化 contract 声明能力、事件、恢复与不支持面，而不会因此获得支持声明。
 
-**Plans:** TBD
+**Plans:** 27 total; 24 executed with SUMMARY. Plans 02-25～02-27 remain human-gated and unexecuted. Phase goal remains incomplete until the real UAT branch and independent post-execution verification finish.
+**Wave 1**
+
+- [x] 02-01-PLAN.md
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 02-02-PLAN.md
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 02-03-PLAN.md
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [x] 02-04-PLAN.md
+
+**Gap Closure Wave 5** *(blocked on 02-04 completion)*
+
+- [x] 02-05-PLAN.md — 投射 fixed import closure 的 receipt-managed 项目本地 runtime/launcher，skill 不依赖源码或全局 PATH
+
+**Gap Closure Wave 6** *(blocked on 02-05 completion)*
+
+- [x] 02-06-PLAN.md — 通过官方 user-host 接口完成激活、selector owner/consumer 所有权与只读 doctor/agent observability
+
+**Gap Closure Wave 7** *(blocked on 02-06 completion)*
+
+- [x] 02-07-PLAN.md — 为 runtime 与 host selector/reference 补齐 sibling-safe upgrade/uninstall 和 last-reference 拒绝
+
+**Gap Closure Wave 8** *(blocked on 02-07 completion)*
+
+- [x] 02-08-PLAN.md — 接通 installed hook → local launcher → canonical event → checkpoint CAS，锁定 replay/二次 compaction 与 UAT observation 接口
+
+**Gap Closure Wave 9** *(blocked on 02-08 completion)*
+
+- [x] 02-09-PLAN.md — 生成并 exact-admit value-blind agentmo.codex-uat.v1 artifact，要求 connected provenance 且关闭 packed import closure
+
+**Gap Closure Wave 10** *(blocked on 02-09 completion)*
+
+- [x] 02-10-PLAN.md — 先维护 README/release，再以 normal-trust/auth fresh Codex 人工 gate 诚实记录成功或失败
+
+以下七个计划取代已删除的 02-11～02-19 多权威草案。D-29～D-31 将 UAT 运行状态收敛为唯一 append-only attempt journal；checkpoint、receipt、host observation、snapshot 与 candidate 都只是被 entry 单向 exact 引用的证据，不再维护 manifest/run/terminal/supervisor 状态或互相回指的 digest DAG。
+
+**Review Repair Wave 11** *(blocked on 02-10 completion)*
+
+- [x] 02-11-PLAN.md — 交付 immutable checkpoint/event authority，关闭 CAS、自签 digest 与 replay poisoning，并迁移全部语义 reader
+
+**Review Repair Wave 12** *(blocked on 02-11 completion)*
+
+- [x] 02-12-PLAN.md — 以 non-destructive exact retirement 与 retained-handle restore 修复 lifecycle/receipt identity races
+
+**Review Repair Wave 13** *(blocked on 02-12 completion)*
+
+- [x] 02-13-PLAN.md — 补齐 fresh marketplace registration、host-add 补偿、owner/consumer identity 与 host/install metadata
+
+**Review Repair Wave 14** *(blocked on 02-13 completion)*
+
+- [x] 02-14-PLAN.md — 修复 doctor retained identity、canonical project visibility、complete-or-reject module closure 与 syntax-aware I/O inventory
+
+**Review Repair Wave 15** *(blocked on 02-14 completion)*
+
+- [x] 02-15-PLAN.md — 建立唯一 attempt journal、candidate-only hook observation、诚实 challenge 语义与完整 public UAT CLI
+
+**Review Repair Wave 16** *(blocked on 02-15 completion)*
+
+- [x] 02-16-PLAN.md — 用可销毁 synthetic packed fixture 准入预启动 continuation，完成 final uninstall observation 与 candidate leaf → candidate-ready 单向发布契约
+
+**Real Codex UAT Wave 17** *(blocked on 02-16 completion)*
+
+- [x] 02-17-PLAN.md — exact successor verifier、真实双版本 tarball 与 bounded public evidence 已交付；唯一实际 attempt 在 baseline setup apply 以 `AGENTMO_BUILDER_INSTALL_HOST_ROLLBACK_FAILED` 终止，未进入 Codex/十一场景/human admission
+
+Wave 11～16 按 shared durable/host authority 顺序执行，每一 wave 都在下一 wave 消费其 identity 前完成 focused/full gate；Wave 17 是唯一 real Codex retry 和 exact human-admission gate。
+
+**Gap Repair Wave 18** *(completed; plans are file-disjoint)*
+
+- [x] 02-18-PLAN.md — 关闭 raw UAT append 与 verifier-decision authority 绕过，并迁移全部旧消费者
+- [x] 02-19-PLAN.md — 关闭 shared host root、owner/ledger CAS 与 retained identity 竞争窗口
+
+**Gap Repair Wave 19** *(blocked on 02-18 and 02-19 completion)*
+
+- [x] 02-20-PLAN.md — 交付 receipt-last project install transaction、exact rollback 与显式 recovery CLI
+
+**Gap Repair Wave 20** *(blocked on 02-20 completion)*
+
+- [x] 02-21-PLAN.md — 修复 immutable journal durable commit/cleanup，并迁移 checkpoint/hook/UAT callers
+
+**Gap Repair Wave 21** *(blocked on 02-21 completion)*
+
+- [x] 02-22-PLAN.md — 修复 candidate/observation leaf publication 与 packed continuation durability
+
+**Gap Repair Wave 22** *(blocked on 02-22 completion)*
+
+- [x] 02-23-PLAN.md — 实现 retained prior-attempt preflight 与 fixed private continuation authority，并在 introducing plan 内关闭 I/O/package boundary
+
+**Aggregate Gate Wave 23** *(blocked on 02-23 completion)*
+
+- [x] 02-24-PLAN.md — 运行 focused/full/diff gates、独立 0-Critical review，并校准 VALIDATION、README、runbook、ledger 与 release
+
+**Human UAT Wave 24** *(blocked on 02-24 completion; `autonomous: false`)*
+
+- [ ] 02-25-PLAN.md — operator 本地 stdin exact-admit 旧 failure attempt，并显式批准或拒绝一个新 attempt
+
+**Human UAT Wave 25** *(blocked on 02-25 approval; `autonomous: false`)*
+
+- [ ] 02-26-PLAN.md — 使用 durable private continuation authority 完成 setup/activation、normal trust/auth 与 bounded scenarios
+
+**Human UAT Wave 26** *(blocked on 02-26 bounded outcome; `autonomous: false`)*
+
+- [ ] 02-27-PLAN.md — exact-finalize candidate 或 pre-candidate terminal，并同步 value-blind public records
+
+Cross-cutting constraints:
+
+- 既有两条 failure journal chain 永久只读；任何 locator 都不得进入 Codex prompt、argv、environment、log 或公共 evidence。
+- 新 actual attempt 只能在 02-24 的 focused/full/diff 与独立 review 0 Critical 全部通过、旧 attempt exact-admit、且开发者显式批准后创建。
+- Plans 02-25～02-27 不得自写 `02-VERIFICATION.md`、STATE、ROADMAP 或 REQUIREMENTS；独立 verifier 与 `phase.complete` 保留 canonical status authority。
 
 ### Phase 3: 经批准研究到 Build Contract
 
@@ -206,7 +320,7 @@ Phases execute in numeric order: 1 → 1.1 → 1.2 → 2 → 3 → 4 → 5 → 6
 | 1. 规范内核与安全迁移 | 4/4 | Complete    | 2026-07-12 |
 | 1.1 工件准入与秘密边界 | 13/13 | Complete    | 2026-07-13 |
 | 1.2 OpenClaw 运行时与发布证据 | 12/12 | Complete | 2026-07-13 |
-| 2. 可安装且可恢复的 Codex Builder | 0/TBD | Not started | - |
+| 2. 可安装且可恢复的 Codex Builder | 24/27 | Local mechanism gate passed; human UAT pending | - |
 | 3. 经批准研究到 Build Contract | 0/TBD | Not started | - |
 | 4. 确定性 Package 与所有权安全安装 | 0/TBD | Not started | - |
 | 5. `support-triage` 可逆运行与证据闭环 | 0/TBD | Not started | - |

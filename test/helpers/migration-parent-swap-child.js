@@ -8,32 +8,24 @@ import {
   verifyMigrationOutput,
 } from "../../src/migration-filesystem.js";
 
-export const MIGRATION_PARENT_SWAP_CHECKPOINTS = Object.freeze([
-  "after_mkdir",
-  "after_output_open",
-  "before_receipt",
-  "before_marker_commit",
-]);
-
 async function main() {
-  const [input, out, checkpoint] = process.argv.slice(2);
-  const bytes = await readFile(input);
-  const digests = Object.freeze({
-    "migration-input-0": `sha256:${createHash("sha256").update(bytes).digest("hex")}`,
-  });
-  const plan = await planArtifactMigration([input], { digests });
+  const [serializedInputs, out] = process.argv.slice(2);
+  const inputs = JSON.parse(serializedInputs);
+  const digestEntries = [];
+  for (const [index, input] of inputs.entries()) {
+    const bytes = await readFile(input);
+    digestEntries.push([
+      `migration-input-${index}`,
+      `sha256:${createHash("sha256").update(bytes).digest("hex")}`,
+    ]);
+  }
+  const digests = Object.freeze(Object.fromEntries(digestEntries));
+  const plan = await planArtifactMigration(inputs, { digests });
+  process.send?.({ type: "ready" });
+  await waitForContinue();
   let result;
   try {
-    const applied = await applyArtifactMigration(
-      { inputs: [input], out, plan, digests },
-      {
-        onCheckpoint: async (name) => {
-          if (name !== checkpoint) return;
-          process.send?.({ type: "checkpoint", name });
-          await waitForContinue();
-        },
-      },
-    );
+    const applied = await applyArtifactMigration({ inputs, out, plan, digests });
     result = { code: null, ok: applied.ok };
   } catch (error) {
     result = {

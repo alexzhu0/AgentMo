@@ -16,6 +16,8 @@ export const DESIGN_PLAN_SCHEMA_VERSION = "agentmo.design-plan.v1";
 
 const REQUIREMENT_TYPES = new Set(["primary_task", "success_criterion", "hard_failure"]);
 const COVERAGE_LEVELS = new Set(["supported", "partial", "missing"]);
+const SUPPORTING_FACT_KINDS = new Set(["source_chunk"]);
+const SUPPORTING_TRUST_LEVELS = new Set(["derived", "trusted", "verified"]);
 const ADMITTED_DESIGN_PLAN_CANDIDATES = new WeakSet();
 const SHA256_DIGEST_PATTERN = /^sha256:[a-f0-9]{64}$/u;
 const STOP_WORDS = new Set([
@@ -289,7 +291,15 @@ function buildRequirementsTrace(discoveryDb, userNeed) {
 
 function buildTraceEntry(type, text, number, factIndex) {
   const matches = matchFacts(text, factIndex);
-  const coverage = matches.length >= 2 ? "supported" : matches.length === 1 ? "partial" : "missing";
+  const supportingMatches = matches.filter(({ fact }) =>
+    SUPPORTING_FACT_KINDS.has(fact.kind)
+      && SUPPORTING_TRUST_LEVELS.has(fact.trustLevel),
+  );
+  const coverage = supportingMatches.length >= 2
+    ? "supported"
+    : matches.length > 0
+      ? "partial"
+      : "missing";
   const requirementId = `${type.replaceAll("_", "-")}-${String(number).padStart(2, "0")}`;
   return {
     requirementId,
@@ -315,7 +325,6 @@ function buildFactIndex(discoveryDb) {
       source.id,
       source.type,
       source.description,
-      ...(Array.isArray(source.extractionFields) ? source.extractionFields : []),
     ].join(" ");
     return { fact, tokens: tokenize(searchable) };
   });
@@ -358,12 +367,12 @@ function overlapScore(left, right) {
 
 function planningImpact(type, coverage) {
   if (coverage === "supported") {
-    return "Use matched discovery facts as bounded planning evidence; keep Stage 3 validation separate.";
+    return "Use matched, source-derived discovery facts as bounded planning evidence; keep Stage 3 validation separate.";
   }
   if (type === "hard_failure") {
     return "Convert unresolved hard-failure coverage into fail-closed eval cases and governance gates before delivery.";
   }
-  return "Record the gap and require eval/governance coverage before treating the requirement as implementation-ready.";
+  return "Treat declaration-only or unverified matches as planning inputs, record the gap, and require eval/governance coverage before treating the requirement as implementation-ready.";
 }
 
 function buildGaps(requirementsTrace) {

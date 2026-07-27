@@ -32,8 +32,185 @@ Discover what to build
 
 AgentMo currently provides a dependency-free Node CLI:
 
+### Codex Builder lifecycle
+
+The packed npm release contains one canonical Codex plugin. Builder setup, upgrade, deactivate, and reactivate are two-step operations: first inspect the exact plan, then apply that same project-bound plan digest explicitly.
+
+```text
+digest_file() { node -e 'const fs=require("node:fs");const crypto=require("node:crypto");fs.writeSync(1,"sha256:"+crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex"));' "$1"; }
+./bin/agentmo.js builder setup --project . --json
+./bin/agentmo.js builder setup --project . --apply --plan-digest <setup-plan-digest> --json
+./bin/agentmo.js builder doctor --project . --json
+
+# On an absent project, choose user-host activation during the initial setup
+# instead of first publishing a project-only receipt and trying to replace it.
+./bin/agentmo.js builder setup --project . --host-scope user --json
+./bin/agentmo.js builder setup --project . --host-scope user \
+  --apply --plan-digest <setup-and-activation-plan-digest> --json
+
+# For every later lifecycle operation, use the receipt path/digest returned by
+# the currently selected lifecycle result. The genesis path is shown here.
+CURRENT_RECEIPT=.agentmo/builder/install-receipt.json
+CURRENT_RECEIPT_DIGEST=$(digest_file "$CURRENT_RECEIPT")
+./bin/agentmo.js builder upgrade --project . \
+  --digest "builder-install-receipt=$CURRENT_RECEIPT_DIGEST" --json
+./bin/agentmo.js builder upgrade --project . \
+  --digest "builder-install-receipt=$CURRENT_RECEIPT_DIGEST" \
+  --apply --plan-digest <upgrade-plan-digest> --json
+
+./bin/agentmo.js builder deactivate --project . \
+  --digest "builder-install-receipt=$CURRENT_RECEIPT_DIGEST" --json
+./bin/agentmo.js builder deactivate --project . \
+  --digest "builder-install-receipt=$CURRENT_RECEIPT_DIGEST" \
+  --apply --plan-digest <deactivation-plan-digest> --json
+./bin/agentmo.js builder reactivate --project . \
+  --digest "builder-install-receipt=$CURRENT_RECEIPT_DIGEST" --json
+./bin/agentmo.js builder reactivate --project . \
+  --digest "builder-install-receipt=$CURRENT_RECEIPT_DIGEST" \
+  --apply --plan-digest <reactivation-plan-digest> --json
+```
+
+AgentMo v1 does not physically delete Builder state. `deactivate` appends a tombstone while leaving the selected receipt, projected bytes, immutable release bytes, host evidence, and prior lifecycle evidence intact but inert. `reactivate` appends an activation successor. Upgrades publish under an immutable version-qualified path and append the new selection; they never overwrite the canonical genesis receipt. The hidden deprecated `uninstall` spelling maps to the same non-delete deactivation behavior. Purge, selector removal, host projection replacement, and every `--remove-host-selector` form are unsupported and fail closed.
+
+Migration note: an existing projected-v2 canonical receipt cannot be replaced in place by an activated-v4 setup receipt. `builder setup --host-scope user` on that projected receipt returns `AGENTMO_BUILDER_INSTALL_IMMUTABLE_SUCCESSOR_REQUIRED`. Keep the canonical receipt immutable and use the version-qualified lifecycle successor path for later releases; when user-host activation is required for a new installation, select `--host-scope user` during the initial absent-project setup. Do not delete, rename, or rewrite old receipts to force the transition.
+
+Builder v1 relies on POSIX ownership, mode, hard-link, and directory-sync guarantees and is supported on macOS and Linux. Windows paths and unsupported filesystem semantics fail closed. This platform boundary is mechanism support only, not Codex host, domain, or production certification.
+
+After setup, run the bounded fresh-process mechanism evaluation with the currently selected receipt path and exact digest:
+
+```text
+digest_file() { node -e 'const fs=require("node:fs");const crypto=require("node:crypto");fs.writeSync(1,"sha256:"+crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex"));' "$1"; }
+RECEIPT=<receipt.path-from-current-lifecycle-result>
+./bin/agentmo.js builder behavior-eval --project . \
+  --digest "builder-install-receipt=$(digest_file "$RECEIPT")" --json
+```
+
+Project setup projects a receipt-managed launcher at `plugins/agentmo/runtime/agentmo/bin/agentmo.js`. Exact installed `SessionStart`, `PreCompact`, and `PostCompact` deliveries traverse the fixed adjacent launcher, receipt-bound release, canonical hook reducer, and checkpoint CAS. Hook input cannot select project, workflow stage, approval, or next action. Host state and lifecycle state use append-only authority: old state files may serve as immutable genesis inputs, but current authority is a successor chain rather than a rewritten canonical file. AgentMo never writes Codex cache, config, or trust state directly, and hook trust remains human-owned.
+
+Hook integrity has a deliberate seed boundary: the host must install and protect the initial `agentmo-hook.js` seed. After that seed starts, it authenticates the retained runtime graph before importing it. JavaScript cannot authenticate the seed before the host executes that same pathname; this remains a host-installation assumption, not a host-support certification.
+
+Append-only recovery has a deliberate local-state boundary: the project-root `.agentmo-root-witness` prevents an authority from silently re-genesis when its root and local lineage evidence disappear while the rest of project evidence remains. Deleting every project-local authority and that witness is indistinguishable from a virgin project; no readiness or certification claim covers that case.
+
+The formal `agentmo.codex-uat.v1` path is an immutable attempt journal, not a mutable run file. `start`, exact-head `record`, `scenario-arm`, `terminal`, `inspect`, `resume`, and the packed pre-deactivation `continue` command own progression. Candidate publication is leaf-first and absent-only. Exact candidate admission uses `builder behavior --uat-journal ... --uat-candidate ...` plus separate head and candidate digests; the removed `--uat` / `builder-codex-uat=` spelling returns `AGENTMO_CLI_BUILDER_UAT_MIGRATION_REQUIRED`. All surviving observations are bounded and value-blind. This mechanism does not establish cryptographic Codex origin, a real authenticated session, host behavior, Agent Package quality, domain quality, production readiness, or deployment approval.
+
+The implemented Builder surfaces and their current evidence status are deliberately separate:
+
+| Surface | Implemented boundary | Current status |
+| --- | --- | --- |
+| Packed UAT releases and verifier | Distinct baseline/successor tarballs, manifest-bound `scripts/verify-codex-uat-candidate.js`, read-only `preview`, and exact `decide approve\|reject` reports | Caller decisions are nonterminal; independent external decision authority is not implemented |
+| Project runtime | Receipt-managed launcher and complete co-released import closure under `plugins/agentmo/runtime/agentmo/` | Mechanism-tested; not a host-support certification |
+| User-host activation | Explicit `--host-scope user`, fixed official Codex calls, separate selector owner and sorted project-consumer ledger | Host trust remains human-owned |
+| Doctor | Read-only projection, host, ownership, skill, hook, trust and checkpoint diagnosis | Observation only; never repairs or promotes support |
+| Upgrade/deactivate/reactivate | Exact plan approval, immutable version-qualified releases, append-only tombstones and activation successors | No physical deletion, purge, selector removal, or canonical replacement |
+| Installed recovery | Fixed hook runner -> adjacent project launcher -> canonical reducer -> checkpoint CAS | Packed integration gate pending; latest verifier-inclusive attempt stopped during setup apply |
+| Formal UAT | Activation-first immutable journal, eleven ordered value-blind observations, leaf-first candidate publication, and separate exact successor verification | Mechanism and aggregate release gate passed; no real session or certification claim |
+
+### Formal Codex UAT gate
+
+On 2026-07-19, the first isolated host attempt used a fresh private root, project, `HOME`, and `CODEX_HOME`, the packed artifact, and the projected project-local launcher. It did not use the AgentMo source checkout or a global AgentMo executable. Project-only setup completed, the user-host activation preview produced its exact plan, and activation apply then failed closed at the fixed precondition `precondition:user-host-activation` with reason `AGENTMO_BUILDER_INSTALL_HOST_MUTATION_FAILED`. The setup receipt was preserved and the project projection remained `pristine`.
+
+That attempt stopped before normal trust, authentication, a real Codex session, the formal eleven-scenario UAT run, candidate production, or exact admission. It is recorded only through a private value-blind continuation handle and digest; that record is not `agentmo.codex-uat.v1` and is not a real-session attestation. `realCodexSessionVerified`, activation verification, host-behavior verification, Agent Package certification, domain certification, production approval, and deployment approval all remain `false`. The real-session portions of Phase 2, BLDR-01, and BLDR-07 remain pending; the local mechanism release gate is separately complete.
+
+#### Verifier-inclusive Plan 02-17 outcome (2026-07-20)
+
+Plan 02-17 first closed the package/evidence mechanism before creating any actual UAT bytes. The core plus packed focused gate passed 25/25 tests, artifact-surface coverage passed 14/14, the full repository gate passed 658/658, and `git diff --check` passed. The combined Phase 02-11 through 02-17 Builder gate then passed 206/206 before the one final attempt was created. These results prove the bounded release, journal, candidate, and verifier mechanisms only.
+
+The release builder produced distinct actual `agentmo` versions `0.1.0-uat.17.1` and `0.1.0-uat.17.2`. Their release digests are `sha256:04f700671552a27cd24561f433ff0bc12e527a0ec6fef3e026033c78e4337105` and `sha256:43fe7a96619f83563e48e34b82edb45b10327f4b575b029aca441d6ce0ecee97`; their tarball digests are `sha256:ab2c27521575d57ac11e32d27f5071114f65d30c6e9f892d685b1c1b27345563` and `sha256:dd6aeabdf92c9af1fba3f5ae7e22486b4854295b26ed42f722a75723661150be`. Fresh extraction independently matched both package closures and both manifest-bound verifier bytes to `sha256:e73b9c195363c521d423f0702d2dc7d0be66933b26d6494b834bc821dd4662f2`.
+
+The unique actual attempt started and the baseline setup preview produced the exact apply digest `sha256:48388698a454f21e5e77aa2058fb47c7386c80f00fba9bf6764ef279374642c7`. Its single apply failed closed with `AGENTMO_BUILDER_INSTALL_HOST_ROLLBACK_FAILED`. The immutable two-entry journal ends in that first `failure` terminal at head `sha256:5a82e22d54bb8a52f1515d54e03d0e0668efdc083637b426d5280b38ebeb8d5f`; independent read-only verification appended nothing. No `setup-applied`, `activation-applied`, Codex process start, trust/auth observation, SessionStart, lifecycle scenario, candidate, verifier preview, human decision, or live success occurred. The attempt was not retried or replaced.
+
+The current public contract is `builder codex-uat start`, exact-head `record`, `scenario-arm`, `terminal`, `inspect`, `resume`, and the packed pre-deactivation `continue` command. The separately packed verifier exposes read-only `preview` and caller-reporting `decide approve|reject`. Run `node ./bin/agentmo.js --help` for the complete closed argument surfaces. The release producer is `node scripts/build-builder-uat-releases.js --out <new-ignored-root> --baseline-version <version> --successor-version <distinct-version> --json`; its output root must be absent, private, and excluded from release evidence.
+
+This is a completed fail-closed plan execution, not a successful UAT or Phase 2 completion. Phase 2 remains `gaps_found` and incomplete. Cryptographic Codex origin, real-session behavior, domain quality, Agent Package quality, package or production readiness, deployment approval, and wider Codex/OpenClaw compatibility all remain false or unproven.
+
+The 2026-07-20 and 2026-07-22 reviews remain historical findings records. After their in-scope repairs, the current local release gate passed `npm run check` with 760 passing tests, 0 failures, and 1 skipped test; the fresh final review records Critical 0 and Warning 0 in `.planning/phases/02-codex-builder/02-FINAL-RELEASE-REVIEW.md`. This clears the local mechanism gate only: it does not turn the prior fail-closed host attempt into a real session, domain-quality result, production approval, or wider compatibility certification.
+
+A future formal retry, only after the developer explicitly approves another attempt, must use a new isolated project, a new `HOME` and `CODEX_HOME`, normal Codex trust, and a freshly authenticated Codex session. It must use the projected launcher rather than a source checkout or global `agentmo` executable. The public command shapes are:
+
+```text
+digest_file() { node -e 'const fs=require("node:fs");const crypto=require("node:crypto");fs.writeSync(1,"sha256:"+crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex"));' "$1"; }
+AGENTMO=./plugins/agentmo/runtime/agentmo/bin/agentmo.js
+RECEIPT=.agentmo/builder/install-receipt.json
+ATTEMPT_DIR=path/to/new-attempt-dir
+JOURNAL="$ATTEMPT_DIR/attempt.journal"
+START_REQUEST=path/to/attempt-started.record.json
+RECORD_REQUEST=path/to/next-transition.record.json
+CHECKPOINT=path/to/challenge-bearing-checkpoint.json
+OBSERVATION=path/to/immutable-observation-leaf.json
+TERMINAL_EVIDENCE=path/to/value-blind-terminal.evidence
+
+node "$AGENTMO" builder codex-uat start \
+  --journal "$JOURNAL" --attempt-id <bounded-attempt-id> \
+  --request "$START_REQUEST" \
+  --digest "builder-codex-uat-record-request=$(digest_file "$START_REQUEST")" --json
+
+node "$AGENTMO" builder codex-uat inspect --journal "$JOURNAL" --json
+node "$AGENTMO" builder codex-uat resume --journal "$JOURNAL" \
+  --expected-head-sha256 <exact-current-head-sha256> --json
+
+node "$AGENTMO" builder codex-uat record \
+  --journal "$JOURNAL" --expected-head-sha256 <exact-current-head-sha256> \
+  --request "$RECORD_REQUEST" \
+  --digest "builder-codex-uat-record-request=$(digest_file "$RECORD_REQUEST")" --json
+
+# For an installed-hook scenario, arm the exact checkpoint first, deliver the
+# hook, then record the exact successor checkpoint and immutable observation.
+node "$AGENTMO" builder codex-uat scenario-arm \
+  --journal "$JOURNAL" --expected-head-sha256 <exact-current-head-sha256> \
+  --checkpoint "$CHECKPOINT" \
+  --digest "builder-checkpoint=$(digest_file "$CHECKPOINT")" --json
+node "$AGENTMO" builder codex-uat record \
+  --journal "$JOURNAL" --expected-head-sha256 <exact-current-head-sha256> \
+  --request "$RECORD_REQUEST" \
+  --digest "builder-codex-uat-record-request=$(digest_file "$RECORD_REQUEST")" \
+  --checkpoint "$CHECKPOINT" \
+  --digest "builder-checkpoint=$(digest_file "$CHECKPOINT")" \
+  --observation "$OBSERVATION" \
+  --digest "builder-codex-uat-observation=$(digest_file "$OBSERVATION")" --json
+
+# Failure/interruption is a bounded terminal, not a success substitute.
+node "$AGENTMO" builder codex-uat terminal failure \
+  --journal "$JOURNAL" --expected-head-sha256 <exact-current-head-sha256> \
+  --code <bounded-code> --evidence "$TERMINAL_EVIDENCE" \
+  --evidence-sha256 "$(digest_file "$TERMINAL_EVIDENCE")" --json
+
+# The packed continuation runs before deactivation with an already approved
+# deactivation plan and exact successor release identities.
+node "$AGENTMO" builder codex-uat continue \
+  --attempt-dir "$ATTEMPT_DIR" --expected-head-sha256 <exact-current-head-sha256> \
+  --approved-deactivation-plan-sha256 sha256:<64hex> \
+  --successor-tarball <successor.tgz> --expected-successor-version <version> \
+  --expected-release-sha256 sha256:<64hex> --expected-tarball-sha256 sha256:<64hex> \
+  --expected-verifier-sha256 sha256:<64hex>
+
+# Candidate admission binds the full journal head and immutable candidate leaf.
+node "$AGENTMO" builder behavior --project . \
+  --digest "builder-install-receipt=$(digest_file "$RECEIPT")" \
+  --uat-journal "$JOURNAL" --uat-candidate <candidate.json> \
+  --digest "builder-codex-uat-head=<exact-current-head-sha256>" \
+  --digest "builder-codex-uat-candidate=<exact-candidate-sha256>" --json
+
+# Run this exact script from the freshly extracted successor package.
+node scripts/verify-codex-uat-candidate.js preview \
+  --attempt-dir "$ATTEMPT_DIR" --successor-tarball <successor.tgz> \
+  --expected-head-sha256 sha256:<64hex> --expected-candidate-sha256 sha256:<64hex> \
+  --expected-successor-version <version> --expected-release-sha256 sha256:<64hex> \
+  --expected-tarball-sha256 sha256:<64hex>
+node scripts/verify-codex-uat-candidate.js decide approve \
+  --attempt-dir "$ATTEMPT_DIR" --successor-tarball <successor.tgz> \
+  --expected-head-sha256 sha256:<64hex> --expected-candidate-sha256 sha256:<64hex> \
+  --expected-successor-version <version> --expected-release-sha256 sha256:<64hex> \
+  --expected-tarball-sha256 sha256:<64hex>
+```
+
+The fixed order is `session-start`, `skill-discovery`, `user-prompt-non-trigger`, `manual-pause`, `pre-compact`, `post-compact`, `restart-resume`, `duplicate-replay`, `second-compaction`, `upgrade-visibility`, and `deactivation-tombstone-visibility`. Challenge-bound steps require the exact successor checkpoint and immutable observation leaf selected by the current journal state; other transitions use their exact bounded request/evidence files. Do not substitute raw prompts, hook payloads, transcripts, stdout/stderr, host paths, environment values, credentials, or an informal success message.
+
+`preview` is read-only. `decide approve|reject` reports only `caller-reported-approval` or `caller-reported-rejection`; it leaves the journal byte-identical and nonterminal, sets `humanAuthorityVerified: false`, and keeps `externalDecisionAuthorityRequired: true`. AgentMo does not currently implement an independent external human decision authority. Neither command is an approval gate, and no 11/11 scenario run, candidate, caller report, bounded host run, or synthetic test can certify Agent Package quality, domain quality, production readiness, deployment approval, or wider Codex compatibility.
+
 ```bash
 digest_file() { node -e 'const fs=require("node:fs");const crypto=require("node:crypto");fs.writeSync(1,"sha256:"+crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex"));' "$1"; }
+./bin/agentmo.js artifact-contract discovery-manifest --json
+./bin/agentmo.js artifact-contract user-need --json
 ./bin/agentmo.js validate examples/win9.agentmo.json --digest "blueprint=$(digest_file "examples/win9.agentmo.json")"
 ./bin/agentmo.js report examples/win9.agentmo.json --digest "blueprint=$(digest_file "examples/win9.agentmo.json")"
 ./bin/agentmo.js report examples/win9.agentmo.json --json --digest "blueprint=$(digest_file "examples/win9.agentmo.json")"
@@ -58,6 +235,13 @@ RUN_STATE="/tmp/support-triage-run/runs/${RUN_ID:?set RUN_ID}/agentmo-run-state.
 
 Every durable file operand above carries one canonical `--digest` subject calculated from the exact file bytes at the invocation. AgentMo verifies that binding before JSON decode; a digest of parsed or reserialized JSON is not equivalent. Missing, duplicate, extra, mismatched, or stale bindings fail closed.
 
+Operator-authored Stage 1 and Stage 2 inputs are publicly discoverable without reading source code:
+
+- `agentmo artifact-contract discovery-manifest --json` exports the field-level JSON Schema and a validator-valid minimal `agentmo.discovery.v1` template.
+- `agentmo artifact-contract user-need --json` exports the field-level JSON Schema and a validator-valid minimal `agentmo.user-need.v1` template.
+- `agentmo discover-report --help`, `discover-pack --help`, `discover-workspace --help`, and `need-report --help` point to the relevant contract and example.
+- A digest-bound artifact with the correct registered identity but invalid fields still fails closed with `AGENTMO_UNSUPPORTED_ARTIFACT`; JSON mode additionally returns bounded `subject` and `issues` fields. These messages contain field requirements only, never submitted values, host paths, credentials, or raw payloads. Correct the artifact, recompute its exact-byte digest, and retry.
+
 Stage 1 has two explicit paths:
 
 - `discover-pack` is the manifest-only path. It validates an `agentmo.discovery.v1` manifest and writes `agentmo-discovery-db.json`, `facts.jsonl`, and `coverage.json` without reading the referenced local source files.
@@ -75,7 +259,7 @@ source-chunks.jsonl
 
 Source-derived evidence enters `agentmo-discovery-db.json.facts` and `facts.jsonl` as `kind:"source_chunk"` records. `source-cards.json` and `source-chunks.jsonl` are supplemental sidecars; Stage 2 uses the discovery DB as its durable input. Unsafe workspace DBs fail closed through DB-visible validation/safety state and must not enter `design-plan` or `blueprint-draft`.
 
-Neither Stage 1 path performs web crawling, live search, or search API collection. Do not point `--source-root` at secrets, `.env` files, parent directories, or sibling projects. Stage 1 stays decoupled: it does not call Stage 2/3 and does not write blueprint, handoff, build, run, birth, or delivery artifacts.
+Neither Stage 1 path performs web crawling, live search, or search API collection. `artifact-contract` improves contract authoring only; it is not a collector and does not upgrade manifest metadata into retrieved evidence. Do not point `--source-root` at secrets, `.env` files, parent directories, or sibling projects. Stage 1 stays decoupled: it does not call Stage 2/3 and does not write blueprint, handoff, build, run, birth, or delivery artifacts.
 
 `plan` is a dry run: it emits deterministic managed write operations without
 touching the output directory. `scaffold` applies the same domain operations and

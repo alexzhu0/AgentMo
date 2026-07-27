@@ -1,8 +1,8 @@
 # AgentMo OMX Session Migration Handoff
 
-Date: 2026-07-10
-Purpose: reset Codex/OMX context and continue AgentMo Stage 2 design-plan / contributor-handoff work without mixing in `pi`, Win9, OpenClaw, or AgentHarness implementation work.
-Mode: Ultragoal-style durable handoff artifact.
+Date: 2026-07-23
+Purpose: reset Codex/OMX context after the Phase 02 local release gate and prepare a user-authorized Agent POC without mixing in `pi`, Win9, OpenClaw, or AgentHarness implementation work.
+Mode: current durable recovery anchor. Sections explicitly marked historical are context only and do not override this header or Sections 1–3.
 
 ## 1. Copy-paste prompt for the new session
 
@@ -26,25 +26,26 @@ Then paste this as the first message:
 不要读取 .env，不要打印任何密钥。
 
 请先读取：
+- AGENTS.md
 - docs/OMX_SESSION_MIGRATION.md
 - release/README.md
-- release/2026.07.03.md
-- release/2026.07.05.md
-- release/2026.07.06.md
-- release/2026.07.07.md
-- release/2026.07.10.md
-- CONTRIBUTING.md
+- release/2026.07.23.md
+- release/2026.07.21.md
+- release/2026.07.20.md
+- README.md
 - docs/MVP_RUNBOOK.md
 - docs/AGENT_BIRTH_GATE.md
 - docs/AGENTMO_MVP_LEDGER.md
 
-然后只做恢复和审查：
+然后只做恢复和 POC 准备：
 1. 确认 `pwd` 是包含 `AGENTS.md` 与 `package.json` 的 AgentMo 仓库根目录。
 2. 确认 git status、branch、HEAD。
 3. 审查当前未提交 diff 的范围。
-4. 运行 npm run check 和 git diff --check。
-5. 检查 Stage 2 design-plan、CONTRIBUTING、release/ 和 MVP runbook 文档是否准确。
-6. 不要 commit，除非我明确要求。
+4. 阅读 `.planning/phases/02-codex-builder/02-FINAL-RELEASE-REVIEW.md` 与 `.planning/phases/02-codex-builder/02-RELEASE-GATE-ADJUDICATION.md`；保留历史 review reports，不要改历史 CONTEXT/RESEARCH/02-24 reports，也不要改 ROADMAP/STATE/REQUIREMENTS。
+5. 核对 Builder v1 contract：无 physical delete；deactivate 追加 tombstone；reactivate/upgrade 追加 immutable successor；uninstall 只是隐藏 deprecated non-delete alias；purge、selector removal、canonical replacement 全部拒绝。
+6. 核对 formal UAT contract：start/record/scenario-arm/terminal/inspect/resume/continue；behavior 绑定 exact journal head + candidate；preview 只读；decide 只 caller-reported/nonterminal，因为没有 independent external human decision authority。
+7. 不要重跑 aggregate gate，除非源码或测试又变更。不要运行 real UAT，除非用户明确给出 POC brief 并授权；不要把 11/11、synthetic tests 或 caller decision 当成 domain/production certification。
+8. 不要 commit，除非我明确要求。
 
 用中文回复。
 ```
@@ -57,52 +58,41 @@ Project:
 $AGENTMO_REPO
 ```
 
-Current branch:
-
-```text
-main
-```
-
-Current committed HEAD at the time of this handoff refresh:
-
-```text
-f5dd4ea
-```
+Current branch and HEAD must be read from the live repository. Do not trust a stored hash in this handoff.
 
 Current important state:
 
 ```text
-Stage 2 design-plan contract is implemented in the working tree.
-Contributor onboarding docs are being added for external programmers.
-The implementation is verified locally.
-The implementation is not committed yet.
-Git status is intentionally dirty with source, tests, docs, and release records.
+Historical Phase 02 reviews recorded Critical and Warning findings; retain those reports as evidence.
+The in-scope repair and local release gate are complete in a still-dirty, uncommitted worktree.
+The final aggregate gate passed 760 tests with 0 failures and 1 skip; the fresh independent final review records Critical 0 and Warning 0.
+No real Codex/OpenClaw UAT, external human decision, domain-quality certification, production approval, tag, package publication, or GitHub Release has occurred.
 ```
 
-Latest local verification observed before this handoff refresh:
+Focused checkpoints recorded during this iteration:
 
 ```text
-node --test test/design-plan.test.js: passed, 9/9 tests
-node --test test/user-need.test.js test/blueprint-draft.test.js test/stage-contracts.test.js test/discovery-source-workspace.test.js: passed, 40/40 tests
-npm run check: passed, 199/199 tests
+node --test test/builder-codex-uat.test.js: passed, 27/27
+node --test test/builder-immutable-journal-v1.test.js: passed, 4/4
+node --test test/artifact-surface-coverage.test.js: passed, 17/17
+npm run check: passed, 760 pass, 0 fail, 1 skip
 git diff --check: passed
 ```
 
 Release/publication state:
 
 ```text
-Local code/docs are commit-ready after verification.
-No commit has been created for the Stage 2 design-plan work in this handoff.
-No tag, GitHub Release, npm package publication, or production deployment is implied.
-release/2026.07.10.md is a local date-based release record for future release body use.
+`release/2026.07.23.md` is the current value-blind status record.
+The local mechanism gate is ready for a user-authorized POC, but no commit, tag, or release has been created.
+No commit, tag, GitHub Release, npm package publication, production deployment, real UAT, or external human decision is implied.
 ```
 
 ## 3. Current objective for the new session
 
-Stable aggregate objective:
+Current objective:
 
 ```text
-Complete AgentMo Stage 2 design-plan and contributor-handoff stabilization: recover context from repo artifacts, audit the current uncommitted source/tests/docs/release diff, verify tests and evidence gates, and prepare a clean commit-ready summary without touching sibling projects or reading secrets.
+Accept a user POC brief and use the passed local Builder mechanism to construct one bounded Agent package. Preserve append-only authority and immutable evidence, remain inside AgentMo, and do not read secrets.
 ```
 
 Stop condition:
@@ -110,14 +100,16 @@ Stop condition:
 ```text
 Stop when the new session has:
 1. confirmed it is operating only in AgentMo;
-2. reviewed current dirty files;
-3. verified npm run check and git diff --check;
-4. reviewed README, CONTRIBUTING, AGENTS, release/, MVP runbook, and stage contracts;
-5. reported remaining risks and whether the work is commit-ready;
-6. made no commit unless explicitly instructed.
+2. reviewed the current dirty files without reverting concurrent work;
+3. confirmed the final release-gate evidence and its scope boundary;
+4. received an explicit POC brief before initiating any real host UAT;
+5. reported the bounded result and remaining risks;
+6. made no external publication or commit unless explicitly instructed.
 ```
 
-## 4. Suggested recovery story breakdown
+## 4. Archived 2026-07-10 recovery story (historical only)
+
+The G001–G004 material below records the earlier Stage 2 handoff. Do not execute its stored commands or treat its hashes, test counts, dirty-file list, or commit-readiness wording as current. Sections 1–3 and `release/2026.07.23.md` are authoritative for the active recovery.
 
 ### G001 — Context recovery
 
@@ -259,7 +251,7 @@ Acceptance:
 - No external project files are touched.
 - The user can decide whether to commit AgentMo.
 
-## 5. Current working-tree categories
+## 5. Archived 2026-07-10 working-tree categories
 
 The current dirty tree is expected to include these categories.
 
@@ -343,6 +335,14 @@ release/2026.07.10.md
 
 12. AgentMo core remains Node.js `>=20`; OpenClaw target mutation separately requires `>=22.19.0 <23 || >=23.11.0` and must use `node ./bin/agentmo.js runtime-check --target openclaw` before effects. This preflight is compatibility evidence only.
 
+13. Builder v1 performs no physical deletion. Deactivation appends a tombstone; reactivation and upgrade append immutable successors. Old receipts, releases, projected bytes, host evidence, and UAT evidence remain immutable and inert.
+
+14. `uninstall` is a hidden deprecated non-delete alias only. Purge, selector removal, host projection replacement, canonical receipt replacement, and `--remove-host-selector` remain unsupported.
+
+15. A projected-v2 canonical receipt must not be overwritten by an activated-v4 setup receipt. Preserve genesis and use an immutable version-qualified lifecycle successor.
+
+16. Formal UAT uses immutable journal/head/candidate bindings. Verifier decisions are caller-reported and nonterminal; no independent external human decision authority is currently implemented.
+
 ## 7. What not to do in the new session
 
 Do not:
@@ -391,4 +391,4 @@ Not-tested: GitHub release publication/tagging was not performed.
 
 ## 9. Final note for future sessions
 
-If context becomes confusing again, stop and read this file first. It is the canonical local handoff for resetting the AgentMo session.
+If context becomes confusing again, stop and read Sections 1–3 of this file, `release/README.md`, and `release/2026.07.22.md` first. The archived 2026-07-10 sections are historical context only.

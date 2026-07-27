@@ -50,10 +50,13 @@ Source-derived evidence must be DB-visible as `kind:"source_chunk"` facts in bot
 
 ### Validators and commands
 
+- `agentmo artifact-contract discovery-manifest --json`
 - `agentmo discover-report <discovery.json> [--json]`
 - `agentmo discover-pack <discovery.json> --out <dir> [--json]`
 - `agentmo discover-workspace <discovery.json> --source-root <dir> --out <dir> [--json]`
 - Pure helpers: `validateDiscoveryManifest`, `buildDiscoveryPack`, `buildDiscoveryDb`.
+
+`artifact-contract` exports a field-level JSON Schema and a minimal template that passes the current production validator. The Discover subcommands also support bounded `--help`. When exact-digest admission reaches a registered `agentmo.discovery.v1` identity but field validation fails, JSON error output includes only the canonical subject and bounded field requirement messages; input values and host paths remain undisclosed.
 
 ### Forbidden reads and dependencies
 
@@ -66,6 +69,8 @@ Stage 1 must not require:
 - a runtime target such as `openclaw`;
 - web crawling, live search, browser automation, or search API access;
 - source roots that point at parent directories, sibling projects, `.env` files, credential files, key/cert directories, or other secret roots.
+
+Contract export is not collection evidence. A manifest may declare public URLs, but current Stage 1 does not fetch them or certify their content, freshness, license, safety, or availability.
 
 ### Guarantees and safety boundaries
 
@@ -138,6 +143,7 @@ Stage 2 must not require:
 - Per D-13, `design-plan` hashes the single captured raw `Buffer` for each input before UTF-8 decode, duplicate-member inspection, JSON parse, content audit, identity lookup, or schema validation.
 - `source_refs` fail closed on absolute paths, parent traversal, `.env`/key/cert/token-like refs, URL credentials, and non-http(s) schemes.
 - The design-plan describes trace/gaps/eval/governance before blueprint claims.
+- Manifest-only `extraction_field` facts are declarations and can never produce `supported` coverage. They remain `partial` when matched. `supported` requires at least two matching source-derived `source_chunk` facts with `derived`, `trusted`, or `verified` trust; unverified chunks remain `partial`.
 - A drafted blueprint is still a plan; it is not runtime evidence.
 
 ### Certification boundary

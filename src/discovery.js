@@ -136,7 +136,7 @@ function validateSourceInventory(value, errors, warnings) {
     requireStringArray(source, `source_inventory[${index}].extraction_fields`, errors);
 
     if (typeof source.id === "string") {
-      if (ids.has(source.id)) errors.push(`source_inventory[${index}].id duplicates source ${source.id}.`);
+      if (ids.has(source.id)) errors.push(`source_inventory[${index}].id must be unique.`);
       ids.add(source.id);
     }
 

@@ -12,7 +12,7 @@ v1 首个完整支持的构建端是 Codex，首个完整支持的目标运行�
 
 ## Current State
 
-Phase 1.1（工件准入与秘密边界）已于 2026-07-13 验证完成：当前阶段工件通过 exact raw-byte digest、闭合 subject/identity registry 与 source-authentic companion admissions 在 fresh process 间交接；所有当前 durable read/write/output surface 受共同 persistability 与 value-blind 失败边界约束。下一阶段是 Phase 1.2（OpenClaw 运行时与发布证据）。
+Phase 1、Phase 1.1 与 Phase 1.2 已验证完成。Phase 2 的 27 个计划中，02-01～02-24 已执行并形成 SUMMARY；最近一次本地机制 gate 为 `npm run check` 760 passed、0 failed、1 skipped，独立 final review 为 Critical 0、Warning 0。02-25～02-27 仍是 `autonomous: false` 的真实 Codex UAT、人工决定与最终证据闭环，因此 Phase 2 尚未完成，也不能据本地机制证据宣称真实 Codex/OpenClaw、领域质量或生产可用性已通过。当前使用独立干净 session 进行 AgentMo-only 黑盒 POC；本 coding session 等待其证据后做最小修复。
 
 ## Business Context
 
@@ -156,4 +156,4 @@ AgentMo 应借鉴这些架构原则，但不能把它们累积的大量命令目
 5. 使用当前证据、反馈与已知风险更新 Context。
 
 ---
-*Last updated: 2026-07-13，Phase 1.1 验证完成*
+*Last updated: 2026-07-27，Phase 2 本地机制 gate 完成；真实 UAT 与独立 POC 待完成*

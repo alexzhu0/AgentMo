@@ -24,6 +24,38 @@ Stage 3 may start from an externally reviewed or business-provided valid bluepri
 
 See `docs/STAGE_CONTRACTS.md` for the full contract matrix.
 
+## Codex Builder v1 lifecycle boundary
+
+The Codex Builder is a Produce-internal mechanism and is not part of the support-triage command ancestry below. Its v1 lifecycle is append-only:
+
+- `builder deactivate` appends a tombstone and makes the selected release inert without deleting its bytes, receipt, host evidence, or prior lifecycle evidence.
+- `builder reactivate` appends an activation successor. `builder upgrade` publishes a new immutable version-qualified release and appends its selection.
+- The hidden deprecated `builder uninstall` spelling has the same non-delete effect as `deactivate`; it is omitted from help.
+- Purge, selector removal, host projection replacement, and `--remove-host-selector` are unsupported. There is no public or recovery-only physical-delete path.
+
+Every lifecycle action uses preview/apply with the exact currently selected receipt digest:
+
+```text
+digest_file() { node -e 'const fs=require("node:fs");const crypto=require("node:crypto");fs.writeSync(1,"sha256:"+crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex"));' "$1"; }
+CURRENT_RECEIPT=<receipt.path-from-current-lifecycle-result>
+CURRENT_RECEIPT_DIGEST=$(digest_file "$CURRENT_RECEIPT")
+node ./bin/agentmo.js builder deactivate --project . \
+  --digest "builder-install-receipt=$CURRENT_RECEIPT_DIGEST" --json
+node ./bin/agentmo.js builder deactivate --project . \
+  --digest "builder-install-receipt=$CURRENT_RECEIPT_DIGEST" \
+  --apply --plan-digest <exact-preview-plan-digest> --json
+node ./bin/agentmo.js builder reactivate --project . \
+  --digest "builder-install-receipt=$CURRENT_RECEIPT_DIGEST" --json
+```
+
+An existing projected-v2 canonical receipt cannot be replaced in place by an activated-v4 setup receipt. Such a setup fails with `AGENTMO_BUILDER_INSTALL_IMMUTABLE_SUCCESSOR_REQUIRED`. Preserve the canonical genesis and use the immutable version-qualified lifecycle successor path. For a new absent installation that needs user-host activation, select `--host-scope user` during its initial setup.
+
+The formal Codex UAT public route is `start`, exact-head `record`, `scenario-arm`, `terminal failure|interruption`, `inspect`, `resume`, and packed `continue`. `--journal` and `--uat-journal` take the journal file itself (for example, `<attempt-dir>/attempt.journal`), while packed `continue` takes `--attempt-dir <attempt-dir>`. Exact candidate admission uses `builder behavior --uat-journal <journal-file> --uat-candidate <candidate.json>` plus `builder-codex-uat-head` and `builder-codex-uat-candidate` digest bindings. The old `begin`/`finalize`, `--uat`, and `builder-codex-uat=` forms are not accepted.
+
+The separately packed verifier's `preview` is read-only. Its `decide approve|reject` result is explicitly caller-reported, nonterminal, and journal-preserving: `humanAuthorityVerified` stays `false` and `externalDecisionAuthorityRequired` stays `true`. AgentMo does not implement an independent external human decision authority. No eleven-scenario completion, verifier output, or focused test count certifies a real Codex session, Agent Package quality, domain quality, production readiness, or deployment approval.
+
+Builder v1 currently requires POSIX filesystem semantics and is supported on macOS and Linux. Unsupported Windows paths or filesystem semantics fail closed.
+
 ## Run each stage independently
 
 ### Stage 1 only: materialize a Discovery Contract
@@ -85,6 +117,8 @@ $WORK/discovery/source-chunks.jsonl
 `discover-workspace` reads only approved local source files referenced by the manifest under the repo-bound `--source-root`. It must not be pointed at `.env` files, key/cert directories, parent directories, or sibling projects. It does not perform web crawling, live search, browser automation, or search API calls.
 
 Source-derived evidence enters `agentmo-discovery-db.json.facts` and `facts.jsonl` as `kind:"source_chunk"` records. `source-cards.json` and `source-chunks.jsonl` are supplemental sidecars for inspection/debugging; Stage 2 consumes the discovery DB, not the sidecars.
+
+Manifest-only `kind:"extraction_field"` facts describe what a future collector should extract. They are planning declarations, not retrieved evidence, and can produce at most `partial` Stage 2 coverage. `supported` requires multiple matching `source_chunk` facts whose trust level is `derived`, `trusted`, or `verified`. Unverified chunks also remain at most `partial`.
 
 Stop here when the goal is only a sanitized Discovery Contract. Do not infer blueprint, runtime, or domain certification from Stage 1 outputs. Stage 1 must not write blueprint, handoff, build, run, birth, domain-eval, or delivery artifacts. If workspace safety marks a DB unsafe, fail closed and do not pass that DB to Stage 2.
 

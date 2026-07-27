@@ -58,7 +58,9 @@ const MARKER_FIELDS = new Set([
   "directory_identity",
 ]);
 const IDENTITY_FIELDS = new Set(["dev", "ino"]);
-const DEFAULT_SOURCE_IO = Object.freeze({ lstat, open });
+const PLAN_OPTION_FIELDS = new Set(["digests", "maxInputBytes"]);
+const APPLY_CONFIGURATION_FIELDS = new Set(["digests", "inputs", "out", "plan"]);
+const VERIFY_CONFIGURATION_FIELDS = new Set(["out", "plan"]);
 
 class MigrationInputTooLargeError extends Error {
   constructor() {
@@ -71,13 +73,6 @@ class DestinationIdentityLostError extends Error {
   constructor() {
     super("Migration destination identity is no longer path-bound.");
     this.code = "AGENTMO_MIGRATION_DESTINATION_IDENTITY_LOST";
-  }
-}
-
-class InjectedMigrationFault extends Error {
-  constructor(kind) {
-    super("Injected migration filesystem fault.");
-    this.code = "AGENTMO_MIGRATION_INJECTED_" + kind.toUpperCase();
   }
 }
 
@@ -111,11 +106,14 @@ export async function probeMigrationApplyCapabilities(out) {
 }
 
 export async function planArtifactMigration(suppliedInputs, options = {}) {
+  const normalizedOptions = normalizeExactOptions(
+    options,
+    PLAN_OPTION_FIELDS,
+    "Migration plan options",
+  );
   const inputs = normalizeMigrationInputs(suppliedInputs);
-  const maxInputBytes = normalizeMaxInputBytes(options.maxInputBytes);
-  const digests = normalizeMigrationDigests(options.digests, inputs.length);
-  const sourceIo = normalizeSourceIo(options.sourceIo);
-  const onSourceCapture = normalizeSourceCaptureHook(options.onSourceCapture);
+  const maxInputBytes = normalizeMaxInputBytes(normalizedOptions.maxInputBytes);
+  const digests = normalizeMigrationDigests(normalizedOptions.digests, inputs.length);
   const captures = [];
 
   for (const [index, input] of inputs.entries()) {
@@ -125,15 +123,8 @@ export async function planArtifactMigration(suppliedInputs, options = {}) {
         input,
         maxInputBytes,
         digests[subject],
-        sourceIo,
       );
       captures.push(bytes);
-      await onSourceCapture(Object.freeze({
-        ordinal: index,
-        subject,
-        digest: digests[subject],
-        byteLength: bytes.byteLength,
-      }));
     } catch (error) {
       if (error instanceof ArtifactAdmissionError) throw error;
       captures.push(migrationReadFailure(
@@ -148,16 +139,27 @@ export async function planArtifactMigration(suppliedInputs, options = {}) {
 }
 
 export async function applyArtifactMigration(
-  { inputs: suppliedInputs, out, plan: suppliedPlan, digests: suppliedDigests },
+  configuration,
   options = {},
 ) {
+  const normalizedConfiguration = normalizeExactOptions(
+    configuration,
+    APPLY_CONFIGURATION_FIELDS,
+    "Migration apply configuration",
+    { requireAll: true },
+  );
+  normalizeExactOptions(options, new Set(), "Migration apply options");
+  const {
+    inputs: suppliedInputs,
+    out,
+    plan: suppliedPlan,
+    digests: suppliedDigests,
+  } = normalizedConfiguration;
   if (!suppliedPlan || typeof suppliedPlan !== "object") {
     throw new TypeError("A migration plan and its input set are required.");
   }
   const inputs = normalizeMigrationInputs(suppliedInputs);
   const digests = normalizeMigrationDigests(suppliedDigests, inputs.length);
-  const sourceIo = normalizeSourceIo(options.sourceIo);
-  const onSourceCapture = normalizeSourceCaptureHook(options.onSourceCapture);
   const plan = structuredClone(suppliedPlan);
   let receiptBytes;
   try {
@@ -171,18 +173,8 @@ export async function applyArtifactMigration(
 
   const outPath = normalizeOutPath(out);
   await assertOutputAbsent(outPath);
-  if (options.probeCapabilities) {
-    const injectedProbe = await options.probeCapabilities({ out: outPath });
-    if (!injectedProbe?.ok) {
-      throw platformUnsupportedError();
-    }
-  }
 
   const orphanToken = randomBytes(32).toString("hex");
-  const faultController = createFaultController(options.faults);
-  const onCheckpoint = typeof options.onCheckpoint === "function"
-    ? options.onCheckpoint
-    : async () => {};
   let capability;
   let destination;
   let destinationCreated = false;
@@ -196,11 +188,12 @@ export async function applyArtifactMigration(
     await assertParentIdentity(capability);
     await assertOutputParentDistinctFromSources(inputs, capability);
     await probeSourceFileSyncCapability(inputs[0]);
-    const payloads = await materializeMigrationOutputs(inputs, plan, digests, {
-      sourceIo,
-      onSourceCapture,
-      outputParentStat: capability.parentStat,
-    });
+    const payloads = await materializeMigrationOutputs(
+      inputs,
+      plan,
+      digests,
+      capability.parentStat,
+    );
     const markerTemplateBase = {
       schemaVersion: MIGRATION_INSTANCE_MARKER_SCHEMA_VERSION,
       instance_id: orphanToken,
@@ -230,7 +223,6 @@ export async function applyArtifactMigration(
       throw error;
     }
 
-    await onCheckpoint("after_mkdir");
     await assertParentIdentity(capability);
     const createdDirectoryStat = await lstat(outPath, { bigint: true });
     assertOwnedDirectoryStat(createdDirectoryStat);
@@ -245,7 +237,7 @@ export async function applyArtifactMigration(
     };
     await assertDestinationIdentity(destination);
     destinationOwnershipConfirmed = true;
-    await faultController.sync(capability.parentHandle);
+    await capability.parentHandle.sync();
     await assertDestinationIdentity(destination);
 
     const markerBase = {
@@ -268,11 +260,9 @@ export async function applyArtifactMigration(
     await openExclusiveOutputSet(
       destination,
       payloads,
-      faultController,
-      onCheckpoint,
       outputHandles,
     );
-    await faultController.sync(destination.directoryHandle);
+    await destination.directoryHandle.sync();
     await assertDestinationIdentity(destination);
 
     const markerHandle = outputHandles.get(MIGRATION_INSTANCE_MARKER_BASENAME);
@@ -280,34 +270,27 @@ export async function applyArtifactMigration(
       destination,
       markerHandle,
       stagingMarkerBytes,
-      faultController,
     );
     for (const payload of payloads) {
       await writeAndSyncRetainedHandle(
         destination,
         outputHandles.get(payload.basename),
         payload.bytes,
-        faultController,
       );
     }
 
-    await onCheckpoint("before_receipt");
     await assertDestinationIdentity(destination);
     await writeAndSyncRetainedHandle(
       destination,
       outputHandles.get(MIGRATION_RECEIPT_BASENAME),
       receiptBytes,
-      faultController,
     );
-    await onCheckpoint("before_marker_commit");
     await assertDestinationIdentity(destination);
     await commitPublicationMarker(
       destination,
       markerHandle,
       committedMarkerBytes,
-      faultController,
     );
-    await onCheckpoint("after_marker_commit");
     await assertDestinationIdentity(destination);
     const verification = await verifyMigrationOutput({ out: outPath, plan });
     if (!verification.ok) {
@@ -355,7 +338,13 @@ export async function applyArtifactMigration(
   };
 }
 
-export async function verifyMigrationOutput({ out, plan }) {
+export async function verifyMigrationOutput(configuration) {
+  const { out, plan } = normalizeExactOptions(
+    configuration,
+    VERIFY_CONFIGURATION_FIELDS,
+    "Migration verification configuration",
+    { requireAll: true },
+  );
   let parentCapability;
   let directoryHandle;
   const openedFiles = [];
@@ -637,7 +626,7 @@ async function probeSourceFileSyncCapability(input) {
   }
 }
 
-async function materializeMigrationOutputs(inputs, plan, digests, options) {
+async function materializeMigrationOutputs(inputs, plan, digests, outputParentStat) {
   if (inputs.length !== plan.items.length) {
     throw batchRejectedError();
   }
@@ -649,16 +638,9 @@ async function materializeMigrationOutputs(inputs, plan, digests, options) {
         input,
         DEFAULT_MAX_MIGRATION_INPUT_BYTES,
         digests[subject],
-        options.sourceIo,
-        options.outputParentStat,
+        outputParentStat,
       );
       captured.push(bytes);
-      await options.onSourceCapture(Object.freeze({
-        ordinal: index,
-        subject,
-        digest: digests[subject],
-        byteLength: bytes.byteLength,
-      }));
     }
   } catch {
     throw batchRejectedError();
@@ -697,7 +679,6 @@ async function readNoFollowSource(
   input,
   maxInputBytes,
   expectedDigest,
-  sourceIo,
   outputParentStat,
 ) {
   const sourcePath = path.resolve(input);
@@ -706,13 +687,13 @@ async function readNoFollowSource(
   let before;
   let handle;
   try {
-    const parentBefore = await sourceIo.lstat(parentPath, { bigint: true });
+    const parentBefore = await lstat(parentPath, { bigint: true });
     if (parentBefore.isSymbolicLink() || !parentBefore.isDirectory()) {
       throw new Error("Unsafe source parent.");
     }
-    parentHandle = await sourceIo.open(parentPath, DIRECTORY_FLAGS());
+    parentHandle = await open(parentPath, DIRECTORY_FLAGS());
     const parentRetainedBefore = await parentHandle.stat({ bigint: true });
-    const parentAfterOpen = await sourceIo.lstat(parentPath, { bigint: true });
+    const parentAfterOpen = await lstat(parentPath, { bigint: true });
     if (
       !parentRetainedBefore.isDirectory()
       || !sameIdentity(parentBefore, parentRetainedBefore)
@@ -722,19 +703,19 @@ async function readNoFollowSource(
       throw new Error("Unstable source parent.");
     }
 
-    before = await sourceIo.lstat(sourcePath, { bigint: true });
+    before = await lstat(sourcePath, { bigint: true });
     if (before.isSymbolicLink() || !before.isFile()) throw new Error("Unsafe source.");
     if (before.size > BigInt(maxInputBytes)) throw new MigrationInputTooLargeError();
-    handle = await sourceIo.open(sourcePath, READ_FLAGS());
+    handle = await open(sourcePath, READ_FLAGS());
     const retainedBefore = await handle.stat({ bigint: true });
     if (!retainedBefore.isFile() || !sameIdentity(before, retainedBefore)) {
       throw new Error("Unstable source.");
     }
     const bytes = await readHandleBounded(handle, maxInputBytes);
     const retainedAfter = await handle.stat({ bigint: true });
-    const current = await sourceIo.lstat(sourcePath, { bigint: true });
+    const current = await lstat(sourcePath, { bigint: true });
     const parentRetainedAfter = await parentHandle.stat({ bigint: true });
-    const parentCurrent = await sourceIo.lstat(parentPath, { bigint: true });
+    const parentCurrent = await lstat(parentPath, { bigint: true });
     if (
       !sameStableSourceStat(retainedBefore, retainedAfter) ||
       !sameStableSourceStat(retainedAfter, current) ||
@@ -753,11 +734,9 @@ async function readNoFollowSource(
   }
 }
 
-export async function openExclusiveOutputSet(
+async function openExclusiveOutputSet(
   destination,
   payloads,
-  faultController,
-  onCheckpoint,
   handles = new Map(),
 ) {
   const names = [
@@ -765,9 +744,8 @@ export async function openExclusiveOutputSet(
     ...payloads.map((payload) => payload.basename),
     MIGRATION_RECEIPT_BASENAME,
   ];
-  for (const [index, basename] of names.entries()) {
+  for (const basename of names) {
     await assertDestinationIdentity(destination);
-    await faultController.open();
     let handle;
     try {
       handle = await open(
@@ -782,7 +760,6 @@ export async function openExclusiveOutputSet(
       );
       handles.set(basename, handle);
       handle = null;
-      if (index === 0) await onCheckpoint("after_output_open");
       await assertOutputHandleBinding(
         destination,
         basename,
@@ -796,55 +773,24 @@ export async function openExclusiveOutputSet(
   return handles;
 }
 
-async function writeAndSyncRetainedHandle(destination, handle, bytes, faultController) {
+async function writeAndSyncRetainedHandle(destination, handle, bytes) {
   await assertDestinationIdentity(destination);
-  await faultController.write(handle, bytes);
+  await rawWriteExact(handle, bytes);
   await assertDestinationIdentity(destination);
-  await faultController.sync(handle);
+  await handle.sync();
   await assertDestinationIdentity(destination);
 }
 
-export async function commitPublicationMarker(
+async function commitPublicationMarker(
   destination,
   markerHandle,
   committedBytes,
-  faultController,
 ) {
   await writeAndSyncRetainedHandle(
     destination,
     markerHandle,
     committedBytes,
-    faultController,
   );
-}
-
-function createFaultController(faults = {}) {
-  const limits = {};
-  for (const name of ["openAt", "writeAt", "syncAt"]) {
-    const value = faults?.[name];
-    if (value !== undefined && (!Number.isInteger(value) || value <= 0)) {
-      throw new TypeError(name + " must be a positive integer.");
-    }
-    limits[name] = value;
-  }
-  const counts = { openAt: 0, writeAt: 0, syncAt: 0 };
-  function trip(name, kind) {
-    counts[name] += 1;
-    if (counts[name] === limits[name]) throw new InjectedMigrationFault(kind);
-  }
-  return {
-    async open() {
-      trip("openAt", "open");
-    },
-    async write(handle, bytes) {
-      trip("writeAt", "write");
-      await rawWriteExact(handle, bytes);
-    },
-    async sync(handle) {
-      trip("syncAt", "sync");
-      await handle.sync();
-    },
-  };
 }
 
 async function rawWriteExact(handle, bytes) {
@@ -1127,20 +1073,38 @@ function normalizeMigrationDigests(value, inputCount) {
   return parseDigestBindings(bindings, subjects);
 }
 
-function normalizeSourceIo(value) {
-  const sourceIo = value ?? DEFAULT_SOURCE_IO;
-  if (typeof sourceIo?.open !== "function" || typeof sourceIo?.lstat !== "function") {
-    throw new TypeError("Migration source I/O adapter is invalid.");
+function normalizeExactOptions(value, allowedFields, label, { requireAll = false } = {}) {
+  if (
+    value === null
+    || typeof value !== "object"
+    || Array.isArray(value)
+    || Object.getOwnPropertySymbols(value).length > 0
+  ) {
+    throw new TypeError(`${label} must be an object with exact fields.`);
   }
-  return sourceIo;
-}
-
-function normalizeSourceCaptureHook(value) {
-  if (value === undefined) return async () => {};
-  if (typeof value !== "function") {
-    throw new TypeError("Migration source capture hook is invalid.");
+  const keys = Object.getOwnPropertyNames(value);
+  if (
+    keys.some((key) => !allowedFields.has(key))
+    || (requireAll && (
+      keys.length !== allowedFields.size
+      || Array.from(allowedFields).some((key) => !keys.includes(key))
+    ))
+  ) {
+    throw new TypeError(`${label} contain unexpected or missing fields.`);
   }
-  return value;
+  const normalized = Object.create(null);
+  for (const key of keys) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (
+      !descriptor
+      || !descriptor.enumerable
+      || !Object.hasOwn(descriptor, "value")
+    ) {
+      throw new TypeError(`${label} must use enumerable data fields.`);
+    }
+    normalized[key] = descriptor.value;
+  }
+  return normalized;
 }
 
 async function assertOutputAbsent(outPath) {

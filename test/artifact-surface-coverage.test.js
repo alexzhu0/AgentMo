@@ -13,12 +13,15 @@ import {
 } from "../src/persistability.js";
 import { buildAgentMoReport } from "../src/report.js";
 import { buildRunEval } from "../src/run-state.js";
+import { BUILDER_RELEASE_ASSET_INVENTORY } from "../src/builder-package.js";
 import {
   buildLiveSmokeSummary,
   persistLiveSmokeCandidate,
 } from "../scripts/live-smoke-summary.js";
 import { buildAdmittedDelivery } from "./helpers/admitted-reports.js";
 import {
+  assertBuilderV1NoPhysicalMutationPolicy,
+  assertBuilderV1NoPhysicalMutationSource,
   inventoryJavaScriptSource,
   inventoryShellSource,
   IO_SURFACE_ALLOWLIST,
@@ -74,6 +77,7 @@ describe("artifact/output surface inventory", () => {
       'const handle = await openFile("synthetic", "r+");',
       'await load("synthetic");',
       'await handle.read(Buffer.alloc(1), 0, 1, 0);',
+      'await handle.sync();',
       'await handle.truncate(0);',
       'await rename("before", "after");',
       'await cp("before", "after");',
@@ -87,22 +91,46 @@ describe("artifact/output surface inventory", () => {
       'logger.warn("safe");',
       'stream.end("safe");',
     ].join("\n");
-    const signatures = inventoryJavaScriptSource(source).map((item) => `${item.kind}:${item.callee}`);
-    assert.deepEqual(signatures, [
-      "filesystem-open:fs.open",
-      "filesystem-read:fs.readFile",
-      "file-handle-read:FileHandle.read",
-      "file-handle-lifecycle:FileHandle.truncate",
-      "filesystem-lifecycle:fs.rename",
-      "unclassified:fs.cp",
-      "durable-loader:loadAdmittedArtifact",
-      "serializer-to-sink:emitPersistableOutput",
-      "serializer-to-sink:sink",
-      "process-output:process.stdout.write",
-      "process-output:process.stderr.write",
-      "console-output:console.warn",
-      "stream-write:stream.end",
+    assert.throws(
+      () => inventoryJavaScriptSource(source),
+      (error) => error?.code === "AGENTMO_JAVASCRIPT_STATIC_ANALYSIS_REJECTED",
+    );
+  });
+
+  it("classifies whole-file URL, regex, template-expression, multiline, alias, and computed I/O", () => {
+    const source = [
+      'import { writeFile as wf } from "node:fs/promises";',
+      'import * as fs from "node:fs/promises";',
+      'const url = "https://example.invalid//decoy"; await wf(',
+      '  "synthetic",',
+      '  url',
+      ');',
+      'const matcher = /https?:\\/\\/example\\.invalid/u; await fs["readFile"](',
+      '  "synthetic"',
+      ');',
+      'const template = `decoy ${await fs?.["writeFile"](',
+      '  "synthetic",',
+      '  "safe"',
+      ')}`;',
+    ].join("\n");
+    assert.deepEqual(inventoryJavaScriptSource(source), [
+      { file: "fixture.js", line: 3, kind: "filesystem", callee: "fs.writeFile" },
+      { file: "fixture.js", line: 7, kind: "filesystem-read", callee: "fs.readFile" },
+      { file: "fixture.js", line: 10, kind: "filesystem", callee: "fs.writeFile" },
     ]);
+  });
+
+  it("rejects dynamic computed filesystem calls, reassigned aliases, and escaping aliases", () => {
+    for (const source of [
+      'import * as fs from "node:fs/promises"; const method = "readFile"; await fs[method]("synthetic");',
+      'import { readFile as rf } from "node:fs/promises"; rf = async () => Buffer.alloc(0); await rf("synthetic");',
+      'import { writeFile as wf } from "node:fs/promises"; const escaped = wf; await escaped("synthetic", "safe");',
+    ]) {
+      assert.throws(
+        () => inventoryJavaScriptSource(source),
+        (error) => error?.code === "AGENTMO_JAVASCRIPT_STATIC_ANALYSIS_REJECTED",
+      );
+    }
   });
 
   it("detects shell byte reads, command outputs, and every redirection class", () => {
@@ -128,6 +156,7 @@ describe("artifact/output surface inventory", () => {
       "shell-file-read:shell.cat",
       "shell-output:shell.cat",
       "shell-input:shell.heredoc",
+      "filesystem-read:fs.readFileSync",
       "shell-exact-byte-read:fs.readFileSync",
       "shell-output:shell.node-fd1",
     ]);
@@ -138,10 +167,10 @@ describe("artifact/output surface inventory", () => {
     const allowedIds = Array.from(IO_SURFACE_ALLOWLIST.keys()).sort(compareSurfaceIds);
     assert.deepEqual(discoveredIds, allowedIds);
     for (const [id, classification] of IO_SURFACE_ALLOWLIST) {
-      assert.match(id, /^(?:src|bin|scripts)\//u);
+      assert.match(id, /^(?:src|bin|scripts|plugin)\//u);
       assert.match(
         classification.owner,
-        /^(?:phase-01\.1-plan-(?:0[2-9]|1[0-3])|phase-01\.2-plan-(?:04|05|06|11|12))$/u,
+        /^(?:phase-01\.1-plan-(?:0[2-9]|1[0-3])|phase-01\.2-plan-(?:04|05|06|11|12)|phase-02-plan-(?:02|03|04|06|07|08|09|11|12|13|14|15|16|17|18|19|20|21|22|23))$/u,
       );
       assert.match(
         classification.status,
@@ -155,6 +184,154 @@ describe("artifact/output surface inventory", () => {
       [],
     );
     assert.deepEqual((await scanIoSurfaces(REPO_ROOT)).filter(({ kind }) => kind === "unclassified"), []);
+  });
+
+  it("keeps exact enumeration separate from the Builder v1 no-physical-mutation policy", () => {
+    const file = "src/builder-v1-policy-fixture.js";
+    const source = [
+      'import { rename, rm, unlink } from "node:fs/promises";',
+      'import { execFile } from "node:child_process";',
+      'await unlink("canonical");',
+      'await rm("tree", { recursive: true, force: true });',
+      'await rename("stage", "occupied-canonical");',
+      'await execFile("codex", ["plugin", "remove", "agentmo"]);',
+    ].join("\n");
+    const exactlyAllowlisted = new Map([
+      [`${file}:3:filesystem-lifecycle:fs.unlink`, { owner: "fixture", status: "gated" }],
+      [`${file}:4:filesystem-lifecycle:fs.rm`, { owner: "fixture", status: "gated" }],
+      [`${file}:5:filesystem-lifecycle:fs.rename`, { owner: "fixture", status: "gated" }],
+    ]);
+    assert.deepEqual(
+      inventoryJavaScriptSource(source, file).map(surfaceId),
+      Array.from(exactlyAllowlisted.keys()),
+    );
+    assert.throws(
+      () => assertBuilderV1NoPhysicalMutationSource(source, file),
+      (error) => {
+        assert.equal(error?.code, "AGENTMO_BUILDER_V1_PHYSICAL_MUTATION_FORBIDDEN");
+        assert.deepEqual(error.violations.map((item) => item.operation), [
+          "fs.unlink",
+          "fs.rm",
+          "fs.rename",
+          "external-remove-command",
+        ]);
+        return true;
+      },
+    );
+  });
+
+  it("forbids physical delete, canonical replace, and remove commands across Builder v1", async () => {
+    await assertBuilderV1NoPhysicalMutationPolicy(REPO_ROOT);
+  });
+
+  it("keeps Wave 15 production modules exactly inventoried", async () => {
+    const changed = new Set([
+      "src/builder-checkpoint.js",
+      "src/builder-hook-bridge.js",
+      "src/builder-behavior-eval.js",
+    ]);
+    const discovered = (await scanIoSurfaces(REPO_ROOT))
+      .filter((item) => changed.has(item.file))
+      .map(surfaceId)
+      .sort(compareSurfaceIds);
+    const allowed = Array.from(IO_SURFACE_ALLOWLIST.entries())
+      .filter(([id]) => changed.has(id.split(":", 1)[0]))
+      .sort(([left], [right]) => compareSurfaceIds(left, right));
+    assert.deepEqual(discovered, allowed.map(([id]) => id));
+    assert.equal(allowed.every(([, row]) => row.owner === "phase-02-plan-15"), true);
+    assert.deepEqual(
+      discovered.filter((id) => id.startsWith("src/builder-checkpoint.js:")),
+      [
+        "src/builder-checkpoint.js:787:filesystem-read:fs.realpath",
+        "src/builder-checkpoint.js:788:filesystem-read:fs.lstat",
+        "src/builder-checkpoint.js:817:filesystem-read:fs.realpath",
+        "src/builder-checkpoint.js:818:filesystem-read:fs.lstat",
+        "src/builder-checkpoint.js:841:filesystem-read:fs.realpath",
+        "src/builder-checkpoint.js:842:filesystem-read:fs.realpath",
+        "src/builder-checkpoint.js:986:filesystem-read:fs.realpath",
+      ],
+    );
+    assert.deepEqual(
+      discovered.filter((id) => id.startsWith("src/builder-hook-bridge.js:")),
+      [],
+    );
+  });
+
+  it("exactly reconciles the Wave 16 through Plan 23 production closure without a side surface", async () => {
+    const changed = new Set([
+      "scripts/build-builder-uat-releases.js",
+      "scripts/verify-codex-uat-candidate.js",
+      "scripts/preflight-codex-uat-prior-attempt.js",
+      "src/builder-codex-host.js",
+      "src/builder-install.js",
+      "src/builder-immutable-journal.js",
+      "src/builder-codex-uat.js",
+      "src/builder-codex-uat-continuation.js",
+      "src/builder-codex-uat-private-authority.js",
+      "src/builder-package.js",
+      "src/cli.js",
+    ]);
+    const discovered = (await scanIoSurfaces(REPO_ROOT))
+      .filter((item) => changed.has(item.file))
+      .map(surfaceId)
+      .sort(compareSurfaceIds);
+    const allowed = Array.from(IO_SURFACE_ALLOWLIST.entries())
+      .filter(([id]) => changed.has(id.split(":", 1)[0]))
+      .sort(([left], [right]) => compareSurfaceIds(left, right));
+    assert.deepEqual(discovered, allowed.map(([id]) => id));
+    const owners = new Map([
+      ["scripts/build-builder-uat-releases.js", "phase-02-plan-17"],
+      ["scripts/verify-codex-uat-candidate.js", "phase-02-plan-18"],
+      ["scripts/preflight-codex-uat-prior-attempt.js", "phase-02-plan-23"],
+      ["src/builder-codex-host.js", "phase-02-plan-19"],
+      ["src/builder-install.js", "phase-02-plan-20"],
+      ["src/builder-immutable-journal.js", "phase-02-plan-21"],
+      ["src/builder-codex-uat.js", "phase-02-plan-22"],
+      ["src/builder-package.js", "phase-02-plan-17"],
+      ["src/builder-codex-uat-continuation.js", "phase-02-plan-22"],
+      ["src/builder-codex-uat-private-authority.js", "phase-02-plan-23"],
+      ["src/cli.js", "phase-02-plan-20"],
+    ]);
+    assert.equal(allowed.every(([id, row]) => (
+      row.owner === owners.get(id.split(":", 1)[0])
+    )), true);
+  });
+
+  it("keeps the Plan 23 private authority outside package, public CLI, plugin, and runtime closure", async () => {
+    const privateNames = [
+      "builder-codex-uat-private-authority",
+      "preflight-codex-uat-prior-attempt",
+      "prior-preflight.receipt.json",
+      "phase-02-final-retry",
+      "continuation.json",
+    ];
+    const packageJson = JSON.parse(await readFile(path.join(REPO_ROOT, "package.json"), "utf8"));
+    assert.equal(packageJson.files.includes("!src/builder-codex-uat-private-authority.js"), true);
+    assert.equal(packageJson.files.includes("scripts/preflight-codex-uat-prior-attempt.js"), false);
+    const packedClosure = JSON.stringify(BUILDER_RELEASE_ASSET_INVENTORY);
+    for (const name of privateNames) assert.equal(packedClosure.includes(name), false);
+
+    const publicSurface = (await Promise.all([
+      "bin/agentmo.js",
+      "src/cli.js",
+      "plugin/.codex-plugin/plugin.json",
+      "plugin/hooks/agentmo-hook.js",
+      "plugin/hooks/hooks.json",
+      "plugin/skills/agentmo/SKILL.md",
+    ].map((relativePath) => readFile(path.join(REPO_ROOT, relativePath), "utf8")))).join("\n");
+    for (const name of privateNames) assert.equal(publicSurface.includes(name), false);
+
+    const privateScript = await readFile(
+      path.join(REPO_ROOT, "scripts/preflight-codex-uat-prior-attempt.js"),
+      "utf8",
+    );
+    assert.match(privateScript, /from "\.\.\/src\/builder-codex-uat-private-authority\.js"/u);
+    const authorityModule = await readFile(
+      path.join(REPO_ROOT, "src/builder-codex-uat-private-authority.js"),
+      "utf8",
+    );
+    assert.match(authorityModule, /loadCodexUatAttemptJournal/u);
+    assert.match(authorityModule, /diagnoseBuilderInstall/u);
   });
 
   it("proves durable reads use one exact retained capture instead of trusting a gated label", async () => {
@@ -254,6 +431,8 @@ describe("artifact/output surface inventory", () => {
   it("owns every Plan 11 command branch and leaves no pending CLI or console sink", async () => {
     assert.deepEqual(CLI_OUTPUT_OWNERS, {
       help: "non-artifact",
+      "artifact-contract": "non-artifact",
+      builder: "non-artifact",
       migrate: "artifact",
       "runtime-check": "non-artifact",
       validate: "non-artifact",

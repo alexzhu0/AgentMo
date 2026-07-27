@@ -252,10 +252,12 @@ describe("cli", () => {
     assert.match(help.stdout, /agentmo domain-eval <blueprint\.json> --digest blueprint=sha256:<64hex> --cases <cases\.json> --digest domain-cases=sha256:<64hex>/u);
     assert.match(help.stdout, /agentmo delivery-report <blueprint\.json> --digest blueprint=sha256:<64hex> --build-state <agentmo-build-state\.json>/u);
     assert.match(help.stdout, /agentmo runtime-check --target openclaw \[--json\]/u);
+    assert.match(help.stdout, /agentmo artifact-contract discovery-manifest\|user-need \[--json\]/u);
     assert.match(help.stdout, /design-plan\s+Produce a Stage 2 planning contract/u);
     assert.match(help.stdout, /domain-eval\s+Evaluate deterministic domain cases/u);
     assert.match(help.stdout, /delivery-report\s+Re-validate and aggregate delivery closure evidence/u);
     assert.match(help.stdout, /runtime-check\s+Inspect the current process against the OpenClaw target runtime contract/u);
+    assert.match(help.stdout, /artifact-contract\s+Export a field-level JSON Schema and valid minimal template/u);
     assert.match(help.stdout, /agentmo migrate <input-0\.json> \[input-N\.json \.\.\.\] --digest migration-input-0=sha256:<64hex>/u);
     assert.match(help.stdout, /migrate\s+Preview or explicitly apply a value-blind legacy artifact migration/u);
     assert.equal(help.stderr, "");

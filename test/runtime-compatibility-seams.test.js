@@ -103,7 +103,7 @@ describe("OpenClaw runtime compatibility seams", () => {
     assert.equal(INCOMPATIBLE_CONTRACT_VERSION.startsWith("20."), true);
   });
 
-  it("closes exactly three JavaScript mutation journeys plus the final production spawn barrier", async () => {
+  it("closes exactly three OpenClaw mutation journeys and inventories every production spawn", async () => {
     assert.deepEqual(
       JAVASCRIPT_MUTATION_INVENTORY.map(({ id, kind }) => ({ id, kind })),
       [
@@ -158,10 +158,24 @@ describe("OpenClaw runtime compatibility seams", () => {
     assert.match(finalSpawn, /assertCurrentOpenClawTargetRuntime\(\);\s*const child = spawn\(/u);
     assertOrdered(finalSpawn, ["assertCurrentOpenClawTargetRuntime();", "spawn("]);
 
+    const builderPosixEffect = await readFile(
+      path.join(REPOSITORY_ROOT, "src", "builder-posix-effect.js"),
+      "utf8",
+    );
+    const builderSpawn = sourceSlice(
+      builderPosixEffect,
+      "export async function runBuilderPosixEffect",
+      "function normalizeEffectRequest",
+    );
+    assertOrdered(builderSpawn, ["assertBuilderPlatform();", "spawn("]);
+
     const spawnSites = [];
     for (const fileUrl of await listJavaScriptFiles(SOURCE_ROOT)) {
       const source = await readFile(fileUrl, "utf8");
-      const count = [...source.matchAll(/\bspawn\s*\(/gu)].length;
+      // Package admission validates the hook separately. Here inventory only
+      // real source-level named child_process imports, not quoted fixture text.
+      const importsSpawn = /import\s*\{[^}]*\bspawn\b[^}]*\}\s*from\s*["']node:child_process["']/u.test(source);
+      const count = importsSpawn ? [...source.matchAll(/\bspawn\s*\(/gu)].length : 0;
       if (count > 0) {
         spawnSites.push({
           file: path.relative(REPOSITORY_ROOT, fileURLToPath(fileUrl)),
@@ -169,7 +183,13 @@ describe("OpenClaw runtime compatibility seams", () => {
         });
       }
     }
-    assert.deepEqual(spawnSites, [{ file: "src/runtime-execution.js", count: 1 }]);
+    assert.deepEqual(spawnSites, [
+      { file: "src/builder-behavior-eval.js", count: 1 },
+      { file: "src/builder-codex-host.js", count: 2 },
+      { file: "src/builder-posix-effect.js", count: 1 },
+      { file: "src/builder-probe.js", count: 1 },
+      { file: "src/runtime-execution.js", count: 1 },
+    ]);
   });
 
   it("keeps OpenClaw scaffold rejection ahead of build-state and filesystem publication", async () => {

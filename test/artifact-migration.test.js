@@ -37,12 +37,10 @@ import {
   MIGRATION_INSTANCE_MARKER_BASENAME,
   MIGRATION_RECEIPT_BASENAME,
   planArtifactMigration as planArtifactMigrationFromFiles,
+  probeMigrationApplyCapabilities,
   verifyMigrationOutput,
 } from "../src/migration-filesystem.js";
 import { auditMigrationCandidate } from "../src/evidence-audit.js";
-import {
-  MIGRATION_PARENT_SWAP_CHECKPOINTS,
-} from "./helpers/migration-parent-swap-child.js";
 
 const FIXTURE_ROOT = new URL("./fixtures/migration/", import.meta.url);
 const PARENT_SWAP_CHILD = fileURLToPath(
@@ -106,12 +104,27 @@ async function snapshotSource(input) {
   };
 }
 
-async function runParentSwapChild({ input, out, checkpoint, swapParent, replacementParent }) {
-  const child = fork(PARENT_SWAP_CHILD, [input, out, checkpoint], {
+async function waitForExistingPath(target, timeoutMs = 10_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      await stat(target);
+      return;
+    } catch (error) {
+      if (error?.code !== "ENOENT") throw error;
+    }
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+  throw new Error("Migration filesystem state did not appear in time.");
+}
+
+async function runParentSwapChild({ inputs, out, swapParent, replacementParent }) {
+  const child = fork(PARENT_SWAP_CHILD, [JSON.stringify(inputs), out], {
     silent: true,
   });
   return new Promise((resolve, reject) => {
     let swapped = false;
+    let swapPromise;
     const timeout = setTimeout(() => {
       child.kill();
       reject(new Error("Migration parent-swap helper timed out."));
@@ -123,21 +136,24 @@ async function runParentSwapChild({ input, out, checkpoint, swapParent, replacem
     });
     child.on("message", async (message) => {
       try {
-        if (message?.type === "checkpoint") {
-          await rename(path.dirname(out), swapParent);
-          await mkdir(replacementParent, { mode: 0o700 });
-          await mkdir(path.join(replacementParent, "out"), { mode: 0o700 });
-          await writeFile(
-            path.join(replacementParent, "out", "replacement.txt"),
-            "replacement\n",
-            "utf8",
-          );
-          await writeFile(path.join(replacementParent, "preserve.txt"), "preserve\n", "utf8");
-          swapped = true;
+        if (message?.type === "ready") {
+          swapPromise = waitForExistingPath(out).then(async () => {
+            await rename(path.dirname(out), swapParent);
+            await mkdir(replacementParent, { mode: 0o700 });
+            await mkdir(path.join(replacementParent, "out"), { mode: 0o700 });
+            await writeFile(
+              path.join(replacementParent, "out", "replacement.txt"),
+              "replacement\n",
+              "utf8",
+            );
+            await writeFile(path.join(replacementParent, "preserve.txt"), "preserve\n", "utf8");
+            swapped = true;
+          });
           child.send({ type: "continue" });
           return;
         }
         if (message?.type === "done") {
+          await swapPromise;
           clearTimeout(timeout);
           resolve({ ...message, swapped });
         }
@@ -146,6 +162,36 @@ async function runParentSwapChild({ input, out, checkpoint, swapParent, replacem
         child.kill();
         reject(error);
       }
+    });
+  });
+}
+
+async function runKilledMigrationChild({ inputs, out }) {
+  const child = fork(PARENT_SWAP_CHILD, [JSON.stringify(inputs), out], {
+    silent: true,
+  });
+  return new Promise((resolve, reject) => {
+    let killedAtPublishedDirectory = false;
+    const timeout = setTimeout(() => {
+      child.kill();
+      reject(new Error("Migration SIGKILL helper timed out."));
+    }, 10_000);
+    child.on("error", (error) => {
+      clearTimeout(timeout);
+      reject(error);
+    });
+    child.on("message", (message) => {
+      if (message?.type !== "ready") return;
+      waitForExistingPath(out)
+        .then(() => {
+          killedAtPublishedDirectory = child.kill("SIGKILL");
+        })
+        .catch(reject);
+      child.send({ type: "continue" });
+    });
+    child.on("exit", (code, signal) => {
+      clearTimeout(timeout);
+      resolve({ code, signal, killedAtPublishedDirectory });
     });
   });
 }
@@ -562,70 +608,18 @@ test("receipt model is deterministic and contains only the fixed value-blind fie
   assert.deepEqual(receipt, buildMigrationReceipt(plan));
 });
 
-test("bounded retained-fd reader detects growth past the byte ceiling", async () => {
+test("bounded retained-fd reader enforces the byte ceiling on a real file", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "agentmo-migration-bounded-read-"));
+  const input = path.join(directory, "input.json");
   const payload = Buffer.from("123456789", "utf8");
-  let openCount = 0;
-  let readCount = 0;
-  let closeCount = 0;
-  const parentStat = {
-    dev: 1n,
-    ino: 1n,
-    mode: 0o40700n,
-    nlink: 1n,
-    uid: 1n,
-    gid: 1n,
-    size: 1n,
-    mtimeNs: 1n,
-    ctimeNs: 1n,
-    isDirectory: () => true,
-    isFile: () => false,
-    isSymbolicLink: () => false,
-  };
-  const fileStat = {
-    ...parentStat,
-    ino: 2n,
-    mode: 0o100600n,
-    size: 8n,
-    isDirectory: () => false,
-    isFile: () => true,
-  };
-  const parentHandle = {
-    async stat() { return parentStat; },
-    async close() { closeCount += 1; },
-  };
-  const fileHandle = {
-    async stat() {
-      return fileStat;
-    },
-    async read(buffer, offset, length, position) {
-      readCount += 1;
-      const amount = Math.min(3, length, Math.max(0, payload.length - position));
-      payload.copy(buffer, offset, position, position + amount);
-      return { bytesRead: amount };
-    },
-    async close() {
-      closeCount += 1;
-    },
-  };
-
-  const plan = await planArtifactMigrationFromFiles(["controlled-input"], {
+  await writeFile(input, payload);
+  const plan = await planArtifactMigrationFromFiles([input], {
     maxInputBytes: 8,
     digests: { "migration-input-0": digestBytes(payload) },
-    sourceIo: {
-      async lstat(value) {
-        return value.endsWith("controlled-input") ? fileStat : parentStat;
-      },
-      async open() {
-        openCount += 1;
-        return openCount === 1 ? parentHandle : fileHandle;
-      },
-    },
   });
 
   assert.equal(plan.items[0].reason, "input_too_large");
-  assert.equal(openCount, 2);
-  assert.equal(readCount > 1, true);
-  assert.equal(closeCount, 2);
+  assert.deepEqual(await readFile(input), payload);
 });
 
 test("legacy build-state requires matching own source versions and preserves provenance", async () => {
@@ -756,17 +750,18 @@ test("deep hostile item exhausts an explicit budget without aborting the batch",
   assert.equal(plan.items[0].reason, "resource_budget_exceeded");
 });
 
-test("migration apply rejects an unsupported platform before creating the output directory", async () => {
+test("migration apply capability probe uses the real filesystem and old injection is rejected", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "agentmo-migration-capability-"));
   const out = path.join(root, "out");
   const input = fileURLToPath(new URL("legacy-blueprint.json", FIXTURE_ROOT));
   const plan = await planArtifactMigration([input]);
 
+  assert.deepEqual(await probeMigrationApplyCapabilities(out), { ok: true });
   await assert.rejects(
     () => applyArtifactMigration({ inputs: [input], out, plan }, {
       probeCapabilities: async () => ({ ok: false }),
     }),
-    (error) => error?.code === "AGENTMO_MIGRATION_PLATFORM_UNSUPPORTED",
+    TypeError,
   );
   assert.deepEqual(await readdir(root), []);
 });
@@ -947,37 +942,33 @@ test("apply revalidates the exact planned input set before mkdir and preserves s
   });
 });
 
-test("nth output-open, write, and sync failures never create verifiable success", async (t) => {
-  const root = await mkdtemp(path.join(tmpdir(), "agentmo-migration-faults-"));
+test("real SIGKILL after output publication never creates verifiable success", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "agentmo-migration-sigkill-"));
   const sourceDirectory = path.join(root, "source");
+  const outputParent = path.join(root, "output");
   await mkdir(sourceDirectory, { mode: 0o700 });
-  const input = await copyMigrationFixture(sourceDirectory);
-  const plan = await planArtifactMigration([input]);
-  const before = await snapshotSource(input);
-  const matrix = [
-    ["openAt", 3],
-    ["writeAt", 4],
-    ["syncAt", 6],
+  await mkdir(outputParent, { mode: 0o700 });
+  const fixtureNames = [
+    "legacy-blueprint.json",
+    "legacy-report.json",
+    "legacy-build-state.json",
   ];
-
-  for (const [fault, count] of matrix) {
-    for (let ordinal = 1; ordinal <= count; ordinal += 1) {
-      await t.test(fault + "-" + ordinal, async () => {
-        const parent = path.join(root, fault + "-" + ordinal);
-        const out = path.join(parent, "out");
-        await mkdir(parent, { mode: 0o700 });
-        await assert.rejects(
-          () => applyArtifactMigration(
-            { inputs: [input], out, plan },
-            { faults: { [fault]: ordinal } },
-          ),
-          (error) => error?.code === "AGENTMO_MIGRATION_APPLY_FAILED",
-        );
-        assert.equal((await verifyMigrationOutput({ out, plan })).ok, false);
-        assert.deepEqual(await snapshotSource(input), before);
-      });
-    }
+  const inputs = [];
+  for (const [index, fixture] of fixtureNames.entries()) {
+    const input = path.join(sourceDirectory, `input-${index}.json`);
+    await writeFile(input, await readFile(new URL(fixture, FIXTURE_ROOT)));
+    inputs.push(input);
   }
+  const plan = await planArtifactMigration(inputs);
+  const before = await Promise.all(inputs.map(snapshotSource));
+  const out = path.join(outputParent, "out");
+  const killed = await runKilledMigrationChild({ inputs, out });
+
+  assert.equal(killed.killedAtPublishedDirectory, true);
+  assert.equal(killed.code, null);
+  assert.equal(killed.signal, "SIGKILL");
+  assert.equal((await verifyMigrationOutput({ out, plan })).ok, false);
+  assert.deepEqual(await Promise.all(inputs.map(snapshotSource)), before);
 });
 
 test("marker, receipt, payload, file-set, and requested-path tampering all fail verification", async (t) => {
@@ -1111,56 +1102,61 @@ test("marker, receipt, payload, file-set, and requested-path tampering all fail 
   });
 });
 
-test("parent swaps at every publication timing preserve replacement paths and report owned orphan staging", async (t) => {
-  for (const checkpoint of MIGRATION_PARENT_SWAP_CHECKPOINTS) {
-    await t.test(checkpoint, async () => {
-      const root = await mkdtemp(path.join(tmpdir(), "agentmo-migration-parent-swap-"));
-      const sourceDirectory = path.join(root, "source");
-      const parent = path.join(root, "parent");
-      const orphanParent = path.join(root, "orphan-parent");
-      const out = path.join(parent, "out");
-      await mkdir(sourceDirectory, { mode: 0o700 });
-      await mkdir(parent, { mode: 0o700 });
-      const input = await copyMigrationFixture(sourceDirectory);
-      const plan = await planArtifactMigration([input]);
-      const before = await snapshotSource(input);
-
-      const childResult = await runParentSwapChild({
-        input,
-        out,
-        checkpoint,
-        swapParent: orphanParent,
-        replacementParent: parent,
-      });
-      assert.equal(childResult.swapped, true);
-      assert.equal(childResult.result.code, "AGENTMO_MIGRATION_ORPHANED_STAGING");
-      assert.match(childResult.result.orphan_token, /^[a-f0-9]{32,128}$/u);
-      assert.equal(childResult.verification.ok, false);
-      assert.deepEqual((await readdir(parent)).sort(), ["out", "preserve.txt"]);
-      assert.deepEqual(await readdir(path.join(parent, "out")), ["replacement.txt"]);
-
-      const orphanOut = path.join(orphanParent, "out");
-      const orphanStat = await stat(orphanOut);
-      assert.equal(orphanStat.mode & 0o777, 0o700);
-      assert.equal((await verifyMigrationOutput({ out: orphanOut, plan })).ok, false);
-      assert.deepEqual(await snapshotSource(input), before);
-
-      const preservedReplacement = path.join(root, "preserved-replacement");
-      await rename(parent, preservedReplacement);
-      await rename(orphanParent, parent);
-      assert.equal((await verifyMigrationOutput({ out, plan })).ok, false);
-      if ((await readdir(out)).includes(MIGRATION_INSTANCE_MARKER_BASENAME)) {
-        const marker = JSON.parse(
-          await readFile(path.join(out, MIGRATION_INSTANCE_MARKER_BASENAME), "utf8"),
-        );
-        assert.equal(marker.state, "staging");
-      }
-      assert.deepEqual(
-        await readdir(path.join(preservedReplacement, "out")),
-        ["replacement.txt"],
-      );
-    });
+test("real parent swap preserves replacement path and reports owned orphan staging", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "agentmo-migration-parent-swap-"));
+  const sourceDirectory = path.join(root, "source");
+  const parent = path.join(root, "parent");
+  const orphanParent = path.join(root, "orphan-parent");
+  const out = path.join(parent, "out");
+  await mkdir(sourceDirectory, { mode: 0o700 });
+  await mkdir(parent, { mode: 0o700 });
+  const fixtureNames = [
+    "legacy-blueprint.json",
+    "legacy-report.json",
+    "legacy-build-state.json",
+  ];
+  const inputs = [];
+  for (const [index, fixture] of fixtureNames.entries()) {
+    const input = path.join(sourceDirectory, `input-${index}.json`);
+    await writeFile(input, await readFile(new URL(fixture, FIXTURE_ROOT)));
+    inputs.push(input);
   }
+  const plan = await planArtifactMigration(inputs);
+  const before = await Promise.all(inputs.map(snapshotSource));
+
+  const childResult = await runParentSwapChild({
+    inputs,
+    out,
+    swapParent: orphanParent,
+    replacementParent: parent,
+  });
+  assert.equal(childResult.swapped, true);
+  assert.equal(childResult.result.code, "AGENTMO_MIGRATION_ORPHANED_STAGING");
+  assert.match(childResult.result.orphan_token, /^[a-f0-9]{32,128}$/u);
+  assert.equal(childResult.verification.ok, false);
+  assert.deepEqual((await readdir(parent)).sort(), ["out", "preserve.txt"]);
+  assert.deepEqual(await readdir(path.join(parent, "out")), ["replacement.txt"]);
+
+  const orphanOut = path.join(orphanParent, "out");
+  const orphanStat = await stat(orphanOut);
+  assert.equal(orphanStat.mode & 0o777, 0o700);
+  assert.equal((await verifyMigrationOutput({ out: orphanOut, plan })).ok, false);
+  assert.deepEqual(await Promise.all(inputs.map(snapshotSource)), before);
+
+  const preservedReplacement = path.join(root, "preserved-replacement");
+  await rename(parent, preservedReplacement);
+  await rename(orphanParent, parent);
+  assert.equal((await verifyMigrationOutput({ out, plan })).ok, false);
+  if ((await readdir(out)).includes(MIGRATION_INSTANCE_MARKER_BASENAME)) {
+    const marker = JSON.parse(
+      await readFile(path.join(out, MIGRATION_INSTANCE_MARKER_BASENAME), "utf8"),
+    );
+    assert.equal(marker.state, "staging");
+  }
+  assert.deepEqual(
+    await readdir(path.join(preservedReplacement, "out")),
+    ["replacement.txt"],
+  );
 });
 
 test("successful repeated apply emits byte-identical canonical payloads and receipt without changing sources", async () => {
@@ -1190,36 +1186,4 @@ test("successful repeated apply emits byte-identical canonical payloads and rece
     await readFile(path.join(second, MIGRATION_INSTANCE_MARKER_BASENAME)),
   );
   assert.deepEqual(await snapshotSource(input), before);
-});
-
-test("a failed final verification cannot leave a resurrectable committed marker", async () => {
-  const root = await mkdtemp(path.join(tmpdir(), "agentmo-migration-decommit-"));
-  const sourceDirectory = path.join(root, "source");
-  const outputParent = path.join(root, "output");
-  await mkdir(sourceDirectory, { mode: 0o700 });
-  await mkdir(outputParent, { mode: 0o700 });
-  const input = await copyMigrationFixture(sourceDirectory);
-  const plan = await planArtifactMigration([input]);
-  const out = path.join(outputParent, "out");
-  const unexpected = path.join(out, "unexpected");
-
-  await assert.rejects(
-    () => applyArtifactMigration(
-      { inputs: [input], out, plan },
-      {
-        onCheckpoint: async (name) => {
-          if (name === "after_marker_commit") {
-            await writeFile(unexpected, "unexpected\n", "utf8");
-          }
-        },
-      },
-    ),
-    (error) => error?.code === "AGENTMO_MIGRATION_APPLY_FAILED",
-  );
-  await rename(unexpected, path.join(root, "removed-unexpected"));
-  assert.equal((await verifyMigrationOutput({ out, plan })).ok, false);
-  const marker = JSON.parse(
-    await readFile(path.join(out, MIGRATION_INSTANCE_MARKER_BASENAME), "utf8"),
-  );
-  assert.equal(marker.state, "staging");
 });

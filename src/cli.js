@@ -1,6 +1,16 @@
-import { resolve } from "node:path";
+import { dirname, isAbsolute, relative, resolve, win32 } from "node:path";
 import { readFile } from "node:fs/promises";
-import { ArtifactAdmissionError, loadAdmittedArtifact, parseDigestBindings } from "./artifact-admission.js";
+import {
+  ArtifactAdmissionError,
+  digestRawBytes,
+  loadAdmittedArtifact,
+  parseDigestBindings,
+} from "./artifact-admission.js";
+import {
+  formatArtifactContract,
+  getArtifactContract,
+  listArtifactContractSubjects,
+} from "./artifact-contract.js";
 import { formatMigrationPlan } from "./artifact-migration.js";
 import { subjectsForCommand } from "./artifact-subjects.js";
 import {
@@ -8,6 +18,59 @@ import {
   planArtifactMigration,
 } from "./migration-filesystem.js";
 import { buildBirthReport, formatBirthReport } from "./birth-report.js";
+import {
+  checkpointSummaryAdmission,
+  loadBuilderCheckpoint,
+  writeBuilderCheckpoint,
+} from "./builder-checkpoint.js";
+import {
+  armCodexUatScenario,
+  loadCodexUatAttemptJournal,
+  loadCodexUatObservationLeaf,
+  recordCodexUatActivationApplied,
+  recordCodexUatScenarioObservation,
+  recordCodexUatSetupApplied,
+  recordCodexUatTrustAuthObservation,
+  resumeCodexUatAttempt,
+  startCodexUatAttempt,
+  terminateCodexUatAttempt,
+} from "./builder-codex-uat.js";
+import { continueCodexUatAfterDeactivation } from "./builder-codex-uat-continuation.js";
+import { runBuilderBehaviorEvaluation } from "./builder-behavior-eval.js";
+import { diagnoseBuilderInstall } from "./builder-doctor.js";
+import { buildBuilderEntry } from "./builder-entry.js";
+import { buildBuilderEvent, loadBuilderEvent, reduceBuilderEvent, reduceBuilderHookEvent } from "./builder-events.js";
+import {
+  DEFAULT_MAX_BUILDER_HOOK_INPUT_BYTES,
+  deliverInstalledBuilderHook,
+} from "./builder-hook-bridge.js";
+import {
+  applyBuilderInstall,
+  applyBuilderInstallRecovery,
+  inspectBuilderInstallRecovery,
+  planBuilderInstall,
+  planBuilderInstallRecovery,
+} from "./builder-install.js";
+import { readBoundedNoFollowFile } from "./builder-package.js";
+import { assertBuilderPlatform } from "./builder-platform.js";
+import {
+  applyBuilderDeactivate,
+  applyBuilderHostProjectionMigration,
+  applyBuilderHostProjectionTransfer,
+  applyBuilderHostSelectorRemoval,
+  applyBuilderReactivate,
+  applyBuilderUninstall,
+  applyBuilderUpgrade,
+  abortBuilderUpgradeReservation,
+  planBuilderHostProjectionMigration,
+  planBuilderHostProjectionTransfer,
+  planBuilderHostSelectorRemoval,
+  planBuilderDeactivate,
+  planBuilderReactivate,
+  planBuilderUninstall,
+  planBuilderUpgrade,
+} from "./builder-lifecycle.js";
+import { probeBuilderAdapter } from "./builder-probe.js";
 import { loadAdmittedBlueprint, validateBlueprint } from "./blueprint.js";
 import { buildBlueprintDraftReport, draftBlueprint, formatBlueprintDraftReport, writeBlueprintDraft } from "./blueprint-draft.js";
 import { buildDeliveryReport, formatDeliveryReport } from "./delivery-report.js";
@@ -44,6 +107,8 @@ import { buildUserNeedReport, formatUserNeedReport, loadUserNeed } from "./user-
 
 export const CLI_OUTPUT_OWNERS = Object.freeze({
   help: "non-artifact",
+  "artifact-contract": "non-artifact",
+  builder: "non-artifact",
   migrate: "artifact",
   "runtime-check": "non-artifact",
   validate: "non-artifact",
@@ -71,17 +136,25 @@ export const CLI_OUTPUT_OWNERS = Object.freeze({
 });
 
 const CLI_VALUE_OPTIONS = new Set([
-  "--agent", "--birth-report", "--build-state", "--cases", "--channel", "--design-plan", "--digest",
+  "--agent", "--birth-report", "--build-state", "--cases", "--channel", "--checkpoint", "--design-plan", "--digest",
   "--discovery-manifest", "--domain-eval", "--runtime-env-file", "--expect-status", "--fallback-from", "--message",
-  "--message-file", "--model", "--need", "--openclaw-source-root", "--openclaw-state-dir", "--out",
-  "--provider", "--run-dir", "--run-eval", "--run-state", "--session-id", "--session-key", "--source-root",
-  "--target", "--thinking", "--timeout-ms", "--to", "--transport", "--workspace",
+  "--event", "--event-id", "--host", "--host-scope", "--message-file", "--model", "--need", "--openclaw-source-root", "--openclaw-state-dir", "--out",
+  "--plan-digest", "--project", "--provider", "--run-dir", "--run-eval", "--run-state", "--session-id", "--session-key", "--source-root",
+  "--consumer", "--receipt-digest", "--target", "--thinking", "--timeout-ms", "--to", "--transport", "--workspace",
+  "--attempt-id", "--code", "--evidence-sha256", "--expected-head-sha256", "--journal", "--observation", "--request",
+  "--uat", "--uat-baseline-package", "--uat-baseline-tarball", "--uat-candidate", "--uat-journal",
+  "--uat-successor-package", "--uat-successor-tarball",
 ]);
 
 export async function main(args) {
+  const internalBuilderHook = Array.isArray(args) && args[0] === "__builder-hook";
   try {
     return await runCommand(args);
   } catch (error) {
+    if (internalBuilderHook) {
+      process.exitCode = 1;
+      return;
+    }
     await emitCliError(error, { json: requestedJsonMode(args) });
     process.exitCode = 1;
   }
@@ -89,7 +162,45 @@ export async function main(args) {
 
 async function runCommand(args) {
   const [command, ...rest] = args;
-  if (!command || command === "help" || command === "--help" || command === "-h") {
+  if (command === "__builder-hook") {
+    assertBuilderCliPlatform();
+    if (rest.length !== 0) throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+    const runnerDigest = process.env.AGENTMO_BUILDER_HOOK_RUNNER_DIGEST;
+    const bytes = await readInternalBuilderHookInput();
+    let hookInput;
+    try {
+      hookInput = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+    } catch {
+      throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+    }
+    const result = await deliverInstalledBuilderHook({ hookInput, runnerDigest });
+    await emitNonArtifactOutput(result, {
+      json: true,
+      subject: "builder-hook-bridge-result",
+      format: () => "",
+    });
+    return;
+  }
+  const subcommandHelpTarget = command === "help" && rest.length === 1
+    ? rest[0]
+    : rest.length === 1 && ["--help", "-h"].includes(rest[0])
+      ? command
+      : null;
+  if (subcommandHelpTarget !== null) {
+    const text = commandHelpText(subcommandHelpTarget);
+    if (text === null) throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+    await emitNonArtifactOutput({
+      schemaVersion: "agentmo.cli-text.v1",
+      kind: "help",
+      text,
+    }, {
+      json: false,
+      subject: "cli-help",
+      format: (value) => value.text,
+    });
+    return;
+  }
+  if (!command || (command === "help" && rest.length === 0) || command === "--help" || command === "-h") {
     await emitNonArtifactOutput({
       schemaVersion: "agentmo.cli-text.v1",
       kind: "help",
@@ -98,6 +209,253 @@ async function runCommand(args) {
       json: false,
       subject: "cli-help",
       format: (value) => value.text,
+    });
+    return;
+  }
+
+  if (command === "artifact-contract") {
+    const options = parseArtifactContractArgs(rest);
+    const contract = getArtifactContract(options.subject);
+    if (contract === null) throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+    await emitNonArtifactOutput(contract, {
+      json: options.json,
+      subject: "artifact-contract",
+      format: formatArtifactContract,
+    });
+    return;
+  }
+
+  if (command === "builder") {
+    assertBuilderCliPlatform();
+    const options = parseBuilderArgs(rest);
+    if (options.action === "codex-uat") {
+      const output = await executeCodexUatCommand(options);
+      await emitNonArtifactOutput(output, {
+        json: options.json,
+        subject: "builder-codex-uat-command",
+        format: formatCodexUatCliOutput,
+      });
+      return;
+    }
+    if (["behavior", "behavior-eval"].includes(options.action)) {
+      const report = await runBuilderBehaviorEvaluation({
+        projectRoot: options.projectRoot,
+        expectedReceiptDigest: options.receiptDigest,
+        ...(options.uatJournalPath === null
+          ? {}
+          : {
+              uatJournalPath: options.uatJournalPath,
+              expectedUatHeadDigest: options.uatHeadDigest,
+              uatCandidatePath: options.uatCandidatePath,
+              expectedUatCandidateDigest: options.uatCandidateDigest,
+              uatBaselinePackageRoot: options.uatBaselinePackageRoot,
+              uatBaselineTarballPath: options.uatBaselineTarballPath,
+              uatSuccessorPackageRoot: options.uatSuccessorPackageRoot,
+              uatSuccessorTarballPath: options.uatSuccessorTarballPath,
+            }),
+      });
+      await emitNonArtifactOutput(report, {
+        json: options.json,
+        subject: "builder-behavior-eval",
+        format: formatBuilderBehaviorEval,
+      });
+      return;
+    }
+    if (["host-migrate", "host-transfer"].includes(options.action)) {
+      const authority = {
+        hostScope: options.hostScope,
+        expectedOwnerRecordDigest: options.ownerRecordDigest,
+        expectedConsumerLedgerDigest: options.consumerLedgerDigest,
+        consumers: options.consumers,
+        ...(options.action === "host-migrate"
+          ? { probe: await probeBuilderAdapter({ adapterId: options.host }) }
+          : { target: options.target }),
+      };
+      const result = options.apply
+        ? options.action === "host-migrate"
+          ? await applyBuilderHostProjectionMigration({
+              ...authority,
+              expectedPlanDigest: options.planDigest,
+            })
+          : await applyBuilderHostProjectionTransfer({
+              ...authority,
+              expectedPlanDigest: options.planDigest,
+            })
+        : options.action === "host-migrate"
+          ? await planBuilderHostProjectionMigration(authority)
+          : await planBuilderHostProjectionTransfer(authority);
+      await emitNonArtifactOutput(result, {
+        json: options.json,
+        subject: options.apply
+          ? `builder-${options.action}-result`
+          : `builder-${options.action}-plan`,
+        format: formatBuilderHostProjectionOperation,
+      });
+      return;
+    }
+    if (options.action === "recover") {
+      const result = options.recoveryAction === "inspect"
+        ? await inspectBuilderInstallRecovery({ projectRoot: options.projectRoot })
+        : options.recoveryAction === "preview"
+          ? await planBuilderInstallRecovery({ projectRoot: options.projectRoot })
+          : await applyBuilderInstallRecovery({
+              projectRoot: options.projectRoot,
+              expectedPlanDigest: options.planDigest,
+            });
+      await emitNonArtifactOutput(result, {
+        json: options.json,
+        subject: `builder-install-recovery-${options.recoveryAction}`,
+        format: formatBuilderInstallRecovery,
+      });
+      return;
+    }
+    if (options.action === "recover-upgrade") {
+      const result = await abortBuilderUpgradeReservation({
+        projectRoot: options.projectRoot,
+        expectedReceiptDigest: options.receiptDigest,
+        expectedPlanDigest: options.planDigest,
+      });
+      await emitNonArtifactOutput(result, {
+        json: options.json,
+        subject: "builder-lifecycle-upgrade-recovery",
+        format: formatBuilderLifecycleResult,
+      });
+      return;
+    }
+    if (options.action === "setup") {
+      const probe = await probeBuilderAdapter({ adapterId: options.host });
+      const result = options.apply
+        ? await applyBuilderInstall({
+            projectRoot: options.projectRoot,
+            probe,
+            expectedPlanDigest: options.planDigest,
+            ...(options.hostScope === null ? {} : { hostScope: options.hostScope }),
+            ...(options.receiptDigest === null
+              ? {}
+              : { expectedPriorReceiptDigest: options.receiptDigest }),
+          })
+        : await planBuilderInstall({
+            projectRoot: options.projectRoot,
+            probe,
+            ...(options.hostScope === null ? {} : { hostScope: options.hostScope }),
+            ...(options.receiptDigest === null
+              ? {}
+              : { expectedPriorReceiptDigest: options.receiptDigest }),
+          });
+      await emitNonArtifactOutput(result, {
+        json: options.json,
+        subject: options.apply ? "builder-install-result" : "builder-install-plan",
+        format: options.apply ? formatBuilderInstallResult : formatBuilderInstallPlan,
+      });
+      return;
+    }
+    if (["upgrade", "deactivate", "reactivate", "uninstall"].includes(options.action)) {
+      const lifecycleOptions = {
+        projectRoot: options.projectRoot,
+        expectedReceiptDigest: options.receiptDigest,
+        ...(options.action === "upgrade"
+          ? { probe: await probeBuilderAdapter({ adapterId: options.host }) }
+          : {}),
+      };
+      const previewByAction = {
+        upgrade: planBuilderUpgrade,
+        deactivate: planBuilderDeactivate,
+        reactivate: planBuilderReactivate,
+        uninstall: planBuilderUninstall,
+      };
+      const applyByAction = {
+        upgrade: applyBuilderUpgrade,
+        deactivate: applyBuilderDeactivate,
+        reactivate: applyBuilderReactivate,
+        uninstall: applyBuilderUninstall,
+      };
+      const result = options.apply
+        ? await applyByAction[options.action]({
+            ...lifecycleOptions,
+            expectedPlanDigest: options.planDigest,
+          })
+        : await previewByAction[options.action](lifecycleOptions);
+      await emitNonArtifactOutput(result, {
+        json: options.json,
+        subject: options.apply ? "builder-lifecycle-result" : "builder-lifecycle-plan",
+        format: options.apply ? formatBuilderLifecycleResult : formatBuilderLifecyclePlan,
+      });
+      return;
+    }
+    if (options.action === "doctor") {
+      const probe = await probeBuilderAdapter({ adapterId: options.host });
+      const report = await diagnoseBuilderInstall({
+        projectRoot: options.projectRoot,
+        probe,
+        observeHost: true,
+      });
+      await emitNonArtifactOutput(report, {
+        json: options.json,
+        subject: "builder-doctor",
+        format: formatBuilderDoctor,
+      });
+      if (!["declared", "active", "activation-pending-trust"].includes(report.status)) {
+        process.exitCode = 1;
+      }
+      return;
+    }
+    if (options.action === "probe") {
+      const probe = await probeBuilderAdapter({ adapterId: options.host });
+      await emitNonArtifactOutput(probe, {
+        json: options.json,
+        subject: "builder-probe",
+        format: formatBuilderProbe,
+      });
+      return;
+    }
+    if (options.action === "hook" || options.action === "pause") {
+      const checkpointAdmission = await loadBuilderCheckpoint(options.checkpointPath, {
+        expectedDigest: options.digests["builder-checkpoint"],
+      });
+      const event = options.action === "hook"
+        ? await loadBuilderEvent(options.eventPath, {
+            expectedDigest: options.digests["builder-event"],
+          })
+        : buildBuilderEvent({
+            workflowId: checkpointAdmission.value.workflowId,
+            adapterId: checkpointAdmission.value.adapterId,
+            eventId: options.eventId,
+            sequence: checkpointAdmission.value.eventLedger.cursor + 1,
+            origin: "user",
+            type: "ManualPause",
+            data: { reason: "user-request" },
+          });
+      const result = options.action === "hook"
+        ? reduceBuilderHookEvent(checkpointAdmission.value, event)
+        : reduceBuilderEvent(checkpointAdmission.value, event);
+      const written = await writeBuilderCheckpoint(options.outPath, result.checkpoint, {
+        expectedPreviousDigest: options.outPath === options.checkpointPath
+          ? checkpointAdmission.digest
+          : null,
+      });
+      const output = buildBuilderEventOutput(result, written.digest, options.action);
+      await emitNonArtifactOutput(output, {
+        json: options.json,
+        subject: "builder-event-output",
+        format: formatBuilderEventOutput,
+      });
+      return;
+    }
+    const checkpointAdmission = options.checkpointPath
+      ? await loadBuilderCheckpoint(options.checkpointPath, {
+          expectedDigest: options.digests["builder-checkpoint"],
+        })
+      : null;
+    const probe = await probeBuilderAdapter({ adapterId: options.host });
+    const entry = buildBuilderEntry({
+      probe,
+      requestedStage: ["start", "resume"].includes(options.action) ? null : options.action,
+      ...(checkpointAdmission ? { checkpoint: checkpointSummaryAdmission(checkpointAdmission) } : {}),
+    });
+    await emitNonArtifactOutput(entry, {
+      json: options.json,
+      subject: "builder-entry",
+      format: formatBuilderEntry,
     });
     return;
   }
@@ -669,6 +1027,232 @@ async function runCommand(args) {
   throw new Error(`Unknown command: ${command}\n\n${helpText()}`);
 }
 
+async function readInternalBuilderHookInput() {
+  const chunks = [];
+  let total = 0;
+  for await (const rawChunk of process.stdin) {
+    const chunk = Buffer.isBuffer(rawChunk) ? rawChunk : Buffer.from(rawChunk);
+    total += chunk.byteLength;
+    if (total > DEFAULT_MAX_BUILDER_HOOK_INPUT_BYTES) {
+      throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+    }
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks, total);
+}
+
+async function executeCodexUatCommand(options) {
+  if (options.uatAction === "continue") {
+    return continueCodexUatAfterDeactivation(options.continuation);
+  }
+  if (options.uatAction === "inspect") {
+    return buildCodexUatCliOutput("inspect", await loadCodexUatAttemptJournal(options.journalPath));
+  }
+  if (options.uatAction === "resume") {
+    const resumed = await resumeCodexUatAttempt(options.journalPath, {
+      expectedHeadDigest: options.expectedHeadDigest,
+    });
+    return {
+      schemaVersion: "agentmo.codex-uat-command-result.v1",
+      action: "resume",
+      status: resumed.terminal ? "terminal" : "resumable",
+      headDigest: resumed.currentHeadDigest,
+      phase: resumed.phase,
+      nextAction: resumed.nextAction,
+      nextScenario: resumed.nextScenario,
+      scenarioCount: null,
+      terminal: resumed.terminal,
+      checkpointDigest: null,
+      correlation: null,
+      humanAdmissionRequired: true,
+      supportCertified: false,
+    };
+  }
+
+  const current = await loadCodexUatAttemptJournal(options.journalPath);
+  if (options.uatAction !== "start") assertExpectedUatHead(current, options.expectedHeadDigest);
+  if (options.uatAction === "scenario-arm") {
+    const checkpointAdmission = await loadBuilderCheckpoint(options.checkpointPath, {
+      expectedDigest: options.checkpointDigest,
+    });
+    const armed = await armCodexUatScenario({
+      journalPath: options.journalPath,
+      expectedHeadAdmission: current.head,
+      checkpointPath: options.checkpointPath,
+      checkpointAdmission,
+    });
+    return buildCodexUatCliOutput("scenario-arm", current, {
+      checkpointDigest: armed.checkpointAdmission.digest,
+      correlation: armed.correlation,
+    });
+  }
+  if (options.uatAction === "terminal") {
+    const next = await terminateCodexUatAttempt({
+      journalPath: options.journalPath,
+      expectedHeadAdmission: current.head,
+      kind: options.terminalKind,
+      code: options.terminalCode,
+      evidencePath: options.evidencePath,
+      expectedEvidenceDigest: options.evidenceDigest,
+    });
+    return buildCodexUatCliOutput("terminal", next);
+  }
+
+  const request = await loadCodexUatRecordRequest(options.requestPath, options.requestDigest);
+  if (options.uatAction === "start") {
+    if (current.head !== null || request.transition !== "attempt-started") {
+      throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+    }
+    const next = await startCodexUatAttempt({
+      journalPath: options.journalPath,
+      attemptId: options.attemptId,
+      baseline: resolveUatReleaseRefs(options.requestPath, request.details.baseline),
+      successor: resolveUatReleaseRefs(options.requestPath, request.details.successor),
+    });
+    return buildCodexUatCliOutput("start", next);
+  }
+
+  const expectedTransition = {
+    started: "setup-applied",
+    "setup-applied": "activation-applied",
+    "activation-applied": "trust-auth-observed",
+    "trust-auth-observed": "scenario-observed",
+    observing: "scenario-observed",
+  }[current.state.phase];
+  if (request.transition !== expectedTransition) {
+    throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+  }
+  let next;
+  if (request.transition === "scenario-observed") {
+    const [checkpointAdmission, observationAdmission] = await Promise.all([
+      loadBuilderCheckpoint(options.checkpointPath, {
+        expectedDigest: options.checkpointDigest,
+      }),
+      loadCodexUatObservationLeaf(options.observationPath, {
+        expectedDigest: options.observationDigest,
+      }),
+    ]);
+    next = await recordCodexUatScenarioObservation({
+      journalPath: options.journalPath,
+      expectedHeadAdmission: current.head,
+      checkpointAdmission,
+      observationAdmission,
+      evidence: request.details,
+    });
+  } else if (request.transition === "setup-applied") {
+    const checkpointAdmission = await loadBuilderCheckpoint(options.checkpointPath, {
+      expectedDigest: options.checkpointDigest,
+    });
+    next = await recordCodexUatSetupApplied({
+      journalPath: options.journalPath,
+      expectedHeadAdmission: current.head,
+      installReceiptPath: resolveUatEvidenceRef(options.requestPath, request.details.installReceiptPath),
+      expectedInstallReceiptDigest: request.details.expectedInstallReceiptDigest,
+      checkpointAdmission,
+    });
+  } else if (request.transition === "activation-applied") {
+    const checkpointAdmission = await loadBuilderCheckpoint(options.checkpointPath, {
+      expectedDigest: options.checkpointDigest,
+    });
+    next = await recordCodexUatActivationApplied({
+      journalPath: options.journalPath,
+      expectedHeadAdmission: current.head,
+      installReceiptPath: resolveUatEvidenceRef(options.requestPath, request.details.installReceiptPath),
+      expectedInstallReceiptDigest: request.details.expectedInstallReceiptDigest,
+      checkpointAdmission,
+      hostObservationPath: resolveUatEvidenceRef(options.requestPath, request.details.hostObservationPath),
+      expectedHostObservationDigest: request.details.expectedHostObservationDigest,
+    });
+  } else {
+    next = await recordCodexUatTrustAuthObservation({
+      journalPath: options.journalPath,
+      expectedHeadAdmission: current.head,
+      freshProcessEvidencePath: resolveUatEvidenceRef(options.requestPath, request.details.freshProcessEvidencePath),
+      expectedFreshProcessDigest: request.details.expectedFreshProcessDigest,
+      trustObservationPath: resolveUatEvidenceRef(options.requestPath, request.details.trustObservationPath),
+      expectedTrustObservationDigest: request.details.expectedTrustObservationDigest,
+      authObservationPath: resolveUatEvidenceRef(options.requestPath, request.details.authObservationPath),
+      expectedAuthObservationDigest: request.details.expectedAuthObservationDigest,
+    });
+  }
+  return buildCodexUatCliOutput("record", next);
+}
+
+function resolveUatReleaseRefs(requestPath, value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)
+    || Object.keys(value).length !== 2
+    || !Object.hasOwn(value, "packageRoot")
+    || !Object.hasOwn(value, "tarballPath")) {
+    throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+  }
+  return {
+    packageRoot: resolveUatEvidenceRef(requestPath, value.packageRoot),
+    tarballPath: resolveUatEvidenceRef(requestPath, value.tarballPath),
+  };
+}
+
+function resolveUatEvidenceRef(requestPath, value) {
+  if (typeof value !== "string"
+    || value.length === 0
+    || value.includes("\0")
+    || value.includes("\\")
+    || isAbsolute(value)
+    || win32.isAbsolute(value)
+    || /^[A-Za-z]:/u.test(value)
+    || value.split("/").some((segment) => segment === ".." || segment === "." || segment === "")) {
+    throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+  }
+  const requestDirectory = dirname(requestPath);
+  const candidate = resolve(requestDirectory, value);
+  const bounded = relative(requestDirectory, candidate);
+  if (bounded.length === 0
+    || isAbsolute(bounded)
+    || bounded === ".."
+    || bounded.startsWith(`..${pathSeparator()}`)) {
+    throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+  }
+  return candidate;
+}
+
+function pathSeparator() {
+  return process.platform === "win32" ? "\\" : "/";
+}
+
+function assertExpectedUatHead(view, expectedHeadDigest) {
+  if (view.head === null || view.head.digest !== expectedHeadDigest) {
+    const error = cliError("AGENTMO_CODEX_UAT_HEAD_MISMATCH");
+    throw error;
+  }
+}
+
+async function loadCodexUatRecordRequest(filePath, expectedDigest) {
+  const bytes = await readBoundedNoFollowFile(filePath);
+  if (digestRawBytes(bytes) !== expectedDigest) throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+  let value;
+  try {
+    value = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+  } catch {
+    throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+  }
+  if (!value
+    || typeof value !== "object"
+    || Array.isArray(value)
+    || Object.keys(value).length !== 3
+    || value.schemaVersion !== "agentmo.codex-uat-record-request.v1"
+    || !["attempt-started", "setup-applied", "activation-applied", "trust-auth-observed", "scenario-observed"]
+      .includes(value.transition)
+    || !value.details
+    || typeof value.details !== "object"
+    || Array.isArray(value.details)) {
+    throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+  }
+  const canonical = Buffer.from(serializePersistableJson(value, {
+    subject: "builder-codex-uat-record-request",
+  }), "utf8");
+  if (!bytes.equals(canonical)) throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+  return value;
+}
+
 function parseObservationArgs(args) {
   const file = args[0];
   if (!file) throw new Error("Missing observation file path.");
@@ -687,6 +1271,570 @@ function parseObservationArgs(args) {
   }
   const digests = parseDigestBindings(digestBindings, subjectsForCommand("observe"));
   return { file: resolve(file), json, digests };
+}
+
+function parseBuilderArgs(args) {
+  const action = args[0] && !args[0].startsWith("--") ? args[0] : "start";
+  if (!["probe", "setup", "recover", "upgrade", "deactivate", "reactivate", "uninstall", "doctor", "behavior", "behavior-eval", "codex-uat", "start", "discover", "plan", "produce", "pause", "resume", "hook"].includes(action)) {
+    throw cliError("AGENTMO_CLI_UNKNOWN_BUILDER_ACTION");
+  }
+  if (action === "codex-uat") return parseBuilderCodexUatArgs(args.slice(1));
+  if (["behavior", "behavior-eval"].includes(action)) {
+    return parseBuilderBehaviorEvalArgs(action, args.slice(1));
+  }
+  if (["host-migrate", "host-transfer"].includes(action)) {
+    return parseBuilderHostProjectionArgs(action, args.slice(1));
+  }
+  if (action === "recover") return parseBuilderRecoveryArgs(args.slice(1));
+  if (["setup", "upgrade", "deactivate", "reactivate", "uninstall", "doctor"].includes(action)) {
+    return parseBuilderProjectArgs(action, args.slice(1));
+  }
+  const optionStart = action === "start" && args[0]?.startsWith("--") ? 0 : args[0] ? 1 : 0;
+  let host = null;
+  let json = false;
+  let checkpointPath = null;
+  let eventPath = null;
+  let eventId = null;
+  let outPath = null;
+  const digestBindings = [];
+  for (let index = optionStart; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--host" && host === null) {
+      const value = args[index + 1];
+      if (value !== "codex") throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+      host = value;
+      index += 1;
+    } else if (arg === "--checkpoint" && checkpointPath === null) {
+      checkpointPath = requireBuilderOptionValue(args[index + 1]);
+      index += 1;
+    } else if (arg === "--event" && eventPath === null) {
+      eventPath = requireBuilderOptionValue(args[index + 1]);
+      index += 1;
+    } else if (arg === "--event-id" && eventId === null) {
+      eventId = requireBuilderOptionValue(args[index + 1]);
+      index += 1;
+    } else if (arg === "--out" && outPath === null) {
+      outPath = requireBuilderOptionValue(args[index + 1]);
+      index += 1;
+    } else if (arg === "--digest") {
+      digestBindings.push(requireDigestBinding(args[index + 1]));
+      index += 1;
+    } else if (arg === "--json" && !json) {
+      json = true;
+    } else {
+      throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+    }
+  }
+  const checkpointAction = ["resume", "plan", "produce", "pause", "hook"].includes(action);
+  const eventAction = action === "hook";
+  const mutationAction = ["pause", "hook"].includes(action);
+  if (
+    (checkpointAction !== (checkpointPath !== null))
+    || (eventAction !== (eventPath !== null))
+    || (mutationAction !== (outPath !== null))
+    || ((action === "pause") !== (eventId !== null))
+  ) {
+    throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+  }
+  const requiredSubjects = [
+    ...(checkpointAction ? ["builder-checkpoint"] : []),
+    ...(eventAction ? ["builder-event"] : []),
+  ];
+  const digests = parseDigestBindings(digestBindings, requiredSubjects);
+  return {
+    action,
+    host: host ?? "codex",
+    json,
+    checkpointPath: checkpointPath === null ? null : resolve(checkpointPath),
+    eventPath: eventPath === null ? null : resolve(eventPath),
+    eventId,
+    outPath: outPath === null ? null : resolve(outPath),
+    digests,
+  };
+}
+
+function parseBuilderRecoveryArgs(args) {
+  const recoveryAction = args[0];
+  if (recoveryAction === "upgrade") {
+    return parseBuilderProjectArgs("recover-upgrade", args.slice(1));
+  }
+  if (!["inspect", "preview", "apply"].includes(recoveryAction)) {
+    throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+  }
+  let project = null;
+  let planDigest = null;
+  let json = false;
+  for (let index = 1; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--project" && project === null) {
+      project = requireBuilderOptionValue(args[index + 1]);
+      index += 1;
+    } else if (arg === "--plan-digest" && planDigest === null) {
+      planDigest = requireBuilderOptionValue(args[index + 1]);
+      index += 1;
+    } else if (arg === "--json" && !json) {
+      json = true;
+    } else {
+      throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+    }
+  }
+  if ((recoveryAction === "apply") !== /^sha256:[a-f0-9]{64}$/u.test(planDigest ?? "")) {
+    throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+  }
+  return {
+    action: "recover",
+    recoveryAction,
+    projectRoot: resolve(project ?? "."),
+    planDigest,
+    json,
+  };
+}
+
+function parseBuilderCodexUatArgs(args) {
+  const uatAction = args[0];
+  if (!["start", "scenario-arm", "record", "terminal", "inspect", "resume", "continue"].includes(uatAction)) {
+    throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+  }
+  if (uatAction === "continue") return parseBuilderCodexUatContinuationArgs(args.slice(1));
+  const terminalKind = uatAction === "terminal" ? args[1] : null;
+  if (uatAction === "terminal" && !["failure", "interruption"].includes(terminalKind)) {
+    throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+  }
+  let journalPath = null;
+  let expectedHeadDigest = null;
+  let attemptId = null;
+  let requestPath = null;
+  let requestDigest = null;
+  let checkpointPath = null;
+  let checkpointDigest = null;
+  let observationPath = null;
+  let observationDigest = null;
+  let terminalCode = null;
+  let evidencePath = null;
+  let evidenceDigest = null;
+  let json = false;
+  for (let index = uatAction === "terminal" ? 2 : 1; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--journal" && journalPath === null) {
+      journalPath = requireBuilderOptionValue(args[index + 1]);
+      index += 1;
+    } else if (arg === "--expected-head-sha256" && expectedHeadDigest === null) {
+      expectedHeadDigest = requireBuilderDigest(args[index + 1]);
+      index += 1;
+    } else if (arg === "--attempt-id" && attemptId === null) {
+      attemptId = requireBuilderOptionValue(args[index + 1]);
+      index += 1;
+    } else if (arg === "--request" && requestPath === null) {
+      requestPath = requireBuilderOptionValue(args[index + 1]);
+      index += 1;
+    } else if (arg === "--checkpoint" && checkpointPath === null) {
+      checkpointPath = requireBuilderOptionValue(args[index + 1]);
+      index += 1;
+    } else if (arg === "--observation" && observationPath === null) {
+      observationPath = requireBuilderOptionValue(args[index + 1]);
+      index += 1;
+    } else if (arg === "--code" && terminalCode === null) {
+      terminalCode = requireBuilderOptionValue(args[index + 1]);
+      index += 1;
+    } else if (arg === "--evidence" && evidencePath === null) {
+      evidencePath = requireBuilderOptionValue(args[index + 1]);
+      index += 1;
+    } else if (arg === "--evidence-sha256" && evidenceDigest === null) {
+      evidenceDigest = requireBuilderDigest(args[index + 1]);
+      index += 1;
+    } else if (arg === "--digest") {
+      const binding = requireBuilderOptionValue(args[index + 1]);
+      const match = binding.match(/^(builder-checkpoint|builder-codex-uat-observation|builder-codex-uat-record-request)=(sha256:[a-f0-9]{64})$/u);
+      if (!match) throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+      if (match[1] === "builder-codex-uat-record-request" && requestDigest === null) requestDigest = match[2];
+      else if (match[1] === "builder-checkpoint" && checkpointDigest === null) checkpointDigest = match[2];
+      else if (match[1] === "builder-codex-uat-observation" && observationDigest === null) observationDigest = match[2];
+      else throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+      index += 1;
+    } else if (arg === "--json" && !json) {
+      json = true;
+    } else {
+      throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+    }
+  }
+  const hasRequest = requestPath !== null && requestDigest !== null;
+  const hasCheckpoint = checkpointPath !== null && checkpointDigest !== null;
+  const hasObservation = observationPath !== null && observationDigest !== null;
+  const valid = journalPath !== null && (
+    (uatAction === "start"
+      && attemptId !== null && hasRequest && expectedHeadDigest === null
+      && !hasCheckpoint && !hasObservation && terminalCode === null
+      && evidencePath === null && evidenceDigest === null)
+    || (uatAction === "record"
+      && expectedHeadDigest !== null && hasRequest && attemptId === null
+      && terminalCode === null && evidencePath === null && evidenceDigest === null)
+    || (uatAction === "scenario-arm"
+      && expectedHeadDigest !== null && hasCheckpoint && attemptId === null
+      && !hasRequest && !hasObservation && terminalCode === null
+      && evidencePath === null && evidenceDigest === null)
+    || (uatAction === "terminal"
+      && expectedHeadDigest !== null && terminalCode !== null
+      && evidencePath !== null && evidenceDigest !== null
+      && attemptId === null && !hasRequest && !hasCheckpoint && !hasObservation)
+    || (uatAction === "inspect"
+      && expectedHeadDigest === null && attemptId === null && !hasRequest
+      && !hasCheckpoint && !hasObservation && terminalCode === null
+      && evidencePath === null && evidenceDigest === null)
+    || (uatAction === "resume"
+      && expectedHeadDigest !== null && attemptId === null && !hasRequest
+      && !hasCheckpoint && !hasObservation && terminalCode === null
+      && evidencePath === null && evidenceDigest === null)
+  );
+  if (!valid
+    || (requestPath === null) !== (requestDigest === null)
+    || (checkpointPath === null) !== (checkpointDigest === null)
+    || (observationPath === null) !== (observationDigest === null)) {
+    throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+  }
+  return {
+    action: "codex-uat",
+    uatAction,
+    terminalKind,
+    journalPath: resolve(journalPath),
+    expectedHeadDigest,
+    attemptId,
+    requestPath: requestPath === null ? null : resolve(requestPath),
+    requestDigest,
+    checkpointPath: checkpointPath === null ? null : resolve(checkpointPath),
+    checkpointDigest,
+    observationPath: observationPath === null ? null : resolve(observationPath),
+    observationDigest,
+    terminalCode,
+    evidencePath: evidencePath === null ? null : resolve(evidencePath),
+    evidenceDigest,
+    json,
+  };
+}
+
+function parseBuilderCodexUatContinuationArgs(args) {
+  const names = new Map([
+    ["--attempt-dir", "attemptDir"],
+    ["--expected-head-sha256", "expectedHeadDigest"],
+    ["--approved-deactivation-plan-sha256", "approvedDeactivationPlanDigest"],
+    ["--successor-tarball", "successorTarball"],
+    ["--expected-successor-version", "expectedSuccessorVersion"],
+    ["--expected-release-sha256", "expectedReleaseDigest"],
+    ["--expected-tarball-sha256", "expectedTarballDigest"],
+    ["--expected-verifier-sha256", "expectedVerifierDigest"],
+  ]);
+  const values = {};
+  for (let index = 0; index < args.length; index += 2) {
+    const name = names.get(args[index]);
+    if (name === undefined || Object.hasOwn(values, name) || index + 1 >= args.length) {
+      throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+    }
+    const value = requireBuilderOptionValue(args[index + 1]);
+    values[name] = value;
+  }
+  if (Object.keys(values).length !== names.size
+    || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/u
+      .test(values.expectedSuccessorVersion)
+    || [
+      values.expectedHeadDigest,
+      values.approvedDeactivationPlanDigest,
+      values.expectedReleaseDigest,
+      values.expectedTarballDigest,
+      values.expectedVerifierDigest,
+    ].some((value) => !/^sha256:[a-f0-9]{64}$/u.test(value))) {
+    throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+  }
+  return {
+    action: "codex-uat",
+    uatAction: "continue",
+    json: true,
+    continuation: {
+      attemptDir: resolve(values.attemptDir),
+      expectedHeadDigest: values.expectedHeadDigest,
+      approvedDeactivationPlanDigest: values.approvedDeactivationPlanDigest,
+      successorTarball: resolve(values.successorTarball),
+      expectedSuccessorVersion: values.expectedSuccessorVersion,
+      expectedReleaseDigest: values.expectedReleaseDigest,
+      expectedTarballDigest: values.expectedTarballDigest,
+      expectedVerifierDigest: values.expectedVerifierDigest,
+    },
+  };
+}
+
+function parseBuilderHostProjectionArgs(action, args) {
+  let host = null;
+  let hostScope = null;
+  let target = null;
+  let json = false;
+  let apply = false;
+  let planDigest = null;
+  const projects = [];
+  const receiptDigests = [];
+  const authorityDigests = [];
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--host" && host === null) {
+      const value = args[index + 1];
+      if (value !== "codex") throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+      host = value;
+      index += 1;
+    } else if (arg === "--host-scope" && hostScope === null) {
+      const value = args[index + 1];
+      if (value !== "user") throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+      hostScope = value;
+      index += 1;
+    } else if (arg === "--target" && target === null) {
+      const value = args[index + 1];
+      if (action !== "host-transfer" || value !== "stable-agentmo-local") {
+        throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+      }
+      target = value;
+      index += 1;
+    } else if (arg === "--consumer") {
+      projects.push(resolve(requireBuilderOptionValue(args[index + 1])));
+      index += 1;
+    } else if (arg === "--receipt-digest") {
+      const digest = requireBuilderOptionValue(args[index + 1]);
+      if (!/^sha256:[a-f0-9]{64}$/u.test(digest)) throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+      receiptDigests.push(digest);
+      index += 1;
+    } else if (arg === "--digest") {
+      authorityDigests.push(requireBuilderOptionValue(args[index + 1]));
+      index += 1;
+    } else if (arg === "--plan-digest" && planDigest === null) {
+      planDigest = requireBuilderOptionValue(args[index + 1]);
+      index += 1;
+    } else if (arg === "--apply" && !apply) {
+      apply = true;
+    } else if (arg === "--json" && !json) {
+      json = true;
+    } else {
+      throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+    }
+  }
+  let digests;
+  try {
+    digests = parseDigestBindings(authorityDigests, [
+      "codex-selector-owner",
+      "codex-consumer-ledger",
+    ]);
+  } catch {
+    throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+  }
+  if (hostScope !== "user"
+    || projects.length === 0
+    || projects.length !== receiptDigests.length
+    || (action === "host-transfer") !== (target === "stable-agentmo-local")
+    || (apply
+      ? !/^sha256:[a-f0-9]{64}$/u.test(planDigest ?? "")
+      : planDigest !== null)) {
+    throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+  }
+  return {
+    action,
+    host: host ?? "codex",
+    hostScope,
+    target,
+    json,
+    apply,
+    planDigest,
+    ownerRecordDigest: digests["codex-selector-owner"],
+    consumerLedgerDigest: digests["codex-consumer-ledger"],
+    consumers: projects.map((projectRoot, index) => ({
+      projectRoot,
+      expectedReceiptDigest: receiptDigests[index],
+    })),
+  };
+}
+
+function parseBuilderProjectArgs(action, args) {
+  if (args.includes("--remove-host-selector")) {
+    throw cliError("AGENTMO_BUILDER_V1_PHYSICAL_REMOVAL_UNSUPPORTED");
+  }
+  let host = null;
+  let project = null;
+  let json = false;
+  let apply = false;
+  let planDigest = null;
+  let hostScope = null;
+  const digestBindings = [];
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--host" && host === null) {
+      const value = args[index + 1];
+      if (value !== "codex") throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+      host = value;
+      index += 1;
+    } else if (arg === "--project" && project === null) {
+      project = requireBuilderOptionValue(args[index + 1]);
+      index += 1;
+    } else if (arg === "--host-scope" && hostScope === null) {
+      const value = args[index + 1];
+      if (action !== "setup" || value !== "user") {
+        throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+      }
+      hostScope = value;
+      index += 1;
+    } else if (arg === "--remove-host-selector") {
+      throw cliError("AGENTMO_BUILDER_V1_PHYSICAL_REMOVAL_UNSUPPORTED");
+    } else if (arg === "--plan-digest" && planDigest === null) {
+      planDigest = requireBuilderOptionValue(args[index + 1]);
+      index += 1;
+    } else if (arg === "--digest") {
+      digestBindings.push(requireBuilderOptionValue(args[index + 1]));
+      index += 1;
+    } else if (arg === "--apply" && !apply) {
+      apply = true;
+    } else if (arg === "--json" && !json) {
+      json = true;
+    } else {
+      throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+    }
+  }
+  let digests;
+  try {
+    const requiredSubjects = action === "doctor"
+      ? []
+      : action === "setup"
+        ? digestBindings.length === 0 ? [] : ["builder-install-receipt"]
+        : ["builder-install-receipt"];
+    digests = parseDigestBindings(digestBindings, requiredSubjects);
+  } catch {
+    throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+  }
+  const receiptDigest = digests["builder-install-receipt"] ?? null;
+  const ownerRecordDigest = digests["codex-selector-owner"] ?? null;
+  const consumerLedgerDigest = digests["codex-consumer-ledger"] ?? null;
+  const digestValid = /^sha256:[a-f0-9]{64}$/u.test(planDigest ?? "");
+  if (
+    (action === "doctor" && (apply || planDigest !== null || digestBindings.length > 0
+      || hostScope !== null))
+    || (action === "setup" && (apply ? !digestValid : planDigest !== null))
+    || (["upgrade", "deactivate", "reactivate", "uninstall", "recover-upgrade"].includes(action)
+      && (receiptDigest === null || hostScope !== null
+        || (apply ? !digestValid : planDigest !== null)))
+    || (action === "recover-upgrade" && host !== null)
+  ) {
+    throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+  }
+  return {
+    action,
+    host: host ?? "codex",
+    projectRoot: resolve(project ?? "."),
+    json,
+    apply,
+    planDigest,
+    receiptDigest,
+    hostScope,
+    ownerRecordDigest,
+    consumerLedgerDigest,
+  };
+}
+
+function parseBuilderBehaviorEvalArgs(action, args) {
+  let project = null;
+  let receiptDigest = null;
+  let uatJournalPath = null;
+  let uatCandidatePath = null;
+  let uatHeadDigest = null;
+  let uatCandidateDigest = null;
+  let uatBaselinePackageRoot = null;
+  let uatBaselineTarballPath = null;
+  let uatSuccessorPackageRoot = null;
+  let uatSuccessorTarballPath = null;
+  let json = false;
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--project" && project === null) {
+      project = requireBuilderOptionValue(args[index + 1]);
+      index += 1;
+    } else if (arg === "--uat") {
+      throw cliError("AGENTMO_CLI_BUILDER_UAT_MIGRATION_REQUIRED");
+    } else if (arg === "--uat-journal" && uatJournalPath === null) {
+      uatJournalPath = requireBuilderOptionValue(args[index + 1]);
+      index += 1;
+    } else if (arg === "--uat-candidate" && uatCandidatePath === null) {
+      uatCandidatePath = requireBuilderOptionValue(args[index + 1]);
+      index += 1;
+    } else if (arg === "--uat-baseline-package" && uatBaselinePackageRoot === null) {
+      uatBaselinePackageRoot = requireBuilderOptionValue(args[index + 1]);
+      index += 1;
+    } else if (arg === "--uat-baseline-tarball" && uatBaselineTarballPath === null) {
+      uatBaselineTarballPath = requireBuilderOptionValue(args[index + 1]);
+      index += 1;
+    } else if (arg === "--uat-successor-package" && uatSuccessorPackageRoot === null) {
+      uatSuccessorPackageRoot = requireBuilderOptionValue(args[index + 1]);
+      index += 1;
+    } else if (arg === "--uat-successor-tarball" && uatSuccessorTarballPath === null) {
+      uatSuccessorTarballPath = requireBuilderOptionValue(args[index + 1]);
+      index += 1;
+    } else if (arg === "--digest") {
+      const binding = requireBuilderOptionValue(args[index + 1]);
+      const receiptMatch = binding.match(/^builder-install-receipt=(sha256:[a-f0-9]{64})$/u);
+      const uatHeadMatch = binding.match(/^builder-codex-uat-head=(sha256:[a-f0-9]{64})$/u);
+      const uatCandidateMatch = binding.match(/^builder-codex-uat-candidate=(sha256:[a-f0-9]{64})$/u);
+      if (receiptMatch && receiptDigest === null) receiptDigest = receiptMatch[1];
+      else if (/^builder-codex-uat=/u.test(binding)) {
+        throw cliError("AGENTMO_CLI_BUILDER_UAT_MIGRATION_REQUIRED");
+      } else if (uatHeadMatch && uatHeadDigest === null) uatHeadDigest = uatHeadMatch[1];
+      else if (uatCandidateMatch && uatCandidateDigest === null) uatCandidateDigest = uatCandidateMatch[1];
+      else throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+      index += 1;
+    } else if (arg === "--json" && !json) {
+      json = true;
+    } else {
+      throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+    }
+  }
+  const uatParts = [
+    uatJournalPath,
+    uatCandidatePath,
+    uatHeadDigest,
+    uatCandidateDigest,
+    uatBaselinePackageRoot,
+    uatBaselineTarballPath,
+    uatSuccessorPackageRoot,
+    uatSuccessorTarballPath,
+  ];
+  if (receiptDigest === null || (!uatParts.every((value) => value === null)
+    && !uatParts.every((value) => value !== null))) {
+    throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+  }
+  return {
+    action,
+    projectRoot: resolve(project ?? "."),
+    receiptDigest,
+    uatJournalPath: uatJournalPath === null ? null : resolve(uatJournalPath),
+    uatCandidatePath: uatCandidatePath === null ? null : resolve(uatCandidatePath),
+    uatHeadDigest,
+    uatCandidateDigest,
+    uatBaselinePackageRoot: uatBaselinePackageRoot === null
+      ? null
+      : resolve(uatBaselinePackageRoot),
+    uatBaselineTarballPath: uatBaselineTarballPath === null
+      ? null
+      : resolve(uatBaselineTarballPath),
+    uatSuccessorPackageRoot: uatSuccessorPackageRoot === null
+      ? null
+      : resolve(uatSuccessorPackageRoot),
+    uatSuccessorTarballPath: uatSuccessorTarballPath === null
+      ? null
+      : resolve(uatSuccessorTarballPath),
+    json,
+  };
+}
+
+function requireBuilderOptionValue(value) {
+  if (typeof value !== "string" || value.length === 0 || value.startsWith("--")) {
+    throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+  }
+  return value;
+}
+
+function requireBuilderDigest(value) {
+  if (!/^sha256:[a-f0-9]{64}$/u.test(value ?? "")) {
+    throw cliError("AGENTMO_CLI_BUILDER_REJECTED");
+  }
+  return value;
 }
 
 function parseRuntimeCheckArgs(args) {
@@ -869,13 +2017,33 @@ async function emitCliError(error, options) {
 function cliErrorEnvelope(error) {
   const code = boundedCliErrorCode(error);
   const category = cliErrorCategory(code);
+  const validationDetails = boundedArtifactValidationDetails(error);
   return {
     schemaVersion: "agentmo.cli-error.v1",
     ok: false,
     code,
     category,
-    guidance: cliErrorGuidance(category),
+    guidance: validationDetails === null
+      ? cliErrorGuidance(category, code)
+      : `Correct the listed fields using \`agentmo artifact-contract ${validationDetails.subject} --json\`, then recompute the exact digest.`,
+    ...(validationDetails ?? {}),
   };
+}
+
+function boundedArtifactValidationDetails(error) {
+  if (error?.code !== "AGENTMO_UNSUPPORTED_ARTIFACT"
+    || error?.reason !== "schema_validation_failed"
+    || !listArtifactContractSubjects().includes(error?.subject)
+    || !Array.isArray(error?.issues)
+    || error.issues.length === 0) {
+    return null;
+  }
+  const issues = error.issues
+    .filter((issue) => typeof issue === "string" && issue.length > 0 && issue.length <= 240)
+    .slice(0, 32);
+  return issues.length === 0
+    ? null
+    : { subject: error.subject, issues };
 }
 
 function boundedCliErrorCode(error) {
@@ -894,7 +2062,10 @@ function cliErrorCategory(code) {
   return "operation";
 }
 
-function cliErrorGuidance(category) {
+function cliErrorGuidance(category, code) {
+  if (code === "AGENTMO_CLI_BUILDER_UAT_MIGRATION_REQUIRED") {
+    return "Replace --uat/--digest builder-codex-uat with --uat-journal, --uat-candidate, and exact builder-codex-uat-head plus builder-codex-uat-candidate digest bindings.";
+  }
   const guidance = {
     "artifact-admission": "Provide one exact supported subject and digest for every required input.",
     migration: "Preview migration with exact digest bindings before applying it.",
@@ -906,24 +2077,37 @@ function cliErrorGuidance(category) {
 }
 
 function formatCliError(envelope) {
-  return [
+  const lines = [
     "AgentMo CLI error",
     `Code: ${envelope.code}`,
     `Category: ${envelope.category}`,
     `Guidance: ${envelope.guidance}`,
-  ].join("\n") + "\n";
+  ];
+  if (Array.isArray(envelope.issues)) {
+    lines.push("Issues:");
+    for (const issue of envelope.issues) lines.push(`- ${issue}`);
+  }
+  return `${lines.join("\n")}\n`;
 }
 
 function requestedJsonMode(args) {
   const command = args[0];
   const knownPrimaryInput = Object.hasOwn(CLI_OUTPUT_OWNERS, command)
-    && !["help", "migrate", "runtime-check"].includes(command);
+    && !["builder", "help", "migrate", "runtime-check"].includes(command);
   for (let index = knownPrimaryInput ? 2 : 1; index < args.length; index += 1) {
     const arg = args[index];
     if (arg === "--json") return true;
     if (CLI_VALUE_OPTIONS.has(arg)) index += 1;
   }
   return false;
+}
+
+function assertBuilderCliPlatform() {
+  try {
+    assertBuilderPlatform();
+  } catch {
+    throw cliError("AGENTMO_CLI_BUILDER_PLATFORM_UNSUPPORTED");
+  }
 }
 
 function cliError(code) {
@@ -1099,6 +2283,22 @@ function parseNeedReportArgs(args) {
   }
   const digests = parseDigestBindings(digestBindings, subjectsForCommand("need-report"));
   return { file: resolve(file), json, digests };
+}
+
+function parseArtifactContractArgs(args) {
+  const subject = args[0];
+  let json = false;
+  if (typeof subject !== "string" || subject.startsWith("--")) {
+    throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+  }
+  for (let index = 1; index < args.length; index += 1) {
+    if (args[index] === "--json") {
+      json = true;
+    } else {
+      throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+    }
+  }
+  return { subject, json };
 }
 
 function parseDesignPlanArgs(args) {
@@ -1918,6 +3118,290 @@ function formatBlueprintValidationResult(result) {
   return `${lines.join("\n")}\n`;
 }
 
+function formatBuilderProbe(probe) {
+  const lines = [
+    `AgentMo Builder probe: ${probe.adapter.id}`,
+    `Host version: ${probe.host.version ?? "not observed"}`,
+    `Required capabilities: ${probe.required.ok ? "observed-compatible" : "unsupported"}`,
+    `Evidence level: ${probe.support.evidenceLevel}`,
+    "Support certified: no",
+    "Mutation: none",
+  ];
+  for (const observation of probe.observations) {
+    lines.push(`- ${observation.id}: ${observation.status} (${observation.requirement})`);
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+function formatBuilderInstallPlan(plan) {
+  const lines = [
+    "AgentMo Builder setup preview",
+    `Scope: ${plan.scope}`,
+    `Release: ${plan.release.name}@${plan.release.version}`,
+    `Plan digest: ${plan.planDigest}`,
+    "Explicit apply required: true",
+    `Host activation: ${plan.hostActivation.status}`,
+  ];
+  for (const operation of plan.operations) {
+    lines.push(`- ${operation.currentStatus}: ${operation.relativePath}`);
+  }
+  const priorReceiptArgument = plan.priorReceipt === null
+    ? ""
+    : ` --digest builder-install-receipt=${plan.priorReceipt.digest}`;
+  lines.push(
+    `Apply with the same project: agentmo builder setup --project <same-project>${priorReceiptArgument}`
+      + `${plan.hostActivation.hostScope === "user" ? " --host-scope user" : ""}`
+      + ` --apply --plan-digest ${plan.planDigest}`,
+  );
+  return `${lines.join("\n")}\n`;
+}
+
+function formatBuilderInstallResult(result) {
+  return [
+    "AgentMo Builder setup",
+    `Status: ${result.status}`,
+    `Scope: ${result.scope}`,
+    `Changed: ${result.changed}`,
+    `Release: ${result.release.name}@${result.release.version}`,
+    `Release digest: ${result.release.digest}`,
+    `Receipt: ${result.receipt.path}`,
+    `Receipt digest: ${result.receipt.digest}`,
+    `Evidence: ${result.evidence.level}`,
+    `Host activation: ${result.hostActivation.status}`,
+    "Domain quality certified: no",
+  ].join("\n") + "\n";
+}
+
+function formatBuilderInstallRecovery(result) {
+  return [
+    "AgentMo Builder install recovery",
+    `Status: ${result.status}`,
+    `Applicable: ${result.applicable ?? true}`,
+    `Plan digest: ${result.planDigest ?? "not-created"}`,
+    `Mutation: ${result.schemaVersion === "agentmo.builder-install-recovery-result.v1" ? "explicit" : "none"}`,
+    "Automatic repair: no",
+    "Domain quality certified: no",
+  ].join("\n") + "\n";
+}
+
+function formatBuilderLifecyclePlan(plan) {
+  const lines = [
+    `AgentMo Builder ${plan.action} preview`,
+    `Scope: ${plan.scope}`,
+    `Applicable: ${plan.applicable}`,
+    `Plan digest: ${plan.planDigest}`,
+    "Explicit apply required: true",
+  ];
+  for (const operation of plan.operations) {
+    const target = operation.relativePath ?? operation.receiptDigest ?? "lifecycle-authority";
+    const state = operation.currentStatus === undefined ? "append-only" : operation.currentStatus;
+    lines.push(`- ${operation.operation}: ${target} (${state})`);
+  }
+  for (const blocker of plan.blockers ?? []) lines.push(`BLOCKED ${blocker}`);
+  if (plan.applicable) {
+    lines.push(
+      `Apply with the same project: agentmo builder ${plan.action} --project <same-project> `
+      + `--digest builder-install-receipt=${plan.current.receiptDigest} `
+      + `--apply --plan-digest ${plan.planDigest}`,
+    );
+  }
+  if (plan.migrationNotice) lines.push(`Migration: ${plan.migrationNotice}`);
+  return `${lines.join("\n")}\n`;
+}
+
+function formatBuilderLifecycleResult(result) {
+  const lines = [
+    `AgentMo Builder ${result.action}`,
+    `Status: ${result.status}`,
+    `Scope: ${result.scope}`,
+    `Changed: ${result.changed}`,
+    `Plan digest: ${result.planDigest}`,
+    `Physical deletion: ${result.physicalDeletion === true ? "yes" : "no"}`,
+    `Evidence: ${result.evidence.level}`,
+    "Host behavior verified: no",
+    "Domain quality certified: no",
+  ];
+  if (result.migrationNotice) lines.push(`Migration: ${result.migrationNotice}`);
+  return lines.join("\n") + "\n";
+}
+
+function formatBuilderHostSelectorRemovalPlan(plan) {
+  const lines = [
+    "AgentMo Builder host selector removal preview",
+    `Scope: ${plan.scope}`,
+    `Applicable: ${plan.applicable}`,
+    `Plan digest: ${plan.planDigest}`,
+    `Owner disposition: ${plan.owner.disposition}`,
+    `Consumer count: ${plan.consumerLedger.count}`,
+    "Explicit apply required: true",
+  ];
+  for (const blocker of plan.blockers) lines.push(`BLOCKED ${blocker}`);
+  return `${lines.join("\n")}\n`;
+}
+
+function formatBuilderHostSelectorRemovalResult(result) {
+  return [
+    "AgentMo Builder host selector removal",
+    `Status: ${result.status}`,
+    `Scope: ${result.scope}`,
+    `Changed: ${result.changed}`,
+    `Plan digest: ${result.planDigest}`,
+    `Evidence: ${result.evidence.level}`,
+    "Host behavior verified: no",
+    "Domain quality certified: no",
+  ].join("\n") + "\n";
+}
+
+function formatBuilderHostProjectionOperation(value) {
+  const lines = [
+    `AgentMo Builder ${value.action}`,
+    `Status: ${value.status ?? (value.applicable ? "applicable" : "blocked")}`,
+    `Host scope: ${value.hostScope}`,
+    `Consumer count: ${value.consumerCount}`,
+    `Plan digest: ${value.planDigest}`,
+    `Evidence: ${value.evidence.level}`,
+    "Host behavior verified: no",
+    "Domain quality certified: no",
+  ];
+  for (const blocker of value.blockers ?? []) lines.push(`BLOCKED ${blocker}`);
+  return `${lines.join("\n")}\n`;
+}
+
+function formatBuilderDoctor(report) {
+  return [
+    "AgentMo Builder doctor",
+    `Status: ${report.status}`,
+    `Platform: ${report.platform.current} (${report.platform.supported ? "supported POSIX" : "unsupported"})`,
+    `Release match: ${report.release.match}`,
+    `Required capabilities: ${report.capabilities.requiredOk ? "observed" : "degraded"}`,
+    `Receipt: ${report.receipt.status}`,
+    `Marker: ${report.marker.status}`,
+    `Marketplace: ${report.visibility.marketplace}`,
+    `Plugin: ${report.visibility.plugin}`,
+    `Skill: ${report.visibility.skill}`,
+    `Hook: ${report.visibility.hook}`,
+    `Agent: ${report.visibility.agent}`,
+    `Agent state: ${report.agent.status}`,
+    `Host installation: ${report.host.installation}`,
+    `Host enablement: ${report.host.enablement}`,
+    `Host skill: ${report.host.skillVisibility}`,
+    `Host hooks: ${report.host.hooksVisibility}`,
+    `Host trust: ${report.host.trust}`,
+    `Owner: ${report.ownership.ownerRecord}`,
+    `Consumer: ${report.ownership.consumerPresence}`,
+    `Checkpoint: ${report.checkpoint.status}`,
+    "Mutation: none",
+    "Repair: none",
+    "Domain quality certified: no",
+  ].join("\n") + "\n";
+}
+
+function formatBuilderBehaviorEval(report) {
+  if (report.schemaVersion === "agentmo.builder-behavior-uat-chain.v3") {
+    return [
+      "AgentMo Builder Codex UAT candidate-ready chain",
+      `Status: ${report.status}`,
+      `Evidence: ${report.evidence.level} (${report.evidence.basis})`,
+      `Scenarios: ${report.uat.scenarioCount}/${report.uat.scenarioCount}`,
+      `Evidence digest: ${report.evidenceDigest}`,
+      `External decision authority required: ${report.evidence.externalDecisionAuthorityRequired}`,
+      "Real Codex session verified: false",
+      "Host behavior verified: false",
+      "Agent Package/domain/production certified: no",
+    ].join("\n") + "\n";
+  }
+  return [
+    "AgentMo Builder behavior evaluation",
+    `Status: ${report.status}`,
+    `Evidence: ${report.evidence.level} (${report.evidence.basis})`,
+    `Scenarios: ${report.scenarios.results.filter((item) => item.passed).length}/${report.scenarios.results.length}`,
+    `Evidence digest: ${report.evidenceDigest}`,
+    `Codex activation verified: ${report.evidence.codexActivationVerified}`,
+    `Host behavior verified: ${report.evidence.hostBehaviorVerified}`,
+    "Domain quality certified: no",
+  ].join("\n") + "\n";
+}
+
+function buildCodexUatCliOutput(action, view, extra = {}) {
+  return {
+    schemaVersion: "agentmo.codex-uat-command-result.v1",
+    action,
+    status: view.state.terminal ? "terminal" : action === "inspect" ? "inspected" : "recorded",
+    headDigest: view.head?.digest ?? null,
+    phase: view.state.phase,
+    nextAction: view.state.nextAction,
+    nextScenario: view.state.nextScenario,
+    scenarioCount: view.state.scenarioCount,
+    terminal: view.state.terminal,
+    checkpointDigest: extra.checkpointDigest ?? null,
+    correlation: extra.correlation ?? null,
+    humanAdmissionRequired: true,
+    supportCertified: false,
+  };
+}
+
+function formatCodexUatCliOutput(result) {
+  return [
+    "AgentMo Codex UAT journal",
+    `Action: ${result.action}`,
+    `Status: ${result.status}`,
+    `Phase: ${result.phase}`,
+    `Head digest: ${result.headDigest ?? "none"}`,
+    `Next action: ${result.nextAction ?? "none"}`,
+    `Recorded scenarios: ${result.scenarioCount ?? "unknown"}/${11}`,
+    `Next scenario: ${result.nextScenario ?? "none"}`,
+    "Human admission required: true",
+    "Support certified: no",
+  ].join("\n") + "\n";
+}
+
+function formatBuilderEntry(entry) {
+  return [
+    "AgentMo Builder",
+    `Mode: ${entry.mode}`,
+    `Stage: ${entry.stage}`,
+    `Next action: ${entry.nextAction}`,
+    `Approval required: ${entry.approval.required}`,
+    `Lifecycle: ${entry.lifecycle.invariant}`,
+    "Mutation: proposal only",
+  ].join("\n") + "\n";
+}
+
+function buildBuilderEventOutput(result, checkpointDigest, action) {
+  return {
+    schemaVersion: "agentmo.builder-event-output.v1",
+    action,
+    status: result.status,
+    eventId: result.eventId,
+    applied: result.applied,
+    checkpoint: {
+      digest: checkpointDigest,
+      stage: result.checkpoint.stage,
+      boundary: result.checkpoint.boundary,
+      nextAction: result.checkpoint.nextAction,
+      eventCursor: result.checkpoint.eventLedger.cursor,
+    },
+    announcement: result.announcement,
+    proposal: result.proposal,
+    automaticApproval: false,
+    automaticStageAdvance: false,
+  };
+}
+
+function formatBuilderEventOutput(result) {
+  return [
+    "AgentMo Builder checkpoint",
+    `Action: ${result.action}`,
+    `Status: ${result.status}`,
+    `Event: ${result.eventId}`,
+    `Stage: ${result.checkpoint.stage}`,
+    `Next action: ${result.checkpoint.nextAction}`,
+    `Checkpoint digest: ${result.checkpoint.digest}`,
+    "Automatic approval: false",
+    "Automatic stage advance: false",
+  ].join("\n") + "\n";
+}
+
 function formatRuntimeCheck(report) {
   return [
     `Component: ${report.component}`,
@@ -2108,9 +3592,41 @@ function formatRunObservationResult(result) {
 function helpText() {
   return `AgentMo CLI
 
+Builder platform: POSIX only (darwin, linux). Windows is unsupported.
+
 Usage:
+  agentmo builder [start] [--host codex] [--json]
+  agentmo builder probe [--host codex] [--json]
+  agentmo builder setup [--project <dir>] [--digest builder-install-receipt=sha256:<64hex>] [--host-scope user] [--host codex] [--json]
+  agentmo builder setup [--project <dir>] [--digest builder-install-receipt=sha256:<64hex>] [--host-scope user] --apply --plan-digest sha256:<64hex> [--host codex] [--json]
+  agentmo builder recover inspect [--project <dir>] [--json]
+  agentmo builder recover preview [--project <dir>] [--json]
+  agentmo builder recover apply [--project <dir>] --plan-digest sha256:<64hex> [--json]
+  agentmo builder recover upgrade [--project <dir>] --digest builder-install-receipt=sha256:<64hex> --apply --plan-digest sha256:<64hex> [--json]
+  agentmo builder upgrade [--project <dir>] --digest builder-install-receipt=sha256:<64hex> [--host codex] [--json]
+  agentmo builder upgrade [--project <dir>] --digest builder-install-receipt=sha256:<64hex> --apply --plan-digest sha256:<64hex> [--host codex] [--json]
+  agentmo builder deactivate [--project <dir>] --digest builder-install-receipt=sha256:<64hex> [--json]
+  agentmo builder deactivate [--project <dir>] --digest builder-install-receipt=sha256:<64hex> --apply --plan-digest sha256:<64hex> [--json]
+  agentmo builder reactivate [--project <dir>] --digest builder-install-receipt=sha256:<64hex> [--json]
+  agentmo builder reactivate [--project <dir>] --digest builder-install-receipt=sha256:<64hex> --apply --plan-digest sha256:<64hex> [--json]
+  agentmo builder doctor [--project <dir>] [--host codex] [--json]
+  agentmo builder behavior [--project <dir>] --digest builder-install-receipt=sha256:<64hex> [--uat-journal <journal-file> --uat-candidate <candidate.json> --uat-baseline-package <dir> --uat-baseline-tarball <baseline.tgz> --uat-successor-package <dir> --uat-successor-tarball <successor.tgz> --digest builder-codex-uat-head=sha256:<64hex> --digest builder-codex-uat-candidate=sha256:<64hex>] [--json]
+  agentmo builder behavior-eval [--project <dir>] --digest builder-install-receipt=sha256:<64hex> [--json]
+  agentmo builder codex-uat start --journal <journal-file> --attempt-id <id> --request <record.json> --digest builder-codex-uat-record-request=sha256:<64hex> [--json]
+  agentmo builder codex-uat scenario-arm --journal <journal-file> --expected-head-sha256 sha256:<64hex> --checkpoint <checkpoint> --digest builder-checkpoint=sha256:<64hex> [--json]
+  agentmo builder codex-uat record --journal <journal-file> --expected-head-sha256 sha256:<64hex> --request <record.json> --digest builder-codex-uat-record-request=sha256:<64hex> [--checkpoint <checkpoint> --digest builder-checkpoint=sha256:<64hex> --observation <leaf.json> --digest builder-codex-uat-observation=sha256:<64hex>] [--json]
+  agentmo builder codex-uat terminal failure|interruption --journal <journal-file> --expected-head-sha256 sha256:<64hex> --code <bounded-code> --evidence <evidence-file> --evidence-sha256 sha256:<64hex> [--json]
+  agentmo builder codex-uat inspect --journal <journal-file> [--json]
+  agentmo builder codex-uat resume --journal <journal-file> --expected-head-sha256 sha256:<64hex> [--json]
+  agentmo builder codex-uat continue --attempt-dir <attempt-dir> --expected-head-sha256 sha256:<64hex> --approved-deactivation-plan-sha256 sha256:<64hex> --successor-tarball <successor.tgz> --expected-successor-version <version> --expected-release-sha256 sha256:<64hex> --expected-tarball-sha256 sha256:<64hex> --expected-verifier-sha256 sha256:<64hex>
+  agentmo builder discover [--host codex] [--json]
+  agentmo builder plan|produce --checkpoint <checkpoint.json> --digest builder-checkpoint=sha256:<64hex> [--host codex] [--json]
+  agentmo builder resume --checkpoint <checkpoint.json> --digest builder-checkpoint=sha256:<64hex> [--host codex] [--json]
+  agentmo builder pause --checkpoint <checkpoint.json> --digest builder-checkpoint=sha256:<64hex> --event-id <id> --out <checkpoint.json> [--json]
+  agentmo builder hook --checkpoint <checkpoint.json> --digest builder-checkpoint=sha256:<64hex> --event <event.json> --digest builder-event=sha256:<64hex> --out <checkpoint.json> [--json]
   agentmo migrate <input-0.json> [input-N.json ...] --digest migration-input-0=sha256:<64hex> [--digest migration-input-N=sha256:<64hex> ...] [--out <new-dir>] [--json]
   agentmo runtime-check --target openclaw [--json]
+  agentmo artifact-contract discovery-manifest|user-need [--json]
   agentmo validate <blueprint.json> --digest blueprint=sha256:<64hex>
   agentmo report <blueprint.json> --digest blueprint=sha256:<64hex> [--discovery-manifest <discovery.json> --digest discovery-manifest=sha256:<64hex>] [--json]
   agentmo discover-report <discovery.json> --digest discovery-manifest=sha256:<64hex> [--json]
@@ -2135,8 +3651,10 @@ Usage:
   agentmo observe <observation.json> --digest observation=sha256:<64hex> [--json]
 
 Concepts:
+  builder          Start or inspect the single Discover -> Plan -> Produce Builder lifecycle.
   migrate          Preview or explicitly apply a value-blind legacy artifact migration.
   runtime-check    Inspect the current process against the OpenClaw target runtime contract.
+  artifact-contract  Export a field-level JSON Schema and valid minimal template for an operator-authored artifact.
   validate         Check an AgentMo blueprint and its quality gates.
   report           Build a human or JSON AgentMo readiness report.
   discover-report  Validate and summarize a discovery/input manifest.
@@ -2160,4 +3678,34 @@ Concepts:
   scaffold         Generate a domain-agent harness. Use --target openclaw for an OpenClaw workspace scaffold.
   observe          Validate and summarize an observe/evolve record without applying changes.
 `;
+}
+
+function commandHelpText(command) {
+  const entries = {
+    "artifact-contract": `AgentMo artifact-contract
+Usage: agentmo artifact-contract discovery-manifest|user-need [--json]
+Exports the complete field-level JSON Schema and a valid minimal template.
+`,
+    "discover-report": `AgentMo discover-report
+Usage: agentmo discover-report <discovery.json> --digest discovery-manifest=sha256:<64hex> [--json]
+Contract: agentmo artifact-contract discovery-manifest --json
+Valid example: examples/support-triage.discovery.json
+`,
+    "discover-pack": `AgentMo discover-pack
+Usage: agentmo discover-pack <discovery.json> --digest discovery-manifest=sha256:<64hex> --out <dir> [--json]
+Contract: agentmo artifact-contract discovery-manifest --json
+This is manifest materialization only; it does not crawl or fetch source locations.
+`,
+    "discover-workspace": `AgentMo discover-workspace
+Usage: agentmo discover-workspace <discovery.json> --digest discovery-manifest=sha256:<64hex> --source-root <dir> --out <dir> [--json]
+Contract: agentmo artifact-contract discovery-manifest --json
+Only approved repo-bound local files are read.
+`,
+    "need-report": `AgentMo need-report
+Usage: agentmo need-report <need.json> --digest user-need=sha256:<64hex> [--json]
+Contract: agentmo artifact-contract user-need --json
+Valid example: examples/support-triage.need.json
+`,
+  };
+  return Object.hasOwn(entries, command) ? entries[command] : null;
 }

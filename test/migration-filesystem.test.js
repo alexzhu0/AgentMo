@@ -1,14 +1,10 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { constants as FS_CONSTANTS } from "node:fs";
 import {
-  lstat,
   mkdir,
   mkdtemp,
-  open,
   readFile,
   readdir,
-  rename,
   stat,
   symlink,
   writeFile,
@@ -36,20 +32,6 @@ function bindings(bytesList) {
   ));
 }
 
-function countingSourceIo() {
-  const state = { fileOpens: 0 };
-  return {
-    state,
-    io: {
-      lstat,
-      async open(filePath, flags, ...rest) {
-        if ((flags & FS_CONSTANTS.O_DIRECTORY) === 0) state.fileOpens += 1;
-        return open(filePath, flags, ...rest);
-      },
-    },
-  };
-}
-
 test("byte planner validates and transforms the exact supplied Buffers", async () => {
   const legacy = await readFile(new URL("legacy-blueprint.json", FIXTURE_ROOT));
   const canonical = await readFile(new URL("canonical-blueprint.json", FIXTURE_ROOT));
@@ -65,7 +47,7 @@ test("byte planner validates and transforms the exact supplied Buffers", async (
   assert.equal(rejected.items[0].reason, "schema_validation_failed");
 });
 
-test("preview and apply independently capture each source once through retained no-follow handles", async () => {
+test("apply independently recaptures source bytes and rejects post-plan replacement", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "agentmo-migration-read-count-"));
   const source = path.join(root, "source");
   const output = path.join(root, "output");
@@ -76,29 +58,20 @@ test("preview and apply independently capture each source once through retained 
   await writeFile(input, bytes);
   const digests = bindings([bytes]);
 
-  const previewIo = countingSourceIo();
-  let previewCaptures = 0;
-  const plan = await planArtifactMigration([input], {
-    digests,
-    sourceIo: previewIo.io,
-    onSourceCapture: () => { previewCaptures += 1; },
-  });
+  const plan = await planArtifactMigration([input], { digests });
   assert.equal(plan.applicable, true);
-  assert.equal(previewIo.state.fileOpens, 1);
-  assert.equal(previewCaptures, 1);
 
-  const applyIo = countingSourceIo();
-  let applyCaptures = 0;
-  const out = path.join(output, "out");
-  await applyArtifactMigration(
-    { inputs: [input], out, plan, digests },
-    {
-      sourceIo: applyIo.io,
-      onSourceCapture: () => { applyCaptures += 1; },
-    },
+  await writeFile(input, await readFile(new URL("legacy-report.json", FIXTURE_ROOT)));
+  const rejectedOut = path.join(output, "rejected");
+  await assert.rejects(
+    () => applyArtifactMigration({ inputs: [input], out: rejectedOut, plan, digests }),
+    (error) => error?.code === "AGENTMO_MIGRATION_BATCH_REJECTED",
   );
-  assert.equal(applyIo.state.fileOpens, 1);
-  assert.equal(applyCaptures, 1);
+  await assert.rejects(() => stat(rejectedOut), { code: "ENOENT" });
+
+  await writeFile(input, bytes);
+  const out = path.join(output, "out");
+  await applyArtifactMigration({ inputs: [input], out, plan, digests });
   assert.deepEqual(await verifyMigrationOutput({ out, plan }), { ok: true });
 });
 
@@ -180,85 +153,62 @@ test("preview rejects symlink sources and hostile batches without staging bytes"
   assert.deepEqual(await readdir(output), []);
 });
 
-test("retained source-parent identity rejects a parent swap during preview", async () => {
-  const root = await mkdtemp(path.join(tmpdir(), "agentmo-migration-source-parent-swap-"));
-  const source = path.join(root, "source");
-  const replacement = path.join(root, "replacement");
-  const retained = path.join(root, "retained-source");
-  await mkdir(source, { mode: 0o700 });
-  await mkdir(replacement, { mode: 0o700 });
-  const originalBytes = await readFile(new URL("legacy-blueprint.json", FIXTURE_ROOT));
-  const replacementBytes = await readFile(new URL("legacy-report.json", FIXTURE_ROOT));
-  const input = path.join(source, "input.json");
-  await writeFile(input, originalBytes);
-  await writeFile(path.join(replacement, "input.json"), replacementBytes);
-  let parentLstats = 0;
-  let swapped = false;
-  const sourceIo = {
-    open,
-    async lstat(filePath, options) {
-      if (filePath === source) {
-        parentLstats += 1;
-        if (parentLstats === 3) {
-          await rename(source, retained);
-          await rename(replacement, source);
-          swapped = true;
-        }
-      }
-      return lstat(filePath, options);
-    },
-  };
-
-  const plan = await planArtifactMigration([input], {
-    digests: bindings([originalBytes]),
-    sourceIo,
-  });
-  assert.equal(swapped, true);
-  assert.equal(plan.applicable, false);
-  assert.equal(plan.items[0].reason, "read_failed");
-  assert.deepEqual(await readFile(path.join(retained, "input.json")), originalBytes);
-  assert.deepEqual(await readFile(path.join(source, "input.json")), replacementBytes);
-});
-
-test("apply rechecks output-parent exclusion inside the retained source capture", async () => {
-  const root = await mkdtemp(path.join(tmpdir(), "agentmo-migration-output-parent-rebind-"));
+test("removed migration test and fault controls are rejected without filesystem mutation", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "agentmo-migration-options-"));
   const source = path.join(root, "source");
   const output = path.join(root, "output");
-  const retainedSource = path.join(root, "retained-source");
   await mkdir(source, { mode: 0o700 });
   await mkdir(output, { mode: 0o700 });
   const bytes = await readFile(new URL("legacy-blueprint.json", FIXTURE_ROOT));
   const input = path.join(source, "input.json");
   await writeFile(input, bytes);
-  await writeFile(path.join(output, "input.json"), bytes);
   const digests = bindings([bytes]);
-  const plan = await planArtifactMigration([input], { digests });
-  let swapped = false;
-  const sourceIo = {
-    open,
-    async lstat(filePath, options) {
-      if (!swapped && filePath === source) {
-        await rename(source, retainedSource);
-        await rename(output, source);
-        await mkdir(output, { mode: 0o700 });
-        swapped = true;
-      }
-      return lstat(filePath, options);
-    },
-  };
-  const out = path.join(output, "out");
 
+  const plan = await planArtifactMigration([input], { digests });
+  for (const option of [
+    { sourceIo: {} },
+    { onSourceCapture() {} },
+  ]) {
+    await assert.rejects(
+      () => planArtifactMigration([input], { digests, ...option }),
+      TypeError,
+    );
+  }
+  for (const option of [
+    { sourceIo: {} },
+    { onSourceCapture() {} },
+    { probeCapabilities: async () => ({ ok: true }) },
+    { faults: { openAt: 1 } },
+    { onCheckpoint() {} },
+  ]) {
+    await assert.rejects(
+      () => applyArtifactMigration(
+        { inputs: [input], out: path.join(output, "out"), plan, digests },
+        option,
+      ),
+      TypeError,
+    );
+  }
   await assert.rejects(
-    () => applyArtifactMigration(
-      { inputs: [input], out, plan, digests },
-      { sourceIo },
-    ),
-    (error) => error?.code === "AGENTMO_MIGRATION_BATCH_REJECTED",
+    () => applyArtifactMigration({
+      inputs: [input],
+      out: path.join(output, "out"),
+      plan,
+      digests,
+      __testOnly: true,
+    }),
+    TypeError,
   );
-  assert.equal(swapped, true);
-  await assert.rejects(() => stat(out), { code: "ENOENT" });
-  assert.deepEqual(await readFile(path.join(retainedSource, "input.json")), bytes);
-  assert.deepEqual(await readFile(path.join(source, "input.json")), bytes);
+  await assert.rejects(
+    () => verifyMigrationOutput({
+      out: path.join(output, "out"),
+      plan,
+      onCheckpoint() {},
+    }),
+    TypeError,
+  );
+  assert.deepEqual(await readdir(output), []);
+  assert.deepEqual(await readFile(input), bytes);
 });
 
 test("forged hostile publication models fail before an output directory exists", async () => {

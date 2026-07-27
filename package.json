@@ -6,12 +6,98 @@
   "bin": {
     "agentmo": "./bin/agentmo.js"
   },
+  "exports": {
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "!src/builder-codex-uat-private-authority.js",
+    "bin/agentmo.js",
+    "package.json",
+    "plugin/.codex-plugin/plugin.json",
+    "plugin/agents/agentmo.toml",
+    "plugin/hooks/agentmo-hook.js",
+    "plugin/hooks/hooks.json",
+    "plugin/skills/agentmo/SKILL.md",
+    "README.md",
+    "scripts/verify-codex-uat-candidate.js",
+    "src/artifact-admission.js",
+    "src/artifact-contract.js",
+    "src/artifact-migration.js",
+    "src/artifact-registry.js",
+    "src/artifact-subjects.js",
+    "src/birth-report.js",
+    "src/blueprint-draft.js",
+    "src/blueprint.js",
+    "src/build-plan.js",
+    "src/build-state.js",
+    "src/builder-append-only-authority.js",
+    "src/builder-behavior-eval.js",
+    "src/builder-bootstrap-snapshot.js",
+    "src/builder-checkpoint.js",
+    "src/builder-codex-host.js",
+    "src/builder-codex-uat-continuation.js",
+    "src/builder-codex-uat-release-manifest.json",
+    "src/builder-codex-uat.js",
+    "src/builder-doctor.js",
+    "src/builder-entry.js",
+    "src/builder-events.js",
+    "src/builder-hook-bridge.js",
+    "src/builder-immutable-journal.js",
+    "src/builder-install.js",
+    "src/builder-lifecycle.js",
+    "src/builder-package.js",
+    "src/builder-platform.js",
+    "src/builder-posix-effect.js",
+    "src/builder-probe.js",
+    "src/builders/codex.js",
+    "src/builders/contract.js",
+    "src/builders/registry.js",
+    "src/cli.js",
+    "src/control-snapshot.js",
+    "src/delivery-report.js",
+    "src/design-plan.js",
+    "src/discovery-db.js",
+    "src/discovery-source-workspace.js",
+    "src/discovery.js",
+    "src/domain-eval.js",
+    "src/evidence-audit.js",
+    "src/handoff.js",
+    "src/javascript-static-analysis.js",
+    "src/migration-filesystem.js",
+    "src/observation.js",
+    "src/persistability.js",
+    "src/report.js",
+    "src/run-observation.js",
+    "src/run-state.js",
+    "src/runtime-compatibility.js",
+    "src/runtime-env.js",
+    "src/runtime-execution.js",
+    "src/runtime-plan.js",
+    "src/scaffold-files.js",
+    "src/scaffold.js",
+    "src/secret-redaction.js",
+    "src/source-refs.js",
+    "src/targets/agentmo.js",
+    "src/targets/openclaw.js",
+    "src/targets/operations.js",
+    "src/targets/registry.js",
+    "src/user-need.js"
+  ],
   "scripts": {
     "check:core:node20": "bash scripts/node20-core-lane.sh",
-    "check": "node --check bin/agentmo.js && node --check src/birth-report.js && node --check src/blueprint-draft.js && node --check src/blueprint.js && node --check src/build-plan.js && node --check src/build-state.js && node --check src/cli.js && node --check src/delivery-report.js && node --check src/design-plan.js && node --check src/domain-eval.js && node --check src/evidence-audit.js && node --check src/discovery-db.js && node --check src/discovery-source-workspace.js && node --check src/discovery.js && node --check src/handoff.js && node --check src/observation.js && node --check src/report.js && node --check src/run-observation.js && node --check src/runtime-env.js && node --check src/runtime-execution.js && node --check src/runtime-plan.js && node --check src/run-state.js && node --check src/scaffold-files.js && node --check src/scaffold.js && node --check src/secret-redaction.js && node --check src/source-refs.js && node --check src/targets/agentmo.js && node --check src/targets/openclaw.js && node --check src/targets/operations.js && node --check src/targets/registry.js && node --check src/user-need.js && node --test"
+    "check": "node --check bin/agentmo.js && node --check plugin/hooks/agentmo-hook.js && node --check scripts/build-builder-uat-releases.js && node --check scripts/preflight-codex-uat-prior-attempt.js && node --check scripts/verify-codex-uat-candidate.js && node --check src/artifact-contract.js && node --check src/birth-report.js && node --check src/blueprint-draft.js && node --check src/blueprint.js && node --check src/build-plan.js && node --check src/build-state.js && node --check src/builder-append-only-authority.js && node --check src/builder-behavior-eval.js && node --check src/builder-bootstrap-snapshot.js && node --check src/builder-checkpoint.js && node --check src/builder-codex-host.js && node --check src/builder-codex-uat-continuation.js && node --check src/builder-codex-uat-private-authority.js && node --check src/builder-codex-uat.js && node --check src/builder-doctor.js && node --check src/builder-entry.js && node --check src/builder-events.js && node --check src/builder-hook-bridge.js && node --check src/builder-immutable-journal.js && node --check src/builder-install.js && node --check src/builder-lifecycle.js && node --check src/builder-package.js && node --check src/builder-platform.js && node --check src/builder-posix-effect.js && node --check src/builder-probe.js && node --check src/builders/codex.js && node --check src/builders/contract.js && node --check src/builders/registry.js && node --check src/cli.js && node --check src/delivery-report.js && node --check src/design-plan.js && node --check src/domain-eval.js && node --check src/evidence-audit.js && node --check src/discovery-db.js && node --check src/discovery-source-workspace.js && node --check src/discovery.js && node --check src/handoff.js && node --check src/javascript-static-analysis.js && node --check src/observation.js && node --check src/report.js && node --check src/run-observation.js && node --check src/runtime-env.js && node --check src/runtime-execution.js && node --check src/runtime-plan.js && node --check src/run-state.js && node --check src/scaffold-files.js && node --check src/scaffold.js && node --check src/secret-redaction.js && node --check src/source-refs.js && node --check src/targets/agentmo.js && node --check src/targets/openclaw.js && node --check src/targets/operations.js && node --check src/targets/registry.js && node --check src/user-need.js && node --test"
   },
   "engines": {
     "node": ">=20"
+  },
+  "agentmo": {
+    "builder": {
+      "supportedPlatforms": [
+        "darwin",
+        "linux"
+      ],
+      "filesystemContract": "posix-no-follow-private-owner"
+    }
   },
   "license": "MIT"
 }

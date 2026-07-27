@@ -14,14 +14,14 @@
 - [x] **CORE-02**：开发者可以读取旧版 `agentmother_*` 工件，并通过幂等迁移得到规范的 `agentmo_*` 工件；迁移器不修改用户原文件，也不把原始内容复制进迁移状态或证据，检测到 secret-shaped material 或 raw private transcript 时会拒绝迁移并只生成 value-blind 失败证据。
 - [x] **CORE-03**：开发者看到的 Agent Package 顶层生命周期严格只有 `Discover -> Plan -> Produce`；target/package 的 install、doctor、live smoke、eval、Birth Report 和 Delivery Report 只作为 Produce 内部 gate 出现，而 Codex builder 自身的 setup/doctor/upgrade/uninstall 属于构建端运维生命周期。
 - [x] **CORE-04**：开发者可以把任何通过 schema、digest 和 admission 校验的阶段工件交给下游阶段，而不依赖同一会话中的命令调用历史。
-- [ ] **CORE-05**：adapter 作者可以实现版本化的中立 builder/target adapter contract，其中明确 capability mapping、lifecycle events、context injection、compaction recovery、deduplication、unsupported surfaces 与 evidence level，而不会自动获得“已支持”声明。
+- [x] **CORE-05**：adapter 作者可以实现版本化的中立 builder/target adapter contract，其中明确 capability mapping、lifecycle events、context injection、compaction recovery、deduplication、unsupported surfaces 与 evidence level，而不会自动获得“已支持”声明。
 - [x] **COMP-01**：开发者可以在 Node.js `>=20` 上运行 AgentMo core；OpenClaw 操作会在任何 target mutation 前探测并强制执行 OpenClaw 当前声明的 Node.js `>=22.19.0 <23 || >=23.11.0` 要求，release matrix 会分别记录 core 与 target runtime 范围。
 
 ### Codex Builder
 
 - [ ] **BLDR-01**：开发者可以从打包产物在干净 Codex 环境中安装 AgentMo builder，并获得规范 plugin、skills 及受管的 agents/hooks，而不依赖 AgentMo 源码仓库。
-- [ ] **BLDR-02**：开发者可以在安装或运行前执行 capability probe，看到当前 Codex host 支持、缺失和不兼容的能力及其版本依据。
-- [ ] **BLDR-03**：开发者可以使用默认引导式入口完成三阶段流程，也可以由高级用户显式调用单个阶段，二者遵守同一份生命周期契约。
+- [x] **BLDR-02**：开发者可以在安装或运行前执行 capability probe，看到当前 Codex host 支持、缺失和不兼容的能力及其版本依据。
+- [x] **BLDR-03**：开发者可以使用默认引导式入口完成三阶段流程，也可以由高级用户显式调用单个阶段，二者遵守同一份生命周期契约。
 - [ ] **BLDR-04**：开发者在上下文压缩、会话重启或重复事件后可以从持久工件恢复流程，并且同一事件不会被重复应用。
 - [ ] **BLDR-05**：开发者可以运行只读 doctor，检查安装来源、active capability、版本、hook/skill 可见性和状态一致性，而不会隐式修复或修改环境。
 - [ ] **BLDR-06**：开发者可以升级或卸载 Codex builder；操作只修改由 receipt、marker 和 digest 证明属于 AgentMo 的资产，并保留未知或已被用户修改的资产。
@@ -142,13 +142,13 @@ v1 只有在以下条件同时满足时才完成：
 | CORE-02 | Phase 1 | Complete |
 | CORE-03 | Phase 1 | Complete |
 | CORE-04 | Phase 1.1 | Complete |
-| CORE-05 | Phase 2 | Pending |
+| CORE-05 | Phase 2 | Complete |
 | COMP-01 | Phase 1.2 | Complete |
 | BLDR-01 | Phase 2 | Pending |
-| BLDR-02 | Phase 2 | Pending |
-| BLDR-03 | Phase 2 | Pending |
+| BLDR-02 | Phase 2 | Complete |
+| BLDR-03 | Phase 2 | Complete |
 | BLDR-04 | Phase 2 | Pending |
-| BLDR-05 | Phase 2 | Pending |
+| BLDR-05 | Phase 2 | Partial |
 | BLDR-06 | Phase 2 | Pending |
 | BLDR-07 | Phase 2 | Pending |
 | DISC-01 | Phase 3 | Pending |

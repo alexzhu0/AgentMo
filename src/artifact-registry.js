@@ -166,6 +166,7 @@ export const DURABLE_ARTIFACT_REGISTRY = Object.freeze([
     identity: DISCOVERY_SCHEMA_VERSION,
     legacy_inspector: "unsupported",
     validate_canonical_input: (value) => validateSafely(() => validateDiscoveryManifest(value).ok),
+    diagnose_canonical_input: (value) => safeValidationIssues(() => validateDiscoveryManifest(value).errors),
   }),
   Object.freeze({
     subject: "discovery-db",
@@ -180,6 +181,7 @@ export const DURABLE_ARTIFACT_REGISTRY = Object.freeze([
     identity: USER_NEED_SCHEMA_VERSION,
     legacy_inspector: "unsupported",
     validate_canonical_input: (value) => validateSafely(() => validateUserNeed(value).ok),
+    diagnose_canonical_input: (value) => safeValidationIssues(() => validateUserNeed(value).errors),
   }),
   Object.freeze({
     subject: "design-plan",
@@ -306,11 +308,15 @@ export class AgentMoMigrationRequiredError extends Error {
 }
 
 export class AgentMoUnsupportedArtifactError extends Error {
-  constructor(reason) {
+  constructor(reason, options = {}) {
     super("Artifact identity is unsupported for safe loading or migration.");
     this.name = "AgentMoUnsupportedArtifactError";
     this.code = "AGENTMO_UNSUPPORTED_ARTIFACT";
     this.reason = reason;
+    if (typeof options.subject === "string") this.subject = options.subject;
+    if (Array.isArray(options.issues) && options.issues.length > 0) {
+      this.issues = Object.freeze([...options.issues]);
+    }
   }
 }
 
@@ -612,7 +618,10 @@ export function resolveDurableArtifactDescriptor(value, subject, options = {}) {
       throw new AgentMoUnsupportedArtifactError("subject_identity_mismatch");
     }
     if (!descriptor.validate_canonical_input(value, options.validationContext)) {
-      throw new AgentMoUnsupportedArtifactError("schema_validation_failed");
+      throw new AgentMoUnsupportedArtifactError("schema_validation_failed", {
+        subject,
+        issues: descriptor.diagnose_canonical_input?.(value) ?? [],
+      });
     }
     return descriptor;
   }
@@ -623,6 +632,18 @@ export function resolveDurableArtifactDescriptor(value, subject, options = {}) {
     throw new AgentMoMigrationRequiredError(record, subject);
   }
   throw new AgentMoUnsupportedArtifactError(migration.reason ?? "unregistered_identity");
+}
+
+function safeValidationIssues(validate) {
+  try {
+    const issues = validate();
+    if (!Array.isArray(issues)) return [];
+    return issues
+      .filter((issue) => typeof issue === "string" && issue.length > 0 && issue.length <= 240)
+      .slice(0, 32);
+  } catch {
+    return [];
+  }
 }
 
 function legacyFamilyMarkers(value) {

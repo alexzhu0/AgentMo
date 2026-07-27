@@ -1,0 +1,31 @@
+{
+  "name": "agentmo",
+  "version": "0.1.0",
+  "description": "Build reproducible domain agents through AgentMo's Discover, Plan, and Produce lifecycle.",
+  "author": {
+    "name": "AgentMo"
+  },
+  "license": "MIT",
+  "keywords": [
+    "agent-builder",
+    "codex",
+    "skills",
+    "workflow"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "AgentMo",
+    "shortDescription": "Build reproducible domain agents",
+    "longDescription": "Turn approved discovery data and human decisions into a reviewable Agent Package with durable checkpoints and explicit evidence boundaries.",
+    "developerName": "AgentMo",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Use $agentmo to start or resume a domain-agent build."
+    ]
+  }
+}
