@@ -10,6 +10,14 @@ coverage/
 
 .omx/
 
+# Local AgentMo install/runtime authority and interrupted staging state.
+.agentmo/
+.agentmo-append-only-lineage/
+.agentmo-install-attempt-authority/
+
+# Rebuildable research cache; source research records remain tracked.
+.planning/research/.cache/
+
 # Local upstream source mirrors used for AgentMo research.
 .reference-repos/
 
