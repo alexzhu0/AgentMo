@@ -1,7 +1,7 @@
 # Phase 4: 确定性 Package 与所有权安全安装 - Research
 
-**Researched:** 2026-07-28  
-**Domain:** Agent Package 确定性构建、OpenClaw capability probe、exact-plan 安装、所有权安全事务  
+**Researched:** 2026-07-28
+**Domain:** Agent Package 确定性构建、OpenClaw capability probe、exact-plan 安装、所有权安全事务
 **Confidence:** HIGH（仓库内 AgentMo 合同与固定 OpenClaw 源码为主；本机 OpenClaw 漂移与 hook 载体冲突是显式阻塞）
 
 <user_constraints>
@@ -237,9 +237,9 @@ test/
 
 ### Pattern 3: 三层 exact authority
 
-**What:**  
-1. `agentmo.openclaw-install-approval.v1` 绑定普通 managed operations 的 exact plan digest；  
-2. 每个网络/credential/process/external command/user-scope action 有独立 `agentmo.openclaw-sensitive-action-decision.v1`；  
+**What:**
+1. `agentmo.openclaw-install-approval.v1` 绑定普通 managed operations 的 exact plan digest；
+2. 每个网络/credential/process/external command/user-scope action 有独立 `agentmo.openclaw-sensitive-action-decision.v1`；
 3. 一份 `agentmo.openclaw-conflict-approval.v1` 绑定整个 conflict set，每项含 path/current digest/desired digest/action。[VERIFIED: D-36, D-37]
 
 `apply` 必须同时绑定 package manifest digest、probe fingerprint digest、target identity、conflict-set digest、operation/action digest，并在 mutation 前 re-probe。missing/deny/timeout/cancel/mismatch/expired/reused 一律 fail-closed。[VERIFIED: D-36, EVID-05]
@@ -353,39 +353,39 @@ Phase 3 声明 `before-attempt`、`after-tool`、`before-checkpoint`、`after-at
 ## Common Pitfalls
 
 ### Pitfall 1: Exact source drift 被“版本大致兼容”掩盖
-**What goes wrong:** 本机较新 OpenClaw 被直接安装，Phase 3 exact revision binding失效。  
-**Why it happens:** 只比较 semver/命令存在。  
-**How to avoid:** exact revision required时 fingerprint必须包含 source identity；否则回到 Phase 3重批。  
+**What goes wrong:** 本机较新 OpenClaw 被直接安装，Phase 3 exact revision binding失效。
+**Why it happens:** 只比较 semver/命令存在。
+**How to avoid:** exact revision required时 fingerprint必须包含 source identity；否则回到 Phase 3重批。
 **Warning signs:** `2026.7.1-2` target 对 `2026.6.11/29d018f0` contract 仍显示 compatible。[VERIFIED: local/source comparison]
 
 ### Pitfall 2: 影子 state 仍泄漏到真实 HOME
-**What goes wrong:** OpenClaw CLI startup发现/迁移 legacy state，或者使用 real-home default workspace/personal skills。  
-**Why it happens:** 只设置 state/config env，没有设置 synthetic HOME。  
-**How to avoid:** 新 temp HOME + explicit state/config/workspace；目标读取由 AgentMo direct FS完成；运行后审计只允许 temp tree变化。  
+**What goes wrong:** OpenClaw CLI startup发现/迁移 legacy state，或者使用 real-home default workspace/personal skills。
+**Why it happens:** 只设置 state/config env，没有设置 synthetic HOME。
+**How to avoid:** 新 temp HOME + explicit state/config/workspace；目标读取由 AgentMo direct FS完成；运行后审计只允许 temp tree变化。
 **Warning signs:** probe输出出现 operator personal skills/workspace，或真实 HOME path。[VERIFIED: local observation]
 
 ### Pitfall 3: Abstract hooks 被 JSON declaration“实现”
-**What goes wrong:** package声称有四个 hook，但 OpenClaw 没有 handler owner。  
-**Why it happens:** Phase 3 abstract hook名与 OpenClaw typed event名不同，plugin lane又没有具体 owner。  
-**How to avoid:** Plans 04-01/04-02 carrier consistency and exact admission gates；找不到 bundled owner就回到 Phase 3重批包含 canonical byte recipe/content 的 package-local plugin contract。Plan 04-02 不接受 implementation path，Plan 04-03 solely from recipe 生成 bytes。  
+**What goes wrong:** package声称有四个 hook，但 OpenClaw 没有 handler owner。
+**Why it happens:** Phase 3 abstract hook名与 OpenClaw typed event名不同，plugin lane又没有具体 owner。
+**How to avoid:** Plans 04-01/04-02 carrier consistency and exact admission gates；找不到 bundled owner就回到 Phase 3重批包含 canonical byte recipe/content 的 package-local plugin contract。Plan 04-02 不接受 implementation path，Plan 04-03 solely from recipe 生成 bytes。
 **Warning signs:** capability ledger只有 hook names，或 target admission要求一个尚未由 Produce 生成的 plugin file；recipe 缺 exact content/path/mode/digest/version/failure。[VERIFIED: build contract vs OpenClaw hook API]
 
 ### Pitfall 4: TOCTOU 与批准漂移
-**What goes wrong:** preview后 target file/inode/config/conflict set变化，apply仍覆盖。  
-**Why it happens:** approval只绑定展示文本或路径，不绑定 raw current bytes/target identity。  
-**How to avoid:** retained handles + lstat + current digest；apply前 re-probe；任意 drift让整套相关 authority失效。  
+**What goes wrong:** preview后 target file/inode/config/conflict set变化，apply仍覆盖。
+**Why it happens:** approval只绑定展示文本或路径，不绑定 raw current bytes/target identity。
+**How to avoid:** retained handles + lstat + current digest；apply前 re-probe；任意 drift让整套相关 authority失效。
 **Warning signs:** plan无 fingerprint/conflictSetDigest，或 apply不重新计算。[VERIFIED: D-37, D-41]
 
 ### Pitfall 5: 官方命令的隐藏副作用未分类
-**What goes wrong:** `mcp add` probe启动进程/联网，plugin runtime inspect加载代码，credential command输出被捕获。  
-**Why it happens:** 把官方 CLI 误当自动安全。  
-**How to avoid:** 无副作用模式优先；每个 process/network/credential action独立 decision；stdout/stderr只保留bounded redacted status。  
+**What goes wrong:** `mcp add` probe启动进程/联网，plugin runtime inspect加载代码，credential command输出被捕获。
+**Why it happens:** 把官方 CLI 误当自动安全。
+**How to avoid:** 无副作用模式优先；每个 process/network/credential action独立 decision；stdout/stderr只保留bounded redacted status。
 **Warning signs:** plan只写 “run OpenClaw setup”，没有 exact argv/params/cwd/scope/target/timeout。[VERIFIED: D-36, OpenClaw CLI source/help]
 
 ### Pitfall 6: “回滚成功”靠删除不明资产
-**What goes wrong:** 用户在安装过程中修改的文件被删，receipt却宣称atomic。  
-**Why it happens:** 仅凭path/marker判断ownership。  
-**How to avoid:** created-this-attempt + owner + inode + desired digest 四条件；否则preserve并发 incomplete receipt。  
+**What goes wrong:** 用户在安装过程中修改的文件被删，receipt却宣称atomic。
+**Why it happens:** 仅凭path/marker判断ownership。
+**How to avoid:** created-this-attempt + owner + inode + desired digest 四条件；否则preserve并发 incomplete receipt。
 **Warning signs:** rollback使用recursive delete或`--force`，没有post-failure digest。[VERIFIED: D-39]
 
 ## Code Examples
@@ -647,5 +647,5 @@ D-42 的 archive-only preview/approval/apply 是 Phase 4 安装运输与完整�
 - OpenClaw carriers: HIGH for exposed surfaces，LOW for unresolved hook semantic mapping — 固定源码直接验证 API，但 current contract未给出 owner。[VERIFIED: source; A3]
 - Pitfalls: HIGH — drift、startup writes、config/plugin/MCP副作用均由 source或本机有界观察支持。[VERIFIED: source/local]
 
-**Research date:** 2026-07-28  
+**Research date:** 2026-07-28
 **Valid until:** 2026-08-04（OpenClaw CLI/extension surface变化快；exact snapshot结论对 `29d018f0…` 持续有效）

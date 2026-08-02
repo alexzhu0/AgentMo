@@ -2,9 +2,9 @@
 
 > 本报告是 fresh、advisory、non-self-certifying 的 Phase 4 pre-verification 输入。它不运行或模拟 `gsd-verifier`，不证明 Phase 4 通过，不证明 OpenClaw live-success、domain quality、Birth、Delivery、production readiness 或 wider compatibility。
 
-**Reviewed:** 2026-07-31T12:13:48Z  
-**Depth:** deep / adversarial / cross-module  
-**Result:** **BLOCKED — 不应进入 canonical verification**  
+**Reviewed:** 2026-07-31T12:13:48Z
+**Depth:** deep / adversarial / cross-module
+**Result:** **BLOCKED — 不应进入 canonical verification**
 **Findings:** **Critical 3 / Warning 0 / Total 3**
 
 ## 审计范围与边界
@@ -51,7 +51,7 @@
 
 ### C-01 — 派生路径不是不可替换 authority：ledger 目录重建会恢复已消费 approvals
 
-**Severity:** Critical  
+**Severity:** Critical
 **Affected:** root gap 2、root gap 4、historical CR-05/CR-07/CR-08、old audit C-01/C-02、Plan 04-14 T-04-G14-01/02、Plan 04-16 T-04-G16-01/02
 
 **Evidence:**
@@ -69,7 +69,7 @@
 
 ### C-02 — retained candidate 仍按 pathname 删除，替换竞态可误删无关对象
 
-**Severity:** Critical  
+**Severity:** Critical
 **Affected:** root gap 3、root gap 6、historical CR-04/CR-10、old audit C-06、Plan 04-13 T-04-G13-03、Plan 04-17 T-04-G17-01/02
 
 **Evidence:**
@@ -85,7 +85,7 @@
 
 ### C-03 — `setsid` + ignored stdio 可逃离 PGID 并被误报为 quiescent success
 
-**Severity:** Critical  
+**Severity:** Critical
 **Affected:** root gap 1、root gap 5、historical CR-09、old audit C-07、Plan 04-12 T-04-G12-02/03、Plan 04-15 T-04-G15-02/04
 
 **Evidence:**
@@ -214,5 +214,5 @@ PACK 结论只证明离线 bytes、inventory、determinism 与 inspection contra
 
 ---
 
-_Reviewer: fresh adversarial Phase 4 re-audit_  
+_Reviewer: fresh adversarial Phase 4 re-audit_
 _Status: noncanonical / advisory / non-self-certifying_

@@ -2,9 +2,9 @@
 
 > This is a fresh, advisory, non-self-certifying Phase 4 remediation re-audit. It does not run or simulate `gsd-verifier`, does not replace canonical review/verification, and does not prove Phase 4, OpenClaw `live-success`, domain quality, Birth, Delivery, production readiness, deployment approval, or wider compatibility.
 
-**Reviewed:** 2026-08-02T10:45:34Z  
-**Depth:** deep / adversarial / cross-module  
-**Result:** **BLOCKED — one Critical and one Warning remain**  
+**Reviewed:** 2026-08-02T10:45:34Z
+**Depth:** deep / adversarial / cross-module
+**Result:** **BLOCKED — one Critical and one Warning remain**
 **Findings:** **Critical 1 / Warning 1 / Info 0 / Total 2**
 
 ## Scope and evidence boundary
@@ -63,7 +63,7 @@ settled 103-entry/green gate record.
 
 ### C-01 — The fixed, never-recycled pidfd table can abandon an untracked `setsid` descendant
 
-**Severity:** Critical  
+**Severity:** Critical
 **Affected:** historical C-03, root gaps 1 and 5, historical `CR-09`, release
 claim for the `setsid` remediation
 
@@ -123,7 +123,7 @@ with a `setsid` ignored-stdio delayed canary that must never appear after return
 
 ### W-01 — Stage Contracts still presents pre-final package/gate evidence as current
 
-**Severity:** Warning  
+**Severity:** Warning
 **Files and lines:**
 
 - `docs/STAGE_CONTRACTS.md:173-194`
@@ -217,6 +217,6 @@ tracking-capacity, and pidfd-admission-failure adversarial cases.
 
 ---
 
-_Reviewed: 2026-08-02T10:45:34Z_  
-_Reviewer: gsd-code-reviewer (fresh noncanonical re-audit)_  
+_Reviewed: 2026-08-02T10:45:34Z_
+_Reviewer: gsd-code-reviewer (fresh noncanonical re-audit)_
 _Canonical status authority: unchanged; verifier/post gate not run_

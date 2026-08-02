@@ -2,9 +2,9 @@
 
 > This is a fresh, advisory, non-self-certifying Phase 4 remediation re-audit. It does not run or simulate `gsd-verifier`, does not replace canonical review/verification, and does not prove Phase 4, OpenClaw `live-success`, domain quality, Birth, Delivery, production readiness, deployment approval, or wider compatibility.
 
-**Reviewed:** 2026-08-02T12:04:04Z  
-**Depth:** deep / adversarial / cross-module  
-**Result:** **BLOCKED — three Critical findings and one Warning remain**  
+**Reviewed:** 2026-08-02T12:04:04Z
+**Depth:** deep / adversarial / cross-module
+**Result:** **BLOCKED — three Critical findings and one Warning remain**
 **Findings:** **Critical 3 / Warning 1 / Info 0 / Total 4**
 
 ## Scope and evidence boundary
@@ -69,7 +69,7 @@ instances, or lifecycle install hooks.
 
 ### C-01 — A supervised command can kill or stop the supervisor and escape all settlement
 
-**Classification:** BLOCKER / Critical  
+**Classification:** BLOCKER / Critical
 **Affected:** historical C-03, root gaps 1 and 5, historical `CR-09`
 
 **Files and lines:**
@@ -123,7 +123,7 @@ settlement.
 
 ### C-02 — Initial pidfd/clock bootstrap failures return after killing only the direct PID
 
-**Classification:** BLOCKER / Critical  
+**Classification:** BLOCKER / Critical
 **Affected:** re-audit-2 Critical remediation, root gaps 1 and 5, historical
 `CR-09`
 
@@ -168,7 +168,7 @@ with a delayed canary checked after supervisor return.
 
 ### C-03 — The x86_64 seccomp architecture guard allows x32 `setsid` and `setpgid`
 
-**Classification:** BLOCKER / Critical  
+**Classification:** BLOCKER / Critical
 **Affected:** re-audit-2 Critical remediation, historical C-03, root gaps 1 and
 5, historical `CR-09`
 
@@ -208,7 +208,7 @@ kernel/toolchain supports it.
 
 ### W-01 — The Linux adversarial suite proves only a narrower fallback than the maintained claim
 
-**Classification:** WARNING  
+**Classification:** WARNING
 **Files and lines:**
 
 - `test/openclaw-process-supervisor.test.js:63-103`
@@ -333,6 +333,6 @@ adversarial cases—and until C-01..C-03 are fixed and independently re-audited.
 
 ---
 
-_Reviewed: 2026-08-02T12:04:04Z_  
-_Reviewer: gsd-code-reviewer (fresh noncanonical re-audit)_  
+_Reviewed: 2026-08-02T12:04:04Z_
+_Reviewer: gsd-code-reviewer (fresh noncanonical re-audit)_
 _Canonical status authority: unchanged; verifier/post gate not run_

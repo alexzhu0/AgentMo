@@ -6,10 +6,10 @@ the canonical code review or verification, and does not authorize any phase,
 roadmap, requirement, release, Birth, Delivery, runtime, domain, or production
 status change.
 
-**Audit date:** 2026-07-31  
-**Depth:** deep/security, source and call-chain review  
+**Audit date:** 2026-07-31
+**Depth:** deep/security, source and call-chain review
 **Result:** blockers remain; Plan 04-19 Task 3's no-open-Critical/Warning done
-condition is not met  
+condition is not met
 **Findings:** Critical 8, Warning 2, Suggestion 0
 
 ## Scope and evidence boundary
@@ -99,7 +99,7 @@ are fixed and independently re-reviewed.
 
 ### C-01 — Caller-selected authority roots make one-use approvals replayable
 
-**Severity:** Critical  
+**Severity:** Critical
 **Affected paths:** `src/openclaw-install-transaction.js:238-257`,
 `src/openclaw-authority-consumption.js:45-79`,
 `src/openclaw-authority-consumption.js:125-189`
@@ -126,7 +126,7 @@ or external effects.
 
 ### C-02 — Receipt admission still self-certifies post-state and action results
 
-**Severity:** Critical  
+**Severity:** Critical
 **Affected paths:** `src/openclaw-install-receipt.js:471-536`,
 `src/openclaw-install-receipt.js:595-611`,
 `src/openclaw-install-receipt.js:614-740`
@@ -162,7 +162,7 @@ must be rejected.
 
 ### C-03 — Official config patching reintroduces pathname and hard-link races
 
-**Severity:** Critical  
+**Severity:** Critical
 **Affected paths:** `src/openclaw-official-action-runner.js:153-215`,
 `src/openclaw-official-action-runner.js:273-297`
 
@@ -191,7 +191,7 @@ including hard-link and ancestor replacement.
 
 ### C-04 — Cross-family nonce reuse can apply effects and then prevent every receipt
 
-**Severity:** Critical  
+**Severity:** Critical
 **Affected paths:** `src/openclaw-install-approval.js:528-567`,
 `src/openclaw-authority-consumption.js:125-189`,
 `src/openclaw-install-transaction.js:267-447`,
@@ -220,7 +220,7 @@ and add equal-nonce cross-family tests for fresh, crash, race, and resume paths.
 
 ### C-05 — Package directory publication authenticates only the top inode
 
-**Severity:** Critical  
+**Severity:** Critical
 **Affected paths:** `src/package-produce.js:203-274`,
 `src/package-produce.js:790-810`,
 `native/openclaw-fs-kernel.c:483-560`
@@ -248,7 +248,7 @@ member after archive build but before directory rename.
 
 ### C-06 — Error cleanup can delete replacement objects
 
-**Severity:** Critical  
+**Severity:** Critical
 **Affected paths:** `src/openclaw-probe.js:320-324`,
 `src/openclaw-install-plan.js:356-385`,
 `src/openclaw-install-approval.js:496-525`,
@@ -273,7 +273,7 @@ root cleanup.
 
 ### C-07 — Timeout kills only the direct child, not the official action process tree
 
-**Severity:** Critical  
+**Severity:** Critical
 **Affected paths:** `src/openclaw-official-action-runner.js:353-384`
 
 **Evidence:** The timeout and output cap call `child.kill("SIGKILL")` on the
@@ -294,7 +294,7 @@ while a grandchild attempts a delayed mutation.
 
 ### C-08 — Credential “success” targets untracked temp state and can retain secrets
 
-**Severity:** Critical  
+**Severity:** Critical
 **Affected paths:** `src/openclaw-official-action-runner.js:69-93`,
 `src/openclaw-credential-handoff.js:119-156`,
 `src/openclaw-install-transaction.js:317-389`
@@ -325,7 +325,7 @@ fixture tests for both admitted grammars, not an exit-zero stub.
 
 ### W-01 — Helper/receipt publication is not one recoverable pair
 
-**Severity:** Warning  
+**Severity:** Warning
 **Affected path:** `src/openclaw-safe-fs.js:79-200`
 
 **Evidence:** The helper binary is published first to `binaryOut`; receipt
@@ -344,7 +344,7 @@ tests after binary publication, during receipt write, and after receipt sync.
 
 ### W-02 — Failed private-temp observation silently erases recovery evidence
 
-**Severity:** Warning  
+**Severity:** Warning
 **Affected path:** `src/package-produce.js:813-854`
 
 **Evidence:** `preservedPrivateTempEvidence` catches any observation failure and

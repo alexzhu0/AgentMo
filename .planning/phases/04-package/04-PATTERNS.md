@@ -1,8 +1,8 @@
 # Phase 04: 确定性 Package 与所有权安全安装 - Pattern Map
 
-**Mapped:** 2026-07-28  
-**Files analyzed:** 38 个预计新增/修改代码文件（20 个生产/发行文件，18 个测试文件；维护文档与 release records 另计）  
-**Analog clusters:** 5 个强类比簇；4 类能力只有部分类比  
+**Mapped:** 2026-07-28
+**Files analyzed:** 38 个预计新增/修改代码文件（20 个生产/发行文件，18 个测试文件；维护文档与 release records 另计）
+**Analog clusters:** 5 个强类比簇；4 类能力只有部分类比
 **Scope:** 只映射 AgentMo 仓库现有模式；不把 sibling repo 或 live OpenClaw state 当作实现类比
 
 ## 结论先行
@@ -785,7 +785,7 @@ await assert.rejects(() => writePlanApproval(forgedPath, structuredClone(approva
 
 ### Probe
 
-`test/runtime-compatibility.test.js:63-118` 的 malformed table 与 anti-bypass assertions 应扩展到完整 fingerprint。  
+`test/runtime-compatibility.test.js:63-118` 的 malformed table 与 anti-bypass assertions 应扩展到完整 fingerprint。
 `test/runtime-compatibility-seams.test.js:106-135` 的 mutation inventory/order assertions 应增加 Phase 4 唯一 mutation seam，并验证每条 mutation journey 都经过 exact re-probe。
 
 Probe test 还必须使用 synthetic HOME sentinel：
@@ -896,7 +896,7 @@ Phase 4 每个边界建议有自己的 error class/code namespace；child-proces
 
 ### Validation
 
-使用手写 closed schema、`plainObject`、`hasExactKeys`、sorted unique arrays、bounded lengths、canonical field order。  
+使用手写 closed schema、`plainObject`、`hasExactKeys`、sorted unique arrays、bounded lengths、canonical field order。
 **Source:** `src/plan-approval.js:110-128`, `src/artifact-registry.js:788-841`, `src/builder-package.js:1717-1760`
 
 ### Canonical digests
@@ -973,9 +973,9 @@ digestRawBytes(Buffer.from(
 
 ## Metadata
 
-**Analog search scope:** `src/`, `src/targets/`, `test/`；未读取 `.env`，未读取 sibling projects  
-**Strong analog clusters:** artifact admission/registry；persistability；plan approval；target operations；Builder package/install  
-**Files with exact/role analog:** 33 / 38  
-**Files with partial/no exact analog:** 5 / 38  
-**Pattern extraction date:** 2026-07-28  
+**Analog search scope:** `src/`, `src/targets/`, `test/`；未读取 `.env`，未读取 sibling projects
+**Strong analog clusters:** artifact admission/registry；persistability；plan approval；target operations；Builder package/install
+**Files with exact/role analog:** 33 / 38
+**Files with partial/no exact analog:** 5 / 38
+**Pattern extraction date:** 2026-07-28
 **Working tree note:** 仓库在映射前已有大量用户修改；本文件不推断其 ownership，也未修改任何 source/test/STATE/ROADMAP 文件
