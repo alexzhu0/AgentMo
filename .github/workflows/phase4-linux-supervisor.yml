@@ -1,0 +1,80 @@
+name: Phase 4 Linux gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex/phase2-poc-baseline
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase4-linux-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-supervisor:
+    name: Native supervisor boundary
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Prove Linux host and compile native supervisor
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(node -p 'process.platform')" = "linux"
+          cc \
+            native/openclaw-process-supervisor.c \
+            -std=c11 \
+            -O2 \
+            -Wall \
+            -Wextra \
+            -Werror \
+            -fsyntax-only
+
+      - name: Execute Linux containment and credential regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test \
+            test/openclaw-process-supervisor.test.js \
+            test/openclaw-credential-handoff.test.js
+
+  full-project:
+    name: Full project regression
+    needs: native-supervisor
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run complete repository check
+        run: npm run check
+
+      - name: Verify publication inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm pack \
+            --dry-run \
+            --json \
+            --cache "${RUNNER_TEMP}/agentmo-npm-cache"
+
+      - name: Reject whitespace damage
+        run: git diff --check
