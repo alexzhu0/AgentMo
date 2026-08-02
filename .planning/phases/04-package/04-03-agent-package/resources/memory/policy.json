@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "agentmo.package-resource.v1",
+  "resourceId": "resource:memory",
+  "kind": "memory",
+  "declaredContract": {
+    "mode": "file-backed-plus-core-search",
+    "slotOwner": "memory-core",
+    "competingOwners": [],
+    "unsupportedAlternatives": [
+      "memory-lancedb"
+    ],
+    "rootFile": "openclaw/workspace/MEMORY.md",
+    "additionalPaths": [
+      "openclaw/workspace/memory"
+    ],
+    "promptInjection": "bounded-root-summary",
+    "flushPolicy": {
+      "trigger": "explicit-checkpoint",
+      "maximumPendingWrites": 1
+    },
+    "tools": [
+      "memory_get",
+      "memory_search"
+    ],
+    "publicArtifacts": [
+      "memory-status"
+    ],
+    "retention": "operator-governed",
+    "sensitivity": "workspace-private",
+    "durableScope": "workspace-local"
+  },
+  "materialized": true,
+  "installed": false,
+  "runtimeVerified": false,
+  "domainVerified": false
+}

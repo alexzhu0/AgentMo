@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "agentmo.package-resource.v1",
+  "resourceId": "resource:plugins",
+  "kind": "plugins",
+  "declaredContract": {
+    "necessity": "prefer-runtime-owned-capability",
+    "installLanes": [
+      "bundled",
+      "workspace-local",
+      "external-reference"
+    ],
+    "selectedLane": "bundled",
+    "scanRequiredBeforeInstall": true,
+    "activation": "explicit-registry-load",
+    "loadPrecedence": [
+      "bundled",
+      "workspace-local"
+    ],
+    "rollback": "restore-preinstall-registry-and-config",
+    "automaticExternalInstall": false,
+    "externalReferencesAudited": false
+  },
+  "materialized": true,
+  "installed": false,
+  "runtimeVerified": false,
+  "domainVerified": false
+}

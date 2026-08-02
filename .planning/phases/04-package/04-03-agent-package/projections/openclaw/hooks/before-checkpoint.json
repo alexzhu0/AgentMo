@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "agentmo.openclaw-hook-binding.v1",
+  "abstractHook": "before-checkpoint",
+  "openclawEvent": "before_compaction",
+  "owner": "agentmo-openclaw-harness",
+  "recipeDigest": "sha256:5bd43924237a304222f60a9788a8f0130819ba0208f567ebfc798b0735205402",
+  "versionRange": "2026.7.1-2@0790d9f",
+  "permission": "enforce-checkpoint-boundary",
+  "timeoutMs": 5000,
+  "failureSemantics": "fail-closed",
+  "unsupportedBehavior": [
+    "automatic-external-plugin-install"
+  ],
+  "activated": false
+}

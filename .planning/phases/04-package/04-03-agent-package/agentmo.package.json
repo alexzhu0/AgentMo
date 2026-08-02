@@ -1,0 +1,1040 @@
+{
+  "schemaVersion": "agentmo.package-manifest.v1",
+  "packageId": "support-triage",
+  "packageVersion": "1.0.0",
+  "sourceBindings": {
+    "blueprintDigest": "sha256:e0eaf74181216f2fceb0d55708837e9af2ae90c9f04c1f05bdb3764c6ac4f2c9",
+    "buildContractDigest": "sha256:0a5472dd44e7c7c03b92ced9ccbf15ddec55fc668a5c8a4d6b203629ac14d05b",
+    "designPlanDigest": "sha256:b8564fd9b31704c52fe0a6f6d6484d17281e6fedd55542a8f235fd4851451543",
+    "discoveryApprovalDigest": "sha256:f4f455f306ee3cb8ceb055480851ffa1f64fb18d4a7dbf5dcee2673a5e875942",
+    "decisionLedgerDigest": "sha256:fdf71ef2da7fa100a9f6e9f2cf8bed66d3b72ee4c3c371432420e63e7688c52e",
+    "planApprovalDigest": "sha256:42f31fbe1654d9d9b2d5a5331a516e1ab0e79d319a2faf4bd882013695cf53cd"
+  },
+  "targetCompatibility": [
+    {
+      "target": "openclaw",
+      "version": "2026.7.1-2",
+      "sourceRevision": "0790d9f593ad30c940ed93b5872a8cf6d6f3cf8c",
+      "exactRevisionRequired": true
+    }
+  ],
+  "capabilityIds": [
+    "hook:after-attempt",
+    "hook:after-tool",
+    "hook:before-attempt",
+    "hook:before-checkpoint",
+    "resource:acceptance-cases",
+    "resource:agent-loop",
+    "resource:evidence-obligations",
+    "resource:execute-transition",
+    "resource:harness",
+    "resource:install-transition",
+    "resource:load-transition",
+    "resource:memory",
+    "resource:permissions",
+    "resource:plugins",
+    "resource:prompt",
+    "resource:rag",
+    "resource:recovery",
+    "resource:runtime-binding",
+    "resource:schedules",
+    "resource:secrets",
+    "resource:skills",
+    "resource:storage",
+    "resource:tool-policy",
+    "resource:tools",
+    "resource:trust-boundaries",
+    "resource:workspace-context"
+  ],
+  "capabilityLedger": [
+    {
+      "capabilityId": "hook:after-attempt",
+      "resourceId": "resource:agent-loop",
+      "carrier": "native-plugin",
+      "owner": "agentmo-openclaw-harness",
+      "necessity": "typed-hook-requires-in-process-owner",
+      "trust": "in-process-code",
+      "memberPaths": [
+        "projections/openclaw/hooks/after-attempt.json"
+      ],
+      "recipeDigest": "sha256:5bd43924237a304222f60a9788a8f0130819ba0208f567ebfc798b0735205402",
+      "targetMapping": {
+        "target": "openclaw",
+        "event": "agent_end",
+        "versionRange": "2026.7.1-2@0790d9f"
+      },
+      "permission": "observe-attempt-completion",
+      "approvalRequirement": "contract-scoped",
+      "timeoutMs": 5000,
+      "failureSemantics": "fail-closed",
+      "unsupportedBehavior": [
+        "automatic-external-plugin-install"
+      ]
+    },
+    {
+      "capabilityId": "hook:after-tool",
+      "resourceId": "resource:agent-loop",
+      "carrier": "native-plugin",
+      "owner": "agentmo-openclaw-harness",
+      "necessity": "typed-hook-requires-in-process-owner",
+      "trust": "in-process-code",
+      "memberPaths": [
+        "projections/openclaw/hooks/after-tool.json"
+      ],
+      "recipeDigest": "sha256:5bd43924237a304222f60a9788a8f0130819ba0208f567ebfc798b0735205402",
+      "targetMapping": {
+        "target": "openclaw",
+        "event": "after_tool_call",
+        "versionRange": "2026.7.1-2@0790d9f"
+      },
+      "permission": "observe-tool-result-metadata",
+      "approvalRequirement": "contract-scoped",
+      "timeoutMs": 5000,
+      "failureSemantics": "fail-closed",
+      "unsupportedBehavior": [
+        "automatic-external-plugin-install"
+      ]
+    },
+    {
+      "capabilityId": "hook:before-attempt",
+      "resourceId": "resource:agent-loop",
+      "carrier": "native-plugin",
+      "owner": "agentmo-openclaw-harness",
+      "necessity": "typed-hook-requires-in-process-owner",
+      "trust": "in-process-code",
+      "memberPaths": [
+        "projections/openclaw/hooks/before-attempt.json"
+      ],
+      "recipeDigest": "sha256:5bd43924237a304222f60a9788a8f0130819ba0208f567ebfc798b0735205402",
+      "targetMapping": {
+        "target": "openclaw",
+        "event": "before_agent_run",
+        "versionRange": "2026.7.1-2@0790d9f"
+      },
+      "permission": "enforce-attempt-boundary",
+      "approvalRequirement": "contract-scoped",
+      "timeoutMs": 5000,
+      "failureSemantics": "fail-closed",
+      "unsupportedBehavior": [
+        "automatic-external-plugin-install"
+      ]
+    },
+    {
+      "capabilityId": "hook:before-checkpoint",
+      "resourceId": "resource:agent-loop",
+      "carrier": "native-plugin",
+      "owner": "agentmo-openclaw-harness",
+      "necessity": "typed-hook-requires-in-process-owner",
+      "trust": "in-process-code",
+      "memberPaths": [
+        "projections/openclaw/hooks/before-checkpoint.json"
+      ],
+      "recipeDigest": "sha256:5bd43924237a304222f60a9788a8f0130819ba0208f567ebfc798b0735205402",
+      "targetMapping": {
+        "target": "openclaw",
+        "event": "before_compaction",
+        "versionRange": "2026.7.1-2@0790d9f"
+      },
+      "permission": "enforce-checkpoint-boundary",
+      "approvalRequirement": "contract-scoped",
+      "timeoutMs": 5000,
+      "failureSemantics": "fail-closed",
+      "unsupportedBehavior": [
+        "automatic-external-plugin-install"
+      ]
+    },
+    {
+      "capabilityId": "resource:acceptance-cases",
+      "resourceId": "resource:acceptance-cases",
+      "carrier": "workspace-content",
+      "owner": "agent-package",
+      "necessity": "portable-declarative-resource",
+      "trust": "workspace-content",
+      "memberPaths": [
+        "resources/evals/acceptance-cases.json"
+      ],
+      "recipeDigest": null,
+      "targetMapping": {
+        "target": "openclaw",
+        "event": null,
+        "versionRange": "2026.7.1-2@0790d9f"
+      },
+      "permission": "permission:acceptance-cases",
+      "approvalRequirement": "contract-scoped",
+      "timeoutMs": null,
+      "failureSemantics": "fail-closed",
+      "unsupportedBehavior": []
+    },
+    {
+      "capabilityId": "resource:agent-loop",
+      "resourceId": "resource:agent-loop",
+      "carrier": "native-plugin",
+      "owner": "agentmo-openclaw-harness",
+      "necessity": "approved-typed-hook-owner",
+      "trust": "in-process-code",
+      "memberPaths": [
+        "resources/runtime/loop.json"
+      ],
+      "recipeDigest": "sha256:5bd43924237a304222f60a9788a8f0130819ba0208f567ebfc798b0735205402",
+      "targetMapping": {
+        "target": "openclaw",
+        "event": "before_agent_run",
+        "versionRange": "2026.7.1-2@0790d9f"
+      },
+      "permission": "permission:agent-loop",
+      "approvalRequirement": "contract-scoped",
+      "timeoutMs": 5000,
+      "failureSemantics": "fail-closed",
+      "unsupportedBehavior": [
+        "automatic-external-plugin-install"
+      ]
+    },
+    {
+      "capabilityId": "resource:evidence-obligations",
+      "resourceId": "resource:evidence-obligations",
+      "carrier": "workspace-content",
+      "owner": "agent-package",
+      "necessity": "portable-declarative-resource",
+      "trust": "workspace-content",
+      "memberPaths": [
+        "projections/openclaw/capability-map.json",
+        "resources/evidence-boundary.json"
+      ],
+      "recipeDigest": null,
+      "targetMapping": {
+        "target": "openclaw",
+        "event": null,
+        "versionRange": "2026.7.1-2@0790d9f"
+      },
+      "permission": "permission:evidence-obligations",
+      "approvalRequirement": "contract-scoped",
+      "timeoutMs": null,
+      "failureSemantics": "fail-closed",
+      "unsupportedBehavior": []
+    },
+    {
+      "capabilityId": "resource:execute-transition",
+      "resourceId": "resource:execute-transition",
+      "carrier": "workspace-content",
+      "owner": "agent-package",
+      "necessity": "portable-declarative-resource",
+      "trust": "workspace-content",
+      "memberPaths": [
+        "resources/transitions/execute.json"
+      ],
+      "recipeDigest": null,
+      "targetMapping": {
+        "target": "openclaw",
+        "event": null,
+        "versionRange": "2026.7.1-2@0790d9f"
+      },
+      "permission": "permission:execute-transition",
+      "approvalRequirement": "explicit-human-approval",
+      "timeoutMs": null,
+      "failureSemantics": "fail-closed",
+      "unsupportedBehavior": []
+    },
+    {
+      "capabilityId": "resource:harness",
+      "resourceId": "resource:harness",
+      "carrier": "native-plugin",
+      "owner": "agentmo-openclaw-harness",
+      "necessity": "approved-typed-hook-owner",
+      "trust": "in-process-code",
+      "memberPaths": [
+        "resources/harness/runtime.json"
+      ],
+      "recipeDigest": "sha256:5bd43924237a304222f60a9788a8f0130819ba0208f567ebfc798b0735205402",
+      "targetMapping": {
+        "target": "openclaw",
+        "event": "before_agent_run",
+        "versionRange": "2026.7.1-2@0790d9f"
+      },
+      "permission": "permission:harness",
+      "approvalRequirement": "contract-scoped",
+      "timeoutMs": 5000,
+      "failureSemantics": "fail-closed",
+      "unsupportedBehavior": [
+        "automatic-external-plugin-install"
+      ]
+    },
+    {
+      "capabilityId": "resource:install-transition",
+      "resourceId": "resource:install-transition",
+      "carrier": "workspace-content",
+      "owner": "agent-package",
+      "necessity": "portable-declarative-resource",
+      "trust": "workspace-content",
+      "memberPaths": [
+        "resources/transitions/install.json"
+      ],
+      "recipeDigest": null,
+      "targetMapping": {
+        "target": "openclaw",
+        "event": null,
+        "versionRange": "2026.7.1-2@0790d9f"
+      },
+      "permission": "permission:install-transition",
+      "approvalRequirement": "explicit-human-approval",
+      "timeoutMs": null,
+      "failureSemantics": "fail-closed",
+      "unsupportedBehavior": []
+    },
+    {
+      "capabilityId": "resource:load-transition",
+      "resourceId": "resource:load-transition",
+      "carrier": "workspace-content",
+      "owner": "agent-package",
+      "necessity": "portable-declarative-resource",
+      "trust": "workspace-content",
+      "memberPaths": [
+        "resources/transitions/load.json"
+      ],
+      "recipeDigest": null,
+      "targetMapping": {
+        "target": "openclaw",
+        "event": null,
+        "versionRange": "2026.7.1-2@0790d9f"
+      },
+      "permission": "permission:load-transition",
+      "approvalRequirement": "contract-scoped",
+      "timeoutMs": null,
+      "failureSemantics": "fail-closed",
+      "unsupportedBehavior": []
+    },
+    {
+      "capabilityId": "resource:memory",
+      "resourceId": "resource:memory",
+      "carrier": "workspace-content",
+      "owner": "agent-package",
+      "necessity": "portable-declarative-resource",
+      "trust": "workspace-content",
+      "memberPaths": [
+        "projections/openclaw/workspace/MEMORY.md",
+        "resources/memory/policy.json"
+      ],
+      "recipeDigest": null,
+      "targetMapping": {
+        "target": "openclaw",
+        "event": null,
+        "versionRange": "2026.7.1-2@0790d9f"
+      },
+      "permission": "permission:memory",
+      "approvalRequirement": "contract-scoped",
+      "timeoutMs": null,
+      "failureSemantics": "fail-closed",
+      "unsupportedBehavior": []
+    },
+    {
+      "capabilityId": "resource:permissions",
+      "resourceId": "resource:permissions",
+      "carrier": "workspace-content",
+      "owner": "agent-package",
+      "necessity": "portable-declarative-resource",
+      "trust": "workspace-content",
+      "memberPaths": [
+        "resources/permissions.json"
+      ],
+      "recipeDigest": null,
+      "targetMapping": {
+        "target": "openclaw",
+        "event": null,
+        "versionRange": "2026.7.1-2@0790d9f"
+      },
+      "permission": "permission:permissions",
+      "approvalRequirement": "contract-scoped",
+      "timeoutMs": null,
+      "failureSemantics": "fail-closed",
+      "unsupportedBehavior": []
+    },
+    {
+      "capabilityId": "resource:plugins",
+      "resourceId": "resource:plugins",
+      "carrier": "native-plugin",
+      "owner": "agentmo-openclaw-harness",
+      "necessity": "approved-typed-hook-owner",
+      "trust": "in-process-code",
+      "memberPaths": [
+        "projections/openclaw/plugins/agentmo-openclaw-harness/index.js",
+        "projections/openclaw/plugins/agentmo-openclaw-harness/openclaw.plugin.json",
+        "resources/plugins/agentmo-openclaw-harness.json"
+      ],
+      "recipeDigest": "sha256:5bd43924237a304222f60a9788a8f0130819ba0208f567ebfc798b0735205402",
+      "targetMapping": {
+        "target": "openclaw",
+        "event": "before_agent_run",
+        "versionRange": "2026.7.1-2@0790d9f"
+      },
+      "permission": "permission:plugins",
+      "approvalRequirement": "explicit-human-approval",
+      "timeoutMs": 5000,
+      "failureSemantics": "fail-closed",
+      "unsupportedBehavior": [
+        "automatic-external-plugin-install"
+      ]
+    },
+    {
+      "capabilityId": "resource:prompt",
+      "resourceId": "resource:prompt",
+      "carrier": "workspace-content",
+      "owner": "agent-package",
+      "necessity": "portable-declarative-resource",
+      "trust": "workspace-content",
+      "memberPaths": [
+        "resources/prompts/system.md"
+      ],
+      "recipeDigest": null,
+      "targetMapping": {
+        "target": "openclaw",
+        "event": null,
+        "versionRange": "2026.7.1-2@0790d9f"
+      },
+      "permission": "permission:prompt",
+      "approvalRequirement": "contract-scoped",
+      "timeoutMs": null,
+      "failureSemantics": "fail-closed",
+      "unsupportedBehavior": []
+    },
+    {
+      "capabilityId": "resource:rag",
+      "resourceId": "resource:rag",
+      "carrier": "workspace-content",
+      "owner": "agent-package",
+      "necessity": "portable-declarative-resource",
+      "trust": "workspace-content",
+      "memberPaths": [
+        "resources/memory/rag-policy.json"
+      ],
+      "recipeDigest": null,
+      "targetMapping": {
+        "target": "openclaw",
+        "event": null,
+        "versionRange": "2026.7.1-2@0790d9f"
+      },
+      "permission": "permission:rag",
+      "approvalRequirement": "contract-scoped",
+      "timeoutMs": null,
+      "failureSemantics": "fail-closed",
+      "unsupportedBehavior": []
+    },
+    {
+      "capabilityId": "resource:recovery",
+      "resourceId": "resource:recovery",
+      "carrier": "workspace-content",
+      "owner": "agent-package",
+      "necessity": "portable-declarative-resource",
+      "trust": "workspace-content",
+      "memberPaths": [
+        "resources/recovery.json"
+      ],
+      "recipeDigest": null,
+      "targetMapping": {
+        "target": "openclaw",
+        "event": null,
+        "versionRange": "2026.7.1-2@0790d9f"
+      },
+      "permission": "permission:recovery",
+      "approvalRequirement": "contract-scoped",
+      "timeoutMs": null,
+      "failureSemantics": "fail-closed",
+      "unsupportedBehavior": []
+    },
+    {
+      "capabilityId": "resource:runtime-binding",
+      "resourceId": "resource:runtime-binding",
+      "carrier": "workspace-content",
+      "owner": "agent-package",
+      "necessity": "portable-declarative-resource",
+      "trust": "workspace-content",
+      "memberPaths": [
+        "projections/openclaw/runtime-binding.json",
+        "resources/runtime/binding.json"
+      ],
+      "recipeDigest": null,
+      "targetMapping": {
+        "target": "openclaw",
+        "event": null,
+        "versionRange": "2026.7.1-2@0790d9f"
+      },
+      "permission": "permission:runtime-binding",
+      "approvalRequirement": "contract-scoped",
+      "timeoutMs": null,
+      "failureSemantics": "fail-closed",
+      "unsupportedBehavior": []
+    },
+    {
+      "capabilityId": "resource:schedules",
+      "resourceId": "resource:schedules",
+      "carrier": "workspace-content",
+      "owner": "agent-package",
+      "necessity": "portable-declarative-resource",
+      "trust": "workspace-content",
+      "memberPaths": [
+        "resources/schedule-proposals/daily-collection.json"
+      ],
+      "recipeDigest": null,
+      "targetMapping": {
+        "target": "openclaw",
+        "event": null,
+        "versionRange": "2026.7.1-2@0790d9f"
+      },
+      "permission": "permission:schedules",
+      "approvalRequirement": "explicit-human-approval",
+      "timeoutMs": null,
+      "failureSemantics": "fail-closed",
+      "unsupportedBehavior": []
+    },
+    {
+      "capabilityId": "resource:secrets",
+      "resourceId": "resource:secrets",
+      "carrier": "workspace-content",
+      "owner": "agent-package",
+      "necessity": "portable-declarative-resource",
+      "trust": "workspace-content",
+      "memberPaths": [
+        "projections/openclaw/credential-setup-proposal.json",
+        "resources/credential-setup-proposal.json"
+      ],
+      "recipeDigest": null,
+      "targetMapping": {
+        "target": "openclaw",
+        "event": null,
+        "versionRange": "2026.7.1-2@0790d9f"
+      },
+      "permission": "permission:secrets",
+      "approvalRequirement": "explicit-human-approval",
+      "timeoutMs": null,
+      "failureSemantics": "fail-closed",
+      "unsupportedBehavior": []
+    },
+    {
+      "capabilityId": "resource:skills",
+      "resourceId": "resource:skills",
+      "carrier": "skill",
+      "owner": "agent-package",
+      "necessity": "declarative-domain-instructions",
+      "trust": "workspace-instructions",
+      "memberPaths": [
+        "projections/openclaw/workspace/skills/support-triage/SKILL.md",
+        "resources/skills/support-triage/SKILL.md"
+      ],
+      "recipeDigest": null,
+      "targetMapping": {
+        "target": "openclaw",
+        "event": null,
+        "versionRange": "2026.7.1-2@0790d9f"
+      },
+      "permission": "permission:skills",
+      "approvalRequirement": "contract-scoped",
+      "timeoutMs": null,
+      "failureSemantics": "fail-closed",
+      "unsupportedBehavior": []
+    },
+    {
+      "capabilityId": "resource:storage",
+      "resourceId": "resource:storage",
+      "carrier": "workspace-content",
+      "owner": "agent-package",
+      "necessity": "portable-declarative-resource",
+      "trust": "workspace-content",
+      "memberPaths": [
+        "resources/storage/policy.json"
+      ],
+      "recipeDigest": null,
+      "targetMapping": {
+        "target": "openclaw",
+        "event": null,
+        "versionRange": "2026.7.1-2@0790d9f"
+      },
+      "permission": "permission:storage",
+      "approvalRequirement": "contract-scoped",
+      "timeoutMs": null,
+      "failureSemantics": "fail-closed",
+      "unsupportedBehavior": []
+    },
+    {
+      "capabilityId": "resource:tool-policy",
+      "resourceId": "resource:tool-policy",
+      "carrier": "workspace-content",
+      "owner": "agent-package",
+      "necessity": "portable-declarative-resource",
+      "trust": "workspace-content",
+      "memberPaths": [
+        "resources/tools/tool-policy.json"
+      ],
+      "recipeDigest": null,
+      "targetMapping": {
+        "target": "openclaw",
+        "event": null,
+        "versionRange": "2026.7.1-2@0790d9f"
+      },
+      "permission": "permission:tool-policy",
+      "approvalRequirement": "contract-scoped",
+      "timeoutMs": null,
+      "failureSemantics": "fail-closed",
+      "unsupportedBehavior": []
+    },
+    {
+      "capabilityId": "resource:tools",
+      "resourceId": "resource:tools",
+      "carrier": "workspace-content",
+      "owner": "agent-package",
+      "necessity": "portable-declarative-resource",
+      "trust": "workspace-content",
+      "memberPaths": [
+        "projections/openclaw/workspace/TOOLS.md",
+        "resources/tools/tool-bindings.json"
+      ],
+      "recipeDigest": null,
+      "targetMapping": {
+        "target": "openclaw",
+        "event": null,
+        "versionRange": "2026.7.1-2@0790d9f"
+      },
+      "permission": "permission:tools",
+      "approvalRequirement": "contract-scoped",
+      "timeoutMs": null,
+      "failureSemantics": "fail-closed",
+      "unsupportedBehavior": []
+    },
+    {
+      "capabilityId": "resource:trust-boundaries",
+      "resourceId": "resource:trust-boundaries",
+      "carrier": "workspace-content",
+      "owner": "agent-package",
+      "necessity": "portable-declarative-resource",
+      "trust": "workspace-content",
+      "memberPaths": [
+        "resources/trust-boundaries.json"
+      ],
+      "recipeDigest": null,
+      "targetMapping": {
+        "target": "openclaw",
+        "event": null,
+        "versionRange": "2026.7.1-2@0790d9f"
+      },
+      "permission": "permission:trust-boundaries",
+      "approvalRequirement": "contract-scoped",
+      "timeoutMs": null,
+      "failureSemantics": "fail-closed",
+      "unsupportedBehavior": []
+    },
+    {
+      "capabilityId": "resource:workspace-context",
+      "resourceId": "resource:workspace-context",
+      "carrier": "workspace-content",
+      "owner": "agent-package",
+      "necessity": "portable-declarative-resource",
+      "trust": "workspace-content",
+      "memberPaths": [
+        "projections/openclaw/config/openclaw.agent.patch.json",
+        "projections/openclaw/schedule-proposals/daily-collection.json",
+        "projections/openclaw/workspace/AGENTS.md",
+        "projections/openclaw/workspace/IDENTITY.md",
+        "projections/openclaw/workspace/SOUL.md",
+        "projections/openclaw/workspace/USER.md",
+        "resources/workspace/context.json"
+      ],
+      "recipeDigest": null,
+      "targetMapping": {
+        "target": "openclaw",
+        "event": null,
+        "versionRange": "2026.7.1-2@0790d9f"
+      },
+      "permission": "permission:workspace-context",
+      "approvalRequirement": "contract-scoped",
+      "timeoutMs": null,
+      "failureSemantics": "fail-closed",
+      "unsupportedBehavior": []
+    }
+  ],
+  "members": [
+    {
+      "relativePath": "projections/openclaw/capability-map.json",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 3439,
+      "sha256": "sha256:11e953318fd2e1f961398e067ee6bdef0ef05020ef7032ceccb6b8172c9d7ece"
+    },
+    {
+      "relativePath": "projections/openclaw/config/openclaw.agent.patch.json",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 170,
+      "sha256": "sha256:b19792720b94903f7e61e696c980fe29040185a847c142d83701009968377d49"
+    },
+    {
+      "relativePath": "projections/openclaw/credential-setup-proposal.json",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 202,
+      "sha256": "sha256:ccfcc2ba957ffb956951552fe1ed2566f76da3b55c0a914d256d49b86e2285c8"
+    },
+    {
+      "relativePath": "projections/openclaw/hooks/after-attempt.json",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 495,
+      "sha256": "sha256:0a87f6f54ec1268777fa46600d6ae64c65886c41fb099ec159e271866f84359f"
+    },
+    {
+      "relativePath": "projections/openclaw/hooks/after-tool.json",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 500,
+      "sha256": "sha256:21eafb7d307304de96e835c57dced53ebe7678b59590064128f26af34a26ea00"
+    },
+    {
+      "relativePath": "projections/openclaw/hooks/before-attempt.json",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 501,
+      "sha256": "sha256:99bfe8d920a9f0c354184675f6c54b5586cd9e8e573ff1ea7afc6be1566ad96e"
+    },
+    {
+      "relativePath": "projections/openclaw/hooks/before-checkpoint.json",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 508,
+      "sha256": "sha256:a96999f9a4ac404ff692701842a5ca695fe978209481b01a00201148c636128c"
+    },
+    {
+      "relativePath": "projections/openclaw/plugins/agentmo-openclaw-harness/index.js",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 247,
+      "sha256": "sha256:de74f73dca399422062c34dfda364d572e266188819b19a479d9ae96ac9bc029"
+    },
+    {
+      "relativePath": "projections/openclaw/plugins/agentmo-openclaw-harness/openclaw.plugin.json",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 122,
+      "sha256": "sha256:bf35994d6d232c206fbf79d24be0acbbb75b9e714947bcc5e92258077f070afb"
+    },
+    {
+      "relativePath": "projections/openclaw/runtime-binding.json",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 870,
+      "sha256": "sha256:4306d215fe96fe03853063655ace88d03b8bb0c8a96cccbbe0f641cf9d59f501"
+    },
+    {
+      "relativePath": "projections/openclaw/schedule-proposals/daily-collection.json",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 131,
+      "sha256": "sha256:9334229c8af8664b4850ff073d0c5cb5c5c1f85af04758aa008374a058052a7d"
+    },
+    {
+      "relativePath": "projections/openclaw/workspace/AGENTS.md",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 150,
+      "sha256": "sha256:5c391bc33c264a66728fdaa3333d411ab09272f2b7921129a7bd7e9b1a894063"
+    },
+    {
+      "relativePath": "projections/openclaw/workspace/IDENTITY.md",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 128,
+      "sha256": "sha256:12564b2d4b64d3addde8540989ff249fb7b744c4d42291677503ed3b96c07103"
+    },
+    {
+      "relativePath": "projections/openclaw/workspace/MEMORY.md",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 125,
+      "sha256": "sha256:b27f6aeb2f050caea0acb0731f85e45dae8074b8d1206d580d959d1f657b8d4d"
+    },
+    {
+      "relativePath": "projections/openclaw/workspace/SOUL.md",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 105,
+      "sha256": "sha256:ab42cf045bd68ba906d28e7edc1a424fe72b048e49b3d3d56ec26bda5444fc86"
+    },
+    {
+      "relativePath": "projections/openclaw/workspace/TOOLS.md",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 113,
+      "sha256": "sha256:faca0125c5d1c761fff96c902e8f6796841992a2e06260b58b21fc4d0c7c6c7d"
+    },
+    {
+      "relativePath": "projections/openclaw/workspace/USER.md",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 133,
+      "sha256": "sha256:ae9a4fda8781894f6f45f598421d6a64e1925c6b1c502b2bf66e58dbcba999b2"
+    },
+    {
+      "relativePath": "projections/openclaw/workspace/skills/support-triage/SKILL.md",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 115,
+      "sha256": "sha256:074e37c9b9e5934d941718ec4f02c2a8e12f0ad7c2fbbbcb57e9e3c816c86513"
+    },
+    {
+      "relativePath": "resources/credential-setup-proposal.json",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 1288,
+      "sha256": "sha256:e2c6ccc8176dc58aac52f7f006030c538fc0500b0940e9eff62b6d579015fd15"
+    },
+    {
+      "relativePath": "resources/evals/acceptance-cases.json",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 2502,
+      "sha256": "sha256:2ed6792013e5abb40a9afe16b3b4e4862d58a4d2a7db72773174dfe49e69278c"
+    },
+    {
+      "relativePath": "resources/evidence-boundary.json",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 6023,
+      "sha256": "sha256:352e2b3c0cff754c6168ffea8646fdc7b6352d0d885aa85e4094a4b831a7dcde"
+    },
+    {
+      "relativePath": "resources/harness/runtime.json",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 786,
+      "sha256": "sha256:7ea32b2f5fb286eeaa5d4f22171cf4008aa10f6414e53a728e1a133ada7c3777"
+    },
+    {
+      "relativePath": "resources/memory/policy.json",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 899,
+      "sha256": "sha256:45b5d83b9d2b79117b39dcfb1e14f1a3e2a6399162f80bf773c08511ac27f31e"
+    },
+    {
+      "relativePath": "resources/memory/rag-policy.json",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 1341,
+      "sha256": "sha256:bc1a96196d094657c2fdb0a4f54611a911e5c3df19db59d0fb524d532428f2f6"
+    },
+    {
+      "relativePath": "resources/permissions.json",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 5078,
+      "sha256": "sha256:35863e30d3f42ac23d6bfc90fa4fbb492993e0c4f28f66a558f776456ac3cb13"
+    },
+    {
+      "relativePath": "resources/plugins/agentmo-openclaw-harness.json",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 712,
+      "sha256": "sha256:4097165bb17a9944a99e7817b18c177fdd04648b1ad4c33e707b964bcccc8dd9"
+    },
+    {
+      "relativePath": "resources/prompts/system.md",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 158,
+      "sha256": "sha256:89eb131a36b7718410751bf4f07bfa11c97b3abad22c2e003e0153d127ef0d52"
+    },
+    {
+      "relativePath": "resources/recovery.json",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 832,
+      "sha256": "sha256:8df9295c4d335c73fc096c3fda6bfd43ce78947519c4e16c41e146703e40f280"
+    },
+    {
+      "relativePath": "resources/runtime/binding.json",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 597,
+      "sha256": "sha256:d433fd33f97b99a4aad0cbca7609732a632307ffc6194509ec9a3ce2c5f9d391"
+    },
+    {
+      "relativePath": "resources/runtime/loop.json",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 1100,
+      "sha256": "sha256:b6ed74f2c4f710015c3e4b739af9d69a931fe84a83129f520d945b91ff7dcc21"
+    },
+    {
+      "relativePath": "resources/schedule-proposals/daily-collection.json",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 1181,
+      "sha256": "sha256:d8398a37ff7191ff82aea1b08ac55e2bce65dba5f793993b150ead4e996fea81"
+    },
+    {
+      "relativePath": "resources/skills/support-triage/SKILL.md",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 148,
+      "sha256": "sha256:358f9c0c2e0e96e3e7b36af3267728feddac62becf71298e1bd8639899b30124"
+    },
+    {
+      "relativePath": "resources/storage/policy.json",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 1268,
+      "sha256": "sha256:fd4558884e06b885fd476db586f8d5018c5aa20dcce067c449f832d305f17c67"
+    },
+    {
+      "relativePath": "resources/tools/tool-bindings.json",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 870,
+      "sha256": "sha256:280cbdd035a63eb7ff7c42b30c9cf9b3fa59086db1276c5b821bd58efb0a0a67"
+    },
+    {
+      "relativePath": "resources/tools/tool-policy.json",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 882,
+      "sha256": "sha256:bda1e0ae8f3dcb973347584386c8cdfa4ebdac9b71813e398f9bce680a7088d9"
+    },
+    {
+      "relativePath": "resources/transitions/execute.json",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 1108,
+      "sha256": "sha256:d95b1dbd07406f2264408da7635a285d48b3e2609e6bc65470af40a41fd13d93"
+    },
+    {
+      "relativePath": "resources/transitions/install.json",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 1108,
+      "sha256": "sha256:1be75a0076e1d0a80cb0bc4288741392c41d15ccef782a85c5662b3433170e1f"
+    },
+    {
+      "relativePath": "resources/transitions/load.json",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 1102,
+      "sha256": "sha256:81f29804c3d662c03efbbedd21158c77e8036d802c6b2f64254c8164bfaf27b7"
+    },
+    {
+      "relativePath": "resources/trust-boundaries.json",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 1350,
+      "sha256": "sha256:94106fc26f1912d44bb25ca6276302db164a679baa011edbef3003a2886cc254"
+    },
+    {
+      "relativePath": "resources/workspace/context.json",
+      "type": "file",
+      "mode": 420,
+      "byteLength": 3526,
+      "sha256": "sha256:ea95927578b8a69ff6b2e5be58c8ba5b2e86109b1cac67ac56b3bec455bd06c4"
+    }
+  ],
+  "inventoryDigest": "sha256:d6be393fc176c9f28811e9e8771fae7cff5efb81a824697a6300ae80466c32a5",
+  "ownership": {
+    "packageOwner": "agentmo",
+    "managedMemberPaths": [
+      "projections/openclaw/capability-map.json",
+      "projections/openclaw/config/openclaw.agent.patch.json",
+      "projections/openclaw/credential-setup-proposal.json",
+      "projections/openclaw/hooks/after-attempt.json",
+      "projections/openclaw/hooks/after-tool.json",
+      "projections/openclaw/hooks/before-attempt.json",
+      "projections/openclaw/hooks/before-checkpoint.json",
+      "projections/openclaw/plugins/agentmo-openclaw-harness/index.js",
+      "projections/openclaw/plugins/agentmo-openclaw-harness/openclaw.plugin.json",
+      "projections/openclaw/runtime-binding.json",
+      "projections/openclaw/schedule-proposals/daily-collection.json",
+      "projections/openclaw/workspace/AGENTS.md",
+      "projections/openclaw/workspace/IDENTITY.md",
+      "projections/openclaw/workspace/MEMORY.md",
+      "projections/openclaw/workspace/SOUL.md",
+      "projections/openclaw/workspace/TOOLS.md",
+      "projections/openclaw/workspace/USER.md",
+      "projections/openclaw/workspace/skills/support-triage/SKILL.md",
+      "resources/credential-setup-proposal.json",
+      "resources/evals/acceptance-cases.json",
+      "resources/evidence-boundary.json",
+      "resources/harness/runtime.json",
+      "resources/memory/policy.json",
+      "resources/memory/rag-policy.json",
+      "resources/permissions.json",
+      "resources/plugins/agentmo-openclaw-harness.json",
+      "resources/prompts/system.md",
+      "resources/recovery.json",
+      "resources/runtime/binding.json",
+      "resources/runtime/loop.json",
+      "resources/schedule-proposals/daily-collection.json",
+      "resources/skills/support-triage/SKILL.md",
+      "resources/storage/policy.json",
+      "resources/tools/tool-bindings.json",
+      "resources/tools/tool-policy.json",
+      "resources/transitions/execute.json",
+      "resources/transitions/install.json",
+      "resources/transitions/load.json",
+      "resources/trust-boundaries.json",
+      "resources/workspace/context.json"
+    ],
+    "externalStateIncluded": false
+  },
+  "permissions": [
+    "permission:acceptance-cases",
+    "permission:agent-loop",
+    "permission:evidence-obligations",
+    "permission:execute-transition",
+    "permission:harness",
+    "permission:install-transition",
+    "permission:load-transition",
+    "permission:memory",
+    "permission:permissions",
+    "permission:plugins",
+    "permission:prompt",
+    "permission:rag",
+    "permission:recovery",
+    "permission:runtime-binding",
+    "permission:schedules",
+    "permission:secrets",
+    "permission:skills",
+    "permission:storage",
+    "permission:tool-policy",
+    "permission:tools",
+    "permission:trust-boundaries",
+    "permission:workspace-context"
+  ],
+  "evidenceRefs": [
+    "evidence:acceptance-cases",
+    "evidence:agent-loop",
+    "evidence:evidence-obligations",
+    "evidence:execute-transition",
+    "evidence:harness",
+    "evidence:install-transition",
+    "evidence:load-transition",
+    "evidence:memory",
+    "evidence:permissions",
+    "evidence:plugins",
+    "evidence:prompt",
+    "evidence:rag",
+    "evidence:recovery",
+    "evidence:runtime-binding",
+    "evidence:schedules",
+    "evidence:secrets",
+    "evidence:skills",
+    "evidence:storage",
+    "evidence:tool-policy",
+    "evidence:tools",
+    "evidence:trust-boundaries",
+    "evidence:workspace-context"
+  ],
+  "certificationBoundary": {
+    "deterministicPackageMechanism": true,
+    "installed": false,
+    "runtime": false,
+    "domain": false,
+    "production": false
+  },
+  "remainingRisks": [
+    "All declared resources require Phase 4 materialization evidence.",
+    "Domain behavior remains unverified until Phase 5 acceptance.",
+    "OpenClaw source drift must be checked before materialization."
+  ]
+}

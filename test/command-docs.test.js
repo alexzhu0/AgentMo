@@ -51,11 +51,20 @@ const OPENCLAW_CLASSIFICATIONS = Object.freeze({
 const SUBJECT_OPTION_FLAGS = Object.freeze({
   "birth-report": "--birth-report",
   "build-state": "--build-state",
+  "build-contract": "--build-contract",
   "design-plan": "--design-plan",
+  "decision-entry": "--entry",
+  "decision-ledger": "--decision-ledger",
+  "discovery-approval": "--discovery-approval",
+  "discovery-db": "--discovery-db",
   "discovery-manifest": "--discovery-manifest",
   "domain-cases": "--cases",
   "domain-eval": "--domain-eval",
+  "openclaw-target-descriptor": "--target-descriptor",
   "run-eval": "--run-eval",
+  "target-build-info": "--target-build-info",
+  "target-executable": "--target-executable",
+  "target-package-json": "--target-package-json",
   "user-need": "--need",
 });
 
@@ -267,6 +276,62 @@ describe("maintained command documentation", () => {
     assert.throws(() => assertPortableMarkdownPaths("cd C:\\Users\\alex\\project", "windows-host-canary"), assert.AssertionError);
   });
 
+  it("keeps the canonical Phase 3 lane, approval meaning, and Phase 4/5 ownership synchronized", async () => {
+    const canonicalFiles = [
+      "README.md",
+      "docs/MVP_RUNBOOK.md",
+      "docs/STAGE_CONTRACTS.md",
+      "docs/OMX_SESSION_MIGRATION.md",
+      "docs/AGENTMO_MVP_LEDGER.md",
+      "release/2026.07.27.md",
+    ];
+    const documents = new Map(await Promise.all(canonicalFiles.map(async (relative) => (
+      [relative, await readFile(path.join(REPO_ROOT, relative), "utf8")]
+    ))));
+
+    for (const [relative, markdown] of documents) {
+      for (const identity of [
+        "agentmo.discovery-approval.v1",
+        "agentmo.build-contract.v1",
+        "agentmo.plan-approval.v1",
+      ]) {
+        assert.match(markdown, new RegExp(escapeRegExp(identity), "u"), `${relative}: ${identity}`);
+      }
+      assert.match(markdown, /Phase 3[\s\S]{0,1000}(?:specif|approve)/iu, `${relative}: Phase 3 ownership`);
+      assert.match(markdown, /Phase 4[\s\S]{0,300}(?:generat|install)/iu, `${relative}: Phase 4 ownership`);
+      assert.match(markdown, /Phase 5[\s\S]{0,300}(?:execut|runtime|recovery)/iu, `${relative}: Phase 5 ownership`);
+      assert.match(markdown, /extraction_field[\s\S]{0,300}(?:declaration|declarative)/iu, `${relative}: declaration boundary`);
+      assert.match(markdown, /local operator intent|local intent/iu, `${relative}: local approval scope`);
+      assert.match(markdown, /authenticated organizational identity/iu, `${relative}: organization boundary`);
+      assert.match(markdown, /(?:does not|do not|not)[\s\S]{0,220}(?:domain quality|production readiness|production quality)/iu, `${relative}: non-certification boundary`);
+    }
+
+    for (const relative of ["README.md", "docs/MVP_RUNBOOK.md", "docs/STAGE_CONTRACTS.md"]) {
+      const markdown = documents.get(relative);
+      for (const command of [
+        "discover-live",
+        "discovery-approve",
+        "decision-ledger",
+        "design-plan",
+        "blueprint-draft",
+        "build-contract",
+        "plan-approve",
+      ]) {
+        assert.match(markdown, new RegExp(`\\b${escapeRegExp(command)}\\b`, "u"), `${relative}: ${command}`);
+      }
+    }
+
+    const runbook = documents.get("docs/MVP_RUNBOOK.md");
+    assert.match(runbook, /Separately labelled bounded public HTTPS smoke/u);
+    assert.match(runbook, /maxSources:\s*1/u);
+    assert.match(runbook, /raw provider bod/iu);
+    assert.match(runbook, /mutate copies/iu);
+
+    const stageContracts = documents.get("docs/STAGE_CONTRACTS.md");
+    assert.doesNotMatch(stageContracts, /current Stage 1 does not fetch/iu);
+    assert.doesNotMatch(stageContracts, /produces a reviewed design contract/iu);
+  });
+
   it("keeps Builder v1 docs on the append-only CLI and indexes every dated release once", async () => {
     const readme = await readFile(path.join(REPO_ROOT, "README.md"), "utf8");
     const runbook = await readFile(path.join(REPO_ROOT, "docs/MVP_RUNBOOK.md"), "utf8");
@@ -331,7 +396,7 @@ function assertDocumentInvocation(invocation, label) {
     } else {
       assert.match(
         invocation,
-        /(?:^|\s)artifact-contract\s+(?:discovery-manifest|user-need)(?:\s+--json)?(?:\s|$)/u,
+        /(?:^|\s)artifact-contract\s+(?:decision-entry|discovery-manifest|user-need)(?:\s+--json)?(?:\s|$)/u,
         `${label}: artifact-contract subject drifted`,
       );
     }
@@ -658,6 +723,7 @@ function generatedEffectKey(tokens) {
 
 function operandForSubject(invocation, command, subject) {
   let flag = SUBJECT_OPTION_FLAGS[subject] ?? null;
+  if (subject === "discovery-manifest" && command === "design-plan") flag = "--manifest";
   if (flag !== null && !invocation.includes(flag)) flag = null;
   if (subject === "run-state" && invocation.includes("--run-state")) flag = "--run-state";
   if (subject === "run-index" && invocation.includes("--run-index")) flag = "--run-index";

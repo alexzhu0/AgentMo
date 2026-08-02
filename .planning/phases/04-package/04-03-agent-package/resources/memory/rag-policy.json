@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "agentmo.package-resource.v1",
+  "resourceId": "resource:rag",
+  "kind": "rag",
+  "declaredContract": {
+    "status": "declared-not-materialized",
+    "corpora": [
+      {
+        "id": "workspace-memory",
+        "source": "openclaw/workspace/memory",
+        "enabled": true,
+        "boundary": "workspace-only"
+      }
+    ],
+    "chunking": {
+      "strategy": "heading-aware",
+      "maximumChars": 2400,
+      "overlapChars": 240
+    },
+    "embedding": {
+      "provider": "openai-compatible",
+      "model": "text-embedding-3-small",
+      "dimensions": 1536,
+      "secretRef": {
+        "kind": "SecretRef",
+        "source": "runtime-env",
+        "name": "OPENAI_API_KEY"
+      }
+    },
+    "index": {
+      "owner": "memory-core",
+      "engine": "sqlite-vec-when-ready",
+      "rebuild": "transactional-shadow-swap"
+    },
+    "search": {
+      "hybridWeights": {
+        "fullText": 0.4,
+        "vector": 0.6
+      },
+      "minimumScore": 0.2,
+      "maximumResults": 8
+    },
+    "fallback": "bounded-full-text-scan",
+    "citations": {
+      "required": true,
+      "sourceLinesRequired": true
+    },
+    "sync": "checkpoint-and-startup",
+    "dataBoundary": "declared-workspace-corpora-only"
+  },
+  "materialized": true,
+  "installed": false,
+  "runtimeVerified": false,
+  "domainVerified": false
+}

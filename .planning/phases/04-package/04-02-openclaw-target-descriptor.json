@@ -1,0 +1,80 @@
+{
+  "schemaVersion": "agentmo.openclaw-target-descriptor.v1",
+  "target": {
+    "id": "openclaw",
+    "version": "2026.7.1-2",
+    "sourceRevision": "0790d9f593ad30c940ed93b5872a8cf6d6f3cf8c",
+    "displayRevision": "0790d9f",
+    "nodeRange": ">=22.22.3 <23 || >=24.15.0 <25 || >=25.9.0"
+  },
+  "targetRoot": {
+    "identityScheme": "retained-stat-and-canonical-member-closure-v1",
+    "memberClosureDigest": "sha256:460d3df4f1b1bc0335e11f6581ba6e59fd1ddb45021e5f0d8400f408b5da54cf",
+    "identityBasis": {
+      "device": "16777232",
+      "inode": "15523101",
+      "size": "544",
+      "mtimeNs": "1785144252133359973",
+      "ctimeNs": "1785144252133359973"
+    }
+  },
+  "members": [
+    {
+      "role": "build-info",
+      "relativePath": "dist/build-info.json",
+      "byteLength": 127,
+      "sha256": "sha256:e45942b82f7e17d0be4ce38483f1da99c2dbfdfabad3c55fbfd3b3bb970b9e33",
+      "identityBasis": {
+        "device": "16777232",
+        "inode": "15530244",
+        "size": "127",
+        "mtimeNs": "1785144250809189752",
+        "ctimeNs": "1785144250809189752"
+      }
+    },
+    {
+      "role": "executable",
+      "relativePath": "openclaw.mjs",
+      "byteLength": 23463,
+      "sha256": "sha256:f643b005d6db233a0b45204e8d8e943256874ccc6897b8a6e0cf42a9b376a188",
+      "identityBasis": {
+        "device": "16777232",
+        "inode": "15532620",
+        "size": "23463",
+        "mtimeNs": "1785144251538547331",
+        "ctimeNs": "1785144259416441825"
+      }
+    },
+    {
+      "role": "package-json",
+      "relativePath": "package.json",
+      "byteLength": 116017,
+      "sha256": "sha256:695b6ee36df7fc69606dc390cf97bb2ca809114337b18c573707637cd2a4e3db",
+      "identityBasis": {
+        "device": "16777232",
+        "inode": "15530492",
+        "size": "116017",
+        "mtimeNs": "1785144250839962201",
+        "ctimeNs": "1785144250839962201"
+      }
+    }
+  ],
+  "provenance": {
+    "authority": "installed-first-party-package-observation",
+    "packageName": "openclaw",
+    "observation": "retained-no-follow-read-only",
+    "versionAuthority": "package-json-and-build-info-exact-match",
+    "revisionAuthority": "build-info-commit",
+    "nodeRangeAuthority": "package-json-engines-node"
+  },
+  "certificationBoundary": {
+    "targetIdentityObservationOnly": true,
+    "sourceQuality": false,
+    "packageBuilt": false,
+    "installedByAgentMo": false,
+    "runtime": false,
+    "domain": false,
+    "production": false
+  },
+  "authorityDigest": "sha256:db260e3f2a4af92f3e0fc3518a0f1552b0c8b6d5ebe19d127b27f3a1ae01cf06"
+}

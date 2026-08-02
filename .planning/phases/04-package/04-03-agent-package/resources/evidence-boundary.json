@@ -1,0 +1,231 @@
+{
+  "schemaVersion": "agentmo.package-resource.v1",
+  "resourceId": "resource:evidence-obligations",
+  "kind": "evidence-obligations",
+  "declaredContract": [
+    {
+      "id": "evidence:prompt",
+      "resourceId": "resource:prompt",
+      "requiredAt": "phase-4",
+      "proves": "exact-resource-materialization",
+      "doesNotProve": [
+        "domain-quality",
+        "production-readiness"
+      ]
+    },
+    {
+      "id": "evidence:workspace-context",
+      "resourceId": "resource:workspace-context",
+      "requiredAt": "phase-4",
+      "proves": "exact-resource-materialization",
+      "doesNotProve": [
+        "domain-quality",
+        "production-readiness"
+      ]
+    },
+    {
+      "id": "evidence:skills",
+      "resourceId": "resource:skills",
+      "requiredAt": "phase-4",
+      "proves": "exact-resource-materialization",
+      "doesNotProve": [
+        "domain-quality",
+        "production-readiness"
+      ]
+    },
+    {
+      "id": "evidence:tools",
+      "resourceId": "resource:tools",
+      "requiredAt": "phase-4",
+      "proves": "exact-resource-materialization",
+      "doesNotProve": [
+        "domain-quality",
+        "production-readiness"
+      ]
+    },
+    {
+      "id": "evidence:tool-policy",
+      "resourceId": "resource:tool-policy",
+      "requiredAt": "phase-4",
+      "proves": "exact-resource-materialization",
+      "doesNotProve": [
+        "domain-quality",
+        "production-readiness"
+      ]
+    },
+    {
+      "id": "evidence:plugins",
+      "resourceId": "resource:plugins",
+      "requiredAt": "phase-4",
+      "proves": "exact-resource-materialization",
+      "doesNotProve": [
+        "domain-quality",
+        "production-readiness"
+      ]
+    },
+    {
+      "id": "evidence:memory",
+      "resourceId": "resource:memory",
+      "requiredAt": "phase-4",
+      "proves": "exact-resource-materialization",
+      "doesNotProve": [
+        "domain-quality",
+        "production-readiness"
+      ]
+    },
+    {
+      "id": "evidence:rag",
+      "resourceId": "resource:rag",
+      "requiredAt": "phase-4",
+      "proves": "exact-resource-materialization",
+      "doesNotProve": [
+        "domain-quality",
+        "production-readiness"
+      ]
+    },
+    {
+      "id": "evidence:storage",
+      "resourceId": "resource:storage",
+      "requiredAt": "phase-4",
+      "proves": "exact-resource-materialization",
+      "doesNotProve": [
+        "domain-quality",
+        "production-readiness"
+      ]
+    },
+    {
+      "id": "evidence:schedules",
+      "resourceId": "resource:schedules",
+      "requiredAt": "phase-4",
+      "proves": "exact-resource-materialization",
+      "doesNotProve": [
+        "domain-quality",
+        "production-readiness"
+      ]
+    },
+    {
+      "id": "evidence:harness",
+      "resourceId": "resource:harness",
+      "requiredAt": "phase-5",
+      "proves": "bounded-runtime-mechanism",
+      "doesNotProve": [
+        "domain-quality",
+        "production-readiness"
+      ]
+    },
+    {
+      "id": "evidence:agent-loop",
+      "resourceId": "resource:agent-loop",
+      "requiredAt": "phase-5",
+      "proves": "bounded-runtime-mechanism",
+      "doesNotProve": [
+        "domain-quality",
+        "production-readiness"
+      ]
+    },
+    {
+      "id": "evidence:runtime-binding",
+      "resourceId": "resource:runtime-binding",
+      "requiredAt": "phase-5",
+      "proves": "bounded-runtime-mechanism",
+      "doesNotProve": [
+        "domain-quality",
+        "production-readiness"
+      ]
+    },
+    {
+      "id": "evidence:permissions",
+      "resourceId": "resource:permissions",
+      "requiredAt": "phase-4",
+      "proves": "exact-resource-materialization",
+      "doesNotProve": [
+        "domain-quality",
+        "production-readiness"
+      ]
+    },
+    {
+      "id": "evidence:trust-boundaries",
+      "resourceId": "resource:trust-boundaries",
+      "requiredAt": "phase-4",
+      "proves": "exact-resource-materialization",
+      "doesNotProve": [
+        "domain-quality",
+        "production-readiness"
+      ]
+    },
+    {
+      "id": "evidence:secrets",
+      "resourceId": "resource:secrets",
+      "requiredAt": "phase-4",
+      "proves": "exact-resource-materialization",
+      "doesNotProve": [
+        "domain-quality",
+        "production-readiness"
+      ]
+    },
+    {
+      "id": "evidence:install-transition",
+      "resourceId": "resource:install-transition",
+      "requiredAt": "phase-4",
+      "proves": "exact-resource-materialization",
+      "doesNotProve": [
+        "domain-quality",
+        "production-readiness"
+      ]
+    },
+    {
+      "id": "evidence:load-transition",
+      "resourceId": "resource:load-transition",
+      "requiredAt": "phase-4",
+      "proves": "exact-resource-materialization",
+      "doesNotProve": [
+        "domain-quality",
+        "production-readiness"
+      ]
+    },
+    {
+      "id": "evidence:execute-transition",
+      "resourceId": "resource:execute-transition",
+      "requiredAt": "phase-5",
+      "proves": "bounded-runtime-mechanism",
+      "doesNotProve": [
+        "domain-quality",
+        "production-readiness"
+      ]
+    },
+    {
+      "id": "evidence:recovery",
+      "resourceId": "resource:recovery",
+      "requiredAt": "phase-4",
+      "proves": "exact-resource-materialization",
+      "doesNotProve": [
+        "domain-quality",
+        "production-readiness"
+      ]
+    },
+    {
+      "id": "evidence:acceptance-cases",
+      "resourceId": "resource:acceptance-cases",
+      "requiredAt": "phase-4",
+      "proves": "exact-resource-materialization",
+      "doesNotProve": [
+        "domain-quality",
+        "production-readiness"
+      ]
+    },
+    {
+      "id": "evidence:evidence-obligations",
+      "resourceId": "resource:evidence-obligations",
+      "requiredAt": "phase-4",
+      "proves": "exact-resource-materialization",
+      "doesNotProve": [
+        "domain-quality",
+        "production-readiness"
+      ]
+    }
+  ],
+  "materialized": true,
+  "installed": false,
+  "runtimeVerified": false,
+  "domainVerified": false
+}

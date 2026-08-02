@@ -1,5 +1,6 @@
 export const DISCOVERY_SCHEMA_VERSION = "agentmo.discovery.v1";
 export const DISCOVERY_MANIFEST_SUBJECT = "discovery-manifest";
+export const DISCOVERY_LIVE_POLICY_SCHEMA_VERSION = "agentmo.discovery-live-policy.v1";
 
 const VALID_SOURCE_TYPES = new Set([
   "document",
@@ -12,6 +13,7 @@ const VALID_SOURCE_TYPES = new Set([
 ]);
 
 const VALID_TRUST_LEVELS = new Set(["verified", "trusted", "derived", "unverified", "unknown"]);
+const VALID_EVIDENCE_CLASSES = new Set(["primary", "first-party", "context", "community"]);
 
 export async function loadDiscoveryManifest(filePath, options = {}) {
   await assertDiscoveryLoaderSubject(options.subject, DISCOVERY_MANIFEST_SUBJECT);
@@ -43,6 +45,7 @@ export function validateDiscoveryManifest(manifest) {
   requireStringArray(manifest, "user_need_inputs", errors);
   validateRefreshPolicy(manifest.refresh_policy, errors);
   requireStringArray(manifest, "forbidden_data_handling", errors);
+  if (manifest.collector !== undefined) validateCollectorPolicy(manifest.collector, errors);
 
   if (
     Array.isArray(manifest.database_outputs) &&
@@ -64,6 +67,7 @@ export function summarizeDiscoveryManifest(manifest) {
     source_count: sourceInventory.length,
     source_types: sortedUnique(sourceInventory.map((source) => source.type).filter(nonEmptyString)),
     trust_levels: sortedUnique(sourceInventory.map((source) => source.trust_level).filter(nonEmptyString)),
+    evidence_classes: sortedUnique(sourceInventory.map((source) => source.evidence_class).filter(nonEmptyString)),
     database_outputs: Array.isArray(manifest?.database_outputs) ? manifest.database_outputs.filter(nonEmptyString) : [],
     retrieval_outputs: Array.isArray(manifest?.retrieval_outputs) ? manifest.retrieval_outputs.filter(nonEmptyString) : [],
     user_need_input_count: Array.isArray(manifest?.user_need_inputs)
@@ -97,6 +101,7 @@ export function formatDiscoveryReport(report) {
     `Sources: ${report.summary.source_count}`,
     `Source types: ${report.summary.source_types.join(", ") || "none"}`,
     `Trust levels: ${report.summary.trust_levels.join(", ") || "none"}`,
+    `Evidence classes: ${report.summary.evidence_classes.join(", ") || "adapter default"}`,
     `Database outputs: ${report.summary.database_outputs.length}`,
     `Retrieval outputs: ${report.summary.retrieval_outputs.length}`,
     `User-need inputs: ${report.summary.user_need_input_count}`,
@@ -150,6 +155,15 @@ function validateSourceInventory(value, errors, warnings) {
         `source_inventory[${index}].trust_level must be one of: ${Array.from(VALID_TRUST_LEVELS).join(", ")}`,
       );
     }
+    if (
+      source.evidence_class !== undefined
+      && (typeof source.evidence_class !== "string"
+        || !VALID_EVIDENCE_CLASSES.has(source.evidence_class))
+    ) {
+      errors.push(
+        `source_inventory[${index}].evidence_class must be one of: ${Array.from(VALID_EVIDENCE_CLASSES).join(", ")}`,
+      );
+    }
     if (!nonEmptyString(source.location)) {
       warnings.push(`source_inventory[${index}] (${source.id ?? "unknown"}) has no location.`);
     }
@@ -164,6 +178,40 @@ function validateRefreshPolicy(value, errors) {
   requireString(value, "refresh_policy.cadence", errors);
   requireString(value, "refresh_policy.owner", errors);
   requireString(value, "refresh_policy.stale_after", errors);
+}
+
+function validateCollectorPolicy(value, errors) {
+  if (!isObject(value)) {
+    errors.push("collector must be an object.");
+    return;
+  }
+  if (value.schemaVersion !== DISCOVERY_LIVE_POLICY_SCHEMA_VERSION) {
+    errors.push(`collector.schemaVersion must be ${DISCOVERY_LIVE_POLICY_SCHEMA_VERSION}.`);
+  }
+  if (!["web", "github", "arxiv"].includes(value.adapter)) {
+    errors.push("collector.adapter must be one of: web, github, arxiv.");
+  }
+  requireStringArray(value, "collector.allowlist", errors);
+  requireBoundedInteger(value, "maxSources", 1, 32, errors);
+  requireBoundedInteger(value, "maxBytesPerSource", 1, 1_048_576, errors);
+  requireBoundedInteger(value, "perSourceTimeoutMs", 1, 60_000, errors);
+  requireBoundedInteger(value, "aggregateTimeoutMs", 1, 300_000, errors);
+  requireBoundedInteger(value, "maxRedirects", 0, 5, errors);
+  requireStringArray(value, "collector.allowedContentTypes", errors);
+  if (
+    Number.isSafeInteger(value.aggregateTimeoutMs)
+    && Number.isSafeInteger(value.perSourceTimeoutMs)
+    && value.aggregateTimeoutMs < value.perSourceTimeoutMs
+  ) {
+    errors.push("collector.aggregateTimeoutMs must be greater than or equal to collector.perSourceTimeoutMs.");
+  }
+}
+
+function requireBoundedInteger(object, key, minimum, maximum, errors) {
+  const value = object?.[key];
+  if (!Number.isSafeInteger(value) || value < minimum || value > maximum) {
+    errors.push(`collector.${key} must be an integer between ${minimum} and ${maximum}.`);
+  }
 }
 
 function requireString(object, path, errors) {

@@ -8,12 +8,15 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { loadAdmittedArtifact } from "../src/artifact-admission.js";
 import { buildDesignPlan, loadDesignPlan, validateDesignPlan, writeDesignPlan } from "../src/design-plan.js";
+import { buildDiscoveryApproval, buildDiscoveryApprovalPreview } from "../src/discovery-approval.js";
 import { loadDiscoveryDb } from "../src/discovery-db.js";
+import { appendDecisionEntry, loadDecisionLedger } from "../src/decision-ledger.js";
 import { loadUserNeed } from "../src/user-need.js";
 
 const CLI = fileURLToPath(new URL("../bin/agentmo.js", import.meta.url));
 const REPO_ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const DISCOVERY_DB_FILE = fileURLToPath(new URL("../examples/fixtures/support-triage/prebuilt-discovery-db.json", import.meta.url));
+const DISCOVERY_MANIFEST_FILE = fileURLToPath(new URL("../examples/support-triage.discovery.json", import.meta.url));
 const USER_NEED_FILE = fileURLToPath(new URL("../examples/support-triage.need.json", import.meta.url));
 
 async function loadJson(url) {
@@ -21,16 +24,19 @@ async function loadJson(url) {
 }
 
 async function supportInputs() {
+  const discoveryManifestAdmission = await admitFile(DISCOVERY_MANIFEST_FILE, "discovery-manifest");
   const discoveryDbAdmission = await admitFile(DISCOVERY_DB_FILE, "discovery-db");
   const userNeedAdmission = await admitFile(USER_NEED_FILE, "user-need");
-  return {
+  return approveInputs({
+    manifest: discoveryManifestAdmission.value,
     discoveryDb: discoveryDbAdmission.value,
     need: userNeedAdmission.value,
     admissions: {
+      discoveryManifest: discoveryManifestAdmission,
       discoveryDb: discoveryDbAdmission,
       userNeed: userNeedAdmission,
     },
-  };
+  });
 }
 
 async function admitFile(file, subject) {
@@ -38,16 +44,88 @@ async function admitFile(file, subject) {
   return loadAdmittedArtifact({ filePath: file, subject, expectedDigest: digest(bytes) });
 }
 
-async function admitValue(value, subject) {
+async function admitValue(value, subject, companions) {
   const root = await mkdtemp(path.join(tmpdir(), `agentmo-${subject}-admit-`));
   const file = path.join(root, `${subject}.json`);
   const bytes = Buffer.from(`${JSON.stringify(value, null, 2)}\n`, "utf8");
   await writeFile(file, bytes);
-  return loadAdmittedArtifact({ filePath: file, subject, expectedDigest: digest(bytes) });
+  return loadAdmittedArtifact({
+    filePath: file,
+    subject,
+    expectedDigest: digest(bytes),
+    ...(companions ? { companions } : {}),
+  });
+}
+
+async function approveInputs(inputs) {
+  const approvalOptions = {
+    admissions: {
+      discoveryManifest: inputs.admissions.discoveryManifest,
+      discoveryDb: inputs.admissions.discoveryDb,
+    },
+  };
+  const preview = buildDiscoveryApprovalPreview(inputs.manifest, inputs.discoveryDb, approvalOptions);
+  const approval = buildDiscoveryApproval(inputs.manifest, inputs.discoveryDb, {
+    ...approvalOptions,
+    approve: true,
+    previewDigest: preview.previewDigest,
+  });
+  const discoveryApprovalAdmission = await admitValue(
+    approval,
+    "discovery-approval",
+    {
+      "discovery-manifest": inputs.admissions.discoveryManifest,
+      "discovery-db": inputs.admissions.discoveryDb,
+    },
+  );
+  const decisionLedger = inputs.decisionLedger ?? await buildDecisionLedger(inputs.need);
+  return {
+    ...inputs,
+    discoveryApproval: discoveryApprovalAdmission.value,
+    decisionLedger,
+    admissions: {
+      ...inputs.admissions,
+      discoveryApproval: discoveryApprovalAdmission,
+      decisionLedger,
+    },
+  };
 }
 
 function planOptions(inputs, extra = {}) {
-  return { target: "openclaw", admissions: inputs.admissions, ...extra };
+  return {
+    target: "openclaw",
+    manifest: inputs.manifest ?? inputs.admissions.discoveryManifest.value,
+    discoveryApproval: inputs.discoveryApproval ?? inputs.admissions.discoveryApproval.value,
+    decisionLedger: inputs.decisionLedger ?? inputs.admissions.decisionLedger,
+    admissions: inputs.admissions,
+    ...extra,
+  };
+}
+
+async function buildDecisionLedger(need) {
+  const root = await mkdtemp(path.join(tmpdir(), "agentmo-design-decision-ledger-"));
+  const journalPath = path.join(root, "decision-ledger.json");
+  const requirementRefs = [
+    ...need.primary_tasks.map((_, index) => `primary-task-${String(index + 1).padStart(2, "0")}`),
+    ...need.success_criteria.map((_, index) => `success-criterion-${String(index + 1).padStart(2, "0")}`),
+    ...need.hard_failures.map((_, index) => `hard-failure-${String(index + 1).padStart(2, "0")}`),
+  ].sort();
+  const appended = await appendDecisionEntry({
+    journalPath,
+    entry: {
+      entryId: "human-decision-01",
+      entryKind: "human-decision",
+      subject: "Bounded Stage 2 planning scope",
+      reason: "Proceed with governed gaps and preserve draft status.",
+      sourceRefs: [],
+      decisionRefs: [],
+      requirementRefs,
+    },
+  });
+  return loadDecisionLedger({
+    journalPath,
+    expectedHeadDigest: appended.head.digest,
+  });
 }
 
 function digest(bytes) {
@@ -112,9 +190,55 @@ describe("design plan", () => {
       "manifest extraction-field declarations must not certify collected evidence",
     );
     assert.equal(plan.gaps.length, expectedTraceCount);
+    assert.equal(plan.source.decisionLedger.digest, admissions.decisionLedger.head.digest);
+    assert.equal(plan.traceGraph.forwardTraceEdges.length > 0, true);
+    assert.deepEqual(
+      plan.traceGraph.reverseTraceEdges,
+      plan.traceGraph.forwardTraceEdges.map((edge) => ({
+        from: edge.to,
+        to: edge.from,
+        relation: edge.relation,
+      })).sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right))),
+    );
+    for (const trace of plan.requirementsTrace) {
+      assert.equal(
+        plan.traceGraph.forwardTraceEdges.some(
+          (edge) => edge.to === trace.requirementId
+            && ["source-supports-requirement", "decision-governs-requirement"].includes(edge.relation),
+        ),
+        true,
+        `${trace.requirementId} must have a source or decision edge`,
+      );
+    }
 
     const validation = validateDesignPlan(plan);
     assert.equal(validation.ok, true, validation.errors.join("\n"));
+
+    const oneWay = structuredClone(plan);
+    oneWay.traceGraph.reverseTraceEdges.pop();
+    const oneWayValidation = validateDesignPlan(oneWay);
+    assert.equal(oneWayValidation.ok, false);
+    assert.match(oneWayValidation.errors.join("\n"), /reverse edges/i);
+  });
+
+  it("requires the exact current decision-ledger head as Plan authority", async () => {
+    const inputs = await supportInputs();
+    assert.throws(
+      () => buildDesignPlan(inputs.discoveryDb, inputs.need, {
+        ...planOptions(inputs),
+        decisionLedger: undefined,
+      }),
+      /decision ledger/i,
+    );
+    const forged = structuredClone(inputs.decisionLedger);
+    assert.throws(
+      () => buildDesignPlan(inputs.discoveryDb, inputs.need, {
+        ...planOptions(inputs),
+        decisionLedger: forged,
+        admissions: { ...inputs.admissions, decisionLedger: forged },
+      }),
+      /decision ledger/i,
+    );
   });
 
   it("only marks requirements supported from multiple trusted source chunks", async () => {
@@ -141,11 +265,12 @@ describe("design plan", () => {
       },
     );
     const evidencedAdmission = await admitValue(evidencedDb, "discovery-db");
-    const evidencedInputs = {
+    const evidencedInputs = await approveInputs({
+      manifest: admissions.discoveryManifest.value,
       discoveryDb: evidencedAdmission.value,
       need,
       admissions: { ...admissions, discoveryDb: evidencedAdmission },
-    };
+    });
 
     const plan = buildDesignPlan(
       evidencedInputs.discoveryDb,
@@ -187,11 +312,12 @@ describe("design plan", () => {
       },
     );
     const unverifiedAdmission = await admitValue(unverifiedDb, "discovery-db");
-    const unverifiedInputs = {
+    const unverifiedInputs = await approveInputs({
+      manifest: admissions.discoveryManifest.value,
       discoveryDb: unverifiedAdmission.value,
       need,
       admissions: { ...admissions, discoveryDb: unverifiedAdmission },
-    };
+    });
 
     const plan = buildDesignPlan(
       unverifiedInputs.discoveryDb,
@@ -221,11 +347,12 @@ describe("design plan", () => {
     const { discoveryDb, need, admissions } = await supportInputs();
     const sparseDb = { ...discoveryDb, facts: discoveryDb.facts.slice(0, 1) };
     const sparseAdmission = await admitValue(sparseDb, "discovery-db");
-    const sparseInputs = {
+    const sparseInputs = await approveInputs({
+      manifest: admissions.discoveryManifest.value,
       discoveryDb: sparseAdmission.value,
       need,
       admissions: { ...admissions, discoveryDb: sparseAdmission },
-    };
+    });
     const governed = buildDesignPlan(sparseInputs.discoveryDb, need, planOptions(sparseInputs));
 
     assert.equal(governed.requirementsTrace.some((entry) => entry.coverage !== "supported"), true);
@@ -279,10 +406,9 @@ describe("design plan", () => {
       "https://example.com/support/policy",
     ];
     const allowedAdmission = await admitValue(allowed, "user-need");
-    const allowedPlan = buildDesignPlan(discoveryDb, allowedAdmission.value, {
-      target: "openclaw",
+    const allowedPlan = buildDesignPlan(discoveryDb, allowedAdmission.value, planOptions({
       admissions: { ...admissions, userNeed: allowedAdmission },
-    });
+    }));
     assert.deepEqual(allowedPlan.userNeedSummary.sourceRefs, allowed.source_refs);
 
     const deniedRefs = [
@@ -449,7 +575,7 @@ describe("design plan", () => {
     await assert.rejects(() => access(root));
   });
 
-  it("CLI design-plan writes an artifact and bounded JSON report", async () => {
+  it("CLI design-plan rejects the old unapproved DB route and writes nothing", async () => {
     const tempRoot = await mkdtemp(path.join(tmpdir(), "agentmo-design-plan-cli-"));
     const dbPath = path.join(tempRoot, "agentmo-discovery-db.json");
     const outPath = path.join(tempRoot, "agentmo-design-plan.json");
@@ -473,14 +599,8 @@ describe("design plan", () => {
       "--json",
     ]);
 
-    assert.equal(result.code, 0, result.stderr);
-    const json = JSON.parse(result.stdout);
-    assert.equal(json.report.ok, true);
-    assert.equal(json.report.agentId, "support-triage");
-    assert.equal(json.report.designPlanPath, "agentmo-design-plan.json");
-    assertNoSensitiveOutput(json, "design-plan stdout", tempRoot);
-    const saved = JSON.parse(await readFile(outPath, "utf8"));
-    assert.equal(saved.schemaVersion, "agentmo.design-plan.v1");
+    assert.equal(result.code, 1);
+    await assert.rejects(() => access(outPath));
   });
 
   it("CLI design-plan fails closed on unsafe DB and writes no success artifact", async () => {
@@ -511,5 +631,65 @@ describe("design plan", () => {
 
     assert.notEqual(result.code, 0);
     await assert.rejects(readFile(outPath, "utf8"));
+  });
+
+  it("uses evidence class only as a deterministic preference and labels matching non-semantic", async () => {
+    const { discoveryDb, need, admissions } = await supportInputs();
+    const rankedDb = structuredClone(discoveryDb);
+    rankedDb.sources = [
+      { id: "community", type: "retrieval_corpus", description: "memory community" },
+      { id: "primary", type: "retrieval_corpus", description: "memory paper" },
+      { id: "official-host", type: "retrieval_corpus", description: "memory official domain" },
+    ];
+    rankedDb.facts = [
+      {
+        id: "community:chunk:01",
+        sourceId: "community",
+        kind: "source_chunk",
+        text: "Support ticket category priority memory",
+        trustLevel: "unverified",
+        evidenceClass: "community",
+        refs: ["https://community.example/post"],
+        tags: [],
+      },
+      {
+        id: "primary:chunk:01",
+        sourceId: "primary",
+        kind: "source_chunk",
+        text: "Support ticket category priority memory",
+        trustLevel: "unverified",
+        evidenceClass: "primary",
+        refs: ["https://papers.example/abs/1"],
+        tags: [],
+      },
+      {
+        id: "official-host:chunk:01",
+        sourceId: "official-host",
+        kind: "source_chunk",
+        text: "Support ticket category priority memory",
+        trustLevel: "verified",
+        declaredTrustLevel: "verified",
+        evidenceClass: "context",
+        refs: ["https://official.example/research"],
+        tags: [],
+      },
+    ];
+    const rankedAdmission = await admitValue(rankedDb, "discovery-db");
+    const rankedInputs = await approveInputs({
+      manifest: admissions.discoveryManifest.value,
+      discoveryDb: rankedAdmission.value,
+      need,
+      admissions: { ...admissions, discoveryDb: rankedAdmission },
+    });
+    const plan = buildDesignPlan(rankedAdmission.value, need, planOptions(rankedInputs));
+    const trace = plan.requirementsTrace.find((entry) => entry.requirementId === "primary-task-01");
+
+    assert.equal(trace.coverage, "partial");
+    assert.equal(trace.matchBasis, "mechanical-token-overlap-non-semantic");
+    assert.deepEqual(trace.matchedFactRefs.slice(0, 2), [
+      "primary:chunk:01",
+      "official-host:chunk:01",
+    ]);
+    assert.equal(plan.evidencePolicy.semanticMatchingCertified, false);
   });
 });

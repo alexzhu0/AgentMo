@@ -26,10 +26,20 @@ describe("durable command subjects", () => {
     assert.deepEqual(Object.keys(DURABLE_COMMAND_SUBJECTS), [
       "discover-report",
       "discover-pack",
+      "discover-live",
       "discover-workspace",
+      "discovery-approve",
       "need-report",
+      "decision-ledger",
       "design-plan",
       "blueprint-draft",
+      "build-contract",
+      "plan-approve",
+      "openclaw-target-describe",
+      "openclaw-target-admit",
+      "package-produce",
+      "package-inspect",
+      "openclaw-probe",
       "validate",
       "report",
       "plan",
@@ -47,12 +57,56 @@ describe("durable command subjects", () => {
       "status",
       "scaffold",
     ]);
-    for (const command of ["discover-report", "discover-pack", "discover-workspace"]) {
+    for (const command of ["discover-report", "discover-pack", "discover-live", "discover-workspace"]) {
       assert.deepEqual(DURABLE_COMMAND_SUBJECTS[command], ["discovery-manifest"]);
       assert.equal(Object.isFrozen(DURABLE_COMMAND_SUBJECTS[command]), true);
       assert.equal(subjectsForCommand(command), DURABLE_COMMAND_SUBJECTS[command]);
     }
-    assert.deepEqual(DURABLE_COMMAND_SUBJECTS["design-plan"], ["discovery-db", "user-need"]);
+    assert.deepEqual(DURABLE_COMMAND_SUBJECTS["discovery-approve"], ["discovery-manifest", "discovery-db"]);
+    assert.deepEqual(DURABLE_COMMAND_SUBJECTS["design-plan"], [
+      "discovery-manifest",
+      "discovery-db",
+      "discovery-approval",
+      "user-need",
+      "decision-ledger",
+    ]);
+    assert.deepEqual(DURABLE_COMMAND_SUBJECTS["decision-ledger"], ["decision-entry"]);
+    assert.deepEqual(DURABLE_COMMAND_SUBJECTS["build-contract"], [
+      "blueprint",
+      "design-plan",
+      "discovery-approval",
+      "decision-ledger",
+      "openclaw-target-descriptor",
+    ]);
+    assert.deepEqual(DURABLE_COMMAND_SUBJECTS["plan-approve"], [
+      "blueprint",
+      "build-contract",
+    ]);
+    assert.deepEqual(DURABLE_COMMAND_SUBJECTS["openclaw-target-admit"], [
+      "blueprint",
+      "build-contract",
+      "plan-approval",
+      "openclaw-target-descriptor",
+      "target-executable",
+      "target-package-json",
+      "target-build-info",
+    ]);
+    assert.deepEqual(DURABLE_COMMAND_SUBJECTS["openclaw-target-describe"], [
+      "target-executable",
+      "target-package-json",
+      "target-build-info",
+    ]);
+    assert.deepEqual(DURABLE_COMMAND_SUBJECTS["package-produce"], [
+      "blueprint",
+      "design-plan",
+      "discovery-approval",
+      "decision-ledger",
+      "build-contract",
+      "plan-approval",
+      "openclaw-target-descriptor",
+      "openclaw-target-carrier-admission",
+    ]);
+    assert.deepEqual(DURABLE_COMMAND_SUBJECTS["package-inspect"], ["package-manifest"]);
     assert.equal(Object.isFrozen(DURABLE_COMMAND_SUBJECTS["design-plan"]), true);
     assert.equal(subjectsForCommand("design-plan"), DURABLE_COMMAND_SUBJECTS["design-plan"]);
     assert.deepEqual(DURABLE_COMMAND_SUBJECTS["need-report"], ["user-need"]);
@@ -91,8 +145,17 @@ describe("durable command subjects", () => {
       assert.equal(subjectsForCommand(command), DURABLE_COMMAND_SUBJECTS[command]);
     }
     assert.deepEqual(subjectsForCommand("plan"), ["blueprint"]);
-    assert.deepEqual(subjectsForCommand("design-plan"), ["discovery-db", "user-need"]);
+    assert.deepEqual(subjectsForCommand("design-plan"), [
+      "discovery-manifest",
+      "discovery-db",
+      "discovery-approval",
+      "user-need",
+      "decision-ledger",
+    ]);
     assert.deepEqual(OPTIONAL_DURABLE_COMMAND_SUBJECTS["blueprint-draft"], ["design-plan"]);
+    assert.deepEqual(OPTIONAL_DURABLE_COMMAND_SUBJECTS["build-contract"], [
+      "native-plugin-recipe",
+    ]);
     assert.deepEqual(OPTIONAL_DURABLE_COMMAND_SUBJECTS.report, ["discovery-manifest"]);
     assert.deepEqual(OPTIONAL_DURABLE_COMMAND_SUBJECTS.run, ["run-index"]);
     assert.deepEqual(OPTIONAL_DURABLE_COMMAND_SUBJECTS["replay-run"], ["run-index"]);
@@ -289,7 +352,11 @@ describe("durable command subjects", () => {
 const SUBJECT_OPTION_FLAGS = Object.freeze({
   "birth-report": "--birth-report",
   "build-state": "--build-state",
+  "decision-entry": "--entry",
+  "decision-ledger": "--decision-ledger",
   "design-plan": "--design-plan",
+  "discovery-approval": "--discovery-approval",
+  "discovery-db": "--discovery-db",
   "domain-cases": "--cases",
   "domain-eval": "--domain-eval",
   "run-eval": "--run-eval",
@@ -354,6 +421,7 @@ function assertInvocationContract(invocation, corpus) {
 }
 
 function subjectOperandFlag(subject, invocation) {
+  if (subject === "discovery-manifest" && invocation.includes("--manifest")) return "--manifest";
   if (subject === "run-state" && invocation.includes("--run-state")) return "--run-state";
   if (subject === "run-index" && invocation.includes("--run-index")) return "--run-index";
   return SUBJECT_OPTION_FLAGS[subject] ?? null;

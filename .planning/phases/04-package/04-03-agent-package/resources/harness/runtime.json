@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "agentmo.package-resource.v1",
+  "resourceId": "resource:harness",
+  "kind": "harness",
+  "declaredContract": {
+    "id": "agentmo-openclaw-harness",
+    "kind": "openclaw-compatible",
+    "selectionPolicy": "exact-id-and-capability-match",
+    "requiredCapabilities": [
+      "bounded-attempt",
+      "checkpoint",
+      "effective-tool-inventory"
+    ],
+    "toolOwnership": "runtime-policy-pipeline",
+    "responsibilities": [
+      "bounded-loop",
+      "checkpoint",
+      "evidence-capture"
+    ],
+    "providerIndependent": true,
+    "fallback": "fail-closed",
+    "unsupported": [
+      "infer-harness-from-provider",
+      "unbounded-attempt"
+    ]
+  },
+  "materialized": true,
+  "installed": false,
+  "runtimeVerified": false,
+  "domainVerified": false
+}

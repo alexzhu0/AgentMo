@@ -175,7 +175,15 @@ describe("OpenClaw runtime compatibility seams", () => {
       // Package admission validates the hook separately. Here inventory only
       // real source-level named child_process imports, not quoted fixture text.
       const importsSpawn = /import\s*\{[^}]*\bspawn\b[^}]*\}\s*from\s*["']node:child_process["']/u.test(source);
-      const count = importsSpawn ? [...source.matchAll(/\bspawn\s*\(/gu)].length : 0;
+      let count = importsSpawn ? [...source.matchAll(/\bspawn\s*\(/gu)].length : 0;
+      if (importsSpawn) {
+        for (const match of source.matchAll(
+          /\bconst\s+([A-Za-z_$][\w$]*)\s*=\s*options\.[A-Za-z_$][\w$]*\s*\?\?\s*spawn\s*;/gu,
+        )) {
+          const aliasCall = new RegExp(`\\b${match[1]}\\s*\\(`, "gu");
+          count += [...source.matchAll(aliasCall)].length;
+        }
+      }
       if (count > 0) {
         spawnSites.push({
           file: path.relative(REPOSITORY_ROOT, fileURLToPath(fileUrl)),
@@ -188,6 +196,10 @@ describe("OpenClaw runtime compatibility seams", () => {
       { file: "src/builder-codex-host.js", count: 2 },
       { file: "src/builder-posix-effect.js", count: 1 },
       { file: "src/builder-probe.js", count: 1 },
+      { file: "src/openclaw-official-action-runner.js", count: 1 },
+      { file: "src/openclaw-probe.js", count: 1 },
+      { file: "src/openclaw-process-supervisor.js", count: 1 },
+      { file: "src/openclaw-safe-fs.js", count: 2 },
       { file: "src/runtime-execution.js", count: 1 },
     ]);
   });

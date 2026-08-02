@@ -21,7 +21,16 @@ const FS_READERS = new Set([
   "realpath",
   "stat",
 ]);
-const FS_LIFECYCLE = new Set(["link", "mkdir", "mkdtemp", "rename", "rm", "rmdir", "unlink"]);
+const FS_LIFECYCLE = new Set([
+  "chmod",
+  "link",
+  "mkdir",
+  "mkdtemp",
+  "rename",
+  "rm",
+  "rmdir",
+  "unlink",
+]);
 const SOURCE_INTAKE_READERS = new Set(["readFile", "realpath", "stat"]);
 const SOURCE_INTAKE_IO_METHODS = new Set(["lstat", "open", "realpath"]);
 const PERSISTABILITY_WRITERS = new Set([
@@ -36,7 +45,7 @@ const STREAM_WRITERS = new Set(["end", "pipe"]);
 
 export const IO_SURFACE_ALLOWLIST = buildExactAllowlist([
   ...classify("02", "gated", [
-    "src/persistability.js:569:managed-writer:io.writeFile",
+    "src/persistability.js:639:managed-writer:io.writeFile",
   ]),
   ...classify("03", "gated", [
     "src/discovery-db.js:200:managed-writer:persistability.writePersistableJsonAtomic",
@@ -69,8 +78,8 @@ export const IO_SURFACE_ALLOWLIST = buildExactAllowlist([
     "src/discovery-source-workspace.js:595:file-handle-read:FileHandle.read",
   ]),
   ...classify("04", "gated", [
-    "src/blueprint-draft.js:154:managed-writer:persistability.writePersistableJsonAtomic",
-    "src/design-plan.js:200:managed-writer:persistability.writePersistableJsonAtomic",
+    "src/blueprint-draft.js:165:managed-writer:persistability.writePersistableJsonAtomic",
+    "src/design-plan.js:201:managed-writer:persistability.writePersistableJsonAtomic",
   ]),
   ...classify("05", "gated", [
     "src/migration-filesystem.js:801:managed-writer:faultController.write",
@@ -510,7 +519,7 @@ export const IO_SURFACE_ALLOWLIST = buildExactAllowlist([
     "src/control-snapshot.js:19:durable-loader:loadAdmittedArtifact",
     "src/design-plan.js:53:durable-loader:loadAdmittedArtifact",
     "src/discovery-db.js:34:durable-loader:loadAdmittedArtifact",
-    "src/discovery.js:19:durable-loader:loadAdmittedArtifact",
+    "src/discovery.js:21:durable-loader:loadAdmittedArtifact",
     "src/domain-eval.js:33:durable-loader:loadAdmittedArtifact",
     "src/handoff.js:60:durable-loader:loadAdmittedArtifact",
     "src/migration-filesystem.js:224:filesystem-lifecycle:fs.mkdir",
@@ -556,8 +565,8 @@ export const IO_SURFACE_ALLOWLIST = buildExactAllowlist([
     "src/migration-filesystem.js:1148:filesystem-read:fs.lstat",
     "src/observation.js:18:durable-loader:loadAdmittedArtifact",
     "src/persistability.js:198:serializer-to-sink:sink",
-    "src/persistability.js:568:managed-filesystem:io.mkdir",
-    "src/persistability.js:570:managed-filesystem:io.rename",
+    "src/persistability.js:638:managed-filesystem:io.mkdir",
+    "src/persistability.js:640:managed-filesystem:io.rename",
     "src/run-state.js:200:durable-loader:loadAdmittedArtifact",
     "src/run-state.js:213:durable-loader:loadAdmittedArtifact",
     "src/scaffold.js:139:filesystem-read:fs.readdir",
@@ -2902,6 +2911,7 @@ exactModuleSurfaceGroup("src/builder-lifecycle.js", "phase-02-plan-13", "gated",
     230:filesystem-open:fs.open
     240:file-handle-lifecycle:FileHandle.sync
     265:file-handle-lifecycle:FileHandle.sync
+    306:managed-filesystem:directoryHandle.chmod
     358:filesystem-open:fs.open
     359:file-handle-read:FileHandle.stat
     409:filesystem-read:fs.readdir
@@ -3060,26 +3070,516 @@ exactModuleSurfaceGroup("src/builder-package.js", "phase-02-plan-17", "gated", `
     775:filesystem-read:fs.lstat
     776:filesystem-read:fs.lstat
     955:file-handle-read:FileHandle.read
-    1267:filesystem-read:fs.readdir
-    1280:filesystem-read:fs.lstat
-    1281:filesystem-read:fs.realpath
-    2004:filesystem-read:fs.lstat
-    2008:filesystem-read:fs.realpath
-    2019:filesystem-read:fs.lstat
-    2029:filesystem-read:fs.lstat
-    2055:filesystem-read:fs.realpath
-    2114:filesystem-read:fs.lstat
-    2115:filesystem-read:fs.realpath
-    2367:filesystem-read:fs.lstat
-    2453:filesystem-read:fs.lstat
-    2457:filesystem-read:fs.realpath
-    2460:filesystem-open:fs.open
-    2461:file-handle-read:FileHandle.stat
-    2466:file-handle-read:FileHandle.stat
-    2467:filesystem-read:fs.lstat
-    2587:filesystem-read:fs.realpath
-    2616:filesystem-read:fs.lstat
-    2617:filesystem-read:fs.realpath
+    1279:filesystem-read:fs.readdir
+    1292:filesystem-read:fs.lstat
+    1293:filesystem-read:fs.realpath
+    2016:filesystem-read:fs.lstat
+    2020:filesystem-read:fs.realpath
+    2031:filesystem-read:fs.lstat
+    2041:filesystem-read:fs.lstat
+    2067:filesystem-read:fs.realpath
+    2126:filesystem-read:fs.lstat
+    2127:filesystem-read:fs.realpath
+    2379:filesystem-read:fs.lstat
+    2465:filesystem-read:fs.lstat
+    2469:filesystem-read:fs.realpath
+    2472:filesystem-open:fs.open
+    2473:file-handle-read:FileHandle.stat
+    2478:file-handle-read:FileHandle.stat
+    2479:filesystem-read:fs.lstat
+    2599:filesystem-read:fs.realpath
+    2628:filesystem-read:fs.lstat
+    2629:filesystem-read:fs.realpath
+  `),
+]);
+
+// Phase 03 live discovery adds one bounded network intake and one whole-set
+// publication boundary. Reconcile exact line-addressed surfaces after the CLI
+// gains its public command branch.
+reconcileExactModuleSurfaces(IO_SURFACE_ALLOWLIST, [
+  exactModuleSurfaceGroup("src/cli.js", "phase-03-plan-05", "gated", `
+    538:durable-loader:loadAdmittedBlueprint
+    563:durable-loader:loadAdmittedBlueprint
+    568:durable-loader:loadAdmittedArtifact
+    656:durable-loader:loadAdmittedArtifact
+    661:durable-loader:loadAdmittedArtifact
+    729:durable-loader:loadAdmittedArtifact
+    754:durable-loader:loadAdmittedArtifact
+    759:durable-loader:loadAdmittedArtifact
+    764:durable-loader:loadAdmittedArtifact
+    769:durable-loader:loadAdmittedArtifact
+    809:durable-loader:loadAdmittedArtifact
+    814:durable-loader:loadAdmittedArtifact
+    820:durable-loader:loadAdmittedArtifact
+    849:durable-loader:loadAdmittedBlueprint
+    853:durable-loader:loadAdmittedArtifact
+    858:durable-loader:loadAdmittedArtifact
+    868:durable-loader:loadAdmittedArtifact
+    934:durable-loader:loadAdmittedBlueprint
+    938:durable-loader:loadAdmittedArtifact
+    943:durable-loader:loadAdmittedArtifact
+    948:durable-loader:loadAdmittedArtifact
+    989:durable-loader:loadAdmittedBlueprint
+    993:durable-loader:loadAdmittedArtifact
+    1037:durable-loader:loadAdmittedBlueprint
+    1062:durable-loader:loadAdmittedBlueprint
+    1093:durable-loader:loadAdmittedBlueprint
+    1105:durable-loader:loadAdmittedBlueprint
+    1121:durable-loader:loadAdmittedArtifact
+    1195:durable-loader:loadAdmittedBlueprint
+    1199:durable-loader:loadAdmittedArtifact
+    1204:durable-loader:loadAdmittedArtifact
+    1209:durable-loader:loadAdmittedArtifact
+    1234:durable-loader:loadAdmittedBlueprint
+    1238:durable-loader:loadAdmittedArtifact
+    1257:durable-loader:loadAdmittedBlueprint
+    1261:durable-loader:loadAdmittedArtifact
+    1266:durable-loader:loadAdmittedArtifact
+    1271:durable-loader:loadAdmittedArtifact
+    1277:durable-loader:loadAdmittedArtifact
+    1289:durable-loader:loadAdmittedArtifact
+    1338:durable-loader:loadAdmittedBlueprint
+    2331:serializer-to-sink:emitPersistableOutput
+    2343:serializer-to-sink:emitPersistableOutput
+    2356:serializer-to-sink:emitPersistableOutput
+  `),
+  exactModuleSurfaceGroup("src/cli.js", "phase-02-plan-20", "non-artifact", `
+    2470:process-output:process.stdout.write
+  `),
+  exactModuleSurfaceGroup("src/cli.js", "phase-02-plan-20", "diagnostic", `
+    2474:process-output:process.stdout.write
+    2478:process-output:process.stdout.write
+    2482:process-output:process.stderr.write
+  `),
+  exactModuleSurfaceGroup("src/cli.js", "phase-02-plan-20", "transient-runtime", `
+    3792:filesystem-read:fs.readFile
+  `),
+  exactModuleSurfaceGroup("src/cli.js", "phase-02-plan-20", "ephemeral-secret", `
+    3818:filesystem-read:fs.readFile
+  `),
+  exactModuleSurfaceGroup("src/artifact-admission.js", "phase-03-plan-03", "gated", `
+    499:filesystem-open:file.openInput
+    500:file-handle-read:FileHandle.stat
+    510:file-handle-read:FileHandle.read
+    522:file-handle-read:FileHandle.stat
+  `),
+  exactModuleSurfaceGroup("src/build-contract.js", "phase-03-plan-05", "gated", `
+    309:durable-loader:loadAdmittedArtifact
+    418:managed-writer:persistability.writePersistableJsonAtomic
+  `),
+  exactModuleSurfaceGroup("src/openclaw-target-admission.js", "phase-04-plan-17", "gated", `
+    311:filesystem-open:fs.open
+    312:file-handle-read:FileHandle.stat
+    313:file-handle:FileHandle.writeFile
+    314:file-handle-lifecycle:FileHandle.sync
+    317:filesystem-read:fs.lstat
+    405:filesystem-read:fs.lstat
+    454:filesystem-read:fs.lstat
+    456:filesystem-open:fs.open
+    460:file-handle-read:FileHandle.stat
+    461:file-handle-read:FileHandle.readFile
+    462:file-handle-read:FileHandle.stat
+    463:filesystem-read:fs.lstat
+  `),
+  exactModuleSurfaceGroup("src/openclaw-target-descriptor.js", "phase-04-plan-17", "gated", `
+    296:filesystem-open:fs.open
+    297:file-handle-read:FileHandle.stat
+    298:file-handle:FileHandle.writeFile
+    299:file-handle-lifecycle:FileHandle.sync
+    302:filesystem-read:fs.lstat
+    396:filesystem-read:fs.lstat
+    435:filesystem-read:fs.lstat
+    441:filesystem-open:fs.open
+    445:file-handle-read:FileHandle.stat
+    446:file-handle-read:FileHandle.readFile
+    447:file-handle-read:FileHandle.stat
+    448:filesystem-read:fs.lstat
+    534:filesystem-read:fs.lstat
+    536:filesystem-open:fs.open
+    540:file-handle-read:FileHandle.stat
+    541:file-handle-read:FileHandle.readFile
+    542:file-handle-read:FileHandle.stat
+    543:filesystem-read:fs.lstat
+    568:filesystem-read:fs.lstat
+    589:filesystem-read:fs.lstat
+    597:filesystem-open:fs.open
+    601:file-handle-read:FileHandle.stat
+    607:file-handle-read:FileHandle.readFile
+    608:file-handle-read:FileHandle.stat
+    609:filesystem-read:fs.lstat
+  `),
+  exactModuleSurfaceGroup("src/plan-approval.js", "phase-03-plan-05", "gated", `
+    146:filesystem-open:fs.open
+    148:file-handle:FileHandle.writeFile
+    149:file-handle-lifecycle:FileHandle.sync
+    153:filesystem-lifecycle:fs.unlink
+  `),
+  exactModuleSurfaceGroup("src/design-plan.js", "phase-03-plan-03", "gated", `
+    63:durable-loader:loadAdmittedArtifact
+    243:managed-writer:persistability.writePersistableJsonAtomic
+  `),
+  exactModuleSurfaceGroup("src/discovery-approval.js", "phase-03-plan-03", "gated", `
+    152:filesystem-open:fs.open
+    154:file-handle:FileHandle.writeFile
+    155:file-handle-lifecycle:FileHandle.sync
+    159:filesystem-lifecycle:fs.unlink
+  `),
+  exactModuleSurfaceGroup("src/discovery.js", "phase-01.1-plan-03", "gated", `
+    21:durable-loader:loadAdmittedArtifact
+  `),
+  exactModuleSurfaceGroup("src/discovery-live-transport.js", "phase-03-plan-01", "non-artifact-intake", `
+    98:stream-write:req.end
+  `),
+  exactModuleSurfaceGroup("src/discovery-live.js", "phase-03-plan-01", "gated", `
+    159:managed-filesystem:publicationIo.mkdir
+    160:managed-filesystem:publicationIo.mkdir
+    162:managed-writer:publicationIo.writeFile
+    169:managed-filesystem:publicationIo.rename
+    631:filesystem-read:fs.lstat
+  `),
+  exactModuleSurfaceGroup("src/discovery-provenance.js", "phase-03-plan-01", "gated", ``),
+]);
+
+// Phase 04 closes the exact package and lifecycle surface. This remains a
+// line-addressed inventory: new methods or shifted calls fail until reviewed.
+reconcileExactModuleSurfaces(IO_SURFACE_ALLOWLIST, [
+  exactModuleSurfaceGroup("src/builder-package.js", "phase-02-plan-17", "gated", `
+    342:filesystem-read:fs.lstat
+    347:filesystem-open:fs.open
+    348:file-handle-read:FileHandle.stat
+    351:file-handle-read:FileHandle.stat
+    352:filesystem-read:fs.lstat
+    656:filesystem-read:fs.lstat
+    664:filesystem-read:fs.lstat
+    687:filesystem-read:fs.realpath
+    735:filesystem-read:fs.lstat
+    736:filesystem-read:fs.lstat
+    767:filesystem-read:fs.readdir
+    768:filesystem-read:fs.lstat
+    775:filesystem-read:fs.lstat
+    776:filesystem-read:fs.lstat
+    955:file-handle-read:FileHandle.read
+    1298:filesystem-read:fs.readdir
+    1311:filesystem-read:fs.lstat
+    1312:filesystem-read:fs.realpath
+    2036:filesystem-read:fs.lstat
+    2040:filesystem-read:fs.realpath
+    2051:filesystem-read:fs.lstat
+    2061:filesystem-read:fs.lstat
+    2087:filesystem-read:fs.realpath
+    2146:filesystem-read:fs.lstat
+    2147:filesystem-read:fs.realpath
+    2399:filesystem-read:fs.lstat
+    2485:filesystem-read:fs.lstat
+    2489:filesystem-read:fs.realpath
+    2492:filesystem-open:fs.open
+    2493:file-handle-read:FileHandle.stat
+    2498:file-handle-read:FileHandle.stat
+    2499:filesystem-read:fs.lstat
+    2619:filesystem-read:fs.realpath
+    2648:filesystem-read:fs.lstat
+    2649:filesystem-read:fs.realpath
+  `),
+  exactModuleSurfaceGroup("src/cli.js", "phase-03-plan-05", "gated", `
+    615:durable-loader:loadAdmittedBlueprint
+    640:durable-loader:loadAdmittedBlueprint
+    645:durable-loader:loadAdmittedArtifact
+    733:durable-loader:loadAdmittedArtifact
+    738:durable-loader:loadAdmittedArtifact
+    806:durable-loader:loadAdmittedArtifact
+    831:durable-loader:loadAdmittedArtifact
+    836:durable-loader:loadAdmittedArtifact
+    841:durable-loader:loadAdmittedArtifact
+    846:durable-loader:loadAdmittedArtifact
+    886:durable-loader:loadAdmittedArtifact
+    891:durable-loader:loadAdmittedArtifact
+    897:durable-loader:loadAdmittedArtifact
+    926:durable-loader:loadAdmittedBlueprint
+    930:durable-loader:loadAdmittedArtifact
+    935:durable-loader:loadAdmittedArtifact
+    945:durable-loader:loadAdmittedArtifact
+    1015:durable-loader:loadAdmittedBlueprint
+    1019:durable-loader:loadAdmittedArtifact
+    1024:durable-loader:loadAdmittedArtifact
+    1029:durable-loader:loadAdmittedArtifact
+    1430:durable-loader:loadAdmittedBlueprint
+    1434:durable-loader:loadAdmittedArtifact
+    1478:durable-loader:loadAdmittedBlueprint
+    1503:durable-loader:loadAdmittedBlueprint
+    1534:durable-loader:loadAdmittedBlueprint
+    1546:durable-loader:loadAdmittedBlueprint
+    1562:durable-loader:loadAdmittedArtifact
+    1636:durable-loader:loadAdmittedBlueprint
+    1640:durable-loader:loadAdmittedArtifact
+    1645:durable-loader:loadAdmittedArtifact
+    1650:durable-loader:loadAdmittedArtifact
+    1675:durable-loader:loadAdmittedBlueprint
+    1679:durable-loader:loadAdmittedArtifact
+    1698:durable-loader:loadAdmittedBlueprint
+    1702:durable-loader:loadAdmittedArtifact
+    1707:durable-loader:loadAdmittedArtifact
+    1712:durable-loader:loadAdmittedArtifact
+    1718:durable-loader:loadAdmittedArtifact
+    1730:durable-loader:loadAdmittedArtifact
+    1779:durable-loader:loadAdmittedBlueprint
+    2772:serializer-to-sink:emitPersistableOutput
+    2784:serializer-to-sink:emitPersistableOutput
+    2797:serializer-to-sink:emitPersistableOutput
+  `),
+  exactModuleSurfaceGroup("src/cli.js", "phase-04-plan-05", "gated", `
+    1134:filesystem-read:fs.lstat
+    1155:filesystem:fs.writeFile
+  `),
+  exactModuleSurfaceGroup("src/cli.js", "phase-04-plan-08", "gated", `
+    1275:durable-loader:loadAdmittedArtifact
+    4421:durable-loader:loadAdmittedArtifact
+  `),
+  exactModuleSurfaceGroup("src/cli.js", "phase-04-plan-12", "gated", `
+    4364:durable-loader:loadAdmittedArtifact
+    4369:durable-loader:loadAdmittedArtifact
+    4374:durable-loader:loadAdmittedArtifact
+    4379:durable-loader:loadAdmittedArtifact
+    4384:durable-loader:loadAdmittedArtifact
+    4395:durable-loader:loadAdmittedArtifact
+  `),
+  exactModuleSurfaceGroup("src/cli.js", "phase-04-plan-16", "gated", `
+    4194:filesystem-read:fs.realpath
+  `),
+  exactModuleSurfaceGroup("src/cli.js", "phase-02-plan-20", "non-artifact", `
+    3055:process-output:process.stdout.write
+  `),
+  exactModuleSurfaceGroup("src/cli.js", "phase-02-plan-20", "diagnostic", `
+    3059:process-output:process.stdout.write
+    3063:process-output:process.stdout.write
+    3067:process-output:process.stderr.write
+  `),
+  exactModuleSurfaceGroup("src/cli.js", "phase-02-plan-20", "transient-runtime", `
+    5447:filesystem-read:fs.readFile
+  `),
+  exactModuleSurfaceGroup("src/cli.js", "phase-02-plan-20", "ephemeral-secret", `
+    5473:filesystem-read:fs.readFile
+  `),
+  exactModuleSurfaceGroup("src/openclaw-authority-consumption.js", "phase-04-plan-14", "gated", `
+    66:filesystem-lifecycle:fs.mkdir
+    77:filesystem-open:fs.open
+    83:file-handle-lifecycle:FileHandle.sync
+    84:file-handle-read:FileHandle.stat
+    85:filesystem-read:fs.lstat
+    121:filesystem-read:fs.realpath
+    122:filesystem-read:fs.lstat
+    745:filesystem-read:fs.lstat
+    881:filesystem-read:fs.lstat
+    889:filesystem-open:fs.open
+    893:file-handle-read:FileHandle.stat
+    906:file-handle-read:FileHandle.readFile
+    907:file-handle-read:FileHandle.stat
+    908:filesystem-read:fs.lstat
+    909:filesystem-read:fs.lstat
+  `),
+  exactModuleSurfaceGroup("src/openclaw-authority-root-binding.js", "phase-04-plan-19", "gated", `
+    62:filesystem-lifecycle:fs.mkdir
+    70:filesystem-lifecycle:fs.mkdir
+    162:filesystem-open:fs.open
+    168:file-handle:FileHandle.writeFile
+    169:file-handle-lifecycle:FileHandle.sync
+    186:filesystem-read:fs.lstat
+    187:filesystem-open:fs.open
+    188:file-handle-read:FileHandle.stat
+    190:file-handle-read:FileHandle.readFile
+    191:file-handle-read:FileHandle.stat
+    192:filesystem-read:fs.lstat
+    245:filesystem-read:fs.realpath
+    246:filesystem-read:fs.lstat
+    268:filesystem-read:fs.lstat
+  `),
+  exactModuleSurfaceGroup("src/openclaw-credential-handoff.js", "phase-04-plan-14", "gated", ``),
+  exactModuleSurfaceGroup("src/openclaw-install-approval.js", "phase-04-plan-14", "gated", `
+    429:filesystem-read:fs.lstat
+    488:file-handle-read:FileHandle.stat
+    489:file-handle:FileHandle.writeFile
+    490:file-handle-lifecycle:FileHandle.sync
+    493:filesystem-read:fs.readFile
+  `),
+  exactModuleSurfaceGroup("src/openclaw-install-plan.js", "phase-04-plan-15", "gated", `
+    356:file-handle-read:FileHandle.stat
+    357:file-handle:FileHandle.writeFile
+    358:file-handle-lifecycle:FileHandle.sync
+    361:filesystem-read:fs.readFile
+  `),
+  exactModuleSurfaceGroup("src/openclaw-install-receipt.js", "phase-04-plan-16", "gated", `
+    267:file-handle-read:FileHandle.stat
+    268:file-handle:FileHandle.writeFile
+    269:file-handle-lifecycle:FileHandle.sync
+    272:filesystem-read:fs.readFile
+  `),
+  exactModuleSurfaceGroup("src/openclaw-install-transaction.js", "phase-04-plan-15", "gated", `
+    156:durable-loader:loadAdmittedArtifact
+    683:durable-loader:loadAdmittedArtifact
+    799:filesystem-open:fs.open
+    803:file-handle-read:FileHandle.stat
+    807:file-handle-read:FileHandle.readFile
+    808:file-handle-read:FileHandle.stat
+    809:filesystem-read:fs.lstat
+    1799:filesystem-read:fs.realpath
+    1800:filesystem-read:fs.lstat
+    1975:filesystem-read:fs.access
+    1985:filesystem-read:fs.access
+  `),
+  exactModuleSurfaceGroup("src/openclaw-install-transaction.js", "phase-04-plan-16", "gated", `
+    965:durable-loader:loadAdmittedArtifact
+    976:durable-loader:loadAdmittedArtifact
+  `),
+  exactModuleSurfaceGroup("src/openclaw-official-action-runner.js", "phase-04-plan-15", "gated", `
+    78:filesystem-lifecycle:fs.mkdtemp
+    81:filesystem-lifecycle:fs.chmod
+    83:filesystem-open:fs.open
+    90:file-handle:FileHandle.writeFile
+    91:file-handle-lifecycle:FileHandle.sync
+    186:filesystem-open:fs.open
+    193:file-handle:FileHandle.writeFile
+    194:file-handle-lifecycle:FileHandle.sync
+    471:filesystem-lifecycle:fs.mkdtemp
+    474:filesystem-lifecycle:fs.chmod
+    481:filesystem-open:fs.open
+    487:file-handle:FileHandle.writeFile
+    488:file-handle-lifecycle:FileHandle.sync
+    492:filesystem-open:fs.open
+    493:filesystem-open:fs.open
+    494:filesystem-open:fs.open
+    498:file-handle-read:FileHandle.stat
+    499:file-handle-read:FileHandle.stat
+    533:filesystem-read:fs.lstat
+    555:filesystem-read:fs.lstat
+    590:file-handle-read:FileHandle.stat
+    602:file-handle-read:FileHandle.read
+    613:file-handle-read:FileHandle.stat
+    759:filesystem-open:fs.open
+    760:file-handle-read:FileHandle.stat
+    761:file-handle-read:FileHandle.readFile
+    762:file-handle-read:FileHandle.stat
+    763:filesystem-read:fs.lstat
+    791:filesystem-open:fs.open
+    792:file-handle-read:FileHandle.stat
+    793:file-handle-read:FileHandle.readFile
+    794:file-handle-read:FileHandle.stat
+    795:filesystem-read:fs.lstat
+    818:filesystem-open:fs.open
+    819:file-handle-read:FileHandle.stat
+    820:file-handle-read:FileHandle.readFile
+    821:file-handle-read:FileHandle.stat
+    822:filesystem-read:fs.lstat
+  `),
+  exactModuleSurfaceGroup("src/openclaw-process-supervisor.js", "phase-04-plan-19", "gated", `
+    41:filesystem-lifecycle:fs.mkdtemp
+    44:filesystem-lifecycle:fs.chmod
+    76:filesystem-lifecycle:fs.chmod
+    103:filesystem-open:fs.open
+    110:file-handle:FileHandle.writeFile
+    111:file-handle-lifecycle:FileHandle.sync
+    240:filesystem-read:fs.realpath
+    264:filesystem-read:fs.lstat
+    276:filesystem-open:fs.open
+    280:file-handle-read:FileHandle.stat
+    281:file-handle-read:FileHandle.readFile
+    282:file-handle-read:FileHandle.stat
+    283:filesystem-read:fs.lstat
+    305:filesystem-open:fs.open
+    307:file-handle-lifecycle:FileHandle.sync
+  `),
+  exactModuleSurfaceGroup("src/openclaw-safe-fs.js", "phase-04-plan-13", "gated", `
+    148:filesystem-lifecycle:fs.mkdtemp
+    151:filesystem-lifecycle:fs.chmod
+    182:filesystem-lifecycle:fs.chmod
+    197:filesystem-open:fs.open
+    208:file-handle-read:FileHandle.stat
+    209:filesystem-read:fs.lstat
+    242:file-handle:FileHandle.writeFile
+    244:file-handle-lifecycle:FileHandle.sync
+    405:filesystem-read:fs.lstat
+    412:filesystem-lifecycle:fs.mkdtemp
+    415:filesystem-lifecycle:fs.chmod
+    417:filesystem-open:fs.open
+    424:file-handle:FileHandle.writeFile
+    425:file-handle-lifecycle:FileHandle.sync
+    635:managed-writer:stdin.write
+    691:stream-write:stdin.end
+    732:filesystem-lifecycle:fs.mkdtemp
+    735:filesystem-lifecycle:fs.chmod
+    804:filesystem-open:fs.open
+    808:file-handle-read:FileHandle.stat
+    817:file-handle-read:FileHandle.readFile
+    818:file-handle-read:FileHandle.stat
+    819:filesystem-read:fs.lstat
+    838:filesystem-open:fs.open
+    843:file-handle-read:FileHandle.stat
+    844:filesystem-read:fs.lstat
+    962:filesystem-read:fs.lstat
+    1081:filesystem-open:fs.open
+    1087:file-handle-lifecycle:FileHandle.sync
+    1097:filesystem-open:fs.open
+    1104:file-handle:FileHandle.writeFile
+    1105:file-handle-lifecycle:FileHandle.sync
+    1106:file-handle-read:FileHandle.stat
+  `),
+  exactModuleSurfaceGroup("src/openclaw-probe.js", "phase-04-plan-12", "gated", `
+    91:durable-loader:loadAdmittedArtifact
+    97:durable-loader:loadAdmittedArtifact
+    118:filesystem-lifecycle:fs.mkdtemp
+    119:filesystem-lifecycle:fs.chmod
+    132:filesystem-lifecycle:fs.mkdir
+    133:filesystem-lifecycle:fs.chmod
+    379:filesystem-read:fs.lstat
+    385:filesystem-read:fs.realpath
+    394:filesystem-open:fs.open
+    398:file-handle-read:FileHandle.stat
+    407:file-handle-read:FileHandle.stat
+    449:file-handle-read:FileHandle.read
+    461:filesystem-open:fs.open
+    469:file-handle:FileHandle.writeFile
+    470:file-handle-lifecycle:FileHandle.sync
+    474:filesystem-lifecycle:fs.chmod
+    475:filesystem-open:fs.open
+    480:file-handle-read:FileHandle.stat
+    500:filesystem-read:fs.lstat
+    507:file-handle-read:FileHandle.stat
+    508:filesystem-read:fs.lstat
+    519:filesystem-read:fs.lstat
+    526:filesystem-open:fs.open
+    531:file-handle-read:FileHandle.stat
+  `),
+  exactModuleSurfaceGroup("src/package-archive.js", "phase-04-plan-03", "gated", `
+    34:filesystem-read:fs.lstat
+    177:filesystem-open:fs.open
+    178:file-handle-read:FileHandle.stat
+    180:file-handle-read:FileHandle.readFile
+    187:filesystem-read:fs.readdir
+  `),
+  exactModuleSurfaceGroup("src/package-inspect.js", "phase-04-plan-04", "gated", `
+    67:filesystem-read:fs.lstat
+    143:filesystem-read:fs.lstat
+    411:filesystem-read:fs.readdir
+    416:filesystem-read:fs.lstat
+    435:filesystem-read:fs.lstat
+  `),
+  exactModuleSurfaceGroup("src/package-produce.js", "phase-04-plan-17", "gated", `
+    213:filesystem-lifecycle:fs.mkdir
+    222:filesystem-lifecycle:fs.mkdir
+    468:durable-loader:loadAdmittedArtifact
+    652:filesystem-open:fs.open
+    658:file-handle:FileHandle.writeFile
+    659:file-handle-lifecycle:FileHandle.sync
+    660:file-handle-read:FileHandle.stat
+    668:filesystem-read:fs.stat
+    729:filesystem-read:fs.lstat
+    756:filesystem-read:fs.lstat
+    766:filesystem-read:fs.lstat
+    771:filesystem-open:fs.open
+    775:file-handle-read:FileHandle.stat
+    776:file-handle-read:FileHandle.readFile
+    777:file-handle-read:FileHandle.stat
+    778:filesystem-read:fs.lstat
+    800:filesystem-open:fs.open
+    806:file-handle-lifecycle:FileHandle.sync
   `),
 ]);
 

@@ -233,7 +233,7 @@ describe("cli", () => {
     assert.equal(help.code, 0, help.stderr);
     assert.match(help.stdout, /^AgentMo CLI\n/u);
     assert.doesNotMatch(help.stdout, /AgentMother|agentmother/u);
-    assert.match(help.stdout, /agentmo design-plan <agentmo-discovery-db\.json> --need <need\.json>/u);
+    assert.match(help.stdout, /agentmo design-plan <agentmo-discovery-db\.json> --manifest <discovery\.json> --discovery-approval <approval\.json> --need <need\.json>/u);
     assert.match(help.stdout, /agentmo discover-report <discovery\.json> --digest discovery-manifest=sha256:<64hex>/u);
     assert.match(help.stdout, /agentmo need-report <need\.json> --digest user-need=sha256:<64hex>/u);
     assert.match(help.stdout, /agentmo blueprint-draft <agentmo-discovery-db\.json> --need <need\.json> --digest discovery-db=sha256:<64hex> --digest user-need=sha256:<64hex> \[--design-plan/u);
@@ -252,7 +252,12 @@ describe("cli", () => {
     assert.match(help.stdout, /agentmo domain-eval <blueprint\.json> --digest blueprint=sha256:<64hex> --cases <cases\.json> --digest domain-cases=sha256:<64hex>/u);
     assert.match(help.stdout, /agentmo delivery-report <blueprint\.json> --digest blueprint=sha256:<64hex> --build-state <agentmo-build-state\.json>/u);
     assert.match(help.stdout, /agentmo runtime-check --target openclaw \[--json\]/u);
-    assert.match(help.stdout, /agentmo artifact-contract discovery-manifest\|user-need \[--json\]/u);
+    assert.match(help.stdout, /agentmo artifact-contract decision-entry\|discovery-manifest\|openclaw-probe\|openclaw-target-carrier-admission\|openclaw-target-descriptor\|package-manifest\|user-need \[--json\]/u);
+    assert.match(help.stdout, /agentmo package-inspect <directory> --manifest-sha256 sha256:<64hex> \[--json\]/u);
+    assert.match(help.stdout, /agentmo package-inspect <archive\.d42> --archive-sha256 sha256:<64hex> \[--json\]/u);
+    assert.match(help.stdout, /agentmo openclaw-probe --archive <archive\.d42> --archive-sha256 sha256:<64hex>/u);
+    assert.match(help.stdout, /agentmo build-contract <blueprint\.json> .* --target-descriptor <descriptor\.json> .* --digest openclaw-target-descriptor=sha256:<64hex>/u);
+    assert.match(help.stdout, /agentmo openclaw-target-describe --target-executable <file> --target-package-json <package\.json> --target-build-info <build-info\.json>/u);
     assert.match(help.stdout, /design-plan\s+Produce a Stage 2 planning contract/u);
     assert.match(help.stdout, /domain-eval\s+Evaluate deterministic domain cases/u);
     assert.match(help.stdout, /delivery-report\s+Re-validate and aggregate delivery closure evidence/u);
@@ -1852,6 +1857,104 @@ describe("cli", () => {
     const result = await runCli(["observe", observationFile, "--json"]);
     assert.equal(result.code, 1);
     assert.equal(JSON.parse(result.stdout).code, "AGENTMO_ARTIFACT_DIGEST_REQUIRED");
+  });
+
+  it("requires the explicit safe fs helper, receipt and external digest before apply effects", async () => {
+    const buildHelp = await runCli(["openclaw-fs-kernel-build", "--help"]);
+    assert.equal(buildHelp.code, 0, buildHelp.stderr);
+    assert.match(buildHelp.stdout, /--binary-out/u);
+    assert.match(buildHelp.stdout, /--receipt-out/u);
+    assert.equal(/--helper|--compiler|--source/u.test(buildHelp.stdout), false);
+
+    const applyHelp = await runCli(["openclaw-install-apply", "--help"]);
+    assert.equal(applyHelp.code, 0, applyHelp.stderr);
+    for (const flag of [
+      "--blueprint",
+      "--blueprint-sha256",
+      "--build-contract",
+      "--build-contract-sha256",
+      "--plan-approval",
+      "--plan-approval-sha256",
+      "--target-descriptor",
+      "--target-descriptor-sha256",
+      "--fs-helper",
+      "--fs-helper-receipt",
+      "--fs-helper-receipt-digest",
+      "--openclaw-target-root",
+      "--target-root",
+    ]) {
+      assert.equal(applyHelp.stdout.includes(flag), true, flag);
+    }
+    for (const command of [
+      "openclaw-target-describe",
+      "openclaw-target-admit",
+      "package-produce",
+    ]) {
+      const productionHelp = await runCli([command, "--help"]);
+      assert.equal(productionHelp.code, 0, productionHelp.stderr);
+      for (const flag of [
+        "--fs-helper",
+        "--fs-helper-receipt",
+        "--fs-helper-receipt-digest",
+      ]) {
+        assert.equal(
+          productionHelp.stdout.includes(flag),
+          true,
+          `${command} ${flag}`,
+        );
+      }
+    }
+
+    const root = await mkdtemp(path.join(tmpdir(), "agentmo-cli-safe-fs-tuple-"));
+    const result = await runCli([
+      "openclaw-install-apply",
+      "--lifecycle", "install",
+      "--target-root", root,
+      "--out", path.join(root, "receipt.json"),
+      "--json",
+    ]);
+    assert.equal(result.code, 1);
+    assert.equal(JSON.parse(result.stdout).code, "AGENTMO_CLI_REQUEST_REJECTED");
+    assert.deepEqual(await readdir(root), []);
+  });
+
+  it("emits bounded value-blind helper pair recovery evidence", async () => {
+    const binaryParent = await mkdtemp(
+      path.join(tmpdir(), "agentmo-cli-safe-fs-recovery-binary-"),
+    );
+    const receiptParent = await mkdtemp(
+      path.join(tmpdir(), "agentmo-cli-safe-fs-recovery-receipt-"),
+    );
+    const binaryOut = path.join(binaryParent, "openclaw-fs-kernel");
+    const receiptOut = path.join(
+      receiptParent,
+      "openclaw-fs-kernel.receipt.json",
+    );
+    const secret = "secret-helper-occupant-must-not-leak";
+    await writeFile(binaryOut, secret, { flag: "wx", mode: 0o700 });
+
+    const result = await runCli([
+      "openclaw-fs-kernel-build",
+      "--binary-out", binaryOut,
+      "--receipt-out", receiptOut,
+      "--json",
+    ]);
+    assert.equal(result.code, 1, result.stderr);
+    const failure = JSON.parse(result.stdout);
+    assert.equal(failure.code, "AGENTMO_OPENCLAW_FS_BUILD_REJECTED");
+    assert.equal(
+      failure.recovery.schemaVersion,
+      "agentmo.openclaw-fs-build-recovery.v1",
+    );
+    assert.equal(failure.recovery.failurePoint, "preflight-binary-only");
+    assert.deepEqual(
+      failure.recovery.members.map((entry) => entry.role),
+      ["helper-binary", "build-receipt"],
+    );
+    assert.equal(result.stdout.includes(secret), false);
+    assert.equal(result.stdout.includes(binaryParent), false);
+    assert.equal(result.stdout.includes(receiptParent), false);
+    assert.equal(result.stderr, "");
   });
 
   it("rejects invalid targets consistently", async () => {

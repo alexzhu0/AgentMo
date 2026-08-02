@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "agentmo.package-resource.v1",
+  "resourceId": "resource:storage",
+  "kind": "storage",
+  "declaredContract": {
+    "owner": "agent-package",
+    "databases": [
+      {
+        "id": "knowledge-index",
+        "scope": "per-agent",
+        "schemaOwner": "memory-core",
+        "lifecycle": "runtime-created",
+        "migration": "versioned-forward-with-rollback",
+        "backup": "operator-managed",
+        "retention": "operator-governed",
+        "sensitivity": "workspace-private",
+        "maximumGrowthBytes": 536870912,
+        "recovery": "rebuild-index-from-corpus"
+      },
+      {
+        "id": "dedup-ledger",
+        "scope": "named-file",
+        "schemaOwner": "agent-package",
+        "lifecycle": "runtime-created",
+        "migration": "versioned-forward-with-rollback",
+        "backup": "operator-managed",
+        "retention": "operator-governed",
+        "sensitivity": "workspace-private",
+        "maximumGrowthBytes": 67108864,
+        "recovery": "restore-or-rebuild-from-source-digests"
+      }
+    ],
+    "createAtBuildContract": false,
+    "migrationOwner": "phase-4",
+    "productionPathsPersisted": false
+  },
+  "materialized": true,
+  "installed": false,
+  "runtimeVerified": false,
+  "domainVerified": false
+}

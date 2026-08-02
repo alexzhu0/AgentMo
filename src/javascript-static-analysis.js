@@ -6,6 +6,7 @@ const FS_WRITERS = new Set([
   "writeFileSync",
 ]);
 const FS_READERS = new Set([
+  "access",
   "createReadStream",
   "fstatSync",
   "lstat",
@@ -17,7 +18,16 @@ const FS_READERS = new Set([
   "realpath",
   "stat",
 ]);
-const FS_LIFECYCLE = new Set(["link", "mkdir", "mkdtemp", "rename", "rm", "rmdir", "unlink"]);
+const FS_LIFECYCLE = new Set([
+  "chmod",
+  "link",
+  "mkdir",
+  "mkdtemp",
+  "rename",
+  "rm",
+  "rmdir",
+  "unlink",
+]);
 const SOURCE_INTAKE_READERS = new Set(["readFile", "realpath", "stat"]);
 const SOURCE_INTAKE_IO_METHODS = new Set(["lstat", "open", "realpath"]);
 const PERSISTABILITY_WRITERS = new Set([

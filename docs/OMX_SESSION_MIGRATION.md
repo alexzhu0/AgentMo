@@ -1,8 +1,31 @@
 # AgentMo OMX Session Migration Handoff
 
-Date: 2026-07-23
-Purpose: reset Codex/OMX context after the Phase 02 local release gate and prepare a user-authorized Agent POC without mixing in `pi`, Win9, OpenClaw, or AgentHarness implementation work.
+Date: 2026-07-28
+Purpose: recover AgentMo after the Phase 02 local release gate and Phase 03 approved research-to-build-contract implementation without mixing in `pi`, Win9, OpenClaw, or AgentHarness implementation work.
 Mode: current durable recovery anchor. Sections explicitly marked historical are context only and do not override this header or Sections 1–3.
+
+## Current Phase 3 recovery contract
+
+Phase 3 now composes in fresh processes from exact artifacts, including `agentmo.discovery-approval.v1`:
+
+```text
+discover-pack | discover-workspace | discover-live
+  -> discovery-approve preview/apply
+  -> need-report + decision-ledger append/inspect
+  -> design-plan
+  -> blueprint-draft (draft, non-authoritative)
+  -> build-contract
+  -> plan-approve preview/apply
+  -> enter Produce only
+```
+
+`discover-live` is a closed allowlist-bound public HTTPS lane with Web, GitHub REST, and arXiv metadata adapters; it is not generic crawling, browser automation, or open search. Live manifests may explicitly distinguish `primary`, `first-party`, `context`, and `community` evidence independently from trust/confidence; arXiv remains primary-only and enforces a 3000 ms minimum interval between source request starts. It persists raw-byte digests and bounded sanitized derivatives, never raw provider bodies. The decision ledger accepts exactly `fact`, `inference`, `unknown`, `rejected-option`, and `human-decision`, with predecessor-bound heads and no transcript/stdin authority.
+
+`agentmo.build-contract.v1` binds the exact blueprint, design plan, discovery approval, ledger head, and one exact `agentmo.openclaw-target-descriptor.v1`. The descriptor is produced from retained first-party target bytes and carries version, full/display revision, Node range, executable/package/build-info digests, target-root identity, provenance, and non-certification boundaries; admission code contains no target-version constants. The contract closes all 22 resource families plus permissions, acceptance cases, evidence obligations, unsupported behavior, alternatives, and bidirectional trace. `agentmo.plan-approval.v1` binds exact blueprint/build-contract bytes and records local intent to enter Produce only.
+
+Roadmap Phase 3 specifies and approves. Phase 4 generates and performs separately authorized install/load mutation. Phase 5 executes and proves isolated runtime, schedule, memory/RAG, recovery, and eval behavior. `extraction_field` remains declaration-only; mechanical dedup/freshness/conflict/coverage is not semantic proof; local approval is not authenticated organizational identity; and collection, blueprint, contract, `declared-ready`, or bounded live smoke does not certify package quality, runtime behavior, domain quality, production readiness, or deployment approval.
+
+Task 3 is complete: the operator separately approved one fixed-allowlist HTTPS smoke and independently approved the exact manifest/database and blueprint/build-contract pairs. Mutation replay failed closed for both pairs. Only bounded status/digests were promoted into repository evidence; no raw provider payload/log/transcript/credential material was retained.
 
 ## 1. Copy-paste prompt for the new session
 
@@ -65,11 +88,12 @@ Current important state:
 ```text
 Historical Phase 02 reviews recorded Critical and Warning findings; retain those reports as evidence.
 The in-scope repair and local release gate are complete in a still-dirty, uncommitted worktree.
-The final aggregate gate passed 760 tests with 0 failures and 1 skip; the fresh independent final review records Critical 0 and Warning 0.
-No real Codex/OpenClaw UAT, external human decision, domain-quality certification, production approval, tag, package publication, or GitHub Release has occurred.
+The historical Phase 2 aggregate gate passed 760 tests with 0 failures and 1 skip; its fresh independent final review recorded Critical 0 and Warning 0.
+No real Codex/OpenClaw UAT, authenticated organizational approval, domain-quality certification, production approval, tag, package publication, or GitHub Release has occurred.
+Phase 3 automated composition uses injected transport. Its separately labelled bounded public HTTPS smoke and both exact-pair approvals were completed by the operator without promoting package, runtime, domain, or production claims.
 ```
 
-Focused checkpoints recorded during this iteration:
+Historical Phase 2 focused checkpoints retained for context:
 
 ```text
 node --test test/builder-codex-uat.test.js: passed, 27/27
@@ -82,8 +106,8 @@ git diff --check: passed
 Release/publication state:
 
 ```text
-`release/2026.07.23.md` is the current value-blind status record.
-The local mechanism gate is ready for a user-authorized POC, but no commit, tag, or release has been created.
+`release/2026.07.28.md` is the current Phase 3 status record; `release/2026.07.23.md` remains the historical Phase 2 value-blind record.
+Phase 3 is complete locally and Phase 4 deterministic Agent Package planning is next, but no package generation, installation, commit, tag, or release has been created.
 No commit, tag, GitHub Release, npm package publication, production deployment, real UAT, or external human decision is implied.
 ```
 
@@ -92,7 +116,7 @@ No commit, tag, GitHub Release, npm package publication, production deployment, 
 Current objective:
 
 ```text
-Accept a user POC brief and use the passed local Builder mechanism to construct one bounded Agent package. Preserve append-only authority and immutable evidence, remain inside AgentMo, and do not read secrets.
+Plan Phase 4 deterministic Agent Package generation from the exact-approved Phase 3 build contract. Keep installation as a separately authorized mutation, preserve append-only authority and immutable evidence, remain inside AgentMo, and do not read secrets.
 ```
 
 Stop condition:
@@ -101,15 +125,15 @@ Stop condition:
 Stop when the new session has:
 1. confirmed it is operating only in AgentMo;
 2. reviewed the current dirty files without reverting concurrent work;
-3. confirmed the final release-gate evidence and its scope boundary;
-4. received an explicit POC brief before initiating any real host UAT;
-5. reported the bounded result and remaining risks;
+3. confirmed the completed Phase 3 evidence and its scope boundary;
+4. prepared or executed only the explicitly requested Phase 4 package work without starting Phase 5 runtime execution;
+5. reported deterministic package progress and remaining install/runtime risks;
 6. made no external publication or commit unless explicitly instructed.
 ```
 
 ## 4. Archived 2026-07-10 recovery story (historical only)
 
-The G001–G004 material below records the earlier Stage 2 handoff. Do not execute its stored commands or treat its hashes, test counts, dirty-file list, or commit-readiness wording as current. Sections 1–3 and `release/2026.07.23.md` are authoritative for the active recovery.
+The G001–G004 material below records the earlier Stage 2 handoff. Do not execute its stored commands or treat its hashes, test counts, dirty-file list, or commit-readiness wording as current. Sections 1–3 and `release/2026.07.28.md` are authoritative for the active recovery; `release/2026.07.23.md` is historical Phase 2 evidence only.
 
 ### G001 — Context recovery
 
@@ -208,7 +232,10 @@ mkdir -p "$WORK"
 digest_file() { node -e 'const fs=require("node:fs");const crypto=require("node:crypto");fs.writeSync(1,"sha256:"+crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex"));' "$1"; }
 node ./bin/agentmo.js discover-pack examples/support-triage.discovery.json --out "$WORK/discovery" --json --digest "discovery-manifest=$(digest_file "examples/support-triage.discovery.json")"
 node ./bin/agentmo.js need-report examples/support-triage.need.json --json --digest "user-need=$(digest_file "examples/support-triage.need.json")"
-node ./bin/agentmo.js design-plan "$WORK/discovery/agentmo-discovery-db.json" --need examples/support-triage.need.json --out "$WORK/agentmo-design-plan.json" --target openclaw --json --digest "discovery-db=$(digest_file "$WORK/discovery/agentmo-discovery-db.json")" --digest "user-need=$(digest_file "examples/support-triage.need.json")"
+PREVIEW_DIGEST=$(node ./bin/agentmo.js discovery-approve examples/support-triage.discovery.json --discovery-db "$WORK/discovery/agentmo-discovery-db.json" --digest "discovery-manifest=$(digest_file "examples/support-triage.discovery.json")" --digest "discovery-db=$(digest_file "$WORK/discovery/agentmo-discovery-db.json")" --json | node -e 'let s="";process.stdin.on("data",c=>s+=c).on("end",()=>process.stdout.write(JSON.parse(s).previewDigest));')
+node ./bin/agentmo.js discovery-approve examples/support-triage.discovery.json --discovery-db "$WORK/discovery/agentmo-discovery-db.json" --approve --preview-digest "$PREVIEW_DIGEST" --out "$WORK/agentmo-discovery-approval.json" --json --digest "discovery-manifest=$(digest_file "examples/support-triage.discovery.json")" --digest "discovery-db=$(digest_file "$WORK/discovery/agentmo-discovery-db.json")"
+node ./bin/agentmo.js decision-ledger append --journal "$WORK/decision-ledger.json" --entry examples/support-triage.decision-entry.json --digest "decision-entry=$(digest_file "examples/support-triage.decision-entry.json")" --json
+node ./bin/agentmo.js design-plan "$WORK/discovery/agentmo-discovery-db.json" --manifest examples/support-triage.discovery.json --discovery-approval "$WORK/agentmo-discovery-approval.json" --need examples/support-triage.need.json --decision-ledger "$WORK/decision-ledger.json" --out "$WORK/agentmo-design-plan.json" --target openclaw --json --digest "discovery-manifest=$(digest_file "examples/support-triage.discovery.json")" --digest "discovery-db=$(digest_file "$WORK/discovery/agentmo-discovery-db.json")" --digest "discovery-approval=$(digest_file "$WORK/agentmo-discovery-approval.json")" --digest "user-need=$(digest_file "examples/support-triage.need.json")" --digest "decision-ledger=$(digest_file "$WORK/decision-ledger.json")"
 node ./bin/agentmo.js blueprint-draft "$WORK/discovery/agentmo-discovery-db.json" --need examples/support-triage.need.json --design-plan "$WORK/agentmo-design-plan.json" --out "$WORK/support-triage.agentmo.json" --target openclaw --json --digest "discovery-db=$(digest_file "$WORK/discovery/agentmo-discovery-db.json")" --digest "user-need=$(digest_file "examples/support-triage.need.json")" --digest "design-plan=$(digest_file "$WORK/agentmo-design-plan.json")"
 node ./bin/agentmo.js handoff "$WORK/support-triage.agentmo.json" --target openclaw --out "$WORK/handoff" --json --digest "blueprint=$(digest_file "$WORK/support-triage.agentmo.json")"
 node ./bin/agentmo.js scaffold "$WORK/support-triage.agentmo.json" --target openclaw --out "$WORK/scaffold" --force --digest "blueprint=$(digest_file "$WORK/support-triage.agentmo.json")"

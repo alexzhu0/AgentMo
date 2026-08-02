@@ -10,6 +10,7 @@ import path from "node:path";
 const CLI = fileURLToPath(new URL("../bin/agentmo.js", import.meta.url));
 const DISCOVERY = fileURLToPath(new URL("../examples/support-triage.discovery.json", import.meta.url));
 const NEED = fileURLToPath(new URL("../examples/support-triage.need.json", import.meta.url));
+const DECISION_ENTRY = fileURLToPath(new URL("../examples/support-triage.decision-entry.json", import.meta.url));
 const DOMAIN_CASES = fileURLToPath(new URL("../examples/support-triage.domain-cases.json", import.meta.url));
 
 function runCli(args) {
@@ -29,6 +30,45 @@ function runCli(args) {
 
 async function digestFile(file) {
   return `sha256:${createHash("sha256").update(await readFile(file)).digest("hex")}`;
+}
+
+async function createDiscoveryApproval(root, manifest, discoveryDb) {
+  const out = path.join(root, "agentmo-discovery-approval.json");
+  const manifestDigest = await digestFile(manifest);
+  const dbDigest = await digestFile(discoveryDb);
+  const preview = await runCli([
+    "discovery-approve", manifest,
+    "--discovery-db", discoveryDb,
+    "--digest", `discovery-manifest=${manifestDigest}`,
+    "--digest", `discovery-db=${dbDigest}`,
+    "--json",
+  ]);
+  assert.equal(preview.code, 0, preview.stderr);
+  const apply = await runCli([
+    "discovery-approve", manifest,
+    "--discovery-db", discoveryDb,
+    "--digest", `discovery-manifest=${manifestDigest}`,
+    "--digest", `discovery-db=${dbDigest}`,
+    "--approve",
+    "--preview-digest", JSON.parse(preview.stdout).previewDigest,
+    "--out", out,
+    "--json",
+  ]);
+  assert.equal(apply.code, 0, apply.stderr);
+  return out;
+}
+
+async function createDecisionLedger(root) {
+  const journal = path.join(root, "decision-ledger.json");
+  const result = await runCli([
+    "decision-ledger", "append",
+    "--journal", journal,
+    "--entry", DECISION_ENTRY,
+    "--digest", `decision-entry=${await digestFile(DECISION_ENTRY)}`,
+    "--json",
+  ]);
+  assert.equal(result.code, 0, result.stderr);
+  return { journal, headDigest: JSON.parse(result.stdout).head.digest };
 }
 
 describe("cli mvp birth loop", () => {
@@ -60,15 +100,29 @@ describe("cli mvp birth loop", () => {
 
     const designPlanPath = path.join(root, "agentmo-design-plan.json");
     const discoveryDbPath = path.join(discoveryOut, "agentmo-discovery-db.json");
+    const approvalPath = await createDiscoveryApproval(root, DISCOVERY, discoveryDbPath);
+    const decisionLedger = await createDecisionLedger(root);
     const designPlan = await runCli([
       "design-plan",
       discoveryDbPath,
+      "--manifest",
+      DISCOVERY,
+      "--discovery-approval",
+      approvalPath,
       "--need",
       NEED,
+      "--decision-ledger",
+      decisionLedger.journal,
+      "--digest",
+      `discovery-manifest=${await digestFile(DISCOVERY)}`,
       "--digest",
       `discovery-db=${await digestFile(discoveryDbPath)}`,
       "--digest",
+      `discovery-approval=${await digestFile(approvalPath)}`,
+      "--digest",
       `user-need=${await digestFile(NEED)}`,
+      "--digest",
+      `decision-ledger=${decisionLedger.headDigest}`,
       "--out",
       designPlanPath,
       "--target",

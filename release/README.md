@@ -32,6 +32,11 @@ Release 记录按日期倒序维护（最新在前），不要按版本号排序
 
 | 日期 | 阶段 | 状态 | 记录 | GitHub Release |
 | --- | --- | --- | --- | --- |
+| 2026.08.02 | Phase 4：authority-root、named candidate 与 Linux supervisor 多轮对抗加固 | remediation 已进入 `codex/phase2-poc-baseline` Linux CI 候选；Darwin 聚焦 gate 6 pass / 0 fail / 11 Linux skip；精确 commit 的 Linux gate 后再复审，未发布 release | [`2026.08.02.md`](./2026.08.02.md) | 待发布 |
+| 2026.07.31 | Phase 4：8 Critical / 2 Warning post-audit remediation，canonical ledger、producer-auth evidence、Linux retained-candidate config、bounded process group、nested closure 与 recoverable evidence | current-source full/pack/diff 已绿；fresh re-audit Critical 3 / Warning 0，Phase 4 blocked；未提交或发布 | [`2026.07.31.md`](./2026.07.31.md) | 待发布 |
+| 2026.07.30 | Phase 4：fresh reprobe、retained-dirfd helper、durable authority、four lifecycle、strict receipts 与 extracted source-only distribution | 04-19 最终 lane-structured gate exit 0：main 935 pass/0 fail、两条负载敏感场景各 1/1；pack 99 entries 与 diff-check exit 0；noncanonical/canonical review 仍待执行，未提交或发布 | [`2026.07.30.md`](./2026.07.30.md) | 待发布 |
+| 2026.07.29 | Phase 4：deterministic Agent Package、D-42 archive-only authority 与 ownership-safe receipt-last lifecycle | canonical 40-member package；四 lifecycle mechanism 与 packed closure 已完成；real OpenClaw/Phase 5 evidence absent；未提交或发布 | [`2026.07.29.md`](./2026.07.29.md) | 待发布 |
+| 2026.07.28 | Phase 3：bounded discovery、exact Plan authority、append-only ledger 与 strict Package build contract | 03-05 affected aggregate 165/165；未运行 live Internet/OpenClaw，未提交或发布 | [`2026.07.28.md`](./2026.07.28.md) | 待发布 |
 | 2026.07.27 | Independent AgentMo-only POC：artifact contract 可发现性、字段诊断与 Plan 证据语义修复 | 增量 POC 到达 Produce scaffold；Stage 2 63/63，通过真实 POC 输入重放；live collector/package runtime 未实现 | [`2026.07.27.md`](./2026.07.27.md) | 待发布 |
 | 2026.07.23 | Phase 02 Builder hardening：hook graph、append-only recovery、UAT authority 与 bounded projection batch | 本地 aggregate 760/0 通过；fresh review Critical/Warning 0；real UAT 未运行 | [`2026.07.23.md`](./2026.07.23.md) | 待发布 |
 | 2026.07.22 | Phase 02 review-fix：10 Critical + 1 Warning 的 Builder v1 mechanism closure | 本地 aggregate 712/712 通过；independent review / real UAT pending | [`2026.07.22.md`](./2026.07.22.md) | 待发布 |
@@ -52,10 +57,10 @@ Release 记录按日期倒序维护（最新在前），不要按版本号排序
 ## 当前恢复锚点
 
 - 当前项目：`$AGENTMO_REPO`
-- 当前 repository release record：日期索引首行的 2026.07.27 entry。它记录 independent AgentMo-only POC 暴露的 artifact contract 可发现性、字段诊断与 Plan 证据语义修复；增量黑盒已到达 declaration-only scaffold，live collector 与可执行 Package 仍未实现。
+- 当前 Phase 4 maintained records：`release/2026.07.29.md` 记录 exact target/carrier 与初始 package/lifecycle closure；`release/2026.07.30.md`、`release/2026.07.31.md` 保留各自历史 source/gate；`release/2026.08.02.md` 记录 fresh Critical 3 remediation 与当前 pending gates。后续记录不倒写历史证据，也不替代 Phase 3 `release/2026.07.28.md`。
 - 历史已记录的 published baseline：`v0.1.0`；当前日期记录不推断新的 tag、GitHub Release、npm publication 或 deployment。
-- 当前重点：让独立 POC 确认 manifest declarations 不再得到 `supported`，然后依据真实证据进入 allowlist-bound live collector；不要把 contract export、manifest metadata、scaffold declarations 或 aggregate success 升格为 real UAT、domain certification 或 production certification。
+- 当前重点：三轮 fresh re-audit 均保留为历史证据；第三轮 Critical 3 / Warning 1 已有 signal/bootstrap/x32 targeted remediation，但 Linux native supervisor 的六项对抗用例尚未执行。先过 Linux runtime gate，再进行下一轮 independent re-audit。Phase 4 保持 blocked，不得标为 passed，也不得进入 Phase 5 completion claim。
 - 当前迁移规则：projected-v2 canonical receipt 不允许原位替换为 activated-v4；保留 genesis，并使用 immutable version-qualified lifecycle successor。`deactivate` 追加 tombstone，`reactivate` 追加 successor；不提供 purge、selector removal 或 physical delete。
 - 当前 UAT authority：`preview` 只读；`decide approve|reject` 仅 caller-reported 且 nonterminal。独立 external human decision authority 尚未实现，不得声称 11/11、domain 或 production certification。
 - 当前主线：继续只在 AgentMo 内维护，不把 sibling projects 的工作混入本仓库 commit。
-- 当前恢复入口：`release/2026.07.27.md`、`release/2026.07.23.md`、`.planning/phases/02-codex-builder/02-FINAL-RELEASE-REVIEW.md`、`docs/OMX_SESSION_MIGRATION.md`、仓库根目录 `AGENTS.md`、`README.md`、`docs/MVP_RUNBOOK.md`。
+- 当前恢复入口：`release/2026.07.31.md`、`.planning/phases/04-package/04-PRE-VERIFICATION-AUDIT.md`、`release/2026.07.30.md`、`release/2026.07.29.md`、历史 `release/2026.07.28.md`、`docs/OMX_SESSION_MIGRATION.md`、仓库根目录 `AGENTS.md`、`README.md`、`docs/MVP_RUNBOOK.md`。

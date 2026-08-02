@@ -1,0 +1,7 @@
+{
+  "schemaVersion": "agentmo.openclaw-config-patch.v1",
+  "proposalOnly": true,
+  "pluginActivation": false,
+  "userLevelMutation": false,
+  "runtimeExecution": false
+}

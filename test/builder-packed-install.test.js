@@ -1,6 +1,22 @@
 import assert from "node:assert/strict";
 import { execFile, spawn } from "node:child_process";
-import { chmod, cp, mkdir, mkdtemp, readFile, readdir, readlink, rename, rm, stat, symlink, unlink, writeFile } from "node:fs/promises";
+import {
+  access,
+  chmod,
+  cp,
+  lstat,
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  readlink,
+  rename,
+  rm,
+  stat,
+  symlink,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -8,11 +24,38 @@ import { before, describe, it } from "node:test";
 import { promisify } from "node:util";
 import { digestRawBytes } from "../src/artifact-admission.js";
 import { serializePersistableJson } from "../src/persistability.js";
+import {
+  buildApprovedPackageFixture,
+  packageProduceOptions,
+} from "./helpers/package-produce-fixture.js";
 
 const execFileAsync = promisify(execFile);
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const RECEIPT_PATH = ".agentmo/builder/install-receipt.json";
 const PACKED_INSTALL_TIMEOUT_MS = 360_000;
+const PHASE_4_PACKED_RUNTIME_MODULES = Object.freeze([
+  "src/openclaw-authority-consumption.js",
+  "src/openclaw-authority-root-binding.js",
+  "src/openclaw-credential-handoff.js",
+  "src/openclaw-install-approval.js",
+  "src/openclaw-install-evidence.js",
+  "src/openclaw-install-plan.js",
+  "src/openclaw-install-receipt.js",
+  "src/openclaw-install-transaction.js",
+  "src/openclaw-official-action-runner.js",
+  "src/openclaw-probe-contract.js",
+  "src/openclaw-probe.js",
+  "src/openclaw-process-supervisor.js",
+  "src/openclaw-safe-fs.js",
+  "src/openclaw-target-admission.js",
+  "src/openclaw-target-descriptor.js",
+  "src/package-archive.js",
+  "src/package-carriers.js",
+  "src/package-contract.js",
+  "src/package-inspect.js",
+  "src/package-produce.js",
+  "src/targets/openclaw-package.js",
+]);
 
 let packedInstall;
 let packedPackage;
@@ -22,6 +65,7 @@ let packedBridge;
 let packedCheckpoint;
 let packedJournal;
 let packedAppendOnly;
+let packedPhase4;
 let packedPackageRoot;
 let cachedHookBootstrapFixture = null;
 
@@ -358,6 +402,7 @@ async function runPackedCli(args, bin, sharedHome = null) {
 }
 
 async function runPackageCli(packageRoot, args, options) {
+  const baseEnv = options.closedEnv === true ? {} : process.env;
   try {
     const result = await execFileAsync(
       process.execPath,
@@ -366,7 +411,7 @@ async function runPackageCli(packageRoot, args, options) {
         cwd: options.cwd,
         encoding: "utf8",
         env: {
-          ...process.env,
+          ...baseEnv,
           CODEX_HOME: path.join(options.home, ".codex"),
           HOME: options.home,
           LANG: "C",
@@ -1420,9 +1465,1148 @@ before(async () => {
     path.join(packedPackageRoot, "src", "builder-append-only-authority.js"),
   );
   packedAppendOnly = await import(`${appendOnlyModuleUrl.href}?packed=${Date.now()}`);
+  const packedImport = async (relativePath) => import(
+    `${pathToFileURL(path.join(packedPackageRoot, relativePath)).href}?packed=${Date.now()}`
+  );
+  const [
+    buildContract,
+    authorityConsumption,
+    authorityRootBinding,
+    safeFs,
+    packageProduce,
+    packageArchive,
+    packageCarriers,
+    openClawProbe,
+    installPlan,
+    installTransaction,
+    installReceipt,
+    credentialHandoff,
+    openClawProjection,
+  ] = await Promise.all([
+    packedImport("src/build-contract.js"),
+    packedImport("src/openclaw-authority-consumption.js"),
+    packedImport("src/openclaw-authority-root-binding.js"),
+    packedImport("src/openclaw-safe-fs.js"),
+    packedImport("src/package-produce.js"),
+    packedImport("src/package-archive.js"),
+    packedImport("src/package-carriers.js"),
+    packedImport("src/openclaw-probe.js"),
+    packedImport("src/openclaw-install-plan.js"),
+    packedImport("src/openclaw-install-transaction.js"),
+    packedImport("src/openclaw-install-receipt.js"),
+    packedImport("src/openclaw-credential-handoff.js"),
+    packedImport("src/targets/openclaw-package.js"),
+  ]);
+  packedPhase4 = Object.freeze({
+    authorityConsumption,
+    authorityRootBinding,
+    buildContract,
+    credentialHandoff,
+    installPlan,
+    installReceipt,
+    installTransaction,
+    openClawProbe,
+    openClawProjection,
+    packageArchive,
+    packageCarriers,
+    packageProduce,
+    safeFs,
+  });
 });
 
+function phase4DigestJson(value, subject) {
+  return digestRawBytes(Buffer.from(
+    serializePersistableJson(value, { subject }),
+    "utf8",
+  ));
+}
+
+async function runPackedPhase4Cli(args, fixtureRoot) {
+  const home = path.join(fixtureRoot, "home");
+  const cwd = path.join(fixtureRoot, "cwd");
+  await mkdir(home, { recursive: true, mode: 0o700 });
+  await mkdir(cwd, { recursive: true, mode: 0o700 });
+  return runPackageCli(packedPackageRoot, args, {
+    bin: path.dirname(process.execPath),
+    closedEnv: true,
+    cwd,
+    home,
+    env: {
+      PATH: `${path.dirname(process.execPath)}${path.delimiter}/usr/bin${path.delimiter}/bin`,
+      TMPDIR: fixtureRoot,
+    },
+  });
+}
+
+function packedReceiptCompanionArgs(prefix, companions) {
+  const flags = [];
+  const single = [
+    ["install-plan", "installPlan"],
+    ["ordinary-approval", "ordinaryApproval"],
+    ["conflict-approval", "conflictApproval"],
+    ["journal", "journal"],
+    ["probe", "probe"],
+    ["target-descriptor", "targetDescriptor"],
+    ["package-manifest", "packageManifest"],
+    ["target-carrier-admission", "targetCarrierAdmission"],
+    ["blueprint", "blueprint"],
+    ["build-contract", "buildContract"],
+    ["plan-approval", "planApproval"],
+  ];
+  for (const [flagName, key] of single) {
+    flags.push(
+      `--${prefix}-receipt-companion-${flagName}`,
+      companions[key].filePath,
+      `--${prefix}-receipt-companion-${flagName}-sha256`,
+      companions[key].digest,
+    );
+  }
+  for (const decision of companions.sensitiveDecisions) {
+    flags.push(
+      `--${prefix}-receipt-companion-sensitive-decision`,
+      decision.filePath,
+      `--${prefix}-receipt-companion-sensitive-decision-sha256`,
+      decision.digest,
+    );
+  }
+  return flags;
+}
+
+function packedJournalPath(targetRoot, installPlanDigest, attemptId) {
+  return path.join(
+    targetRoot,
+    `.agentmo-openclaw-install-${installPlanDigest.slice("sha256:".length)}-${digestRawBytes(Buffer.from(attemptId)).slice("sha256:".length)}.journal.json`,
+  );
+}
+
+function packedOpenClawAuthorityArgs(fixture) {
+  return [
+    "--blueprint", fixture.paths.blueprint,
+    "--blueprint-sha256", fixture.digests.blueprint,
+    "--build-contract", fixture.paths["build-contract"],
+    "--build-contract-sha256", fixture.digests["build-contract"],
+    "--plan-approval", fixture.paths["plan-approval"],
+    "--plan-approval-sha256", fixture.digests["plan-approval"],
+    "--target-carrier-admission",
+    fixture.paths["openclaw-target-carrier-admission"],
+    "--target-carrier-admission-sha256",
+    fixture.digests["openclaw-target-carrier-admission"],
+    "--target-descriptor", fixture.paths["openclaw-target-descriptor"],
+    "--target-descriptor-sha256",
+    fixture.digests["openclaw-target-descriptor"],
+  ];
+}
+
+function packedLifecycleAuthorityArgs({
+  archiveDigest,
+  archivePath,
+  fixture,
+  probeDigest,
+  probePath,
+}) {
+  return [
+    ...packedOpenClawAuthorityArgs(fixture),
+    "--archive", archivePath,
+    "--archive-sha256", archiveDigest,
+    "--probe", probePath,
+    "--probe-sha256", probeDigest,
+  ];
+}
+
 describe("packed Codex Builder setup", { concurrency: false }, () => {
+  it("packs the exact Phase 4 runtime closure and imports it without checkout fallback", async () => {
+    const release = await packedPackage.loadBuilderPackage();
+    const phase4Assets = release.assets
+      .map((asset) => asset.sourcePath)
+      .filter((sourcePath) => PHASE_4_PACKED_RUNTIME_MODULES.includes(sourcePath))
+      .toSorted();
+    assert.deepEqual(phase4Assets, PHASE_4_PACKED_RUNTIME_MODULES);
+
+    const manifest = JSON.parse(await readFile(
+      path.join(packedPackageRoot, "package.json"),
+      "utf8",
+    ));
+    assert.deepEqual(
+      manifest.files.filter((sourcePath) => PHASE_4_PACKED_RUNTIME_MODULES.includes(sourcePath)),
+      PHASE_4_PACKED_RUNTIME_MODULES,
+    );
+    assert.equal(new Set(manifest.files).size, manifest.files.length);
+
+    for (const relativePath of PHASE_4_PACKED_RUNTIME_MODULES) {
+      const packedPath = path.join(packedPackageRoot, relativePath);
+      assert.equal(
+        path.relative(packedPackageRoot, packedPath).startsWith(`..${path.sep}`),
+        false,
+      );
+      const loaded = await import(`${pathToFileURL(packedPath).href}?phase4=${Date.now()}`);
+      assert.equal(Object.keys(loaded).length > 0, true, relativePath);
+    }
+  });
+
+  it("Phase 4 extracted tarball full journey closes six root gaps", {
+    timeout: PACKED_INSTALL_TIMEOUT_MS,
+  }, async () => {
+    const targetExecutableSource = [
+      "import { readFileSync, writeFileSync } from 'node:fs';",
+      "const argv = process.argv.slice(2);",
+      "if (argv[0] !== 'config' || argv[1] !== 'patch') process.exit(0);",
+      "if (argv[2] !== '--file') process.exit(64);",
+      "const patch = JSON.parse(readFileSync(new URL(argv[3], `file://${process.cwd()}/`), 'utf8'));",
+      "const current = JSON.parse(readFileSync(process.env.OPENCLAW_CONFIG_PATH, 'utf8'));",
+      "const plain = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);",
+      "const merge = (left, right) => { const next = { ...left }; for (const [key, value] of Object.entries(right)) { if (value === null) delete next[key]; else next[key] = plain(value) && plain(next[key]) ? merge(next[key], value) : value; } return next; };",
+      "if (!argv.includes('--dry-run')) writeFileSync(process.env.OPENCLAW_CONFIG_PATH, `${JSON.stringify(merge(current, patch), null, 2)}\\n`);",
+      "",
+    ].join("\n");
+    const fixture = await buildApprovedPackageFixture({ targetExecutableSource });
+    const journeyRoot = path.join(fixture.root, "packed-phase4-journey");
+    const helperRoot = path.join(journeyRoot, "helper");
+    const helperPath = path.join(helperRoot, "openclaw-fs-kernel");
+    const helperReceiptPath = path.join(
+      helperRoot,
+      "openclaw-fs-kernel.receipt.json",
+    );
+    await mkdir(helperRoot, { recursive: true, mode: 0o700 });
+    const helperBuild = await runPackedPhase4Cli([
+      "openclaw-fs-kernel-build",
+      "--binary-out", helperPath,
+      "--receipt-out", helperReceiptPath,
+      "--json",
+    ], journeyRoot);
+    assert.equal(
+      helperBuild.code,
+      0,
+      `${helperBuild.stdout}${helperBuild.stderr}`,
+    );
+    const helperBuildResult = JSON.parse(helperBuild.stdout);
+    const helperReceiptDigest = helperBuildResult.receiptDigest;
+    assert.match(helperReceiptDigest, /^sha256:[a-f0-9]{64}$/u);
+    assert.equal((await stat(helperPath)).isFile(), true);
+    assert.equal((await stat(helperReceiptPath)).isFile(), true);
+
+    const outputRoot = path.join(journeyRoot, "agent-package");
+    const archivePath = path.join(journeyRoot, "agent-package.d42");
+    const produceCli = await runPackedPhase4Cli([
+      "package-produce",
+      fixture.paths.blueprint,
+      "--design-plan", fixture.paths["design-plan"],
+      "--discovery-approval", fixture.paths["discovery-approval"],
+      "--decision-ledger", fixture.paths["decision-ledger"],
+      "--build-contract", fixture.paths["build-contract"],
+      "--plan-approval", fixture.paths["plan-approval"],
+      "--target-descriptor", fixture.paths["openclaw-target-descriptor"],
+      "--target-carrier-admission",
+      fixture.paths["openclaw-target-carrier-admission"],
+      "--digest", `blueprint=${fixture.digests.blueprint}`,
+      "--digest", `design-plan=${fixture.digests["design-plan"]}`,
+      "--digest",
+      `discovery-approval=${fixture.digests["discovery-approval"]}`,
+      "--digest", `decision-ledger=${fixture.digests["decision-ledger"]}`,
+      "--digest", `build-contract=${fixture.digests["build-contract"]}`,
+      "--digest", `plan-approval=${fixture.digests["plan-approval"]}`,
+      "--digest",
+      `openclaw-target-descriptor=${fixture.digests["openclaw-target-descriptor"]}`,
+      "--digest",
+      `openclaw-target-carrier-admission=${fixture.digests["openclaw-target-carrier-admission"]}`,
+      "--fs-helper", helperPath,
+      "--fs-helper-receipt", helperReceiptPath,
+      "--fs-helper-receipt-digest", helperReceiptDigest,
+      "--out", outputRoot,
+      "--archive", archivePath,
+      "--json",
+    ], journeyRoot);
+    assert.equal(
+      produceCli.code,
+      0,
+      `${produceCli.stdout}${produceCli.stderr}`,
+    );
+    const produced = {
+      ...JSON.parse(produceCli.stdout),
+      outputRoot,
+    };
+    const inspectCli = await runPackedPhase4Cli([
+      "package-inspect",
+      archivePath,
+      "--archive-sha256", produced.archiveDigest,
+      "--json",
+    ], journeyRoot);
+    assert.equal(
+      inspectCli.code,
+      0,
+      `${inspectCli.stdout}${inspectCli.stderr}`,
+    );
+    const inspected = JSON.parse(inspectCli.stdout);
+    assert.equal(inspected.offline.filesystemReadOnly, true);
+    assert.equal(inspected.offline.openClawInvoked, false);
+    assert.equal(inspected.transport.archiveOnlyDownstream, true);
+    assert.equal(inspected.transport.archiveDigest, produced.archiveDigest);
+    assert.equal(inspected.certificationBoundary.installed, false);
+    assert.equal(inspected.certificationBoundary.runtime, false);
+    assert.equal(JSON.stringify(inspected).includes(fixture.root), false);
+
+    const archiveInventory = await packedPhase4.packageArchive
+      .readPackageArchiveInventory({
+        archivePath,
+        expectedArchiveDigest: produced.archiveDigest,
+      });
+    const agentMember = archiveInventory.members.find(
+      ({ relativePath }) => (
+        relativePath === "projections/openclaw/workspace/AGENTS.md"
+      ),
+    );
+    const soulMember = archiveInventory.members.find(
+      ({ relativePath }) => (
+        relativePath === "projections/openclaw/workspace/SOUL.md"
+      ),
+    );
+    assert.ok(agentMember);
+    assert.ok(soulMember);
+
+    const openClawTargetRoot = path.dirname(
+      fixture.inputs.targetFiles.packageJsonPath,
+    );
+    const probePath = path.join(journeyRoot, "openclaw-probe.json");
+    const probeCli = await runPackedPhase4Cli([
+      "openclaw-probe",
+      "--archive", archivePath,
+      "--archive-sha256", produced.archiveDigest,
+      ...packedOpenClawAuthorityArgs(fixture),
+      "--target-root", openClawTargetRoot,
+      "--out", probePath,
+      "--json",
+    ], journeyRoot);
+    assert.equal(
+      probeCli.code,
+      0,
+      `${probeCli.stdout}${probeCli.stderr}`,
+    );
+    const probe = JSON.parse(await readFile(probePath, "utf8"));
+    assert.equal(probe.status, "compatible");
+    const probeDigest = digestRawBytes(await readFile(probePath));
+
+    const targetRoot = path.join(journeyRoot, "isolated-target");
+    const generationA = ".agentmo/generations/generation-a/AGENTS.md";
+    const generationB = ".agentmo/generations/generation-b/SOUL.md";
+    const configRelativePath = "openclaw.json";
+    await mkdir(path.join(targetRoot, path.dirname(generationA)), {
+      recursive: true,
+    });
+    await mkdir(path.join(targetRoot, path.dirname(generationB)), {
+      recursive: true,
+    });
+    const authorityRootBinding = await packedPhase4.authorityRootBinding
+      .createOpenClawAuthorityRootBinding({
+        openClawTargetRoot,
+        targetDescriptor: fixture.inputs.targetDescriptor.value,
+      });
+    const authorityRootBindingPath = path.join(
+      journeyRoot,
+      "authority-root-binding.json",
+    );
+    const authorityRootBindingWritten = await packedPhase4.authorityRootBinding
+      .writeOpenClawAuthorityRootBinding(
+        authorityRootBindingPath,
+        authorityRootBinding,
+      );
+    const authorityStateRoot = path.join(
+      path.dirname(openClawTargetRoot),
+      `.agentmo-openclaw-authority-${authorityRootBinding.targetDescriptorDigest.slice(
+        "sha256:".length,
+      )}`,
+    );
+    const initialConfig = { unknown: { preserved: "exact-value" } };
+    await writeFile(
+      path.join(targetRoot, configRelativePath),
+      `${JSON.stringify(initialConfig, null, 2)}\n`,
+      { mode: 0o600 },
+    );
+    const target = {
+      targetId: probe.target.id,
+      targetVersion: probe.target.version,
+      targetRevision: probe.target.sourceRevision,
+      probeFingerprintDigest: probe.fingerprintDigest,
+      scope: "project",
+      projectId: "packed-fixture-project",
+    };
+
+    const genesisRequest = {
+      target,
+      operations: [{
+        path: generationA,
+        operation: "write",
+        currentDigest: null,
+      }],
+      observedAt: "2026-07-30T00:00:00.000Z",
+    };
+    const genesisRequestPath = path.join(
+      journeyRoot,
+      "install-genesis-request.json",
+    );
+    const genesisRequestBytes = Buffer.from(serializePersistableJson(
+      genesisRequest,
+      { subject: "genesis-request" },
+    ));
+    await writeFile(genesisRequestPath, genesisRequestBytes);
+    const genesisPath = path.join(journeyRoot, "install-genesis.json");
+    const genesisCli = await runPackedPhase4Cli([
+      "openclaw-install-genesis",
+      ...packedLifecycleAuthorityArgs({
+        archiveDigest: produced.archiveDigest,
+        archivePath,
+        fixture,
+        probeDigest,
+        probePath,
+      }),
+      "--request", genesisRequestPath,
+      "--request-sha256", digestRawBytes(genesisRequestBytes),
+      "--target-root", targetRoot,
+      "--fs-helper", helperPath,
+      "--fs-helper-receipt", helperReceiptPath,
+      "--fs-helper-receipt-digest", helperReceiptDigest,
+      "--out", genesisPath,
+      "--json",
+    ], journeyRoot);
+    assert.equal(
+      genesisCli.code,
+      0,
+      `${genesisCli.stdout}${genesisCli.stderr}`,
+    );
+    const genesis = JSON.parse(await readFile(genesisPath, "utf8"));
+    const genesisWritten = {
+      digest: digestRawBytes(await readFile(genesisPath)),
+    };
+
+    const configFor = (generation) => generation === null
+      ? initialConfig
+      : {
+        ...initialConfig,
+        agents: {
+          "support-triage": {
+            workspace: generation,
+          },
+        },
+      };
+    const configBytes = (value) => Buffer.from(
+      `${JSON.stringify(value, null, 2)}\n`,
+    );
+    const retainedOperation = async ({
+      relativePath,
+      operation,
+      sourcePath = null,
+      currentDigest,
+      desiredDigest,
+      configPatch = null,
+    }) => {
+      const absolute = path.join(targetRoot, relativePath);
+      const parent = await lstat(path.dirname(absolute));
+      const file = await lstat(absolute).catch((error) => {
+        if (error?.code === "ENOENT") return null;
+        throw error;
+      });
+      return {
+        path: relativePath,
+        operation,
+        sourcePath,
+        configPatch,
+        baseDigest: currentDigest,
+        currentDigest,
+        desiredDigest,
+        ownerMarker: "agentmo:packed-fixture-project",
+        retainedFileIdentity: file === null ? null : {
+          device: file.dev.toString(),
+          inode: file.ino.toString(),
+        },
+        retainedParentIdentity: {
+          device: parent.dev.toString(),
+          inode: parent.ino.toString(),
+        },
+        conflict: "none",
+        rollbackRule: operation === "write"
+          ? "remove-if-created-and-pristine"
+          : "restore-if-owned-and-current-digest-matches",
+      };
+    };
+    const receipts = new Map();
+    const runLifecycle = async ({
+      lifecycle,
+      fromConfig,
+      toConfig,
+      writeMember = null,
+      writePath = null,
+      current = null,
+      selected = null,
+    }) => {
+      const patch = toConfig === initialConfig
+        ? { agents: null }
+        : { agents: toConfig.agents };
+      const patchDigest = phase4DigestJson(
+        patch,
+        "openclaw-official-config-patch",
+      );
+      const operations = [];
+      if (writeMember !== null) {
+        operations.push(await retainedOperation({
+          relativePath: writePath,
+          operation: "write",
+          sourcePath: writeMember.relativePath,
+          currentDigest: null,
+          desiredDigest: writeMember.sha256,
+        }));
+      }
+      operations.push(await retainedOperation({
+        relativePath: configRelativePath,
+        operation: lifecycle === "uninstall" ? "remove" : "patch",
+        currentDigest: digestRawBytes(configBytes(fromConfig)),
+        desiredDigest: digestRawBytes(configBytes(toConfig)),
+        configPatch: { patch, patchDigest },
+      }));
+      operations.sort((left, right) => (
+        Buffer.from(left.path).compare(Buffer.from(right.path))
+      ));
+      const action = {
+        actionId: `config:${lifecycle}:openclaw.json`,
+        kind: "external-command",
+        executable: "openclaw",
+        argv: [
+          "config",
+          "patch",
+          "--file",
+          `agentmo-config-patch-${patchDigest.slice("sha256:".length)}.json`,
+        ],
+        cwd: ".",
+        scope: "project",
+        target: configRelativePath,
+        timeoutMs: 10_000,
+        environmentNames: [],
+      };
+      const previewRequest = {
+        target,
+        operations,
+        sensitiveActions: [action],
+        conflicts: [],
+        officialConfigDryRun: {
+          commandDigest: digestRawBytes(
+            Buffer.from(`${lifecycle}:config-command`),
+          ),
+          resultDigest: digestRawBytes(
+            Buffer.from(`${lifecycle}:config-result`),
+          ),
+          accepted: true,
+        },
+      };
+      const previewRequestPath = path.join(
+        journeyRoot,
+        `${lifecycle}-preview-request.json`,
+      );
+      const previewRequestBytes = Buffer.from(serializePersistableJson(
+        previewRequest,
+        { subject: "preview-request" },
+      ));
+      await writeFile(previewRequestPath, previewRequestBytes);
+      const planPath = path.join(journeyRoot, `${lifecycle}-plan.json`);
+      const previewBasisArgs = lifecycle === "install"
+        ? [
+          "--absent-genesis", genesisPath,
+          "--absent-genesis-sha256", genesisWritten.digest,
+        ]
+        : lifecycle === "rollback"
+          ? [
+            "--current-receipt", current.path,
+            "--current-receipt-sha256", current.digest,
+            ...packedReceiptCompanionArgs("current", current.companions),
+            "--predecessor-receipt", selected.path,
+            "--predecessor-receipt-sha256", selected.digest,
+            ...packedReceiptCompanionArgs(
+              "predecessor",
+              selected.companions,
+            ),
+            "--predecessor-archive", archivePath,
+            "--predecessor-archive-sha256", produced.archiveDigest,
+          ]
+          : [
+            "--current-receipt", current.path,
+            "--current-receipt-sha256", current.digest,
+            ...packedReceiptCompanionArgs("current", current.companions),
+          ];
+      const previewCli = await runPackedPhase4Cli([
+        "openclaw-install-preview",
+        "--lifecycle", lifecycle,
+        ...packedLifecycleAuthorityArgs({
+          archiveDigest: produced.archiveDigest,
+          archivePath,
+          fixture,
+          probeDigest,
+          probePath,
+        }),
+        "--request", previewRequestPath,
+        "--request-sha256", digestRawBytes(previewRequestBytes),
+        "--target-root", targetRoot,
+        "--fs-helper", helperPath,
+        "--fs-helper-receipt", helperReceiptPath,
+        "--fs-helper-receipt-digest", helperReceiptDigest,
+        "--authority-root-binding", authorityRootBindingPath,
+        "--authority-root-binding-sha256", authorityRootBindingWritten.digest,
+        ...previewBasisArgs,
+        "--out", planPath,
+        "--json",
+      ], journeyRoot);
+      assert.equal(
+        previewCli.code,
+        0,
+        `${previewCli.stdout}${previewCli.stderr}`,
+      );
+      const plan = JSON.parse(await readFile(planPath, "utf8"));
+      const planWritten = {
+        digest: digestRawBytes(await readFile(planPath)),
+      };
+      const common = {
+        plan,
+        decision: "approve",
+        issuedAt: "2026-07-30T00:00:00.000Z",
+        expiresAt: "2099-07-30T00:00:00.000Z",
+      };
+      const ordinaryPath = path.join(
+        journeyRoot,
+        `${lifecycle}-ordinary.json`,
+      );
+      const sensitivePath = path.join(
+        journeyRoot,
+        `${lifecycle}-sensitive.json`,
+      );
+      const conflictPath = path.join(
+        journeyRoot,
+        `${lifecycle}-conflict.json`,
+      );
+      const approvalRequest = {
+        issuedAt: common.issuedAt,
+        expiresAt: common.expiresAt,
+        validationNow: common.issuedAt,
+        noncePrefix: `packed:${lifecycle}`,
+      };
+      const approvalRequestPath = path.join(
+        journeyRoot,
+        `${lifecycle}-approval-request.json`,
+      );
+      const approvalRequestBytes = Buffer.from(serializePersistableJson(
+        approvalRequest,
+        { subject: "approval-request" },
+      ));
+      await writeFile(approvalRequestPath, approvalRequestBytes);
+      const approveCli = await runPackedPhase4Cli([
+        "openclaw-install-approve",
+        "--plan", planPath,
+        "--plan-sha256", planWritten.digest,
+        "--request", approvalRequestPath,
+        "--request-sha256", digestRawBytes(approvalRequestBytes),
+        "--ordinary-out", ordinaryPath,
+        "--sensitive-out", sensitivePath,
+        "--conflict-out", conflictPath,
+        "--json",
+      ], journeyRoot);
+      assert.equal(
+        approveCli.code,
+        0,
+        `${approveCli.stdout}${approveCli.stderr}`,
+      );
+      const ordinaryWritten = {
+        digest: digestRawBytes(await readFile(ordinaryPath)),
+      };
+      const sensitiveWritten = {
+        digest: digestRawBytes(await readFile(sensitivePath)),
+      };
+      const conflictWritten = {
+        digest: digestRawBytes(await readFile(conflictPath)),
+      };
+      const outputPath = path.join(journeyRoot, `${lifecycle}-receipt.json`);
+      const attemptId = `packed:${lifecycle}`;
+      const applyCli = await runPackedPhase4Cli([
+        "openclaw-install-apply",
+        "--lifecycle", lifecycle,
+        ...packedLifecycleAuthorityArgs({
+          archiveDigest: produced.archiveDigest,
+          archivePath,
+          fixture,
+          probeDigest,
+          probePath,
+        }),
+        "--install-plan", planPath,
+        "--install-plan-sha256", planWritten.digest,
+        "--ordinary-approval", ordinaryPath,
+        "--ordinary-approval-sha256", ordinaryWritten.digest,
+        "--sensitive-decision", sensitivePath,
+        "--sensitive-decision-sha256", sensitiveWritten.digest,
+        "--conflict-approval", conflictPath,
+        "--conflict-approval-sha256", conflictWritten.digest,
+        ...previewBasisArgs,
+        "--fs-helper", helperPath,
+        "--fs-helper-receipt", helperReceiptPath,
+        "--fs-helper-receipt-digest", helperReceiptDigest,
+        "--authority-root-binding", authorityRootBindingPath,
+        "--authority-root-binding-sha256", authorityRootBindingWritten.digest,
+        "--openclaw-target-root", openClawTargetRoot,
+        "--target-root", targetRoot,
+        "--attempt-id", attemptId,
+        "--out", outputPath,
+        "--json",
+      ], journeyRoot);
+      assert.equal(
+        applyCli.code,
+        0,
+        `${applyCli.stdout}${applyCli.stderr}`,
+      );
+      const applyOutput = JSON.parse(applyCli.stdout);
+      const result = {
+        receipt: applyOutput.receipt,
+        digest: applyOutput.digest,
+        journalPath: packedJournalPath(
+          targetRoot,
+          plan.installPlanDigest,
+          attemptId,
+        ),
+      };
+      const companions = {
+        installPlan: { filePath: planPath, digest: planWritten.digest },
+        ordinaryApproval: {
+          filePath: ordinaryPath,
+          digest: ordinaryWritten.digest,
+        },
+        sensitiveDecisions: [{
+          filePath: sensitivePath,
+          digest: sensitiveWritten.digest,
+        }],
+        conflictApproval: {
+          filePath: conflictPath,
+          digest: conflictWritten.digest,
+        },
+        journal: {
+          filePath: result.journalPath,
+          digest: result.receipt.authorityLedger.journal.digest,
+        },
+        probe: { filePath: probePath, digest: probeDigest },
+        targetDescriptor: {
+          filePath: fixture.paths["openclaw-target-descriptor"],
+          digest: fixture.digests["openclaw-target-descriptor"],
+        },
+        packageManifest: {
+          filePath: path.join(produced.outputRoot, "agentmo.package.json"),
+          digest: produced.manifestDigest,
+        },
+        targetCarrierAdmission: {
+          filePath: fixture.paths["openclaw-target-carrier-admission"],
+          digest: fixture.digests["openclaw-target-carrier-admission"],
+        },
+        blueprint: {
+          filePath: fixture.paths.blueprint,
+          digest: fixture.digests.blueprint,
+        },
+        buildContract: {
+          filePath: fixture.paths["build-contract"],
+          digest: fixture.digests["build-contract"],
+        },
+        planApproval: {
+          filePath: fixture.paths["plan-approval"],
+          digest: fixture.digests["plan-approval"],
+        },
+        predecessor: current === null
+          ? null
+          : {
+            filePath: current.path,
+            digest: current.digest,
+            companions: current.companions,
+          },
+      };
+      const authorityOptions = {
+        openClawTargetRoot,
+        helperPath,
+        receiptPath: helperReceiptPath,
+        receiptDigest: helperReceiptDigest,
+        authorityRootBinding,
+      };
+      const recorded = {
+        ...result,
+        path: outputPath,
+        companions,
+        authorityOptions,
+        plan,
+      };
+      const strictAdmission = await packedPhase4.installTransaction
+        .admitOpenClawInstallReceiptWithCompanions(
+          outputPath,
+          result.digest,
+          companions,
+          authorityOptions,
+        );
+      assert.equal(strictAdmission.digest, result.digest);
+      assert.equal(
+        strictAdmission.postState.provenance.digest,
+        result.receipt.postEffectEvidence.postState.digest,
+      );
+      assert.deepEqual(
+        strictAdmission.actionResults.map(({ provenance }) => provenance.digest),
+        result.receipt.postEffectEvidence.officialActionResults.map(
+          ({ digest }) => digest,
+        ),
+      );
+      assert.equal(
+        strictAdmission.finalization.provenance.digest,
+        result.receipt.postEffectEvidence.finalization.digest,
+      );
+      const officialActionUnsupported = process.platform !== "linux";
+      assert.equal(
+        result.receipt.status,
+        officialActionUnsupported ? "incomplete" : "complete",
+      );
+      assert.equal(result.receipt.nonceConsumption.markers.length, 3);
+      assert.equal(result.receipt.externalResults.length, 1);
+      if (officialActionUnsupported) {
+        assert.equal(
+          result.receipt.externalResults[0].disposition,
+          "unsupported",
+        );
+        assert.equal(
+          result.receipt.externalResults[0].unsupportedReason,
+          "platform-fd-config-transport-unavailable",
+        );
+      }
+      assert.equal(
+        result.receipt.lineage.predecessorReceiptDigest,
+        current?.digest ?? null,
+      );
+      assert.deepEqual(
+        JSON.parse(
+          await readFile(
+            path.join(targetRoot, configRelativePath),
+            "utf8",
+          ),
+        ),
+        officialActionUnsupported ? initialConfig : toConfig,
+      );
+      receipts.set(lifecycle, recorded);
+      return recorded;
+    };
+
+    const install = await runLifecycle({
+      lifecycle: "install",
+      fromConfig: initialConfig,
+      toConfig: configFor(path.dirname(generationA)),
+      writeMember: agentMember,
+      writePath: generationA,
+    });
+    if (process.platform !== "linux") {
+      assert.deepEqual([...receipts.keys()], ["install"]);
+      return;
+    }
+    const upgrade = await runLifecycle({
+      lifecycle: "upgrade",
+      fromConfig: configFor(path.dirname(generationA)),
+      toConfig: configFor(path.dirname(generationB)),
+      writeMember: soulMember,
+      writePath: generationB,
+      current: install,
+    });
+    const rollback = await runLifecycle({
+      lifecycle: "rollback",
+      fromConfig: configFor(path.dirname(generationB)),
+      toConfig: configFor(path.dirname(generationA)),
+      current: upgrade,
+      selected: install,
+    });
+    const uninstall = await runLifecycle({
+      lifecycle: "uninstall",
+      fromConfig: configFor(path.dirname(generationA)),
+      toConfig: initialConfig,
+      current: rollback,
+    });
+    assert.deepEqual(
+      [...receipts.keys()],
+      ["install", "upgrade", "rollback", "uninstall"],
+    );
+    assert.equal(uninstall.receipt.lineage.sequence, 3);
+    assert.equal(
+      uninstall.receipt.certificationBoundary.runtime,
+      false,
+    );
+    assert.equal(
+      uninstall.receipt.certificationBoundary.production,
+      false,
+    );
+    // Root gap 5 (WR-01/02): lifecycle execution is real, while a caller
+    // cannot self-certify the absent genesis observation used by install.
+    await assert.rejects(
+      () => packedPhase4.installPlan.buildOpenClawAbsentGenesisAuthority({
+        target,
+        checkedPaths: [generationA],
+        verifiedAbsent: true,
+        absenceObservationDigest: genesis.absenceObservationDigest,
+        observedAt: genesis.observedAt,
+      }),
+      (error) => error?.code
+        === "AGENTMO_OPENCLAW_INSTALL_PLAN_INVALID",
+    );
+
+    // Root gap 2 (CR-05/06): the already consumed install nonce set cannot be
+    // replayed in a fresh attempt, and credential argv confusion is rejected.
+    const replaySession = await packedPhase4.safeFs
+      .openOpenClawSafeFsSession({
+        rootPath: authorityStateRoot,
+        helperPath,
+        receiptPath: helperReceiptPath,
+        receiptDigest: helperReceiptDigest,
+      });
+    const replayOrdinaryApproval = JSON.parse(await readFile(
+      install.companions.ordinaryApproval.filePath,
+      "utf8",
+    ));
+    const replaySensitiveDecisions = await Promise.all(
+      install.companions.sensitiveDecisions.map(
+        async ({ filePath }) => JSON.parse(await readFile(filePath, "utf8")),
+      ),
+    );
+    const replayConflictApproval = JSON.parse(await readFile(
+      install.companions.conflictApproval.filePath,
+      "utf8",
+    ));
+    try {
+      await assert.rejects(
+        () => packedPhase4.authorityConsumption
+          .reserveOpenClawAuthoritySet({
+            session: replaySession,
+            attemptId: "packed:install-replay",
+            plan: install.plan,
+            probe,
+            ordinaryApproval: replayOrdinaryApproval,
+            sensitiveDecisions: replaySensitiveDecisions,
+            conflictApproval: replayConflictApproval,
+            now: "2026-07-30T00:00:00.000Z",
+          }),
+        (error) => error?.code
+          === "AGENTMO_OPENCLAW_AUTHORITY_RECOVERY_REQUIRED",
+      );
+    } finally {
+      await replaySession.close();
+    }
+    assert.throws(
+      () => packedPhase4.credentialHandoff
+        .buildOpenClawCredentialSetupProposal({
+          profileReference: "openclaw-profile:fixture",
+          missingEnvironmentNames: ["OPENCLAW_API_TOKEN"],
+          officialRoute: {
+            executable: "openclaw",
+            argv: ["plugins", "install", "evil"],
+            timeoutMs: 30_000,
+          },
+        }),
+      (error) => error?.code
+        === "AGENTMO_OPENCLAW_CREDENTIAL_PROPOSAL_INVALID",
+    );
+
+    // Root gap 1 (CR-01/02/09): target replacement invalidates a fresh packed
+    // probe rather than reusing prior self-authenticating observations.
+    const targetExecutable = fixture.inputs.targetFiles.executablePath;
+    await writeFile(targetExecutable, "process.exit(0);\n");
+    await assert.rejects(
+      () => packedPhase4.openClawProbe.probeOpenClawTarget({
+        archivePath,
+        expectedArchiveDigest: produced.archiveDigest,
+        blueprintPath: fixture.paths.blueprint,
+        expectedBlueprintDigest: fixture.digests.blueprint,
+        buildContractPath: fixture.paths["build-contract"],
+        expectedBuildContractDigest: fixture.digests["build-contract"],
+        planApprovalPath: fixture.paths["plan-approval"],
+        expectedPlanApprovalDigest: fixture.digests["plan-approval"],
+        targetCarrierAdmissionPath:
+          fixture.paths["openclaw-target-carrier-admission"],
+        expectedTargetCarrierAdmissionDigest:
+          fixture.digests["openclaw-target-carrier-admission"],
+        targetDescriptorPath: fixture.paths["openclaw-target-descriptor"],
+        expectedTargetDescriptorDigest:
+          fixture.digests["openclaw-target-descriptor"],
+        targetRoot: openClawTargetRoot,
+      }),
+      (error) => error?.code === "AGENTMO_OPENCLAW_PROBE_TARGET_DRIFT",
+    );
+
+    // Root gap 3 (CR-03/04): explicit helper admission rejects receipt drift,
+    // and a symlinked managed ancestor cannot be traversed by the native seam.
+    await assert.rejects(
+      () => packedPhase4.safeFs.openOpenClawSafeFsSession({
+        rootPath: targetRoot,
+        helperPath,
+        receiptPath: helperReceiptPath,
+        receiptDigest: `sha256:${"0".repeat(64)}`,
+      }),
+      (error) => error?.code === "AGENTMO_OPENCLAW_FS_ADMISSION_REJECTED",
+    );
+    const symlinkRoot = path.join(journeyRoot, "safe-fs-symlink-root");
+    const outsideRoot = path.join(journeyRoot, "safe-fs-outside");
+    await mkdir(symlinkRoot);
+    await mkdir(outsideRoot);
+    await symlink(outsideRoot, path.join(symlinkRoot, "managed"), "dir");
+    const symlinkSession = await packedPhase4.safeFs
+      .openOpenClawSafeFsSession({
+        rootPath: symlinkRoot,
+        helperPath,
+        receiptPath: helperReceiptPath,
+        receiptDigest: helperReceiptDigest,
+    });
+    try {
+      const refused = await symlinkSession.createOnly(
+        "managed/escape.txt",
+        Buffer.from("blocked\n"),
+        0o600,
+      );
+      assert.notEqual(refused.disposition, "created");
+    } finally {
+      await symlinkSession.close();
+    }
+    assert.deepEqual(await readdir(outsideRoot), []);
+
+    // Root gap 4 (CR-07/08): false-complete bytes are rejected both by the
+    // packed validator and by strict companion-backed re-admission.
+    const falseComplete = structuredClone(install.receipt);
+    falseComplete.preservedAssets = [{
+      path: falseComplete.managedResults[0].path,
+      observedDigest: falseComplete.managedResults[0].afterDigest,
+      reasonCode: "packed-preserved-asset",
+    }];
+    falseComplete.recovery = {
+      required: true,
+      disposition: "preserved",
+      removedAssets: [],
+      preservedAssets: [{
+        path: falseComplete.managedResults[0].path,
+        digest: falseComplete.managedResults[0].afterDigest,
+      }],
+      reasons: ["packed-preserved-asset"],
+    };
+    assert.equal(
+      packedPhase4.installReceipt
+        .validateOpenClawInstallReceipt(falseComplete).ok,
+      false,
+    );
+    const falseCompletePath = path.join(
+      journeyRoot,
+      "false-complete-receipt.json",
+    );
+    const falseCompleteBytes = Buffer.from(serializePersistableJson(
+      falseComplete,
+      { subject: "openclaw-install-receipt" },
+    ));
+    await writeFile(falseCompletePath, falseCompleteBytes);
+    await assert.rejects(
+      () => packedPhase4.installTransaction
+        .admitOpenClawInstallReceiptWithCompanions(
+          falseCompletePath,
+          digestRawBytes(falseCompleteBytes),
+          install.companions,
+          install.authorityOptions,
+        ),
+      (error) => error?.code
+        === "AGENTMO_OPENCLAW_INSTALL_RECEIPT_EVIDENCE_REJECTED",
+    );
+
+    // Root gap 6 (CR-10): a post-publication replacement is preserved. The
+    // nested recipe projection also keeps the approved suffix (WR-03).
+    const replacementOutput = path.join(journeyRoot, "replacement-package");
+    const replacementArchive = path.join(
+      journeyRoot,
+      "replacement-package.d42",
+    );
+    const ownedArchive = path.join(journeyRoot, "owned-package.d42");
+    const replacementBytes = Buffer.from("unknown replacement\n");
+    await assert.rejects(
+      () => packedPhase4.packageProduce.produceAgentPackage({
+        ...packageProduceOptions(
+          fixture,
+          replacementOutput,
+          replacementArchive,
+        ),
+        helperPath,
+        receiptPath: helperReceiptPath,
+        receiptDigest: helperReceiptDigest,
+      }, {
+        afterArchivePublication: async () => {
+          await rename(replacementArchive, ownedArchive);
+          await writeFile(replacementArchive, replacementBytes, {
+            flag: "wx",
+            mode: 0o600,
+          });
+          throw new Error("packed replacement attack");
+        },
+      }),
+      (error) => error?.recoveryRequired === true,
+    );
+    assert.deepEqual(await readFile(replacementArchive), replacementBytes);
+    const nestedContract = structuredClone(fixture.contract);
+    nestedContract.nativePluginRecipe.files[0].relativePath =
+      "openclaw/plugin/nested/a/index.js";
+    nestedContract.nativePluginRecipe.files[1].relativePath =
+      "openclaw/plugin/nested/b/openclaw.plugin.json";
+    nestedContract.nativePluginRecipe.recipeDigest =
+      packedPhase4.buildContract.computeNativePluginRecipeDigest(
+        nestedContract.nativePluginRecipe,
+      );
+    const nestedAdmission = structuredClone(fixture.targetAdmission);
+    nestedAdmission.authorities.nativePluginRecipeDigest =
+      nestedContract.nativePluginRecipe.recipeDigest;
+    const nestedCarrierSelection = packedPhase4.packageCarriers
+      .selectPackageCarriers(nestedContract);
+    const nestedEntries = packedPhase4.openClawProjection
+      .buildOpenClawPackageProjection({
+        buildContract: nestedContract,
+        carrierSelection: nestedCarrierSelection,
+        targetAdmission: nestedAdmission,
+      });
+    assert.equal(
+      nestedEntries.some(({ relativePath }) => (
+        relativePath.endsWith(
+          "/nested/a/index.js",
+        )
+      )),
+      true,
+    );
+    assert.equal(
+      nestedEntries.some(({ relativePath }) => (
+        relativePath.endsWith(
+          "/nested/b/openclaw.plugin.json",
+        )
+      )),
+      true,
+    );
+
+    for (const forbidden of [
+      ".env",
+      "credentialValue",
+      "rawStdout",
+      "rawStderr",
+      "runtimeCertified",
+      "domainCertified",
+      "productionApproved",
+    ]) {
+      assert.equal(
+        JSON.stringify({
+          inspected,
+          receipts: [...receipts.values()].map(({ receipt }) => receipt),
+        }).includes(forbidden),
+        false,
+        forbidden,
+      );
+    }
+  });
+
+  it("exposes archive-only preview/apply grammar for all four lifecycle routes", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agentmo-packed-phase4-help-"));
+    const bin = await fakeCodexBin(root);
+    for (const command of ["openclaw-install-preview", "openclaw-install-apply"]) {
+      const result = await runPackedCli([command, "--help"], bin);
+      assert.equal(result.code, 0, `${result.stdout}${result.stderr}`);
+      assert.match(result.stdout, /--archive <archive\.d42>/u);
+      assert.match(result.stdout, /--archive-sha256 sha256:<64hex>/u);
+      assert.match(result.stdout, /--lifecycle install\|upgrade\|rollback\|uninstall/u);
+      assert.doesNotMatch(result.stdout, /--package-root|--manifest-sha256/u);
+    }
+  });
+
   it("admits one deterministic fixed runtime inventory and its complete packed import closure", async () => {
     const first = await packedPackage.loadBuilderPackage();
     const second = await packedPackage.loadBuilderPackage();
@@ -1435,8 +2619,8 @@ describe("packed Codex Builder setup", { concurrency: false }, () => {
         kind, sourcePath, relativePath, destinationPath, digest, byteLength,
       })),
     );
-    assert.equal(first.assets.length, 69);
-    assert.equal(first.assets.filter((asset) => asset.kind === "runtime").length, 64);
+    assert.equal(first.assets.length, 102);
+    assert.equal(first.assets.filter((asset) => asset.kind === "runtime").length, 97);
     assert.deepEqual(
       first.assets.map((asset) => asset.destinationPath),
       first.assets.map((asset) => asset.destinationPath).toSorted(),
@@ -1446,6 +2630,32 @@ describe("packed Codex Builder setup", { concurrency: false }, () => {
     assert.equal(first.assets.some((asset) => asset.sourcePath === "bin/agentmo.js"), true);
     assert.equal(first.assets.some((asset) => asset.sourcePath === "src/cli.js"), true);
     assert.equal(first.assets.some((asset) => asset.sourcePath === "src/artifact-contract.js"), true);
+    assert.equal(first.assets.some((asset) => asset.sourcePath === "src/discovery-live.js"), true);
+    assert.equal(first.assets.some((asset) => asset.sourcePath === "src/discovery-live-transport.js"), true);
+    assert.equal(first.assets.some((asset) => asset.sourcePath === "src/discovery-approval.js"), true);
+    assert.equal(first.assets.some((asset) => asset.sourcePath === "src/decision-ledger.js"), true);
+    assert.equal(first.assets.some((asset) => asset.sourcePath === "src/build-contract.js"), true);
+    assert.equal(
+      first.assets.some(
+        (asset) => asset.sourcePath === "src/openclaw-install-evidence.js",
+      ),
+      true,
+    );
+    assert.equal(first.assets.some((asset) => (
+      asset.sourcePath === "src/openclaw-authority-root-binding.js"
+    )), true);
+    assert.equal(first.assets.some((asset) => asset.sourcePath === "src/openclaw-target-admission.js"), true);
+    assert.equal(first.assets.some((asset) => asset.sourcePath === "src/openclaw-target-descriptor.js"), true);
+    assert.equal(first.assets.some((asset) => asset.sourcePath === "native/openclaw-fs-kernel.c"), true);
+    assert.equal(first.assets.some((asset) => asset.sourcePath === "native/openclaw-process-supervisor.c"), true);
+    assert.equal(first.assets.some((asset) => asset.sourcePath === "src/openclaw-process-supervisor.js"), true);
+    assert.equal(first.assets.some((asset) => asset.sourcePath === "src/openclaw-safe-fs.js"), true);
+    assert.equal(first.assets.some((asset) => asset.sourcePath === "src/package-carriers.js"), true);
+    assert.equal(first.assets.some((asset) => asset.sourcePath === "src/plan-approval.js"), true);
+    assert.equal(first.assets.some((asset) => asset.sourcePath === "src/discovery-provenance.js"), true);
+    assert.equal(first.assets.some((asset) => asset.sourcePath === "src/collectors/arxiv.js"), true);
+    assert.equal(first.assets.some((asset) => asset.sourcePath === "src/collectors/github.js"), true);
+    assert.equal(first.assets.some((asset) => asset.sourcePath === "src/collectors/web.js"), true);
     assert.equal(first.assets.some((asset) => asset.sourcePath === "src/builder-codex-host.js"), true);
     assert.equal(first.assets.some((asset) => asset.sourcePath === "src/builder-bootstrap-snapshot.js"), true);
     assert.equal(first.assets.some((asset) => asset.sourcePath === "src/builder-immutable-journal.js"), true);
@@ -2467,7 +3677,11 @@ describe("packed Codex Builder setup", { concurrency: false }, () => {
     await absent(path.join(home, ".fake-codex-installed.json"));
   });
 
-  it("traverses registered packed hooks through the adjacent launcher, bridge, reducer, and checkpoint CAS", async () => {
+  it("traverses registered packed hooks through the adjacent launcher, bridge, reducer, and checkpoint CAS", {
+    skip: process.env.AGENTMO_TEST_LANE === "main"
+      ? "runs in the isolated packed-hook-chain lane"
+      : false,
+  }, async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agentmo-packed-hook-chain-"));
     const project = path.join(root, "project");
     const home = path.join(root, "home");
@@ -2683,6 +3897,7 @@ describe("packed Codex Builder setup", { concurrency: false }, () => {
     const childOptions = {
       cwd: project,
       env: { HOME: home, CODEX_HOME: path.join(home, ".codex") },
+      timeoutMs: 35_000,
     };
     const session = await runNode(runnerPath, JSON.stringify(sessionInput), childOptions);
     assert.equal(session.code, 0, session.stderr);
@@ -2873,7 +4088,10 @@ describe("packed Codex Builder setup", { concurrency: false }, () => {
     // Admission captures and digests the complete release before the child is
     // started. Give that capture time to complete, then replace both pathname
     // entries while the authenticated graph delivery is still in flight.
-    await new Promise((resolve) => setTimeout(resolve, 250));
+    // The complete authenticated release now includes the Phase 4 runtime
+    // closure. Preserve the in-flight swap proof while allowing that larger
+    // fixed inventory to be captured before pathname replacement.
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
     assert.equal(swapped.child.exitCode, null);
     const swappedRunner = `${runnerPath}.retained-after-bootstrap`;
     const swappedLauncher = `${launcherPath}.retained-after-bootstrap`;
@@ -3015,6 +4233,7 @@ describe("packed Codex Builder setup", { concurrency: false }, () => {
       }), {
         ...fixture.childOptions,
         env: { ...fixture.childOptions.env, TMPDIR: hostileTmp },
+        timeoutMs: 35_000,
       });
       assert.equal(delivered.code, 0, delivered.stderr);
       assert.equal(delivered.stderr, "");

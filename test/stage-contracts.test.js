@@ -11,6 +11,7 @@ const CLI = fileURLToPath(new URL("../bin/agentmo.js", import.meta.url));
 const REPO_ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const DISCOVERY = fileURLToPath(new URL("../examples/support-triage.discovery.json", import.meta.url));
 const NEED = fileURLToPath(new URL("../examples/support-triage.need.json", import.meta.url));
+const DECISION_ENTRY = fileURLToPath(new URL("../examples/support-triage.decision-entry.json", import.meta.url));
 const PREBUILT_DISCOVERY_DB = fileURLToPath(new URL("../examples/fixtures/support-triage/prebuilt-discovery-db.json", import.meta.url));
 const SUPPORT_BLUEPRINT = fileURLToPath(new URL("../examples/support-triage.agentmo.json", import.meta.url));
 
@@ -35,6 +36,54 @@ async function readJson(file) {
 
 async function digestFile(file) {
   return `sha256:${createHash("sha256").update(await readFile(file)).digest("hex")}`;
+}
+
+async function createDiscoveryApproval(root, manifest, discoveryDb) {
+  const out = path.join(root, "agentmo-discovery-approval.json");
+  const bindings = [
+    "--digest",
+    `discovery-manifest=${await digestFile(manifest)}`,
+    "--digest",
+    `discovery-db=${await digestFile(discoveryDb)}`,
+  ];
+  const preview = await runCli([
+    "discovery-approve",
+    manifest,
+    "--discovery-db",
+    discoveryDb,
+    ...bindings,
+    "--json",
+  ]);
+  assert.equal(preview.code, 0, preview.stderr);
+  const apply = await runCli([
+    "discovery-approve",
+    manifest,
+    "--discovery-db",
+    discoveryDb,
+    ...bindings,
+    "--approve",
+    "--preview-digest",
+    JSON.parse(preview.stdout).previewDigest,
+    "--out",
+    out,
+    "--json",
+  ]);
+  assert.equal(apply.code, 0, apply.stderr);
+  return out;
+}
+
+async function createDecisionLedger(root) {
+  const ledgerRoot = await mkdtemp(path.join(tmpdir(), "agentmo-stage2-ledger-"));
+  const journal = path.join(ledgerRoot, "decision-ledger.json");
+  const result = await runCli([
+    "decision-ledger", "append",
+    "--journal", journal,
+    "--entry", DECISION_ENTRY,
+    "--digest", `decision-entry=${await digestFile(DECISION_ENTRY)}`,
+    "--json",
+  ]);
+  assert.equal(result.code, 0, result.stderr);
+  return { journal, headDigest: JSON.parse(result.stdout).head.digest };
 }
 
 async function listRelativeFiles(root, current = root) {
@@ -179,6 +228,8 @@ describe("stage contract independence", () => {
     const root = await mkdtemp(path.join(tmpdir(), "agentmo-stage2-contract-"));
     const planPath = path.join(root, "agentmo-design-plan.json");
     const blueprintPath = path.join(root, "support-triage.agentmo.json");
+    const approvalPath = await createDiscoveryApproval(root, DISCOVERY, PREBUILT_DISCOVERY_DB);
+    const decisionLedger = await createDecisionLedger(root);
     const fixture = await readJson(PREBUILT_DISCOVERY_DB);
     assert.equal(fixture.schemaVersion, "agentmo.discovery-db.v1");
     assert.equal(fixture.validation.ok, true);
@@ -187,12 +238,24 @@ describe("stage contract independence", () => {
     const design = await runCli([
       "design-plan",
       PREBUILT_DISCOVERY_DB,
+      "--manifest",
+      DISCOVERY,
+      "--discovery-approval",
+      approvalPath,
       "--need",
       NEED,
+      "--decision-ledger",
+      decisionLedger.journal,
+      "--digest",
+      `discovery-manifest=${await digestFile(DISCOVERY)}`,
       "--digest",
       `discovery-db=${await digestFile(PREBUILT_DISCOVERY_DB)}`,
       "--digest",
+      `discovery-approval=${await digestFile(approvalPath)}`,
+      "--digest",
       `user-need=${await digestFile(NEED)}`,
+      "--digest",
+      `decision-ledger=${decisionLedger.headDigest}`,
       "--out",
       planPath,
       "--target",
@@ -248,9 +311,9 @@ describe("stage contract independence", () => {
     assert.equal(blueprint.runtime, "openclaw");
     assert.equal(blueprint.status, "draft");
     assert.equal(blueprint.design_contract.provenance.source, "agentmo-stage2");
-    assert.equal(blueprint.design_contract.provenance.reviewed, true);
+    assert.equal(blueprint.design_contract.provenance.reviewed, false);
     assert.equal(blueprint.design_contract.provenance.contract_version, "agentmo.design-contract.v1");
-    assert.match(blueprint.design_contract.provenance.review_ref, /^admitted-inputs:sha256:[a-f0-9]{64}$/u);
+    assert.equal("review_ref" in blueprint.design_contract.provenance, false);
     assert.deepEqual(
       blueprint.design_contract.provenance.admitted_artifacts.map((item) => ({
         identity: item.identity,
@@ -265,7 +328,11 @@ describe("stage contract independence", () => {
     assert.equal(JSON.stringify(blueprint.design_contract.provenance).includes(planPath), false);
     assert.equal(blueprint.pipeline.discover.data_sources.length, fixture.sources.length);
     assert.equal(JSON.stringify(blueprint).includes("evidenceMap"), false);
-    assert.deepEqual(await listRelativeFiles(root), ["agentmo-design-plan.json", "support-triage.agentmo.json"]);
+    assert.deepEqual(await listRelativeFiles(root), [
+      "agentmo-design-plan.json",
+      "agentmo-discovery-approval.json",
+      "support-triage.agentmo.json",
+    ]);
   });
 
   it("Stage 3 handoff admits an existing design contract without discovery or draft ancestry", async () => {
@@ -467,5 +534,33 @@ describe("stage contract independence", () => {
     assertNoCertifyingTrueClaims(deliveryJson, "delivery-report");
 
     assertNoDiscoveryOrNeedArtifacts(await listRelativeFiles(root));
+  });
+
+  it("keeps Phase 4 package, inspect, probe, and receipt facts non-transitive", () => {
+    const phase4Facts = {
+      packageBuilt: { status: "complete", implies: [] },
+      offlineInspection: { status: "green", implies: [] },
+      fixtureProbe: { status: "compatible", implies: [] },
+      lifecycleReceipt: { status: "complete", implies: [] },
+      certificationBoundary: {
+        liveSuccess: false,
+        runtime: false,
+        domain: false,
+        birth: false,
+        delivery: false,
+        production: false,
+      },
+    };
+    assert.deepEqual(
+      Object.keys(phase4Facts).slice(0, 4),
+      ["packageBuilt", "offlineInspection", "fixtureProbe", "lifecycleReceipt"],
+    );
+    for (const fact of Object.values(phase4Facts).slice(0, 4)) {
+      assert.deepEqual(fact.implies, []);
+    }
+    assert.deepEqual(
+      Object.values(phase4Facts.certificationBoundary),
+      [false, false, false, false, false, false],
+    );
   });
 });

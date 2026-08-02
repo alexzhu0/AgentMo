@@ -14,9 +14,189 @@ The support-triage MVP remains the composed vertical demo of these contracts. It
 
 | Stage | Purpose | Accepted inputs | Produced outputs | Forbidden process dependency |
 | --- | --- | --- | --- | --- |
-| Stage 1 Discover | Materialize bounded source inventory, sanitized facts, and coverage. | `agentmo.discovery.v1` manifest. `discover-pack` uses it as manifest-only input; `discover-workspace` also reads approved local source files under a repo-bound `--source-root`. | `agentmo.discovery-db.v1`, `facts.jsonl`, `coverage.json`; workspace intake also writes `source-cards.json` and `source-chunks.jsonl`. | Stage 2 planner implementation, blueprint files, Stage 3 runtime target or run evidence. |
-| Stage 2 Plan | Convert valid discovery facts plus user need into an auditable plan and buildable agent design. | `agentmo.discovery-db.v1` plus `agentmo.user-need.v1`, regardless of how the discovery DB was created. | `agentmo.design-plan.v1` plus a valid AgentMo blueprint/design contract with `agentmo_version: "0.1"`, eval requirements, and evidence policy. | Stage 1 command path, original discovery manifest, Stage 3 scaffold/run/birth/delivery commands. |
-| Stage 3 Produce | Turn a valid design contract into handoff, scaffold, run evidence, eval evidence, and delivery closure artifacts. | Valid blueprint/design contract and explicit target/runtime options. The design may be AgentMo-generated or externally reviewed/business-provided with bounded provenance. | `agentmo.handoff.v1`, `agentmo.build.v1`, `agentmo.run.v1`, `agentmo.run-eval.v1`, `agentmo.birth-report.v1`, `agentmo.domain-eval.v1`, `agentmo.delivery.v1`. | Discovery DB/user-need generation process, Stage 1 commands, Stage 2 commands. |
+| Stage 1 Discover | Materialize bounded source inventory, sanitized facts, and coverage. | `agentmo.discovery.v1` manifest. `discover-pack` is manifest-only; `discover-workspace` reads approved repo-local files; `discover-live` reads only exact allowlisted public HTTPS sources through closed adapters. | `agentmo.discovery-db.v1`, `facts.jsonl`, `coverage.json`; workspace/live intake also writes `source-cards.json` and `source-chunks.jsonl`; live intake adds `retrievals.jsonl`. | Stage 2 planner implementation, blueprint files, Stage 3 runtime target or run evidence. |
+| Stage 2 Plan | Convert explicitly approved discovery facts plus user need and typed decisions into an auditable plan and complete build contract. | Exact `agentmo.discovery.v1`, `agentmo.discovery-db.v1`, `agentmo.discovery-approval.v1`, `agentmo.user-need.v1`, and current `agentmo.decision-ledger.v1` artifacts. | `agentmo.design-plan.v1`, draft blueprint, `agentmo.build-contract.v1`, and exact `agentmo.plan-approval.v1`. | Stage 1 command ancestry, raw sidecars, Phase 4 generation/install, Phase 5 runtime/recovery proof. |
+| Stage 3 Produce | Turn an exact-approved build contract or separately admitted externally reviewed design into package and delivery work. | Exact blueprint/build-contract approval for the AgentMo lane, or independently valid externally reviewed/business-provided design with bounded provenance. | Roadmap Phase 4 generates/installs; Phase 5 executes and produces runtime, recovery, eval, birth, and delivery evidence. | Discovery command ancestry, hidden session authority, or treating approval as quality/runtime certification. |
+
+Roadmap Phase 3 specifies and approves the exact build contract. Phase 4 generates the package and performs separately authorized installation/loading. Phase 5 executes and proves isolated runtime and recovery behavior. These ownership boundaries do not change the legacy three-stage vocabulary above.
+
+## Phase 4 Produce package and lifecycle contract
+
+Phase 4 is the bounded package/install portion of Produce. It does not run an
+agent or establish Birth/Delivery evidence.
+
+The deterministic canonical package directory is build authority. It contains
+the target-neutral `agentmo.package.json`, the complete resource inventory, and
+the OpenClaw projection. The directory may be inspected with its exact manifest
+digest, but it is never an install transport. `package-produce` deterministically
+encodes the same member closure as a D-42 archive. Every downstream probe,
+preview, approval, and apply authority binds that archive by:
+
+- caller-supplied external archive SHA-256;
+- internal package-manifest SHA-256;
+- canonical inventory SHA-256; and
+- the complete sorted member closure of portable path, regular-file type,
+  fixed mode, byte length, and member SHA-256.
+
+Extra, missing, reordered, type-drifted, mode-drifted, content-drifted, or
+identity-swapped archive members fail closed. Probe and apply retain no-follow
+regular-file reads and revalidate identity before any target effect. A package
+root or standalone manifest cannot substitute for the D-42 transport.
+
+The public Phase 4 sequence is:
+
+```text
+openclaw-fs-kernel-build
+  -> openclaw-target-describe -> openclaw-target-admit
+  -> package-produce -> package-inspect -> openclaw-probe
+  -> openclaw-install-genesis
+  -> openclaw-install-preview
+  -> openclaw-install-approve
+  -> openclaw-install-apply
+```
+
+The helper is an explicitly built and admitted local mechanism. The published
+npm tarball contains the repository-owned C source and JavaScript facade only,
+not a host-built helper, helper receipt, authority state, or install-time
+compiler hook. Every current public publisher and lifecycle mutation requires
+the exact helper path, durable closed build receipt, and caller-supplied
+external receipt digest. The receipt rebinds source/compiler/toolchain, fixed
+argv, closed environment descriptor, binary bytes, mode, and retained
+identities. No auto-build, PATH lookup, downloaded binary, prebuilt binary, or
+JavaScript mutation fallback exists.
+
+`package-produce` re-admits the exact blueprint, design plan, discovery
+approval, decision-ledger head, recipe-bearing build contract, plan approval,
+target descriptor, and target/carrier admission. The selected Phase 4 package
+binds OpenClaw `2026.7.1-2@0790d9f`; a differently observed target is not valid
+under that approval and must return to descriptor, contract, plan approval, and
+target/carrier admission. No install approval can repair a target mismatch.
+
+`openclaw-probe` is a bounded, read-only compatibility observation over the
+exact archive and exact target/carrier authority. Fixed `shell:false` capability
+observations run only in a disposable synthetic HOME/state/config/workspace.
+The normalized fingerprint does not prove plugin load, MCP connection,
+credential use, agent invocation, schedule execution, or live compatibility.
+The selected package has no MCP carrier or MCP install route.
+
+Lifecycle review has exactly three non-interchangeable authority families:
+
+1. one ordinary approval for managed writes;
+2. one decision for each exact sensitive action, binding executable, argv, cwd,
+   scope, target, timeout, and environment-name set; and
+3. one approval for the entire exact conflict set, binding every path, current
+   digest, desired digest, and action.
+
+Changing any plan, target fingerprint, archive/member byte, action, conflict,
+scope, or predecessor invalidates the relevant authority. The one-screen human
+and JSON review views are renderings of the same frozen semantic model; ordinary
+approval cannot grant sensitive-action or conflict authority.
+
+The four lifecycle mechanisms have closed predecessor bases:
+
+| Lifecycle | Required exact basis |
+| --- | --- |
+| install | one verified absent-genesis authority |
+| upgrade | one current install receipt |
+| explicit rollback | current receipt plus the selected predecessor receipt and selected predecessor D-42 archive |
+| uninstall | one current install receipt |
+
+Explicit rollback is an operator-selected successor and is distinct from
+automatic failure recovery. Apply re-admits every authority from a
+caller-selected file plus external SHA-256, immediately re-probes target and
+ownership state, writes a synced private attempt journal, performs only approved
+effects, post-observes every path, and publishes a create-only complete or
+incomplete receipt last. A complete receipt is not inferred from a plan,
+approval, journal, or partial observation.
+
+There is no public authority/evidence-root option. The canonical ledger is
+derived internally from the real OpenClaw target root and exact target
+descriptor and then reopened through retained authority. Before any marker,
+private journal, official action, or managed effect, `useNonce` must be globally
+unique across ordinary, every sensitive, and conflict authority. Each family is
+then consumed by a durable final marker; all three marker families are reopened
+canonically before effect or resume. The retained-dirfd kernel reserves the
+final name create-exclusively before writing canonical bytes. Zero, partial,
+stale, or unknown markers remain permanently fail-closed. Only the complete
+marker set and byte-exact journal for the same exact attempt can resume in a
+fresh process; there is no caller-supplied root or `usedNonces` authority.
+
+A strict complete receipt is an exact authority/result theorem: every managed
+operation and supported sensitive/external action has one unique successful
+result, all three approval families and nonces are consumed exactly, post-state
+matches, and preservation/recovery sets are empty. The producer publishes three
+additional authority classes inside the canonical ledger: retained-session
+post-state, one ordered official-action-result record per action, and one
+append-only finalization. Receipt admission reopens those exact records and
+recomputes receipt fields from them. Current and rollback predecessor receipts
+are recursively admitted through the same producer-auth evidence plus their
+exact plan, approvals, ordered sensitive decisions, journal, probe, package
+manifest, target/carrier admission, blueprint, build contract, plan approval,
+and target descriptor. Structural receipt validity or generic JSON plus a
+caller-recomputed digest is not current or historical authority.
+
+Unknown, modified, externally owned, identity-drifted, or ownership-ambiguous
+assets are preserved. Recovery reopens every named object through a fresh
+retained-dirfd session. Published objects are not deleted from a reopened
+pathname even when marker, identity, and digest still match; exact matches and
+all failed predicates remain explicit preservation/recovery work in an
+incomplete receipt.
+
+File/directory publication is temp-complete and source-consuming through the
+retained-dirfd native kernel: Linux uses
+`renameat2(..., RENAME_NOREPLACE)` and Darwin uses
+`renameatx_np(..., RENAME_EXCL)`. Private prepublication objects and visible
+postpublication objects are distinct preserved evidence classes. There is no
+plain-rename, hard-link, pathname cleanup, recursive delete, or replacement
+fallback. Package success rechecks the complete nested directory/archive
+closure before and after publication. Every known private temp is represented
+as exact, mismatched, or unknown recovery work. Helper binary/receipt failures
+likewise return a recoverable pair record rather than an unitemized orphan.
+Unsupported platforms and filesystem semantics fail closed.
+
+Install, upgrade, explicit rollback, and uninstall have bounded Linux-focused
+fixtures, not cross-platform lifecycle certification. Genesis derives absence
+from two retained observations of plan-derived paths. On Linux, configuration
+mutation gives the verified child only a retained private candidate through
+`/proc/self/fd`, requires dry-run/actual process-group quiescence, and publishes
+the final target only through identity-bound native `replaceExact`. Darwin has
+no final-path fallback and returns an explicit unsupported result, so Phase 4
+does not claim all four lifecycles complete on macOS.
+
+The closed `secrets apply` / `models auth login` argv grammar is proposal-only.
+Phase 4 credential execution is unsupported, starts no process, and records
+`credentialPresent:false`; it cannot be counted as a successful external
+result. Unknown commands, MCP, plugin installation, agent/schedule/restart
+actions, credential values, raw output, auth/session state, and
+credential-bearing OpenClaw state are unsupported.
+
+Official config processes are supervised on Linux by a native subreaper/pidfd
+boundary. A bidirectional pre-exec handshake withholds target execution until
+direct pidfd and clock admission succeed. The inherited seccomp lock rejects
+x32 on x86_64 and denies `setsid`, `setpgid`, outbound signal syscalls,
+`pidfd_send_signal`, and `ptrace`; the supervisor is non-dumpable and recycles
+terminal pidfd slots. `/proc` enumeration plus the original process group drive
+bounded TERM/KILL settlement. Non-Linux platforms reject before spawn. This is
+current-source design pending Linux adversarial execution, not a general OS
+sandbox or a completed Phase 4 claim.
+
+Phase 4 evidence proves deterministic package, exact admission, bounded probe,
+approval, preservation, transaction, and receipt mechanisms only. Real
+OpenClaw install/upgrade/rollback/uninstall execution, plugin activation, agent
+or schedule execution, restart recovery, memory/RAG behavior, credential login,
+domain evaluation, `live-success`, Birth, Delivery, production readiness, and
+wider OpenClaw compatibility remain absent and Phase 5-owned.
+
+The first settled 2026-08-02 source reached main 956 pass / 0 fail / 7 skip,
+packed hook 1/1, packed behavior 8/8, and a 103-entry npm dry-run. The subsequent
+fresh re-audit found a supervisor capacity/pidfd-admission gap. The current
+worktree subsequently added slot recycling and the inherited group lock. A
+third re-audit found supervisor-signal, bootstrap-failure, and x32 gaps; current
+source adds signal/ptrace denial, the pre-exec handshake, x32 rejection, and
+Linux-only regressions. Its Linux runtime and later fresh-audit gates must be
+recorded separately. The package must continue to
+exclude runtime evidence instances, compiled helpers, helper receipts,
+authority state, and install hooks.
 
 ## Stage 1 Discover -> Discovery Contract
 
@@ -54,6 +234,7 @@ Source-derived evidence must be DB-visible as `kind:"source_chunk"` facts in bot
 - `agentmo discover-report <discovery.json> [--json]`
 - `agentmo discover-pack <discovery.json> --out <dir> [--json]`
 - `agentmo discover-workspace <discovery.json> --source-root <dir> --out <dir> [--json]`
+- `agentmo discover-live <discovery.json> --digest discovery-manifest=<sha256:...> --out <absent-dir> [--json]`
 - Pure helpers: `validateDiscoveryManifest`, `buildDiscoveryPack`, `buildDiscoveryDb`.
 
 `artifact-contract` exports a field-level JSON Schema and a minimal template that passes the current production validator. The Discover subcommands also support bounded `--help`. When exact-digest admission reaches a registered `agentmo.discovery.v1` identity but field validation fails, JSON error output includes only the canonical subject and bounded field requirement messages; input values and host paths remain undisclosed.
@@ -67,17 +248,17 @@ Stage 1 must not require:
 - `blueprint-draft`, `handoff`, `scaffold`, `run`, `birth-report`, `domain-eval`, or `delivery-report` execution;
 - blueprint, handoff, build-state, run-state, birth-report, domain-eval, or delivery-report artifact writes;
 - a runtime target such as `openclaw`;
-- web crawling, live search, browser automation, or search API access;
+- generic web crawling, browser automation, open search, caller-selected adapters, or any network location outside the exact manifest allowlist;
 - source roots that point at parent directories, sibling projects, `.env` files, credential files, key/cert directories, or other secret roots.
 
-Contract export is not collection evidence. A manifest may declare public URLs, but current Stage 1 does not fetch them or certify their content, freshness, license, safety, or availability.
+Contract export and `discover-pack` are not collection evidence. `discover-live` can fetch exact allowlisted HTTPS sources within count/byte/time/redirect/content-type bounds. Its closed `source_inventory[].evidence_class` distinguishes `primary`, `first-party`, `context`, and `community` independently from trust/confidence; Web and GitHub preserve the explicit role, while arXiv rejects non-primary classification and enforces a 3000 ms minimum request-start interval inside the aggregate deadline. The resulting body digest, evidence class, and sanitized record do not certify content truth, semantic quality, freshness, license, domain quality, runtime, or production readiness.
 
 ### Guarantees and safety boundaries
 
 - Discovery outputs are sanitized managed artifacts.
 - Safety metadata keeps `rawSecretsStored:false`, `rawTranscriptsStored:false`, and `rawToolBodiesStored:false`.
 - `discover-workspace` must fail closed when a workspace is unsafe. The emitted DB must expose that state through validation/safety fields such as `validation.ok:false` or `safety.workspaceOk:false`.
-- Stage 1 does not claim web crawling or live search. Current inputs are checked-in or operator-provided manifests and approved local source files. Future collector outputs must enter through the same bounded contract.
+- Stage 1 does not claim generic crawling, browser automation, or open search. Live records must enter through the closed bounded collector contract and never persist raw provider bodies or credentials.
 
 ### Certification boundary
 
@@ -98,14 +279,15 @@ node ./bin/agentmo.js discover-workspace examples/support-triage.discovery.json 
 
 ### Ownership
 
-Stage 2 owns user-need interpretation, the `agentmo.design-plan.v1` planning contract, blueprint drafting, agent architecture, eval/rubric requirements, and evidence policy. It produces a reviewed design contract for Stage 3. It does not produce the concrete handoff package.
+Stage 2 owns user-need interpretation, the `agentmo.design-plan.v1` planning contract, blueprint drafting, agent architecture, eval/rubric requirements, evidence policy, the complete `agentmo.build-contract.v1`, and exact plan approval. Generated blueprint state is draft and non-authoritative; only a separate exact `agentmo.plan-approval.v1` records local intent to enter Produce. Stage 2 does not generate or install the package.
 
 ### Accepted input artifacts
 
 - `agentmo-discovery-db.json` with `schemaVersion: "agentmo.discovery-db.v1"`.
 - User need JSON with `schemaVersion: "agentmo.user-need.v1"`.
+- Current predecessor-bound decision ledger with `schemaVersion: "agentmo.decision-ledger.v1"`.
 
-The discovery DB may come from `discover-pack`, `discover-workspace`, an imported database, or a manual/external process. Stage 2 depends on exact raw-byte digest admission plus artifact validity, not on Stage 1 command ancestry. For `design-plan`, the externally calculated digest of each input is bound once to its canonical subject before AgentMo decodes or parses either file. A workspace DB with failing validation or `safety.workspaceOk:false` is not a valid Stage 2 input.
+The discovery DB may come from `discover-pack`, `discover-workspace`, an imported database, or a manual/external process. Stage 2 depends on exact raw-byte admission of the manifest, database, approval, and user need—not on Stage 1 command ancestry. The approval binds only the exact manifest/database digests and proves local enter-Plan intent; it does not authenticate an organization or certify source quality. A workspace DB with failing validation or `safety.workspaceOk:false` is not a valid Stage 2 input.
 
 ### Produced output artifacts
 
@@ -118,13 +300,22 @@ Stage 2 produces a valid `agentmo.design-plan.v1` plus a valid AgentMo blueprint
 - `domain_genome`, `architecture`, `tools`, `eval`, `evidence`, `governance`, and `release.known_risks`;
 - evidence audit rules that forbid credential values, raw transcripts, raw tool bodies, raw stdout/stderr previews, and production runtime state in managed evidence;
 - eval requirements, including required case classes and hard-failure expectations.
+- `agentmo.build-contract.v1`, binding the exact blueprint, design plan, discovery approval, and decision-ledger head while projecting all 22 OpenClaw resource families;
+- `agentmo.plan-approval.v1`, separately binding the exact blueprint/build-contract bytes with `decisionScope:"enter-produce"`.
 
 ### Validators and commands
 
 - `agentmo need-report <need.json> [--json]`
-- `agentmo design-plan <agentmo-discovery-db.json> --need <need.json> --digest discovery-db=<sha256:...> --digest user-need=<sha256:...> --out <agentmo-design-plan.json> [--target agentmo|openclaw] [--json]`
+- `agentmo decision-ledger append|inspect ...` records or inspects typed, predecessor-bound Plan decisions; it never accepts transcripts or stdin authority.
+- `agentmo artifact-contract decision-entry --json` exports the closed five-kind entry schema and a production-validator-valid minimal template.
+- `agentmo design-plan <agentmo-discovery-db.json> --manifest <discovery.json> --discovery-approval <approval.json> --need <need.json> --decision-ledger <ledger.json> --digest discovery-manifest=<sha256:...> --digest discovery-db=<sha256:...> --digest discovery-approval=<sha256:...> --digest user-need=<sha256:...> --digest decision-ledger=<sha256:...> --out <agentmo-design-plan.json> [--target agentmo|openclaw] [--json]`
 - `agentmo blueprint-draft <agentmo-discovery-db.json> --need <need.json> --design-plan <agentmo-design-plan.json> --out <blueprint.json> [--target agentmo|openclaw] [--json]`
 - `agentmo validate <blueprint.json>`
+- `agentmo openclaw-fs-kernel-build --binary-out <absent-private-helper> --receipt-out <absent-private-receipt> [--json]`
+- `agentmo openclaw-target-describe --target-executable <file> --target-package-json <package.json> --target-build-info <build-info.json> --digest target-executable=<sha256:...> --digest target-package-json=<sha256:...> --digest target-build-info=<sha256:...> --fs-helper <helper> --fs-helper-receipt <helper-receipt> --fs-helper-receipt-digest <sha256:...> --out <descriptor.json> [--json]`
+- `agentmo build-contract <blueprint.json> --design-plan <plan.json> --discovery-approval <approval.json> --decision-ledger <ledger.json> --target-descriptor <descriptor.json> --digest blueprint=<sha256:...> --digest design-plan=<sha256:...> --digest discovery-approval=<sha256:...> --digest decision-ledger=<sha256:...> --digest openclaw-target-descriptor=<sha256:...> --out <contract.json> --target openclaw [--json]`
+- `agentmo plan-approve <blueprint.json> --build-contract <contract.json> --digest blueprint=<sha256:...> --digest build-contract=<sha256:...> [--approve --preview-digest <sha256:...> --out <approval.json>] [--json]`
+- `agentmo openclaw-target-admit <blueprint.json> --build-contract <contract.json> --plan-approval <approval.json> --target-descriptor <descriptor.json> --target-executable <file> --target-package-json <package.json> --target-build-info <build-info.json> --digest blueprint=<sha256:...> --digest build-contract=<sha256:...> --digest plan-approval=<sha256:...> --digest openclaw-target-descriptor=<sha256:...> --digest target-executable=<sha256:...> --digest target-package-json=<sha256:...> --digest target-build-info=<sha256:...> --fs-helper <helper> --fs-helper-receipt <helper-receipt> --fs-helper-receipt-digest <sha256:...> --out <admission.json> [--json]`
 - Pure helpers: `validateUserNeed`, `loadDiscoveryDb`, `buildDesignPlan`, `validateDesignPlan`, `draftBlueprint`, `validateBlueprint`.
 
 ### Forbidden reads and dependencies
@@ -144,11 +335,12 @@ Stage 2 must not require:
 - `source_refs` fail closed on absolute paths, parent traversal, `.env`/key/cert/token-like refs, URL credentials, and non-http(s) schemes.
 - The design-plan describes trace/gaps/eval/governance before blueprint claims.
 - Manifest-only `extraction_field` facts are declarations and can never produce `supported` coverage. They remain `partial` when matched. `supported` requires at least two matching source-derived `source_chunk` facts with `derived`, `trusted`, or `verified` trust; unverified chunks remain `partial`.
-- A drafted blueprint is still a plan; it is not runtime evidence.
+- A drafted blueprint is still a non-authoritative plan. Plan approval is explicit local operator intent, not authenticated organizational identity, installation authority, runtime evidence, domain quality, or production approval.
+- Manifest-only `extraction_field` declarations and mechanical dedup/freshness/conflict/coverage observations remain below semantic proof.
 
 ### Certification boundary
 
-A matching digest proves only that the supplied raw bytes are the bytes admitted under the named schema contract. It does not prove source approval, runtime execution, domain-wide quality, production deployment, or customer approval. A valid Agent Design / Blueprint Contract only admits the design to Stage 3 production work.
+A matching digest proves only that the supplied raw bytes are the bytes admitted under the named schema contract. A valid build contract plus plan approval authorizes entry to Produce only. Neither collection, blueprint, contract, approval, `declared-ready`, nor bounded live smoke proves authenticated organizational identity, source/package quality, runtime execution, domain-wide quality, production deployment, or customer approval.
 
 ### Independent verification command
 
@@ -156,12 +348,28 @@ Use any prebuilt valid discovery DB; this command does not invoke `discover-pack
 
 ```bash
 DISCOVERY_DB=/path/to/agentmo-discovery-db.json
+DISCOVERY_MANIFEST=/path/to/discovery.json
 USER_NEED=examples/support-triage.need.json
 digest_file() { node -e 'const fs=require("node:fs");const crypto=require("node:crypto");fs.writeSync(1,"sha256:"+crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex"));' "$1"; }
-node ./bin/agentmo.js design-plan "$DISCOVERY_DB" \
+PREVIEW_DIGEST=$(node ./bin/agentmo.js discovery-approve "$DISCOVERY_MANIFEST" --discovery-db "$DISCOVERY_DB" --digest "discovery-manifest=$(digest_file "$DISCOVERY_MANIFEST")" --digest "discovery-db=$(digest_file "$DISCOVERY_DB")" --json | node -e 'let s="";process.stdin.on("data",c=>s+=c).on("end",()=>process.stdout.write(JSON.parse(s).previewDigest));')
+node ./bin/agentmo.js discovery-approve "$DISCOVERY_MANIFEST" --discovery-db "$DISCOVERY_DB" \
+  --digest "discovery-manifest=$(digest_file "$DISCOVERY_MANIFEST")" \
   --digest "discovery-db=$(digest_file "$DISCOVERY_DB")" \
+  --approve --preview-digest "$PREVIEW_DIGEST" \
+  --out /tmp/support-triage-discovery-approval.json --json
+node ./bin/agentmo.js decision-ledger append --journal /tmp/support-triage-decision-ledger.json \
+  --entry examples/support-triage.decision-entry.json \
+  --digest "decision-entry=$(digest_file "examples/support-triage.decision-entry.json")" --json
+node ./bin/agentmo.js design-plan "$DISCOVERY_DB" \
+  --digest "discovery-manifest=$(digest_file "$DISCOVERY_MANIFEST")" \
+  --digest "discovery-db=$(digest_file "$DISCOVERY_DB")" \
+  --digest "discovery-approval=$(digest_file "/tmp/support-triage-discovery-approval.json")" \
   --digest "user-need=$(digest_file "$USER_NEED")" \
+  --digest "decision-ledger=$(digest_file "/tmp/support-triage-decision-ledger.json")" \
+  --manifest "$DISCOVERY_MANIFEST" \
+  --discovery-approval /tmp/support-triage-discovery-approval.json \
   --need "$USER_NEED" \
+  --decision-ledger /tmp/support-triage-decision-ledger.json \
   --out /tmp/support-triage-design-plan.json \
   --target openclaw \
   --json
@@ -304,7 +512,7 @@ node ./bin/agentmo.js delivery-report "$BLUEPRINT" \
 The support-triage MVP runs all three contracts in order:
 
 ```text
-discover-pack -> need-report -> design-plan -> blueprint-draft -> handoff -> scaffold/run/run-eval -> birth-report -> domain-eval -> delivery-report
+discover-pack|discover-workspace|discover-live -> discovery-approve -> need-report+decision-ledger -> design-plan -> blueprint-draft -> build-contract -> plan-approve -> Produce
 ```
 
 That sequence proves the contracts compose. It does not make command ancestry mandatory for every valid AgentMo use case.

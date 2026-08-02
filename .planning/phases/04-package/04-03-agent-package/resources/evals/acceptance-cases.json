@@ -1,0 +1,81 @@
+{
+  "schemaVersion": "agentmo.package-resource.v1",
+  "resourceId": "resource:acceptance-cases",
+  "kind": "acceptance-cases",
+  "declaredContract": [
+    {
+      "id": "acceptance:hard-failure-01",
+      "requirementId": "hard-failure-01",
+      "evalCaseId": "eval:hard-failure-01",
+      "expected": "bounded-evidence-or-explicit-gap",
+      "phase": "phase-5"
+    },
+    {
+      "id": "acceptance:hard-failure-02",
+      "requirementId": "hard-failure-02",
+      "evalCaseId": "eval:hard-failure-02",
+      "expected": "bounded-evidence-or-explicit-gap",
+      "phase": "phase-5"
+    },
+    {
+      "id": "acceptance:hard-failure-03",
+      "requirementId": "hard-failure-03",
+      "evalCaseId": "eval:hard-failure-03",
+      "expected": "bounded-evidence-or-explicit-gap",
+      "phase": "phase-5"
+    },
+    {
+      "id": "acceptance:hard-failure-04",
+      "requirementId": "hard-failure-04",
+      "evalCaseId": "eval:hard-failure-04",
+      "expected": "bounded-evidence-or-explicit-gap",
+      "phase": "phase-5"
+    },
+    {
+      "id": "acceptance:primary-task-01",
+      "requirementId": "primary-task-01",
+      "evalCaseId": "eval:primary-task-01",
+      "expected": "bounded-evidence-or-explicit-gap",
+      "phase": "phase-5"
+    },
+    {
+      "id": "acceptance:primary-task-02",
+      "requirementId": "primary-task-02",
+      "evalCaseId": "eval:primary-task-02",
+      "expected": "bounded-evidence-or-explicit-gap",
+      "phase": "phase-5"
+    },
+    {
+      "id": "acceptance:primary-task-03",
+      "requirementId": "primary-task-03",
+      "evalCaseId": "eval:primary-task-03",
+      "expected": "bounded-evidence-or-explicit-gap",
+      "phase": "phase-5"
+    },
+    {
+      "id": "acceptance:success-criterion-01",
+      "requirementId": "success-criterion-01",
+      "evalCaseId": "eval:success-criterion-01",
+      "expected": "bounded-evidence-or-explicit-gap",
+      "phase": "phase-5"
+    },
+    {
+      "id": "acceptance:success-criterion-02",
+      "requirementId": "success-criterion-02",
+      "evalCaseId": "eval:success-criterion-02",
+      "expected": "bounded-evidence-or-explicit-gap",
+      "phase": "phase-5"
+    },
+    {
+      "id": "acceptance:success-criterion-03",
+      "requirementId": "success-criterion-03",
+      "evalCaseId": "eval:success-criterion-03",
+      "expected": "bounded-evidence-or-explicit-gap",
+      "phase": "phase-5"
+    }
+  ],
+  "materialized": true,
+  "installed": false,
+  "runtimeVerified": false,
+  "domainVerified": false
+}

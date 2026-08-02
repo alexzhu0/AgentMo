@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "agentmo.package-resource.v1",
+  "resourceId": "resource:load-transition",
+  "kind": "load-transition",
+  "declaredContract": [
+    {
+      "transition": "install",
+      "phase": "phase-4",
+      "mutation": true,
+      "approvalRequired": true,
+      "precondition": "exact-plan-approval-and-target-preflight",
+      "postcondition": "install-receipt-only",
+      "rollback": "restore-preinstall-state"
+    },
+    {
+      "transition": "load",
+      "phase": "phase-4",
+      "mutation": false,
+      "approvalRequired": false,
+      "precondition": "installed-package-digest-match",
+      "postcondition": "registry-inventory-only",
+      "rollback": "unload-without-state-deletion"
+    },
+    {
+      "transition": "execute",
+      "phase": "phase-5",
+      "mutation": true,
+      "approvalRequired": true,
+      "precondition": "exact-load-inventory-and-runtime-gate",
+      "postcondition": "bounded-runtime-receipt-only",
+      "rollback": "stop-isolated-run"
+    }
+  ],
+  "materialized": true,
+  "installed": false,
+  "runtimeVerified": false,
+  "domainVerified": false
+}

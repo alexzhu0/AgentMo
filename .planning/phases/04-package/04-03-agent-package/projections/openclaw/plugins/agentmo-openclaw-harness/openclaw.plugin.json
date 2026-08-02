@@ -1,0 +1,6 @@
+{
+  "id": "agentmo-openclaw-harness",
+  "name": "AgentMo OpenClaw Harness",
+  "version": "1.0.0",
+  "entry": "index.js"
+}

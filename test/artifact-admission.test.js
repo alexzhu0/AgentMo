@@ -13,21 +13,39 @@ import {
   loadAdmittedArtifact,
   parseDigestBindings,
 } from "../src/artifact-admission.js";
+import { getArtifactContract } from "../src/artifact-contract.js";
 import {
   DURABLE_ARTIFACT_REGISTRY,
   listDurableArtifactDescriptors,
 } from "../src/artifact-registry.js";
+import {
+  OPENCLAW_INSTALL_RECEIPT_SCHEMA_VERSION,
+  validateOpenClawInstallReceipt,
+} from "../src/openclaw-install-receipt.js";
+import {
+  probeOpenClawTarget,
+} from "../src/openclaw-probe.js";
+import { produceAgentPackage } from "../src/package-produce.js";
 import { admitBlueprint } from "./helpers/admitted-blueprint.js";
 import {
   buildAndAdmitRuntimePlan as createAdmittedRuntimePlan,
   executeAdmittedRuntimeRun,
 } from "./helpers/admitted-runtime.js";
+import {
+  buildApprovedPackageFixture,
+  packageProduceOptions,
+} from "./helpers/package-produce-fixture.js";
 
 const CLI = fileURLToPath(new URL("../bin/agentmo.js", import.meta.url));
 const SUPPORT_DISCOVERY = fileURLToPath(new URL("../examples/support-triage.discovery.json", import.meta.url));
 const DISCOVERY_DB = fileURLToPath(new URL("../examples/fixtures/support-triage/prebuilt-discovery-db.json", import.meta.url));
 const USER_NEED = fileURLToPath(new URL("../examples/support-triage.need.json", import.meta.url));
+const DECISION_ENTRY = fileURLToPath(new URL("../examples/support-triage.decision-entry.json", import.meta.url));
 const SUPPORT_BLUEPRINT = fileURLToPath(new URL("../examples/support-triage.agentmo.json", import.meta.url));
+const PACKAGE_MANIFEST = fileURLToPath(new URL(
+  "../.planning/phases/04-package/04-03-agent-package/agentmo.package.json",
+  import.meta.url,
+));
 
 function runCli(args) {
   return new Promise((resolve) => {
@@ -48,6 +66,62 @@ function runCli(args) {
 
 function sha256(bytes) {
   return `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+}
+
+function openClawInstallReceipt(overrides = {}) {
+  const receipt = structuredClone(
+    getArtifactContract("openclaw-install-receipt").minimalTemplate,
+  );
+  return Object.assign(receipt, overrides);
+}
+
+async function createDiscoveryApproval(root) {
+  const out = path.join(root, "agentmo-discovery-approval.json");
+  const manifestDigest = sha256(await readFile(SUPPORT_DISCOVERY));
+  const dbDigest = sha256(await readFile(DISCOVERY_DB));
+  const base = [
+    "discovery-approve",
+    SUPPORT_DISCOVERY,
+    "--discovery-db",
+    DISCOVERY_DB,
+    "--digest",
+    `discovery-manifest=${manifestDigest}`,
+    "--digest",
+    `discovery-db=${dbDigest}`,
+    "--json",
+  ];
+  const preview = await runCli(base);
+  assert.equal(preview.code, 0, preview.stderr);
+  const apply = await runCli([
+    ...base,
+    "--approve",
+    "--preview-digest",
+    JSON.parse(preview.stdout).previewDigest,
+    "--out",
+    out,
+  ]);
+  assert.equal(apply.code, 0, apply.stderr);
+  return out;
+}
+
+async function createDecisionLedger(root) {
+  const journal = path.join(root, "decision-ledger.json");
+  const result = await runCli([
+    "decision-ledger",
+    "append",
+    "--journal",
+    journal,
+    "--entry",
+    DECISION_ENTRY,
+    "--digest",
+    `decision-entry=${sha256(await readFile(DECISION_ENTRY))}`,
+    "--json",
+  ]);
+  assert.equal(result.code, 0, result.stderr);
+  return {
+    journal,
+    headDigest: JSON.parse(result.stdout).head.digest,
+  };
 }
 
 function redactedSummary(text) {
@@ -78,6 +152,39 @@ async function rejectsWithCode(operation, code, forbidden = []) {
 }
 
 describe("artifact admission", () => {
+  it("rejects self-auth probe bytes unless the registry receives real companion admissions", async () => {
+    const fixture = await buildApprovedPackageFixture();
+    const archivePath = path.join(fixture.root, "artifact-probe.d42");
+    const produced = await produceAgentPackage(packageProduceOptions(
+      fixture,
+      path.join(fixture.root, "artifact-probe-package"),
+      archivePath,
+    ));
+    const probe = await probeOpenClawTarget({
+      archivePath,
+      expectedArchiveDigest: produced.archiveDigest,
+      blueprintPath: fixture.paths.blueprint,
+      expectedBlueprintDigest: fixture.digests.blueprint,
+      buildContractPath: fixture.paths["build-contract"],
+      expectedBuildContractDigest: fixture.digests["build-contract"],
+      planApprovalPath: fixture.paths["plan-approval"],
+      expectedPlanApprovalDigest: fixture.digests["plan-approval"],
+      targetCarrierAdmissionPath:
+        fixture.paths["openclaw-target-carrier-admission"],
+      expectedTargetCarrierAdmissionDigest:
+        fixture.digests["openclaw-target-carrier-admission"],
+      targetDescriptorPath: fixture.paths["openclaw-target-descriptor"],
+      expectedTargetDescriptorDigest:
+        fixture.digests["openclaw-target-descriptor"],
+      targetRoot: path.dirname(fixture.inputs.targetFiles.packageJsonPath),
+    });
+    const descriptor = DURABLE_ARTIFACT_REGISTRY.find(
+      ({ subject }) => subject === "openclaw-probe",
+    );
+
+    assert.equal(descriptor.validate_canonical_input(structuredClone(probe)), false);
+  });
+
   it("keeps the registry closed to the canonical stage and runtime artifact descriptors", () => {
     assert.equal(Object.isFrozen(DURABLE_ARTIFACT_REGISTRY), true);
     assert.deepEqual(
@@ -85,9 +192,29 @@ describe("artifact admission", () => {
       [
         "discovery-manifest",
         "discovery-db",
+        "discovery-approval",
         "user-need",
+        "decision-entry",
+        "decision-ledger",
         "design-plan",
         "blueprint",
+        "openclaw-target-descriptor",
+        "build-contract",
+        "native-plugin-recipe",
+        "plan-approval",
+        "openclaw-target-carrier-admission",
+        "package-manifest",
+        "openclaw-probe",
+        "openclaw-install-private-journal",
+        "openclaw-install-post-state",
+        "openclaw-official-action-result",
+        "openclaw-install-finalization",
+        "openclaw-install-receipt",
+        "openclaw-absent-genesis",
+        "openclaw-install-plan",
+        "openclaw-install-approval",
+        "openclaw-sensitive-action-decision",
+        "openclaw-conflict-approval",
         "handoff",
         "build-state",
         "runtime-plan",
@@ -103,14 +230,57 @@ describe("artifact admission", () => {
       ],
     );
     assert.equal(DURABLE_ARTIFACT_REGISTRY.every(Object.isFrozen), true);
+    const receiptDescriptor = DURABLE_ARTIFACT_REGISTRY.find(
+      ({ subject }) => subject === "openclaw-install-receipt",
+    );
+    assert.deepEqual(receiptDescriptor.required_companion_subjects, [
+      "openclaw-install-plan",
+      "openclaw-install-approval",
+      "openclaw-sensitive-action-decision",
+      "openclaw-conflict-approval",
+      "openclaw-install-private-journal",
+      "openclaw-probe",
+      "openclaw-target-descriptor",
+      "openclaw-install-post-state",
+      "openclaw-official-action-result",
+      "openclaw-install-finalization",
+    ]);
+    assert.deepEqual(receiptDescriptor.repeatable_companion_subjects, {
+      "openclaw-sensitive-action-decision": {
+        semanticOrder: "install-plan-sensitive-actions",
+      },
+      "openclaw-official-action-result": {
+        semanticOrder: "install-plan-sensitive-actions",
+      },
+    });
     assert.deepEqual(
       listDurableArtifactDescriptors().map((descriptor) => descriptor.identity),
       [
         "agentmo.discovery.v1",
         "agentmo.discovery-db.v1",
+        "agentmo.discovery-approval.v1",
         "agentmo.user-need.v1",
+        "agentmo.decision-entry.v1",
+        "agentmo.decision-ledger.v1",
         "agentmo.design-plan.v1",
         "0.1",
+        "agentmo.openclaw-target-descriptor.v1",
+        "agentmo.build-contract.v1",
+        "agentmo.native-plugin-recipe.v1",
+        "agentmo.plan-approval.v1",
+        "agentmo.openclaw-target-carrier-admission.v1",
+        "agentmo.package-manifest.v1",
+        "agentmo.openclaw-probe.v1",
+        "agentmo.openclaw-install-private-journal.v1",
+        "agentmo.openclaw-install-post-state.v1",
+        "agentmo.openclaw-official-action-result.v1",
+        "agentmo.openclaw-install-finalization.v1",
+        "agentmo.openclaw-install-receipt.v1",
+        "agentmo.openclaw-absent-genesis.v1",
+        "agentmo.openclaw-install-plan.v1",
+        "agentmo.openclaw-install-approval.v1",
+        "agentmo.openclaw-sensitive-action-decision.v1",
+        "agentmo.openclaw-conflict-approval.v1",
         "agentmo.handoff.v1",
         "agentmo.build-state.v1",
         "agentmo.runtime-plan.v1",
@@ -124,6 +294,360 @@ describe("artifact admission", () => {
         "agentmo.domain-eval.v1",
         "agentmo.delivery.v1",
       ],
+    );
+  });
+
+  it("does not let generic JSON plus an external digest mint post-effect producer authority", async () => {
+    const root = await mkdtemp(path.join(
+      tmpdir(),
+      "agentmo-post-effect-generic-admission-",
+    ));
+    for (const subject of [
+      "openclaw-install-post-state",
+      "openclaw-official-action-result",
+      "openclaw-install-finalization",
+    ]) {
+      const value = getArtifactContract(subject).minimalTemplate;
+      const bytes = Buffer.from(`${JSON.stringify(value, null, 2)}\n`, "utf8");
+      const filePath = path.join(root, `${subject}.json`);
+      await writeFile(filePath, bytes);
+      await rejectsWithCode(
+        () => loadAdmittedArtifact({
+          filePath,
+          subject,
+          expectedDigest: sha256(bytes),
+        }),
+        "AGENTMO_ARTIFACT_PRODUCER_AUTHORITY_REQUIRED",
+      );
+    }
+  });
+
+  it("validates complete and incomplete receipt closure without self-certification", () => {
+    const complete = openClawInstallReceipt();
+    assert.equal(
+      OPENCLAW_INSTALL_RECEIPT_SCHEMA_VERSION,
+      "agentmo.openclaw-install-receipt.v1",
+    );
+    assert.equal(validateOpenClawInstallReceipt(complete).ok, true);
+    const contract = getArtifactContract("openclaw-install-receipt");
+    assert.equal(contract.identity, OPENCLAW_INSTALL_RECEIPT_SCHEMA_VERSION);
+    assert.equal(
+      validateOpenClawInstallReceipt(contract.minimalTemplate).ok,
+      true,
+    );
+    assert.equal(Object.hasOwn(contract.minimalTemplate, "receiptDigest"), false);
+
+    const incomplete = openClawInstallReceipt({
+      status: "incomplete",
+      managedResults: [{
+        ...openClawInstallReceipt().managedResults[0],
+        afterDigest: null,
+        afterFileIdentity: null,
+        disposition: "failed",
+        postStateMatches: false,
+        rollbackDisposition: "recovery-required",
+        reasonCode: "publication-not-observed",
+      }],
+      preservedAssets: [{
+        path: ".openclaw/projects/replace-with-project/AGENTS.md",
+        observedDigest: null,
+        reasonCode: "publication-not-observed",
+      }],
+      recovery: {
+        required: true,
+        disposition: "preserved",
+        removedAssets: [],
+        preservedAssets: [{
+          path: ".openclaw/projects/replace-with-project/AGENTS.md",
+          digest: null,
+        }],
+        reasons: ["publication-not-observed"],
+      },
+      incompleteReasons: ["publication-not-observed"],
+    });
+    assert.equal(validateOpenClawInstallReceipt(incomplete).ok, true);
+
+    for (const mutate of [
+      (value) => { value.unknown = true; },
+      (value) => { value.schemaVersion = "agentmo.openclaw-install-receipt.v2"; },
+      (value) => { value.receiptDigest = sha256(Buffer.from("self", "utf8")); },
+      (value) => { value.authorityLedger.archive.members.pop(); },
+      (value) => {
+        value.authorityLedger.archive.inventoryDigest =
+          sha256(Buffer.from("drift", "utf8"));
+      },
+      (value) => { value.predecessor = {}; },
+      (value) => { value.lineage.predecessorReceiptDigest = sha256(Buffer.from("unexpected", "utf8")); },
+      (value) => { value.approvals.ordinary = null; },
+      (value) => { value.nonceConsumption.markers[0].consumed = false; },
+      (value) => { value.managedResults[0].postStateMatches = false; },
+      (value) => { value.recovery.required = true; },
+      (value) => { value.certificationBoundary.runtime = true; },
+      (value) => { value.certificationBoundary.domain = true; },
+      (value) => { value.rawStdout = "must-not-persist"; },
+    ]) {
+      const candidate = structuredClone(complete);
+      mutate(candidate);
+      assert.equal(validateOpenClawInstallReceipt(candidate).ok, false);
+    }
+  });
+
+  it("binds upgrade, uninstall and rollback receipts to exact predecessor authority", () => {
+    const current = {
+      identity: OPENCLAW_INSTALL_RECEIPT_SCHEMA_VERSION,
+      subject: "openclaw-install-receipt",
+      digest: sha256(Buffer.from("current-receipt", "utf8")),
+    };
+    const selected = {
+      identity: OPENCLAW_INSTALL_RECEIPT_SCHEMA_VERSION,
+      subject: "openclaw-install-receipt",
+      digest: sha256(Buffer.from("selected-receipt", "utf8")),
+    };
+    for (const lifecycle of ["upgrade", "uninstall"]) {
+      const candidate = openClawInstallReceipt({
+        lifecycle,
+        predecessor: { kind: "current-receipt", currentReceipt: current },
+        lineage: {
+          sequence: 1,
+          predecessorReceiptDigest: current.digest,
+          selectedPredecessorReceiptDigest: null,
+        },
+      });
+      assert.equal(validateOpenClawInstallReceipt(candidate).ok, true);
+    }
+    const rollback = openClawInstallReceipt({
+      lifecycle: "rollback",
+      authorityLedger: {
+        ...openClawInstallReceipt().authorityLedger,
+        archive: structuredClone(
+          openClawInstallReceipt().authorityLedger.archive,
+        ),
+      },
+      predecessor: {
+        kind: "rollback-receipts",
+        currentReceipt: current,
+        selectedPredecessorReceipt: selected,
+        selectedPredecessorArchiveBinding: structuredClone(
+          openClawInstallReceipt().authorityLedger.archive,
+        ),
+      },
+      lineage: {
+        sequence: 2,
+        predecessorReceiptDigest: current.digest,
+        selectedPredecessorReceiptDigest: selected.digest,
+      },
+    });
+    assert.equal(validateOpenClawInstallReceipt(rollback).ok, true);
+    const drifted = structuredClone(rollback);
+    drifted.predecessor.selectedPredecessorArchiveBinding.archiveSha256 =
+      sha256(Buffer.from("other-archive", "utf8"));
+    assert.equal(validateOpenClawInstallReceipt(drifted).ok, false);
+  });
+
+  it("requires external companions even when receipt bytes and digest are exact", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agentmo-install-receipt-admission-"));
+    const file = path.join(root, "receipt.json");
+    const otherFile = path.join(root, "other-receipt.json");
+    const value = openClawInstallReceipt();
+    const bytes = Buffer.from(`${JSON.stringify(value, null, 2)}\n`, "utf8");
+    const otherBytes = Buffer.from(`${JSON.stringify({
+      ...value,
+      authorityLedger: {
+        ...value.authorityLedger,
+        target: {
+          ...value.authorityLedger.target,
+          projectId: "other-project",
+        },
+      },
+    }, null, 2)}\n`, "utf8");
+    await writeFile(file, bytes);
+    await writeFile(otherFile, otherBytes);
+
+    await rejectsWithCode(
+      () => loadAdmittedArtifact({
+        filePath: file,
+        subject: "openclaw-install-receipt",
+        expectedDigest: sha256(bytes),
+      }),
+      "AGENTMO_ARTIFACT_COMPANION_SET_REQUIRED",
+    );
+    const fakeAdmission = {
+      identity: "agentmo.openclaw-install-plan.v1",
+      subject: "openclaw-install-plan",
+      digest: sha256(Buffer.from("fake-admission", "utf8")),
+      value: {},
+    };
+    const forgedCompanions = {
+      "openclaw-install-plan": fakeAdmission,
+      "openclaw-install-approval": fakeAdmission,
+      "openclaw-sensitive-action-decision": [],
+      "openclaw-conflict-approval": fakeAdmission,
+      "openclaw-install-private-journal": fakeAdmission,
+      "openclaw-probe": fakeAdmission,
+      "openclaw-target-descriptor": fakeAdmission,
+      "openclaw-install-post-state": fakeAdmission,
+      "openclaw-official-action-result": [],
+      "openclaw-install-finalization": fakeAdmission,
+    };
+    await rejectsWithCode(
+      () => loadAdmittedArtifact({
+        filePath: file,
+        subject: "openclaw-install-receipt",
+        expectedDigest: sha256(bytes),
+        companions: forgedCompanions,
+      }),
+      "AGENTMO_ARTIFACT_ADMISSION_RESULT_INVALID",
+    );
+    await rejectsWithCode(
+      () => loadAdmittedArtifact({
+        filePath: file,
+        subject: "openclaw-install-receipt",
+        expectedDigest: sha256(bytes),
+        companions: {
+          ...forgedCompanions,
+          "openclaw-install-plan": [fakeAdmission],
+        },
+      }),
+      "AGENTMO_ARTIFACT_COMPANION_SET_REQUIRED",
+    );
+    await rejectsWithCode(
+      () => loadAdmittedArtifact({
+        filePath: file,
+        subject: "openclaw-install-receipt",
+        expectedDigest: sha256(bytes),
+        companions: {
+          ...forgedCompanions,
+          extra: fakeAdmission,
+        },
+      }),
+      "AGENTMO_ARTIFACT_COMPANION_SET_REQUIRED",
+    );
+
+    await rejectsWithCode(
+      () => loadAdmittedArtifact({
+        filePath: file,
+        subject: "package-manifest",
+        expectedDigest: sha256(bytes),
+      }),
+      "AGENTMO_UNSUPPORTED_ARTIFACT",
+    );
+    await rejectsWithCode(
+      () => loadAdmittedArtifact({
+        filePath: otherFile,
+        subject: "openclaw-install-receipt",
+        expectedDigest: sha256(bytes),
+      }),
+      "AGENTMO_ARTIFACT_DIGEST_MISMATCH",
+    );
+    await rejectsWithCode(
+      () => loadAdmittedArtifact({
+        filePath: file,
+        subject: "openclaw-install-receipt",
+        expectedDigest: sha256(Buffer.from("stale", "utf8")),
+      }),
+      "AGENTMO_ARTIFACT_DIGEST_MISMATCH",
+    );
+
+    await writeFile(file, Buffer.concat([bytes, Buffer.from(" ")]));
+    await rejectsWithCode(
+      () => loadAdmittedArtifact({
+        filePath: file,
+        subject: "openclaw-install-receipt",
+        expectedDigest: sha256(bytes),
+      }),
+      "AGENTMO_ARTIFACT_DIGEST_MISMATCH",
+    );
+
+    const duplicate = Buffer.from(bytes.toString("utf8").replace(
+      `"schemaVersion": "${OPENCLAW_INSTALL_RECEIPT_SCHEMA_VERSION}",`,
+      `"schemaVersion": "${OPENCLAW_INSTALL_RECEIPT_SCHEMA_VERSION}",\n  "schemaVersion": "${OPENCLAW_INSTALL_RECEIPT_SCHEMA_VERSION}",`,
+    ), "utf8");
+    await writeFile(file, duplicate);
+    await rejectsWithCode(
+      () => loadAdmittedArtifact({
+        filePath: file,
+        subject: "openclaw-install-receipt",
+        expectedDigest: sha256(duplicate),
+      }),
+      "AGENTMO_UNSUPPORTED_ARTIFACT",
+    );
+  });
+
+  it("fresh processes expose all five lifecycle authority contracts after receipt registration", async () => {
+    const expected = new Map([
+      ["openclaw-absent-genesis", "agentmo.openclaw-absent-genesis.v1"],
+      ["openclaw-install-plan", "agentmo.openclaw-install-plan.v1"],
+      ["openclaw-install-approval", "agentmo.openclaw-install-approval.v1"],
+      [
+        "openclaw-sensitive-action-decision",
+        "agentmo.openclaw-sensitive-action-decision.v1",
+      ],
+      ["openclaw-conflict-approval", "agentmo.openclaw-conflict-approval.v1"],
+    ]);
+    for (const [subject, identity] of expected) {
+      const result = await runCli(["artifact-contract", subject, "--json"]);
+      assert.equal(result.code, 0, result.stderr);
+      const contract = JSON.parse(result.stdout);
+      assert.equal(contract.subject, subject);
+      assert.equal(contract.identity, identity);
+      assert.equal(Object.values(contract.certificationBoundary).includes(true), false);
+    }
+  });
+
+  it("exact-admits package-manifest bytes and rejects digest, subject, duplicate identity, or forged result", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agentmo-package-manifest-admission-"));
+    const bytes = await readFile(PACKAGE_MANIFEST);
+    const file = path.join(root, "agentmo.package.json");
+    await writeFile(file, bytes);
+    const admission = await loadAdmittedArtifact({
+      filePath: file,
+      subject: "package-manifest",
+      expectedDigest: sha256(bytes),
+    });
+    assert.equal(admission.identity, "agentmo.package-manifest.v1");
+    assert.equal(admission.subject, "package-manifest");
+
+    await rejectsWithCode(
+      () => loadAdmittedArtifact({
+        filePath: file,
+        subject: "package-manifest",
+        expectedDigest: sha256("wrong"),
+      }),
+      "AGENTMO_ARTIFACT_DIGEST_MISMATCH",
+      [root],
+    );
+    await rejectsWithCode(
+      () => loadAdmittedArtifact({
+        filePath: file,
+        subject: "build-contract",
+        expectedDigest: sha256(bytes),
+      }),
+      "AGENTMO_UNSUPPORTED_ARTIFACT",
+      [root],
+    );
+
+    const duplicate = Buffer.from(bytes.toString("utf8").replace(
+      '"schemaVersion": "agentmo.package-manifest.v1",',
+      '"schemaVersion": "agentmo.package-manifest.v1",\n  "schemaVersion": "agentmo.package-manifest.v1",',
+    ), "utf8");
+    await writeFile(file, duplicate);
+    await rejectsWithCode(
+      () => loadAdmittedArtifact({
+        filePath: file,
+        subject: "package-manifest",
+        expectedDigest: sha256(duplicate),
+      }),
+      "AGENTMO_UNSUPPORTED_ARTIFACT",
+      [root],
+    );
+
+    const forged = Object.freeze({ ...admission });
+    assert.throws(
+      () => admittedArtifactProvenance(forged, {
+        subject: "package-manifest",
+        value: admission.value,
+      }),
+      (error) => error?.code === "AGENTMO_ARTIFACT_ADMISSION_RESULT_INVALID",
     );
   });
 
@@ -529,20 +1053,36 @@ describe("artifact admission", () => {
     );
   });
 
-  it("runs design-plan in a fresh process from two exact bindings and writes nothing on mismatch", async () => {
+  it("runs design-plan in a fresh process from exact file bindings plus ledger head", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agentmo-admission-fresh-process-"));
     const out = path.join(root, "agentmo-design-plan.json");
+    const approval = await createDiscoveryApproval(root);
+    const manifestDigest = sha256(await readFile(SUPPORT_DISCOVERY));
     const dbDigest = sha256(await readFile(DISCOVERY_DB));
+    const approvalDigest = sha256(await readFile(approval));
     const needDigest = sha256(await readFile(USER_NEED));
+    const decisionLedger = await createDecisionLedger(root);
     const args = [
       "design-plan",
       DISCOVERY_DB,
+      "--manifest",
+      SUPPORT_DISCOVERY,
+      "--discovery-approval",
+      approval,
       "--need",
       USER_NEED,
+      "--decision-ledger",
+      decisionLedger.journal,
+      "--digest",
+      `discovery-manifest=${manifestDigest}`,
       "--digest",
       `discovery-db=${dbDigest}`,
       "--digest",
+      `discovery-approval=${approvalDigest}`,
+      "--digest",
       `user-need=${needDigest}`,
+      "--digest",
+      `decision-ledger=${decisionLedger.headDigest}`,
       "--out",
       out,
       "--target",
@@ -579,9 +1119,24 @@ describe("artifact admission", () => {
 
   it("returns bounded human and JSON errors for every binding-map failure", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agentmo-admission-binding-errors-"));
+    const approval = await createDiscoveryApproval(root);
+    const manifestDigest = sha256(await readFile(SUPPORT_DISCOVERY));
     const dbDigest = sha256(await readFile(DISCOVERY_DB));
+    const approvalDigest = sha256(await readFile(approval));
     const needDigest = sha256(await readFile(USER_NEED));
-    const prefix = ["design-plan", DISCOVERY_DB, "--need", USER_NEED];
+    const decisionLedger = await createDecisionLedger(root);
+    const prefix = [
+      "design-plan",
+      DISCOVERY_DB,
+      "--manifest",
+      SUPPORT_DISCOVERY,
+      "--discovery-approval",
+      approval,
+      "--need",
+      USER_NEED,
+      "--decision-ledger",
+      decisionLedger.journal,
+    ];
     const suffix = ["--out", path.join(root, "must-not-exist.json"), "--target", "openclaw", "--json"];
     const cases = [
       {
@@ -589,15 +1144,35 @@ describe("artifact admission", () => {
         code: "AGENTMO_ARTIFACT_DIGEST_REQUIRED",
       },
       {
-        bindings: ["--digest", `discovery-db=${dbDigest}`, "--digest", `discovery-db=${dbDigest}`, "--digest", `user-need=${needDigest}`],
+        bindings: [
+          "--digest", `discovery-manifest=${manifestDigest}`,
+          "--digest", `discovery-db=${dbDigest}`,
+          "--digest", `discovery-db=${dbDigest}`,
+          "--digest", `discovery-approval=${approvalDigest}`,
+          "--digest", `user-need=${needDigest}`,
+          "--digest", `decision-ledger=${decisionLedger.headDigest}`,
+        ],
         code: "AGENTMO_ARTIFACT_DIGEST_DUPLICATE",
       },
       {
-        bindings: ["--digest", `discovery-db=${dbDigest}`, "--digest", `user-need=${needDigest}`, "--digest", `private-subject-canary=${dbDigest}`],
+        bindings: [
+          "--digest", `discovery-manifest=${manifestDigest}`,
+          "--digest", `discovery-db=${dbDigest}`,
+          "--digest", `discovery-approval=${approvalDigest}`,
+          "--digest", `user-need=${needDigest}`,
+          "--digest", `decision-ledger=${decisionLedger.headDigest}`,
+          "--digest", `private-subject-canary=${dbDigest}`,
+        ],
         code: "AGENTMO_ARTIFACT_DIGEST_UNKNOWN_SUBJECT",
       },
       {
-        bindings: ["--digest", "discovery-db=private-digest-canary", "--digest", `user-need=${needDigest}`],
+        bindings: [
+          "--digest", `discovery-manifest=${manifestDigest}`,
+          "--digest", "discovery-db=private-digest-canary",
+          "--digest", `discovery-approval=${approvalDigest}`,
+          "--digest", `user-need=${needDigest}`,
+          "--digest", `decision-ledger=${decisionLedger.headDigest}`,
+        ],
         code: "AGENTMO_ARTIFACT_DIGEST_INVALID",
       },
     ];
@@ -619,9 +1194,15 @@ describe("artifact admission", () => {
     const human = await runCli([
       ...prefix,
       "--digest",
+      `discovery-manifest=${manifestDigest}`,
+      "--digest",
       `discovery-db=${dbDigest}`,
       "--digest",
+      `discovery-approval=${approvalDigest}`,
+      "--digest",
       `user-need=${dbDigest}`,
+      "--digest",
+      `decision-ledger=${decisionLedger.headDigest}`,
       "--out",
       path.join(root, "human-must-not-exist.json"),
     ]);

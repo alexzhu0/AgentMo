@@ -17,8 +17,8 @@ AgentMo v1 通过八个可独立验证的纵向增量，把现有 contract-first
 - [x] **Phase 1.1: 工件准入与秘密边界** - 开发者可按 exact digest 交接工件，且所有当前持久化边界保持 value-blind。 (completed 2026-07-13)
 - [x] **Phase 1.2: OpenClaw 运行时与发布证据** - AgentMo core 与 OpenClaw target 运行时范围得到独立、不可绕过的验证和证据。 (completed 2026-07-13)
 - [ ] **Phase 2: 可安装且可恢复的 Codex Builder** - 干净 Codex 环境可安装、诊断、恢复和验证同一套 AgentMo 工作流。
-- [ ] **Phase 3: 经批准研究到 Build Contract** - 开发者可从有界实时来源得到经人工批准、可追溯的 Package build contract。
-- [ ] **Phase 4: 确定性 Package 与所有权安全安装** - 经批准 contract 可生成可检查 package，并经预览批准后安全安装到 OpenClaw。
+- [x] **Phase 3: 经批准研究到 Build Contract** - 开发者可从有界实时来源得到经人工批准、可追溯的 Package build contract。
+- [ ] **Phase 4: 确定性 Package 与所有权安全安装** - 经批准 contract 可生成可检查 package，并经预览批准后安全安装到 OpenClaw；当前为 Needs Review / gaps_found，等待 04-12～04-19 与 canonical post gate。
 - [ ] **Phase 5: `support-triage` 可逆运行与证据闭环** - 一致性包可完成隔离运行、分层证据和不破坏用户资产的完整回退路径。
 - [ ] **Phase 6: 中文写作验收与 v1 发布闭环** - 真实写作包以人工 gate 完成领域验收，并与一致性包共同形成 clean-room v1 证据。
 
@@ -244,7 +244,7 @@ Cross-cutting constraints:
 
 ### Phase 3: 经批准研究到 Build Contract
 
-**Goal:** 开发者可以从有边界的 Web、GitHub、论文与本地来源开始，经来源审批和持续人机规划，得到绑定 exact digest、可追溯且可供 Produce 使用的 blueprint 与 Package build contract。
+**Goal:** As a developer, I want to turn bounded Web, GitHub, paper, and local-source research into a human-approved, exact-digest, traceable blueprint and Package build contract, so that Produce receives explicit construction intent without relying on prompts, session ancestry, or unverified declarations.
 **Mode:** mvp
 **Depends on:** Phase 2
 **Requirements:** DISC-01, DISC-02, DISC-03, DISC-04, DISC-05, DISC-06, PLAN-01, PLAN-02, PLAN-03, PLAN-04, PLAN-05
@@ -257,11 +257,18 @@ Cross-cutting constraints:
   4. 开发者可仅凭经批准 discovery database 恢复持续规划，对需求、边界、约束和可观察验收标准达成决定，并在 ledger 中区分事实、推断、未知、拒绝方案与人工决定，且能双向追溯来源、需求、能力和 eval。
   5. 开发者在批准 exact-digest blueprint 与 Package build contract 前可查看 runtime feasibility、capability、权限、信任面、不支持项和替代方案；需求、能力、权限或验收标准变化会强制重新批准。
 
-**Plans:** TBD
+**Plans:** 6/6 plans complete
+
+- [x] 03-01-PLAN.md
+- [x] 03-02-PLAN.md
+- [x] 03-03-PLAN.md
+- [x] 03-04-PLAN.md
+- [x] 03-05-PLAN.md
+- [x] 03-06-PLAN.md
 
 ### Phase 4: 确定性 Package 与所有权安全安装
 
-**Goal:** 开发者可以把经批准的 build contract 确定性生成成可离线检查的最小信任面 Agent Package，并在 probe、预览和 exact-plan 批准后安全安装到 OpenClaw。
+**Goal:** As a developer, I want to deterministically generate an offline-inspectable least-trust Agent Package from an approved build contract and safely install it into OpenClaw after probe, preview, and exact-plan approval, so that I can authorize the exact package, target, and effects before any mutation.
 **Mode:** mvp
 **Depends on:** Phase 3
 **Requirements:** PACK-01, PACK-02, PACK-03, PACK-04, PACK-05, OCLW-01, OCLW-02, OCLW-03, OCLW-04, OCLW-05, EVID-05
@@ -274,7 +281,91 @@ Cross-cutting constraints:
   4. 开发者在任何 target mutation 前可 probe OpenClaw runtime、CLI/JSON contract、workspace/skill/plugin、sandbox/tool policy、permission route 与兼容版本，并预览 managed operations、字段级配置 patch、路径、冲突和 rollback；计划内容或冲突状态变化会使批准失效。
   5. 开发者安装后得到逐项 install receipt；workspace、配置、managed skills 与外部 credential/session state 保持分离，未知或已修改资产在 install、upgrade、rollback、uninstall 中均被保留并阻止破坏性覆盖，除非另行批准确切冲突。
 
-**Plans:** TBD
+**Plans:** 19 total; 18 executed with SUMMARY. Plan 04-19 is pending gap closure. Phase remains Needs Review / gaps_found until execute-phase canonical post-review and verifier pass after 04-19 SUMMARY.
+**Wave 1**
+
+- [x] 04-01-PLAN.md
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 04-02-PLAN.md
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 04-03-PLAN.md
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [x] 04-04-PLAN.md
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [x] 04-05-PLAN.md
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [x] 04-06-PLAN.md
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [x] 04-07-PLAN.md
+
+**Wave 8** *(blocked on Wave 7 completion)*
+
+- [x] 04-08-PLAN.md
+
+**Wave 9** *(blocked on Wave 8 completion)*
+
+- [x] 04-09-PLAN.md
+
+**Wave 10** *(blocked on Wave 9 completion)*
+
+- [x] 04-10-PLAN.md
+
+**Wave 11** *(blocked on Wave 10 completion)*
+
+- [x] 04-11-PLAN.md
+
+**Gap Closure Wave 12** *(blocked on Wave 11 completion)*
+
+- [x] 04-12-PLAN.md — mandatory companion-backed fresh reprobe、private executable/cwd 与 full fingerprint gate
+
+**Gap Closure Wave 13** *(blocked on 04-12 completion)*
+
+- [x] 04-13-PLAN.md — retained-dirfd native kernel、OS no-replace publication、durable build receipt 与 explicit helper admission
+
+**Gap Closure Wave 14** *(blocked on 04-13 completion; plans are file-disjoint)*
+
+- [x] 04-14-PLAN.md — per-authority/per-nonce durable reservation markers、double-writer/crash replay 与 official credential routes
+- [x] 04-17-PLAN.md — identity-safe publisher failure semantics、nested recipe paths 与 canonical MVP Goal metadata
+
+**Gap Closure Wave 15** *(blocked on 04-14 completion)*
+
+- [x] 04-15-PLAN.md — observed genesis 与真实 install/upgrade/rollback/uninstall official-route lifecycle
+
+**Gap Closure Wave 16** *(blocked on 04-15 completion)*
+
+- [x] 04-16-PLAN.md — strict receipt completion theorem 与 exact authority/result ledger
+
+**Gap Closure Wave 17** *(blocked on 04-16 and 04-17 completion)*
+
+- [x] 04-18-PLAN.md — exact packed inventory 与 extracted-tarball full lifecycle/adversarial closure
+
+**Gap Closure Wave 18** *(blocked on 04-18 completion)*
+
+- [ ] 04-19-PLAN.md — docs/release、full gates 与 noncanonical pre-verification deep audit
+
+  Current blocker: Tasks 1–2 implementation is present, but both aggregate
+  attempts remained non-green (936/938 with one skip and one failure). The
+  stale Phase 3 helper-tuple journey is corrected; the successor aggregate
+  exposed a load-sensitive immutable-successor hook failure that passes in
+  isolation. Task 3 and canonical post gates have not started.
+
+Cross-cutting constraints:
+
+- 04-12～04-19 不得把 fixture/native/packed mechanism evidence 描述为 live-success、domain quality、production readiness、Birth 或 Delivery certification。
+- 04-19 不运行 canonical `gsd-verifier`、不自写 canonical REVIEW/VERIFICATION 或 phase status；canonical review/verifier 仅由 execute-phase post gate 在 04-19 SUMMARY 后运行。
+- Phase 4 在 canonical post gate pass 前保持 Needs Review / gaps_found，不得标记完成。
 
 ### Phase 5: `support-triage` 可逆运行与证据闭环
 
@@ -321,7 +412,7 @@ Phases execute in numeric order: 1 → 1.1 → 1.2 → 2 → 3 → 4 → 5 → 6
 | 1.1 工件准入与秘密边界 | 13/13 | Complete    | 2026-07-13 |
 | 1.2 OpenClaw 运行时与发布证据 | 12/12 | Complete | 2026-07-13 |
 | 2. 可安装且可恢复的 Codex Builder | 24/27 | Local mechanism gate passed; human UAT pending | - |
-| 3. 经批准研究到 Build Contract | 0/TBD | Not started | - |
-| 4. 确定性 Package 与所有权安全安装 | 0/TBD | Not started | - |
+| 3. 经批准研究到 Build Contract | 6/6 | Complete | 2026-07-28 |
+| 4. 确定性 Package 与所有权安全安装 | 16/19 | Needs Review / gaps_found | |
 | 5. `support-triage` 可逆运行与证据闭环 | 0/TBD | Not started | - |
 | 6. 中文写作验收与 v1 发布闭环 | 0/TBD | Not started | - |

@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "agentmo.openclaw-runtime-binding.v1",
+  "target": {
+    "id": "openclaw",
+    "version": "2026.7.1-2",
+    "sourceRevision": "0790d9f593ad30c940ed93b5872a8cf6d6f3cf8c",
+    "displayRevision": "0790d9f",
+    "nodeRange": ">=22.22.3 <23 || >=24.15.0 <25 || >=25.9.0",
+    "descriptorDigest": "sha256:0abad669ae3cac7b6219737a728df21799eeec6ac7946e8fd38285f9e4322bee",
+    "executableDigest": "sha256:f643b005d6db233a0b45204e8d8e943256874ccc6897b8a6e0cf42a9b376a188",
+    "packageJsonDigest": "sha256:695b6ee36df7fc69606dc390cf97bb2ca809114337b18c573707637cd2a4e3db",
+    "buildInfoDigest": "sha256:e45942b82f7e17d0be4ce38483f1da99c2dbfdfabad3c55fbfd3b3bb970b9e33",
+    "targetRootDigest": "sha256:460d3df4f1b1bc0335e11f6581ba6e59fd1ddb45021e5f0d8400f408b5da54cf"
+  },
+  "executionAuthorized": false,
+  "installed": false,
+  "runtimeVerified": false
+}

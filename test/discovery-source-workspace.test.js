@@ -992,4 +992,35 @@ describe("Stage 1 compatibility and Stage 2 safety gates", () => {
     assert.equal(existsSync(blueprintPath), false, "unsafe workspace DB must not produce a blueprint");
     assert.equal(JSON.parse(result.stdout).code, "AGENTMO_UNSUPPORTED_ARTIFACT");
   });
+
+  it("normalizes approved local documents into the common provider evidence shape", async () => {
+    const sourceRoot = await makeRepoTempDir();
+    await writeText(path.join(sourceRoot, "approved.md"), "Agent memory evidence from an approved local document.");
+    const manifest = discoveryManifest([
+      sourceInventoryEntry("approved-local", "approved.md", {
+        trustLevel: "verified",
+        extractionFields: ["agent memory evidence"],
+      }),
+    ]);
+    const workspace = await buildDiscoveryWorkspace(manifest, {
+      repoRoot: REPO_ROOT,
+      sourceRoot,
+      now: () => new Date("2026-07-28T01:02:03.000Z"),
+    });
+
+    const [card] = workspace.sourceCards.cards;
+    const [chunk] = workspace.sourceChunks;
+    for (const record of [card, chunk]) {
+      assert.equal(record.providerKind, "local");
+      assert.equal(record.providerPolicy.networkAccess, false);
+      assert.equal(record.evidenceClass, "approved-local");
+      assert.equal(record.declaredTrustLevel, "verified");
+      assert.equal(record.retrievalStatus, "succeeded");
+      assert.equal(record.confidence, "unverified");
+      assert.match(record.confidenceRationale, /does not establish semantic correctness/u);
+      assert.equal(record.originalLocation, "approved.md");
+    }
+    assert.equal(chunk.kind, "source_chunk");
+    assert.equal(workspace.discoveryDb.facts.find((fact) => fact.id === chunk.id).providerKind, "local");
+  });
 });

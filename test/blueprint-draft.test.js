@@ -10,11 +10,14 @@ import { loadAdmittedArtifact } from "../src/artifact-admission.js";
 import { BLUEPRINT_SCHEMA_VERSION, DESIGN_CONTRACT_VERSION, validateBlueprint } from "../src/blueprint.js";
 import { buildBlueprintDraftReport, draftBlueprint, writeBlueprintDraft } from "../src/blueprint-draft.js";
 import { buildDesignPlan, writeDesignPlan } from "../src/design-plan.js";
+import { buildDiscoveryApproval, buildDiscoveryApprovalPreview } from "../src/discovery-approval.js";
 import { buildDiscoveryDb } from "../src/discovery-db.js";
+import { appendDecisionEntry, loadDecisionLedger } from "../src/decision-ledger.js";
 
 const CLI = fileURLToPath(new URL("../bin/agentmo.js", import.meta.url));
 const REPO_ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const DISCOVERY_DB_FILE = fileURLToPath(new URL("../examples/fixtures/support-triage/prebuilt-discovery-db.json", import.meta.url));
+const DISCOVERY_MANIFEST_FILE = fileURLToPath(new URL("../examples/support-triage.discovery.json", import.meta.url));
 const USER_NEED_FILE = fileURLToPath(new URL("../examples/support-triage.need.json", import.meta.url));
 
 async function loadJson(url) {
@@ -30,18 +33,96 @@ async function admitFile(file, subject) {
   return loadAdmittedArtifact({ filePath: file, subject, expectedDigest: digest(bytes) });
 }
 
-async function admitValue(value, subject) {
+async function admitValue(value, subject, companions) {
   const root = await mkdtemp(path.join(tmpdir(), `agentmo-blueprint-${subject}-`));
   const file = path.join(root, `${subject}.json`);
   const bytes = Buffer.from(`${JSON.stringify(value, null, 2)}\n`, "utf8");
   await writeFile(file, bytes);
-  return loadAdmittedArtifact({ filePath: file, subject, expectedDigest: digest(bytes) });
+  return loadAdmittedArtifact({
+    filePath: file,
+    subject,
+    expectedDigest: digest(bytes),
+    ...(companions ? { companions } : {}),
+  });
 }
 
 async function supportAdmissions() {
   const discoveryDb = await admitFile(DISCOVERY_DB_FILE, "discovery-db");
   const userNeed = await admitFile(USER_NEED_FILE, "user-need");
   return { discoveryDb, userNeed };
+}
+
+async function supportApprovedPlanInputs() {
+  const base = await supportAdmissions();
+  const discoveryManifest = await admitFile(DISCOVERY_MANIFEST_FILE, "discovery-manifest");
+  const approvalAdmissions = {
+    discoveryManifest,
+    discoveryDb: base.discoveryDb,
+  };
+  const preview = buildDiscoveryApprovalPreview(
+    discoveryManifest.value,
+    base.discoveryDb.value,
+    { admissions: approvalAdmissions },
+  );
+  const approval = buildDiscoveryApproval(
+    discoveryManifest.value,
+    base.discoveryDb.value,
+    {
+      admissions: approvalAdmissions,
+      approve: true,
+      previewDigest: preview.previewDigest,
+    },
+  );
+  const discoveryApproval = await admitValue(approval, "discovery-approval", {
+    "discovery-manifest": discoveryManifest,
+    "discovery-db": base.discoveryDb,
+  });
+  const decisionLedger = await buildDecisionLedger(base.userNeed.value);
+  return {
+    ...base,
+    discoveryManifest,
+    discoveryApproval,
+    decisionLedger,
+  };
+}
+
+async function buildDecisionLedger(need) {
+  const root = await mkdtemp(path.join(tmpdir(), "agentmo-blueprint-decision-ledger-"));
+  const journalPath = path.join(root, "decision-ledger.json");
+  const requirementRefs = [
+    ...need.primary_tasks.map((_, index) => `primary-task-${String(index + 1).padStart(2, "0")}`),
+    ...need.success_criteria.map((_, index) => `success-criterion-${String(index + 1).padStart(2, "0")}`),
+    ...need.hard_failures.map((_, index) => `hard-failure-${String(index + 1).padStart(2, "0")}`),
+  ].sort();
+  const appended = await appendDecisionEntry({
+    journalPath,
+    entry: {
+      entryId: "human-decision-01",
+      entryKind: "human-decision",
+      subject: "Bounded Stage 2 planning scope",
+      reason: "Proceed with governed gaps and preserve draft status.",
+      sourceRefs: [],
+      decisionRefs: [],
+      requirementRefs,
+    },
+  });
+  return loadDecisionLedger({ journalPath, expectedHeadDigest: appended.head.digest });
+}
+
+function buildApprovedDesignPlan(inputs) {
+  return buildDesignPlan(inputs.discoveryDb.value, inputs.userNeed.value, {
+    target: "openclaw",
+    manifest: inputs.discoveryManifest.value,
+    discoveryApproval: inputs.discoveryApproval.value,
+    decisionLedger: inputs.decisionLedger,
+    admissions: {
+      discoveryManifest: inputs.discoveryManifest,
+      discoveryDb: inputs.discoveryDb,
+      discoveryApproval: inputs.discoveryApproval,
+      userNeed: inputs.userNeed,
+      decisionLedger: inputs.decisionLedger,
+    },
+  });
 }
 
 function runCli(args) {
@@ -72,9 +153,9 @@ describe("blueprint draft", () => {
     assert.equal(blueprint.runtime, "openclaw");
     assert.equal(blueprint.status, "draft");
     assert.equal(blueprint.design_contract.provenance.source, "agentmo-stage2");
-    assert.equal(blueprint.design_contract.provenance.reviewed, true);
+    assert.equal(blueprint.design_contract.provenance.reviewed, false);
     assert.equal(blueprint.design_contract.provenance.contract_version, DESIGN_CONTRACT_VERSION);
-    assert.match(blueprint.design_contract.provenance.review_ref, /^admitted-inputs:sha256:[a-f0-9]{64}$/u);
+    assert.equal("review_ref" in blueprint.design_contract.provenance, false);
     assert.deepEqual(
       blueprint.design_contract.provenance.admitted_artifacts.map((item) => Object.keys(item)),
       [["identity", "subject", "digest"], ["identity", "subject", "digest"]],
@@ -83,7 +164,7 @@ describe("blueprint draft", () => {
     assert.equal(blueprint.pipeline.discover.data_sources.length, 3);
     assert.equal(
       blueprint.governance.policies.includes(
-        "AgentMo-generated blueprints must preserve reviewed discovery/user-need provenance; Stage 3 admission is by valid design contract.",
+        "AgentMo-generated blueprints preserve exact discovery/user-need provenance but remain draft and non-authoritative until explicit plan approval.",
       ),
       true,
     );
@@ -108,12 +189,12 @@ describe("blueprint draft", () => {
   });
 
   it("drafts from a validated design-plan without embedding the full evidence map", async () => {
-    const baseAdmissions = await supportAdmissions();
-    const designPlanCandidate = buildDesignPlan(
-      baseAdmissions.discoveryDb.value,
-      baseAdmissions.userNeed.value,
-      { target: "openclaw", admissions: baseAdmissions },
-    );
+    const planInputs = await supportApprovedPlanInputs();
+    const baseAdmissions = {
+      discoveryDb: planInputs.discoveryDb,
+      userNeed: planInputs.userNeed,
+    };
+    const designPlanCandidate = buildApprovedDesignPlan(planInputs);
     const designPlanAdmission = await admitValue(designPlanCandidate, "design-plan");
     const admissions = { ...baseAdmissions, designPlan: designPlanAdmission };
 
@@ -128,15 +209,20 @@ describe("blueprint draft", () => {
     assert.equal(blueprint.pipeline.plan.planning_inputs.includes("agentmo.design-plan.v1"), true);
     assert.equal(blueprint.pipeline.plan.planning_inputs.includes("agentmo-design-plan.json"), false);
     assert.deepEqual(blueprint.stage2_planning.admission, blueprint.design_contract.provenance.admitted_artifacts.at(-1));
+    assert.equal(blueprint.stage2_planning.authority, "draft-non-authoritative");
+    assert.deepEqual(
+      blueprint.stage2_planning.trace.forward_edges,
+      designPlanCandidate.traceGraph.forwardTraceEdges,
+    );
     assert.equal("evidenceMap" in blueprint, false);
     assert.equal(JSON.stringify(blueprint).includes("requirementsTrace"), false);
   });
 
   it("rejects invalid or mismatched design-plan input", async () => {
-    const admissions = await supportAdmissions();
+    const admissions = await supportApprovedPlanInputs();
     const discoveryDb = admissions.discoveryDb.value;
     const need = admissions.userNeed.value;
-    const designPlan = buildDesignPlan(discoveryDb, need, { target: "openclaw", admissions });
+    const designPlan = buildApprovedDesignPlan(admissions);
 
     assert.throws(() => draftBlueprint(discoveryDb, need, { target: "agentmo", designPlan }), /target runtime/i);
 
@@ -154,12 +240,12 @@ describe("blueprint draft", () => {
   });
 
   it("runs base and design-plan blueprint drafts in fresh processes with exact optional bindings", async () => {
-    const baseAdmissions = await supportAdmissions();
-    const designPlan = buildDesignPlan(
-      baseAdmissions.discoveryDb.value,
-      baseAdmissions.userNeed.value,
-      { target: "openclaw", admissions: baseAdmissions },
-    );
+    const planInputs = await supportApprovedPlanInputs();
+    const baseAdmissions = {
+      discoveryDb: planInputs.discoveryDb,
+      userNeed: planInputs.userNeed,
+    };
+    const designPlan = buildApprovedDesignPlan(planInputs);
     const root = await mkdtemp(path.join(tmpdir(), "agentmo-blueprint-cli-contract-"));
     const planPath = path.join(root, "agentmo-design-plan.json");
     await writeDesignPlan(planPath, designPlan);

@@ -1,0 +1,165 @@
+{
+  "schemaVersion": "agentmo.package-resource.v1",
+  "resourceId": "resource:permissions",
+  "kind": "permissions",
+  "declaredContract": [
+    {
+      "id": "permission:prompt",
+      "resourceId": "resource:prompt",
+      "authority": "contract-scoped-least-authority",
+      "approvalRequired": false,
+      "default": "deny-unless-declared"
+    },
+    {
+      "id": "permission:workspace-context",
+      "resourceId": "resource:workspace-context",
+      "authority": "contract-scoped-least-authority",
+      "approvalRequired": false,
+      "default": "deny-unless-declared"
+    },
+    {
+      "id": "permission:skills",
+      "resourceId": "resource:skills",
+      "authority": "contract-scoped-least-authority",
+      "approvalRequired": false,
+      "default": "deny-unless-declared"
+    },
+    {
+      "id": "permission:tools",
+      "resourceId": "resource:tools",
+      "authority": "contract-scoped-least-authority",
+      "approvalRequired": false,
+      "default": "deny-unless-declared"
+    },
+    {
+      "id": "permission:tool-policy",
+      "resourceId": "resource:tool-policy",
+      "authority": "contract-scoped-least-authority",
+      "approvalRequired": false,
+      "default": "deny-unless-declared"
+    },
+    {
+      "id": "permission:plugins",
+      "resourceId": "resource:plugins",
+      "authority": "explicit-human-approval",
+      "approvalRequired": true,
+      "default": "deny-unless-declared"
+    },
+    {
+      "id": "permission:memory",
+      "resourceId": "resource:memory",
+      "authority": "contract-scoped-least-authority",
+      "approvalRequired": false,
+      "default": "deny-unless-declared"
+    },
+    {
+      "id": "permission:rag",
+      "resourceId": "resource:rag",
+      "authority": "contract-scoped-least-authority",
+      "approvalRequired": false,
+      "default": "deny-unless-declared"
+    },
+    {
+      "id": "permission:storage",
+      "resourceId": "resource:storage",
+      "authority": "contract-scoped-least-authority",
+      "approvalRequired": false,
+      "default": "deny-unless-declared"
+    },
+    {
+      "id": "permission:schedules",
+      "resourceId": "resource:schedules",
+      "authority": "explicit-human-approval",
+      "approvalRequired": true,
+      "default": "deny-unless-declared"
+    },
+    {
+      "id": "permission:harness",
+      "resourceId": "resource:harness",
+      "authority": "contract-scoped-least-authority",
+      "approvalRequired": false,
+      "default": "deny-unless-declared"
+    },
+    {
+      "id": "permission:agent-loop",
+      "resourceId": "resource:agent-loop",
+      "authority": "contract-scoped-least-authority",
+      "approvalRequired": false,
+      "default": "deny-unless-declared"
+    },
+    {
+      "id": "permission:runtime-binding",
+      "resourceId": "resource:runtime-binding",
+      "authority": "contract-scoped-least-authority",
+      "approvalRequired": false,
+      "default": "deny-unless-declared"
+    },
+    {
+      "id": "permission:permissions",
+      "resourceId": "resource:permissions",
+      "authority": "contract-scoped-least-authority",
+      "approvalRequired": false,
+      "default": "deny-unless-declared"
+    },
+    {
+      "id": "permission:trust-boundaries",
+      "resourceId": "resource:trust-boundaries",
+      "authority": "contract-scoped-least-authority",
+      "approvalRequired": false,
+      "default": "deny-unless-declared"
+    },
+    {
+      "id": "permission:secrets",
+      "resourceId": "resource:secrets",
+      "authority": "explicit-human-approval",
+      "approvalRequired": true,
+      "default": "deny-unless-declared"
+    },
+    {
+      "id": "permission:install-transition",
+      "resourceId": "resource:install-transition",
+      "authority": "explicit-human-approval",
+      "approvalRequired": true,
+      "default": "deny-unless-declared"
+    },
+    {
+      "id": "permission:load-transition",
+      "resourceId": "resource:load-transition",
+      "authority": "contract-scoped-least-authority",
+      "approvalRequired": false,
+      "default": "deny-unless-declared"
+    },
+    {
+      "id": "permission:execute-transition",
+      "resourceId": "resource:execute-transition",
+      "authority": "explicit-human-approval",
+      "approvalRequired": true,
+      "default": "deny-unless-declared"
+    },
+    {
+      "id": "permission:recovery",
+      "resourceId": "resource:recovery",
+      "authority": "contract-scoped-least-authority",
+      "approvalRequired": false,
+      "default": "deny-unless-declared"
+    },
+    {
+      "id": "permission:acceptance-cases",
+      "resourceId": "resource:acceptance-cases",
+      "authority": "contract-scoped-least-authority",
+      "approvalRequired": false,
+      "default": "deny-unless-declared"
+    },
+    {
+      "id": "permission:evidence-obligations",
+      "resourceId": "resource:evidence-obligations",
+      "authority": "contract-scoped-least-authority",
+      "approvalRequired": false,
+      "default": "deny-unless-declared"
+    }
+  ],
+  "materialized": true,
+  "installed": false,
+  "runtimeVerified": false,
+  "domainVerified": false
+}

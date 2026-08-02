@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { auditMigrationCandidate } from "./evidence-audit.js";
 import { BLUEPRINT_SCHEMA_VERSION, validateBlueprint } from "./blueprint.js";
 import {
@@ -7,6 +8,10 @@ import {
 } from "./build-state.js";
 import { BIRTH_REPORT_SCHEMA_VERSION, validateBirthReportArtifact } from "./birth-report.js";
 import { DELIVERY_REPORT_SCHEMA_VERSION, validateDeliveryReportArtifact } from "./delivery-report.js";
+import {
+  DISCOVERY_APPROVAL_SCHEMA_VERSION,
+  validateDiscoveryApproval,
+} from "./discovery-approval.js";
 import { DISCOVERY_DB_SCHEMA_VERSION, validateDiscoveryDb } from "./discovery-db.js";
 import { DISCOVERY_SCHEMA_VERSION, validateDiscoveryManifest } from "./discovery.js";
 import { DESIGN_PLAN_SCHEMA_VERSION, validateDesignPlan } from "./design-plan.js";
@@ -18,6 +23,43 @@ import {
 } from "./domain-eval.js";
 import { HANDOFF_SCHEMA_VERSION, validateHandoffPackage } from "./handoff.js";
 import { OBSERVATION_SCHEMA_VERSION, validateObservationRecord } from "./observation.js";
+import { serializePersistableJson } from "./persistability.js";
+import {
+  OPENCLAW_PROBE_SCHEMA_VERSION,
+  validateOpenClawProbe,
+} from "./openclaw-probe-contract.js";
+import {
+  OPENCLAW_INSTALL_PRIVATE_JOURNAL_SCHEMA_VERSION,
+  OPENCLAW_INSTALL_RECEIPT_SCHEMA_VERSION,
+  validateOpenClawInstallJournal,
+  validateOpenClawInstallReceipt,
+} from "./openclaw-install-receipt.js";
+import {
+  OPENCLAW_INSTALL_FINALIZATION_SCHEMA_VERSION,
+  OPENCLAW_INSTALL_POST_STATE_SCHEMA_VERSION,
+  OPENCLAW_OFFICIAL_ACTION_RESULT_SCHEMA_VERSION,
+  validateOpenClawInstallFinalizationEvidence,
+  validateOpenClawInstallPostStateEvidence,
+  validateOpenClawOfficialActionResultEvidence,
+} from "./openclaw-install-evidence.js";
+import {
+  OPENCLAW_ABSENT_GENESIS_SCHEMA_VERSION,
+  OPENCLAW_INSTALL_PLAN_SCHEMA_VERSION,
+  validateOpenClawAbsentGenesisAuthority,
+  validateOpenClawInstallPlan,
+} from "./openclaw-install-plan.js";
+import {
+  OPENCLAW_CONFLICT_APPROVAL_SCHEMA_VERSION,
+  OPENCLAW_INSTALL_APPROVAL_SCHEMA_VERSION,
+  OPENCLAW_SENSITIVE_ACTION_DECISION_SCHEMA_VERSION,
+} from "./openclaw-install-approval.js";
+import {
+  AGENT_PACKAGE_SCHEMA_VERSION,
+  validateAgentPackageManifest,
+} from "./package-contract.js";
+import {
+  validateOpenClawAuthorityRootBinding,
+} from "./openclaw-authority-root-binding.js";
 import { validateAgentMoReport, validateReportArtifact } from "./report.js";
 import { RUNTIME_PLAN_SCHEMA_VERSION, validateRuntimePlanArtifact } from "./runtime-plan.js";
 import {
@@ -115,6 +157,20 @@ function validateContextBoundDeliveryReport(value, context) {
     && validateSafely(() => validateDeliveryReportArtifact(value, context).ok);
 }
 
+function validateContextBoundDiscoveryApproval(value, context) {
+  if (context?.referencedByDesignPlan === true) {
+    return validateSafely(() => (
+      validateDiscoveryApproval(value).ok
+      && validateDesignPlan(context.designPlan).ok
+      && context.designPlan.source.discoveryApproval.identity === DISCOVERY_APPROVAL_SCHEMA_VERSION
+      && context.designPlan.source.discoveryApproval.subject === "discovery-approval"
+      && context.designPlan.source.discoveryApproval.digest === context.source.digest
+    ));
+  }
+  return context !== undefined
+    && validateSafely(() => validateDiscoveryApproval(value, context).ok);
+}
+
 export const LEGACY_ARTIFACT_REGISTRY = Object.freeze([
   Object.freeze({
     family: "blueprint",
@@ -176,12 +232,34 @@ export const DURABLE_ARTIFACT_REGISTRY = Object.freeze([
     validate_canonical_input: validateCanonicalDiscoveryDb,
   }),
   Object.freeze({
+    subject: "discovery-approval",
+    identity_field: "schemaVersion",
+    identity: DISCOVERY_APPROVAL_SCHEMA_VERSION,
+    legacy_inspector: "unsupported",
+    required_companion_subjects: Object.freeze(["discovery-manifest", "discovery-db"]),
+    validate_canonical_input: validateContextBoundDiscoveryApproval,
+  }),
+  Object.freeze({
     subject: "user-need",
     identity_field: "schemaVersion",
     identity: USER_NEED_SCHEMA_VERSION,
     legacy_inspector: "unsupported",
     validate_canonical_input: (value) => validateSafely(() => validateUserNeed(value).ok),
     diagnose_canonical_input: (value) => safeValidationIssues(() => validateUserNeed(value).errors),
+  }),
+  Object.freeze({
+    subject: "decision-entry",
+    identity_field: "schemaVersion",
+    identity: "agentmo.decision-entry.v1",
+    legacy_inspector: "unsupported",
+    validate_canonical_input: validateCanonicalDecisionEntry,
+  }),
+  Object.freeze({
+    subject: "decision-ledger",
+    identity_field: "schemaVersion",
+    identity: "agentmo.decision-ledger.v1",
+    legacy_inspector: "unsupported",
+    validate_canonical_input: validateCanonicalDecisionLedgerEntry,
   }),
   Object.freeze({
     subject: "design-plan",
@@ -196,6 +274,205 @@ export const DURABLE_ARTIFACT_REGISTRY = Object.freeze([
     identity: BLUEPRINT_SCHEMA_VERSION,
     legacy_inspector: "migration_required",
     validate_canonical_input: (value) => validateSafely(() => validateBlueprint(value).ok),
+  }),
+  Object.freeze({
+    subject: "openclaw-target-descriptor",
+    identity_field: "schemaVersion",
+    identity: "agentmo.openclaw-target-descriptor.v1",
+    legacy_inspector: "unsupported",
+    validate_canonical_input: validateCanonicalOpenClawTargetDescriptor,
+  }),
+  Object.freeze({
+    subject: "build-contract",
+    identity_field: "schemaVersion",
+    identity: "agentmo.build-contract.v1",
+    legacy_inspector: "unsupported",
+    validate_canonical_input: validateCanonicalBuildContract,
+  }),
+  Object.freeze({
+    subject: "native-plugin-recipe",
+    identity_field: "schemaVersion",
+    identity: "agentmo.native-plugin-recipe.v1",
+    legacy_inspector: "unsupported",
+    validate_canonical_input: validateCanonicalNativePluginRecipe,
+  }),
+  Object.freeze({
+    subject: "plan-approval",
+    identity_field: "schemaVersion",
+    identity: "agentmo.plan-approval.v1",
+    legacy_inspector: "unsupported",
+    validate_canonical_input: validateCanonicalPlanApproval,
+  }),
+  Object.freeze({
+    subject: "openclaw-target-carrier-admission",
+    identity_field: "schemaVersion",
+    identity: "agentmo.openclaw-target-carrier-admission.v1",
+    legacy_inspector: "unsupported",
+    required_companion_subjects: Object.freeze([
+      "blueprint",
+      "build-contract",
+      "plan-approval",
+      "openclaw-target-descriptor",
+    ]),
+    validate_canonical_input: validateCanonicalOpenClawTargetCarrierAdmission,
+  }),
+  Object.freeze({
+    subject: "package-manifest",
+    identity_field: "schemaVersion",
+    identity: AGENT_PACKAGE_SCHEMA_VERSION,
+    legacy_inspector: "unsupported",
+    validate_canonical_input: (value) => validateSafely(() => (
+      validateAgentPackageManifest(value).ok
+    )),
+    diagnose_canonical_input: (value) => safeValidationIssues(() => (
+      validateAgentPackageManifest(value).errors
+    )),
+  }),
+  Object.freeze({
+    subject: "openclaw-probe",
+    identity_field: "schemaVersion",
+    identity: OPENCLAW_PROBE_SCHEMA_VERSION,
+    legacy_inspector: "unsupported",
+    required_companion_subjects: Object.freeze([
+      "package-manifest",
+      "openclaw-target-carrier-admission",
+      "openclaw-target-descriptor",
+    ]),
+    validate_canonical_input: (value, context) => validateSafely(
+      () => validateOpenClawProbe(value, context).ok,
+    ),
+    diagnose_canonical_input: (value, context) => safeValidationIssues(
+      () => validateOpenClawProbe(value, context).errors,
+    ),
+  }),
+  Object.freeze({
+    subject: "openclaw-install-private-journal",
+    identity_field: "schemaVersion",
+    identity: OPENCLAW_INSTALL_PRIVATE_JOURNAL_SCHEMA_VERSION,
+    legacy_inspector: "unsupported",
+    validate_canonical_input: (value) => validateSafely(() => (
+      validateOpenClawInstallJournal(value).ok
+    )),
+    diagnose_canonical_input: (value) => safeValidationIssues(
+      () => validateOpenClawInstallJournal(value).errors,
+    ),
+  }),
+  Object.freeze({
+    subject: "openclaw-install-post-state",
+    identity_field: "schemaVersion",
+    identity: OPENCLAW_INSTALL_POST_STATE_SCHEMA_VERSION,
+    legacy_inspector: "unsupported",
+    producer_authentication: "canonical-authority-reopen-only",
+    validate_canonical_input: (value) => validateSafely(() => (
+      validateOpenClawInstallPostStateEvidence(value).ok
+    )),
+    diagnose_canonical_input: (value) => safeValidationIssues(
+      () => validateOpenClawInstallPostStateEvidence(value).errors,
+    ),
+  }),
+  Object.freeze({
+    subject: "openclaw-official-action-result",
+    identity_field: "schemaVersion",
+    identity: OPENCLAW_OFFICIAL_ACTION_RESULT_SCHEMA_VERSION,
+    legacy_inspector: "unsupported",
+    producer_authentication: "canonical-authority-reopen-only",
+    validate_canonical_input: (value) => validateSafely(() => (
+      validateOpenClawOfficialActionResultEvidence(value).ok
+    )),
+    diagnose_canonical_input: (value) => safeValidationIssues(
+      () => validateOpenClawOfficialActionResultEvidence(value).errors,
+    ),
+  }),
+  Object.freeze({
+    subject: "openclaw-install-finalization",
+    identity_field: "schemaVersion",
+    identity: OPENCLAW_INSTALL_FINALIZATION_SCHEMA_VERSION,
+    legacy_inspector: "unsupported",
+    producer_authentication: "canonical-authority-reopen-only",
+    validate_canonical_input: (value) => validateSafely(() => (
+      validateOpenClawInstallFinalizationEvidence(value).ok
+    )),
+    diagnose_canonical_input: (value) => safeValidationIssues(
+      () => validateOpenClawInstallFinalizationEvidence(value).errors,
+    ),
+  }),
+  Object.freeze({
+    subject: "openclaw-install-receipt",
+    identity_field: "schemaVersion",
+    identity: OPENCLAW_INSTALL_RECEIPT_SCHEMA_VERSION,
+    legacy_inspector: "unsupported",
+    required_companion_subjects: Object.freeze([
+      "openclaw-install-plan",
+      "openclaw-install-approval",
+      "openclaw-sensitive-action-decision",
+      "openclaw-conflict-approval",
+      "openclaw-install-private-journal",
+      "openclaw-probe",
+      "openclaw-target-descriptor",
+      "openclaw-install-post-state",
+      "openclaw-official-action-result",
+      "openclaw-install-finalization",
+    ]),
+    repeatable_companion_subjects: Object.freeze({
+      "openclaw-sensitive-action-decision": Object.freeze({
+        semanticOrder: "install-plan-sensitive-actions",
+      }),
+      "openclaw-official-action-result": Object.freeze({
+        semanticOrder: "install-plan-sensitive-actions",
+      }),
+    }),
+    validate_canonical_input: (value, context) => validateSafely(() => (
+      validateOpenClawInstallReceipt(value, context).ok
+    )),
+    diagnose_canonical_input: (value, context) => safeValidationIssues(
+      () => validateOpenClawInstallReceipt(value, context).errors,
+    ),
+  }),
+  Object.freeze({
+    subject: "openclaw-absent-genesis",
+    identity_field: "schemaVersion",
+    identity: OPENCLAW_ABSENT_GENESIS_SCHEMA_VERSION,
+    legacy_inspector: "unsupported",
+    validate_canonical_input: (value) => validateSafely(() => (
+      validateOpenClawAbsentGenesisAuthority(value).ok
+    )),
+    diagnose_canonical_input: (value) => safeValidationIssues(
+      () => validateOpenClawAbsentGenesisAuthority(value).errors,
+    ),
+  }),
+  Object.freeze({
+    subject: "openclaw-install-plan",
+    identity_field: "schemaVersion",
+    identity: OPENCLAW_INSTALL_PLAN_SCHEMA_VERSION,
+    legacy_inspector: "unsupported",
+    validate_canonical_input: (value) => validateSafely(() => (
+      validateOpenClawInstallPlan(value).ok
+    )),
+    diagnose_canonical_input: (value) => safeValidationIssues(
+      () => validateOpenClawInstallPlan(value).errors,
+    ),
+  }),
+  Object.freeze({
+    subject: "openclaw-install-approval",
+    identity_field: "schemaVersion",
+    identity: OPENCLAW_INSTALL_APPROVAL_SCHEMA_VERSION,
+    legacy_inspector: "unsupported",
+    validate_canonical_input: validateCanonicalOpenClawInstallApproval,
+  }),
+  Object.freeze({
+    subject: "openclaw-sensitive-action-decision",
+    identity_field: "schemaVersion",
+    identity: OPENCLAW_SENSITIVE_ACTION_DECISION_SCHEMA_VERSION,
+    legacy_inspector: "unsupported",
+    validate_canonical_input:
+      validateCanonicalOpenClawSensitiveActionDecision,
+  }),
+  Object.freeze({
+    subject: "openclaw-conflict-approval",
+    identity_field: "schemaVersion",
+    identity: OPENCLAW_CONFLICT_APPROVAL_SCHEMA_VERSION,
+    legacy_inspector: "unsupported",
+    validate_canonical_input: validateCanonicalOpenClawConflictApproval,
   }),
   Object.freeze({
     subject: "handoff",
@@ -602,6 +879,14 @@ export function companionSubjectsForDurableArtifact(subject, value) {
   return Object.freeze(subjects);
 }
 
+export function companionMultiplicityForDurableArtifact(subject) {
+  const descriptor = DURABLE_DESCRIPTOR_BY_SUBJECT.get(subject);
+  if (!descriptor?.required_companion_subjects) return null;
+  return Object.freeze({
+    repeatable: descriptor.repeatable_companion_subjects ?? Object.freeze({}),
+  });
+}
+
 export function resolveDurableArtifactDescriptor(value, subject, options = {}) {
   if (!isObject(value)) throw new AgentMoUnsupportedArtifactError("non_object");
   const identityFields = DURABLE_IDENTITY_FIELDS.filter((field) => hasOwn(value, field));
@@ -729,4 +1014,479 @@ function validateCanonicalDiscoveryDb(value) {
 
 function validateCanonicalDesignPlan(value) {
   return validateSafely(() => validateDesignPlan(value).ok);
+}
+
+function validateCanonicalBuildContract(value) {
+  return validateSafely(() => (
+    isObject(value)
+    && (hasExactKeys(value, [
+      "schemaVersion",
+      "agentId",
+      "status",
+      "targetRuntime",
+      "bindings",
+      "specification",
+      "resources",
+      "permissions",
+      "acceptanceCases",
+      "evidenceObligations",
+      "traceGraph",
+      "remainingRisks",
+      "certificationBoundary",
+    ]) || hasExactKeys(value, [
+      "schemaVersion",
+      "agentId",
+      "status",
+      "targetRuntime",
+      "nativePluginRecipe",
+      "bindings",
+      "specification",
+      "resources",
+      "permissions",
+      "acceptanceCases",
+      "evidenceObligations",
+      "traceGraph",
+      "remainingRisks",
+      "certificationBoundary",
+    ]) || hasExactKeys(value, [
+      "schemaVersion",
+      "agentId",
+      "status",
+      "targetDescriptor",
+      "targetRuntime",
+      "bindings",
+      "specification",
+      "resources",
+      "permissions",
+      "acceptanceCases",
+      "evidenceObligations",
+      "traceGraph",
+      "remainingRisks",
+      "certificationBoundary",
+    ]) || hasExactKeys(value, [
+      "schemaVersion",
+      "agentId",
+      "status",
+      "targetDescriptor",
+      "targetRuntime",
+      "nativePluginRecipe",
+      "bindings",
+      "specification",
+      "resources",
+      "permissions",
+      "acceptanceCases",
+      "evidenceObligations",
+      "traceGraph",
+      "remainingRisks",
+      "certificationBoundary",
+    ]))
+    && value.schemaVersion === "agentmo.build-contract.v1"
+    && value.status === "construction-intent"
+    && value.targetRuntime?.id === "openclaw"
+    && typeof value.targetRuntime?.sourceRevision === "string"
+    && Array.isArray(value.resources)
+    && value.resources.length > 0
+    && Array.isArray(value.permissions)
+    && value.permissions.length === value.resources.length
+    && Array.isArray(value.acceptanceCases)
+    && value.acceptanceCases.length > 0
+    && Array.isArray(value.evidenceObligations)
+    && value.evidenceObligations.length === value.resources.length
+    && value.certificationBoundary?.packageBuilt === false
+    && value.certificationBoundary?.runtime === false
+  ));
+}
+
+function validateCanonicalOpenClawTargetDescriptor(value) {
+  return validateSafely(() => (
+    isObject(value)
+    && hasExactKeys(value, [
+      "schemaVersion",
+      "target",
+      "targetRoot",
+      "members",
+      "provenance",
+      "certificationBoundary",
+      "authorityDigest",
+    ])
+    && value.schemaVersion === "agentmo.openclaw-target-descriptor.v1"
+    && value.target?.id === "openclaw"
+    && typeof value.target?.version === "string"
+    && /^[a-f0-9]{40}$/u.test(value.target?.sourceRevision ?? "")
+    && typeof value.target?.nodeRange === "string"
+    && Array.isArray(value.members)
+    && value.members.length === 3
+    && /^sha256:[a-f0-9]{64}$/u.test(value.targetRoot?.memberClosureDigest ?? "")
+    && /^sha256:[a-f0-9]{64}$/u.test(value.authorityDigest ?? "")
+    && value.certificationBoundary?.targetIdentityObservationOnly === true
+    && value.certificationBoundary?.runtime === false
+    && value.certificationBoundary?.production === false
+  ));
+}
+
+function validateCanonicalNativePluginRecipe(value) {
+  return validateSafely(() => {
+    if (!isObject(value)
+      || !hasExactKeys(value, [
+        "schemaVersion",
+        "owner",
+        "files",
+        "hookMappings",
+        "recipeDigest",
+      ])
+      || value.schemaVersion !== "agentmo.native-plugin-recipe.v1"
+      || value.owner !== "agentmo-openclaw-harness"
+      || !Array.isArray(value.files)
+      || value.files.length === 0
+      || !Array.isArray(value.hookMappings)
+      || value.hookMappings.length !== 4
+      || !/^sha256:[a-f0-9]{64}$/u.test(value.recipeDigest)) {
+      return false;
+    }
+    return value.files.every((file) => (
+      isObject(file)
+      && hasExactKeys(file, [
+        "relativePath",
+        "type",
+        "mode",
+        "encoding",
+        "content",
+        "byteLength",
+        "sha256",
+      ])
+      && typeof file.relativePath === "string"
+      && file.relativePath.startsWith("openclaw/plugin/")
+      && file.type === "file"
+      && [0o644, 0o755].includes(file.mode)
+      && file.encoding === "utf8"
+      && typeof file.content === "string"
+      && Number.isSafeInteger(file.byteLength)
+      && /^sha256:[a-f0-9]{64}$/u.test(file.sha256)
+    ));
+  });
+}
+
+function validateCanonicalPlanApproval(value) {
+  return validateSafely(() => (
+    isObject(value)
+    && hasExactKeys(value, [
+      "schemaVersion",
+      "decision",
+      "decisionScope",
+      "previewDigest",
+      "bindings",
+      "approvalCoverage",
+      "certificationBoundary",
+    ])
+    && value.schemaVersion === "agentmo.plan-approval.v1"
+    && value.decision === "approve"
+    && value.decisionScope === "enter-produce"
+    && /^sha256:[a-f0-9]{64}$/u.test(value.previewDigest)
+    && value.certificationBoundary?.packageBuilt === false
+    && value.certificationBoundary?.runtime === false
+  ));
+}
+
+function validateCanonicalOpenClawTargetCarrierAdmission(value, context) {
+  return validateSafely(() => (
+    isObject(value)
+    && hasExactKeys(value, [
+      "schemaVersion",
+      "decision",
+      "target",
+      "authorities",
+      "carrier",
+      "hookMappings",
+      "certificationBoundary",
+    ])
+    && value.schemaVersion === "agentmo.openclaw-target-carrier-admission.v1"
+    && value.decision === "admit-exact-target-and-native-plugin-recipe"
+    && value.target?.id === "openclaw"
+    && typeof value.target?.version === "string"
+    && /^[a-f0-9]{40}$/u.test(value.target?.sourceRevision ?? "")
+    && value.target?.displayRevision === value.target.sourceRevision.slice(0, 7)
+    && /^sha256:[a-f0-9]{64}$/u.test(value.target?.descriptorDigest)
+    && /^sha256:[a-f0-9]{64}$/u.test(value.target?.executableDigest)
+    && /^sha256:[a-f0-9]{64}$/u.test(value.target?.packageJsonDigest)
+    && /^sha256:[a-f0-9]{64}$/u.test(value.target?.buildInfoDigest)
+    && /^sha256:[a-f0-9]{64}$/u.test(value.target?.targetRootDigest)
+    && value.carrier?.kind === "native-plugin"
+    && value.carrier?.owner === "agentmo-openclaw-harness"
+    && value.carrier?.implementationPathAccepted === false
+    && value.carrier?.mcp === false
+    && Array.isArray(value.hookMappings)
+    && value.hookMappings.length === 4
+    && isObject(context?.sources)
+    && value.authorities?.blueprintDigest === context.sources.blueprint?.digest
+    && value.authorities?.buildContractDigest === context.sources.buildContract?.digest
+    && value.authorities?.planApprovalDigest === context.sources.planApproval?.digest
+    && value.authorities?.targetDescriptorDigest
+      === context.sources["openclaw-target-descriptor"]?.digest
+    && value.authorities?.nativePluginRecipeDigest
+      === context.buildContract?.nativePluginRecipe?.recipeDigest
+    && context.planApproval?.bindings?.buildContract?.digest
+      === context.sources.buildContract?.digest
+    && value.certificationBoundary?.pluginBytesMaterialized === false
+    && value.certificationBoundary?.installed === false
+    && value.certificationBoundary?.runtime === false
+    && value.certificationBoundary?.domain === false
+    && value.certificationBoundary?.production === false
+  ));
+}
+
+function validateCanonicalDecisionEntry(value) {
+  return validateSafely(() => {
+    const keys = [
+      "schemaVersion",
+      "entryId",
+      "entryKind",
+      "subject",
+      "reason",
+      "sourceRefs",
+      "decisionRefs",
+      "requirementRefs",
+    ];
+    return isObject(value)
+      && hasExactKeys(value, keys)
+      && value.schemaVersion === "agentmo.decision-entry.v1"
+      && validDecisionEntryBody(value);
+  });
+}
+
+function validateCanonicalOpenClawInstallApproval(value) {
+  return validateSafely(() => (
+    isObject(value)
+    && hasExactKeys(value, [
+      "schemaVersion",
+      "decision",
+      "installPlanDigest",
+      "archiveBinding",
+      "authorityRootBinding",
+      "lifecycle",
+      "targetId",
+      "scope",
+      "authority",
+      "issuedAt",
+      "expiresAt",
+      "useNonce",
+    ])
+    && value.schemaVersion === OPENCLAW_INSTALL_APPROVAL_SCHEMA_VERSION
+    && validLifecycleDecisionBase(value)
+    && ["install", "upgrade", "rollback", "uninstall"].includes(value.lifecycle)
+    && value.targetId === "openclaw"
+    && ["project", "user"].includes(value.scope)
+    && exactJson(value.authority, {
+      ordinaryManagedWrites: true,
+      sensitiveActions: false,
+      conflicts: false,
+      broaderScope: false,
+    })
+  ));
+}
+
+function validateCanonicalOpenClawSensitiveActionDecision(value) {
+  return validateSafely(() => (
+    isObject(value)
+    && hasExactKeys(value, [
+      "schemaVersion",
+      "decision",
+      "installPlanDigest",
+      "archiveBinding",
+      "authorityRootBinding",
+      "action",
+      "issuedAt",
+      "expiresAt",
+      "useNonce",
+    ])
+    && value.schemaVersion === OPENCLAW_SENSITIVE_ACTION_DECISION_SCHEMA_VERSION
+    && validLifecycleDecisionBase(value)
+    && isObject(value.action)
+    && hasExactKeys(value.action, [
+      "actionId",
+      "kind",
+      "executable",
+      "argv",
+      "cwd",
+      "scope",
+      "target",
+      "timeoutMs",
+      "environmentNames",
+    ])
+    && nonEmpty(value.action.actionId)
+    && ["network", "credential", "process", "external-command", "user-scope"]
+      .includes(value.action.kind)
+    && nonEmpty(value.action.executable)
+    && Array.isArray(value.action.argv)
+    && value.action.argv.every(nonEmpty)
+    && nonEmpty(value.action.cwd)
+    && ["project", "user"].includes(value.action.scope)
+    && nonEmpty(value.action.target)
+    && Number.isSafeInteger(value.action.timeoutMs)
+    && value.action.timeoutMs > 0
+    && value.action.timeoutMs <= 60_000
+    && sortedUniqueStrings(value.action.environmentNames)
+  ));
+}
+
+function validateCanonicalOpenClawConflictApproval(value) {
+  return validateSafely(() => (
+    isObject(value)
+    && hasExactKeys(value, [
+      "schemaVersion",
+      "decision",
+      "installPlanDigest",
+      "archiveBinding",
+      "authorityRootBinding",
+      "conflicts",
+      "issuedAt",
+      "expiresAt",
+      "useNonce",
+    ])
+    && value.schemaVersion === OPENCLAW_CONFLICT_APPROVAL_SCHEMA_VERSION
+    && validLifecycleDecisionBase(value)
+    && Array.isArray(value.conflicts)
+    && sortedUniqueStrings(value.conflicts.map(({ path }) => path))
+    && value.conflicts.every((conflict) => (
+      isObject(conflict)
+      && hasExactKeys(conflict, [
+        "path",
+        "currentDigest",
+        "desiredDigest",
+        "action",
+      ])
+      && portableRelativePath(conflict.path)
+      && digestValue(conflict.currentDigest)
+      && digestValue(conflict.desiredDigest)
+      && ["preserve", "replace", "abort"].includes(conflict.action)
+    ))
+  ));
+}
+
+function validLifecycleDecisionBase(value) {
+  return value.decision === "approve"
+    && digestValue(value.installPlanDigest)
+    && validLifecycleArchiveBinding(value.archiveBinding)
+    && validateOpenClawAuthorityRootBinding(value.authorityRootBinding).ok
+    && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u
+      .test(value.issuedAt ?? "")
+    && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u
+      .test(value.expiresAt ?? "")
+    && Date.parse(value.issuedAt) < Date.parse(value.expiresAt)
+    && nonEmpty(value.useNonce);
+}
+
+function validLifecycleArchiveBinding(value) {
+  return isObject(value)
+    && hasExactKeys(value, [
+      "archiveSha256",
+      "manifestDigest",
+      "inventoryDigest",
+      "members",
+    ])
+    && digestValue(value.archiveSha256)
+    && digestValue(value.manifestDigest)
+    && digestValue(value.inventoryDigest)
+    && Array.isArray(value.members)
+    && value.members.length > 0
+    && sortedUniqueStrings(value.members.map(({ relativePath }) => relativePath))
+    && value.members.every((member) => (
+      isObject(member)
+      && hasExactKeys(member, [
+        "relativePath",
+        "type",
+        "mode",
+        "byteLength",
+        "sha256",
+      ])
+      && portableRelativePath(member.relativePath)
+      && member.type === "file"
+      && [0o644, 0o755].includes(member.mode)
+      && Number.isSafeInteger(member.byteLength)
+      && member.byteLength >= 0
+      && digestValue(member.sha256)
+    ))
+    && value.inventoryDigest === `sha256:${createHash("sha256")
+      .update(Buffer.from(serializePersistableJson(value.members, {
+        subject: "package-member-inventory",
+      }), "utf8"))
+      .digest("hex")}`;
+}
+
+function digestValue(value) {
+  return /^sha256:[a-f0-9]{64}$/u.test(value ?? "");
+}
+
+function portableRelativePath(value) {
+  return nonEmpty(value)
+    && value.length <= 1024
+    && !value.includes("\\")
+    && !value.startsWith("/")
+    && !/^[A-Za-z]:/u.test(value)
+    && !value.split("/").some((segment) => (
+      segment === "" || segment === "." || segment === ".."
+    ));
+}
+
+function sortedUniqueStrings(value) {
+  return Array.isArray(value)
+    && value.every(nonEmpty)
+    && value.every((item, index) => (
+      index === 0 || Buffer.from(item).compare(Buffer.from(value[index - 1])) > 0
+    ));
+}
+
+function nonEmpty(value) {
+  return typeof value === "string" && value.length > 0 && !value.includes("\0");
+}
+
+function exactJson(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function validateCanonicalDecisionLedgerEntry(value) {
+  return validateSafely(() => {
+    const keys = [
+      "schemaVersion",
+      "sequence",
+      "predecessorDigest",
+      "entryId",
+      "entryKind",
+      "subject",
+      "reason",
+      "sourceRefs",
+      "decisionRefs",
+      "requirementRefs",
+    ];
+    return isObject(value)
+      && hasExactKeys(value, keys)
+      && value.schemaVersion === "agentmo.decision-ledger.v1"
+      && Number.isSafeInteger(value.sequence)
+      && value.sequence >= 0
+      && (value.predecessorDigest === null
+        || /^sha256:[a-f0-9]{64}$/u.test(value.predecessorDigest))
+      && validDecisionEntryBody(value);
+  });
+}
+
+function validDecisionEntryBody(value) {
+  const id = /^[a-z0-9][a-z0-9._:-]{0,127}$/u;
+  const kinds = new Set(["fact", "inference", "unknown", "rejected-option", "human-decision"]);
+  return id.test(value.entryId ?? "")
+    && kinds.has(value.entryKind)
+    && typeof value.subject === "string"
+    && value.subject.length > 0
+    && value.subject.length <= 512
+    && typeof value.reason === "string"
+    && value.reason.length > 0
+    && value.reason.length <= 4096
+    && ["sourceRefs", "decisionRefs", "requirementRefs"].every((key) =>
+      Array.isArray(value[key])
+        && value[key].length <= 128
+        && value[key].every((item) => typeof item === "string" && id.test(item))
+        && value[key].every((item, index) => index === 0 || value[key][index - 1] < item));
+}
+
+function hasExactKeys(value, keys) {
+  const actual = Object.keys(value);
+  return actual.length === keys.length && keys.every((key) => Object.hasOwn(value, key));
 }

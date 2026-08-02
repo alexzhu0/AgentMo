@@ -29,20 +29,20 @@
 
 ### Discover
 
-- [ ] **DISC-01**：开发者可以通过当前 Codex 可用的 Web、GitHub、论文和本地文档能力执行有边界的实时研究，并为每个 collector 设置来源、数量、大小和时间限制。
-- [ ] **DISC-02**：开发者获得的每条 discovery record 都包含来源身份、检索时间、内容摘要、content digest、provenance、confidence 与原始位置引用。
-- [ ] **DISC-03**：开发者可以区分第一手来源、上下文媒体和社区观点；事实性研究默认优先论文、作者材料、官方文档与 release records。
-- [ ] **DISC-04**：开发者导入的来源在持久化前经过路径、大小、内容类型、untrusted-input 和 secret-shaped material 筛查，失败时保留有界错误证据而不保存敏感原文。
-- [ ] **DISC-05**：开发者可以看到来源去重、新鲜度、冲突和 coverage gaps，且系统不会把关键词覆盖率表述为语义质量证明。
-- [ ] **DISC-06**：开发者必须批准同时承诺 exact source-manifest digest 与 derived discovery-database digest 的审批工件后才能进入 Plan；来源、summary、confidence、coverage、版本或清单变化都会使旧审批失效。
+- [x] **DISC-01**：开发者可以通过当前 Codex 可用的 Web、GitHub、论文和本地文档能力执行有边界的实时研究，并为每个 collector 设置来源、数量、大小和时间限制。
+- [x] **DISC-02**：开发者获得的每条 discovery record 都包含来源身份、检索时间、内容摘要、content digest、provenance、confidence 与原始位置引用。
+- [x] **DISC-03**：开发者可以区分第一手来源、上下文媒体和社区观点；事实性研究默认优先论文、作者材料、官方文档与 release records。
+- [x] **DISC-04**：开发者导入的来源在持久化前经过路径、大小、内容类型、untrusted-input 和 secret-shaped material 筛查，失败时保留有界错误证据而不保存敏感原文。
+- [x] **DISC-05**：开发者可以看到来源去重、新鲜度、冲突和 coverage gaps，且系统不会把关键词覆盖率表述为语义质量证明。
+- [x] **DISC-06**：开发者必须批准同时承诺 exact source-manifest digest 与 derived discovery-database digest 的审批工件后才能进入 Plan；来源、summary、confidence、coverage、版本或清单变化都会使旧审批失效。
 
 ### Plan
 
-- [ ] **PLAN-01**：开发者可以基于已批准 discovery database 与 AgentMo 持续对话，形成明确的用户需求、边界、约束和可观察验收标准。
-- [ ] **PLAN-02**：开发者可以审阅 decision ledger，其中分别记录事实、推断、未知项、被拒绝方案和人工决定，而不把原始 transcript 当作状态权威。
-- [ ] **PLAN-03**：开发者可以从每项需求追溯到支持它的来源和决定，也可以从来源反向查看其影响的需求、能力与 eval。
-- [ ] **PLAN-04**：开发者可以在批准 package 之前看到目标 runtime feasibility、所需 capability、权限、信任面、不支持项与替代方案。
-- [ ] **PLAN-05**：开发者可以批准绑定 exact digest 的 blueprint 与 Package build contract；任何需求、能力、权限或验收标准变化都会要求重新批准。
+- [x] **PLAN-01**：开发者可以基于已批准 discovery database 与 AgentMo 持续对话，形成明确的用户需求、边界、约束和可观察验收标准。
+- [x] **PLAN-02**：开发者可以审阅 decision ledger，其中分别记录事实、推断、未知项、被拒绝方案和人工决定，而不把原始 transcript 当作状态权威。
+- [x] **PLAN-03**：开发者可以从每项需求追溯到支持它的来源和决定，也可以从来源反向查看其影响的需求、能力与 eval。
+- [x] **PLAN-04**：开发者可以在批准 package 之前看到目标 runtime feasibility、所需 capability、权限、信任面、不支持项与替代方案。
+- [x] **PLAN-05**：开发者可以批准绑定 exact digest 的 blueprint 与 Package build contract；任何需求、能力、权限或验收标准变化都会要求重新批准。
 
 ### Agent Package
 
@@ -151,17 +151,17 @@ v1 只有在以下条件同时满足时才完成：
 | BLDR-05 | Phase 2 | Partial |
 | BLDR-06 | Phase 2 | Pending |
 | BLDR-07 | Phase 2 | Pending |
-| DISC-01 | Phase 3 | Pending |
-| DISC-02 | Phase 3 | Pending |
-| DISC-03 | Phase 3 | Pending |
-| DISC-04 | Phase 3 | Pending |
-| DISC-05 | Phase 3 | Pending |
-| DISC-06 | Phase 3 | Pending |
-| PLAN-01 | Phase 3 | Pending |
-| PLAN-02 | Phase 3 | Pending |
-| PLAN-03 | Phase 3 | Pending |
-| PLAN-04 | Phase 3 | Pending |
-| PLAN-05 | Phase 3 | Pending |
+| DISC-01 | Phase 3 | Complete |
+| DISC-02 | Phase 3 | Complete |
+| DISC-03 | Phase 3 | Complete |
+| DISC-04 | Phase 3 | Complete |
+| DISC-05 | Phase 3 | Complete |
+| DISC-06 | Phase 3 | Complete |
+| PLAN-01 | Phase 3 | Complete |
+| PLAN-02 | Phase 3 | Complete |
+| PLAN-03 | Phase 3 | Complete |
+| PLAN-04 | Phase 3 | Complete |
+| PLAN-05 | Phase 3 | Complete |
 | PACK-01 | Phase 4 | Pending |
 | PACK-02 | Phase 4 | Pending |
 | PACK-03 | Phase 4 | Pending |

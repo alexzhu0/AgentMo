@@ -5,6 +5,16 @@ import {
 } from "./artifact-admission.js";
 import { DISCOVERY_DB_SCHEMA_VERSION } from "./discovery-db.js";
 import {
+  admittedDecisionLedgerProvenance,
+  DECISION_LEDGER_SCHEMA_VERSION,
+  validateDecisionLedger,
+} from "./decision-ledger.js";
+import {
+  DISCOVERY_APPROVAL_SCHEMA_VERSION,
+  validateDiscoveryApproval,
+} from "./discovery-approval.js";
+import { DISCOVERY_SCHEMA_VERSION } from "./discovery.js";
+import {
   PersistabilityError,
   serializePersistableJson,
   writePersistableJsonAtomic,
@@ -61,7 +71,25 @@ export async function loadDesignPlan(filePath, options = {}) {
 
 export function buildDesignPlan(discoveryDb, userNeed, options = {}) {
   assertDesignPlanInputs(discoveryDb, userNeed, options);
-  const source = admittedDesignPlanSource(discoveryDb, userNeed, options.admissions);
+  const source = admittedDesignPlanSource(
+    options.manifest,
+    discoveryDb,
+    options.discoveryApproval,
+    userNeed,
+    options.decisionLedger,
+    options.admissions,
+  );
+  const approvalValidation = validateDiscoveryApproval(options.discoveryApproval, {
+    manifest: options.manifest,
+    discoveryDb,
+    sources: {
+      discoveryManifest: source.discoveryManifest,
+      discoveryDb: source.discoveryDb,
+    },
+  });
+  if (!approvalValidation.ok) {
+    throw new ArtifactAdmissionError("AGENTMO_ARTIFACT_ADMISSION_RESULT_INVALID");
+  }
   const targetRuntime = resolveRuntime(options.target, options.runtime);
   const sourceIds = collectSourceIds(discoveryDb);
   const factIds = collectFactIds(discoveryDb);
@@ -79,8 +107,20 @@ export function buildDesignPlan(discoveryDb, userNeed, options = {}) {
   const gaps = buildGaps(requirementsTrace);
   const governMissingEvidence = options.governMissingEvidence !== false;
   const evalPlan = buildEvalPlan(userNeed, requirementsTrace, gaps, governMissingEvidence);
+  const architecturePlan = buildArchitecturePlan(userNeed, targetRuntime);
+  const traceGraph = buildTraceGraph(
+    discoveryDb,
+    options.decisionLedger,
+    requirementsTrace,
+  );
   const governanceGates = buildGovernanceGates(userNeed, requirementsTrace, gaps, governMissingEvidence);
-  const validation = buildValidation(requirementsTrace, gaps, governanceGates, governMissingEvidence);
+  const validation = buildValidation(
+    requirementsTrace,
+    gaps,
+    governanceGates,
+    governMissingEvidence,
+    traceGraph,
+  );
   const plan = {
     schemaVersion: DESIGN_PLAN_SCHEMA_VERSION,
     ok: validation.ok,
@@ -91,11 +131,13 @@ export function buildDesignPlan(discoveryDb, userNeed, options = {}) {
     userNeedSummary: summarizeNeed(userNeed, sourceRefValidation.refs),
     discoverySummary: summarizeDiscoveryDb(discoveryDb),
     requirementsTrace,
+    traceGraph,
     evidenceMap: requirementsTrace.map((entry) => ({
       requirementId: entry.requirementId,
       coverage: entry.coverage,
       matchedFactRefs: entry.matchedFactRefs,
       matchedSourceIds: entry.matchedSourceIds,
+      matchBasis: entry.matchBasis,
     })),
     gaps,
     assumptions: gaps.map((gap) => ({
@@ -103,7 +145,7 @@ export function buildDesignPlan(discoveryDb, userNeed, options = {}) {
       requirementId: gap.requirementId,
       text: "Treat unresolved evidence as an explicit evaluation and governance constraint, not as a production claim.",
     })),
-    architecturePlan: buildArchitecturePlan(userNeed, targetRuntime),
+    architecturePlan,
     toolContractPlan: buildToolContractPlan(userNeed),
     evalPlan,
     evidencePolicy: buildEvidencePolicy(sourceRefValidation.refs),
@@ -137,6 +179,7 @@ export function validateDesignPlan(plan) {
     for (const [index, entry] of plan.requirementsTrace.entries()) validateTraceEntry(entry, index, errors);
   }
   requireArray(plan, "evidenceMap", errors);
+  validateTraceGraph(plan.traceGraph, errors);
   requireArray(plan, "gaps", errors);
   requireObject(plan, "architecturePlan", errors);
   requireObject(plan, "toolContractPlan", errors);
@@ -201,28 +244,66 @@ export async function writeDesignPlan(filePath, plan) {
   return filePath;
 }
 
-function admittedDesignPlanSource(discoveryDb, userNeed, admissions) {
+function admittedDesignPlanSource(
+  manifest,
+  discoveryDb,
+  discoveryApproval,
+  userNeed,
+  decisionLedger,
+  admissions,
+) {
   if (!isObject(admissions)
-    || !hasExactKeys(admissions, ["discoveryDb", "userNeed"])) {
+    || !hasExactKeys(admissions, [
+      "discoveryManifest",
+      "discoveryDb",
+      "discoveryApproval",
+      "userNeed",
+      "decisionLedger",
+    ])) {
     throw new ArtifactAdmissionError("AGENTMO_ARTIFACT_ADMISSION_RESULT_INVALID");
   }
+  if (admissions.decisionLedger !== decisionLedger) {
+    throw new Error("Exact current decision ledger is required for design planning.");
+  }
   return {
+    discoveryManifest: admittedArtifactProvenance(admissions.discoveryManifest, {
+      subject: "discovery-manifest",
+      value: manifest,
+    }),
     discoveryDb: admittedArtifactProvenance(admissions.discoveryDb, {
       subject: "discovery-db",
       value: discoveryDb,
+    }),
+    discoveryApproval: admittedArtifactProvenance(admissions.discoveryApproval, {
+      subject: "discovery-approval",
+      value: discoveryApproval,
     }),
     userNeed: admittedArtifactProvenance(admissions.userNeed, {
       subject: "user-need",
       value: userNeed,
     }),
+    decisionLedger: admittedDecisionLedgerProvenance(admissions.decisionLedger),
   };
 }
 
 function validateDesignPlanSource(source, errors) {
-  if (!isObject(source) || !hasExactKeys(source, ["discoveryDb", "userNeed"])) {
-    errors.push("source must contain exact discoveryDb and userNeed admission provenance.");
+  if (!isObject(source) || !hasExactKeys(source, [
+    "discoveryManifest",
+    "discoveryDb",
+    "discoveryApproval",
+    "userNeed",
+    "decisionLedger",
+  ])) {
+    errors.push("source must contain exact manifest, discovery DB, discovery approval, user need, and decision ledger provenance.");
     return;
   }
+  validateAdmissionProvenance(
+    source.discoveryManifest,
+    "discovery-manifest",
+    DISCOVERY_SCHEMA_VERSION,
+    "source.discoveryManifest",
+    errors,
+  );
   validateAdmissionProvenance(
     source.discoveryDb,
     "discovery-db",
@@ -231,10 +312,24 @@ function validateDesignPlanSource(source, errors) {
     errors,
   );
   validateAdmissionProvenance(
+    source.discoveryApproval,
+    "discovery-approval",
+    DISCOVERY_APPROVAL_SCHEMA_VERSION,
+    "source.discoveryApproval",
+    errors,
+  );
+  validateAdmissionProvenance(
     source.userNeed,
     "user-need",
     USER_NEED_SCHEMA_VERSION,
     "source.userNeed",
+    errors,
+  );
+  validateAdmissionProvenance(
+    source.decisionLedger,
+    "decision-ledger",
+    DECISION_LEDGER_SCHEMA_VERSION,
+    "source.decisionLedger",
     errors,
   );
 }
@@ -255,6 +350,12 @@ function hasExactKeys(value, expected) {
 }
 
 function assertDesignPlanInputs(discoveryDb, userNeed, options = {}) {
+  if (options.manifest?.schemaVersion !== DISCOVERY_SCHEMA_VERSION) {
+    throw new Error(`discovery manifest schemaVersion must be ${DISCOVERY_SCHEMA_VERSION}`);
+  }
+  if (options.discoveryApproval?.schemaVersion !== DISCOVERY_APPROVAL_SCHEMA_VERSION) {
+    throw new Error(`discovery approval schemaVersion must be ${DISCOVERY_APPROVAL_SCHEMA_VERSION}`);
+  }
   if (discoveryDb?.schemaVersion !== DISCOVERY_DB_SCHEMA_VERSION) {
     throw new Error(`discovery-db schemaVersion must be ${DISCOVERY_DB_SCHEMA_VERSION}`);
   }
@@ -273,6 +374,11 @@ function assertDesignPlanInputs(discoveryDb, userNeed, options = {}) {
   }
   if (discoveryDb.validation?.ok !== true) {
     throw new Error("Cannot build design plan from a discovery-db whose source manifest did not validate.");
+  }
+  if (!options.decisionLedger
+    || !validateDecisionLedger(options.decisionLedger).ok
+    || options.decisionLedger.head === null) {
+    throw new Error("An exact current decision ledger is required for design planning.");
   }
   resolveRuntime(options.target, options.runtime);
 }
@@ -308,6 +414,7 @@ function buildTraceEntry(type, text, number, factIndex) {
     coverage,
     matchedFactRefs: matches.map((match) => match.fact.id),
     matchedSourceIds: Array.from(new Set(matches.map((match) => match.fact.sourceId).filter(nonEmptyString))).sort(),
+    matchBasis: "mechanical-token-overlap-non-semantic",
     planningImpact: planningImpact(type, coverage),
   };
 }
@@ -326,7 +433,11 @@ function buildFactIndex(discoveryDb) {
       source.type,
       source.description,
     ].join(" ");
-    return { fact, tokens: tokenize(searchable) };
+    return {
+      fact,
+      tokens: tokenize(searchable),
+      evidencePriority: evidenceClassPriority(fact.evidenceClass),
+    };
   });
 }
 
@@ -336,9 +447,13 @@ function matchFacts(text, factIndex) {
     .map((entry) => ({
       fact: entry.fact,
       score: overlapScore(requirementTokens, entry.tokens),
+      evidencePriority: entry.evidencePriority,
     }))
     .filter((entry) => entry.score > 0)
-    .sort((left, right) => right.score - left.score || left.fact.id.localeCompare(right.fact.id));
+    .sort((left, right) =>
+      right.score - left.score
+      || right.evidencePriority - left.evidencePriority
+      || left.fact.id.localeCompare(right.fact.id));
   const strong = matches.filter((entry) => entry.score >= 2);
   return (strong.length > 0 ? strong : matches).slice(0, 4);
 }
@@ -363,6 +478,16 @@ function overlapScore(left, right) {
   let score = 0;
   for (const token of left) if (right.has(token)) score += 1;
   return score;
+}
+
+function evidenceClassPriority(value) {
+  return {
+    primary: 4,
+    "first-party": 3,
+    "approved-local": 3,
+    context: 2,
+    community: 1,
+  }[value] ?? 0;
 }
 
 function planningImpact(type, coverage) {
@@ -417,6 +542,173 @@ function buildEvalPlan(userNeed, requirementsTrace, gaps, governMissingEvidence)
   };
 }
 
+function buildTraceGraph(discoveryDb, decisionLedger, requirementsTrace) {
+  const sourceIds = collectSourceIds(discoveryDb);
+  const decisionIds = decisionLedger.entries.map((entry) => entry.entryId).sort();
+  const requirementIds = requirementsTrace.map((entry) => entry.requirementId).sort();
+  const capabilityIds = requirementIds.map((requirementId) => `capability:${requirementId}`);
+  const evalCaseIds = requirementIds.map((requirementId) => `eval:${requirementId}`);
+  const knownSourceIds = new Set(sourceIds);
+  const knownRequirementIds = new Set(requirementIds);
+  const edges = [];
+
+  for (const trace of requirementsTrace) {
+    for (const sourceId of trace.matchedSourceIds) {
+      edges.push({
+        from: sourceId,
+        to: trace.requirementId,
+        relation: "source-supports-requirement",
+      });
+    }
+    edges.push({
+      from: trace.requirementId,
+      to: `capability:${trace.requirementId}`,
+      relation: "requirement-defines-capability",
+    });
+    edges.push({
+      from: trace.requirementId,
+      to: `eval:${trace.requirementId}`,
+      relation: "requirement-defines-eval",
+    });
+  }
+
+  for (const entry of decisionLedger.entries) {
+    if (entry.sourceRefs.some((reference) => !knownSourceIds.has(reference))) {
+      throw new Error(`Decision ledger contains dangling source reference for ${entry.entryId}.`);
+    }
+    if (entry.requirementRefs.some((reference) => !knownRequirementIds.has(reference))) {
+      throw new Error(`Decision ledger contains dangling requirement reference for ${entry.entryId}.`);
+    }
+    for (const sourceId of entry.sourceRefs) {
+      edges.push({
+        from: sourceId,
+        to: entry.entryId,
+        relation: "source-informs-decision",
+      });
+    }
+    for (const requirementId of entry.requirementRefs) {
+      edges.push({
+        from: entry.entryId,
+        to: requirementId,
+        relation: "decision-governs-requirement",
+      });
+    }
+  }
+
+  const forwardTraceEdges = canonicalEdges(edges);
+  const reverseTraceEdges = canonicalEdges(forwardTraceEdges.map((edge) => ({
+    from: edge.to,
+    to: edge.from,
+    relation: edge.relation,
+  })));
+  return {
+    sourceIds,
+    decisionIds,
+    requirementIds,
+    capabilityIds,
+    evalCaseIds,
+    forwardTraceEdges,
+    reverseTraceEdges,
+  };
+}
+
+function validateTraceGraph(graph, errors) {
+  if (!isObject(graph) || !hasExactKeys(graph, [
+    "sourceIds",
+    "decisionIds",
+    "requirementIds",
+    "capabilityIds",
+    "evalCaseIds",
+    "forwardTraceEdges",
+    "reverseTraceEdges",
+  ])) {
+    errors.push("traceGraph must contain exact node classes plus forward and reverse edges.");
+    return;
+  }
+  const nodeKeys = [
+    "sourceIds",
+    "decisionIds",
+    "requirementIds",
+    "capabilityIds",
+    "evalCaseIds",
+  ];
+  const nodes = new Set();
+  for (const key of nodeKeys) {
+    const values = graph[key];
+    if (!Array.isArray(values)
+      || values.some((value) => !nonEmptyString(value))
+      || values.some((value, index) => index > 0 && values[index - 1] >= value)) {
+      errors.push(`traceGraph.${key} must be a sorted unique string array.`);
+      continue;
+    }
+    for (const value of values) {
+      if (nodes.has(value)) errors.push(`traceGraph node id must be globally unique: ${value}`);
+      nodes.add(value);
+    }
+  }
+  for (const key of ["forwardTraceEdges", "reverseTraceEdges"]) {
+    if (!Array.isArray(graph[key])) {
+      errors.push(`traceGraph.${key} must be an array.`);
+      continue;
+    }
+    for (const [index, edge] of graph[key].entries()) {
+      if (!isObject(edge)
+        || !hasExactKeys(edge, ["from", "to", "relation"])
+        || !nodes.has(edge.from)
+        || !nodes.has(edge.to)
+        || !nonEmptyString(edge.relation)) {
+        errors.push(`traceGraph.${key}[${index}] must be a closed edge.`);
+      }
+    }
+    if (JSON.stringify(graph[key]) !== JSON.stringify(canonicalEdges(graph[key]))) {
+      errors.push(`traceGraph.${key} must be sorted and duplicate-free.`);
+    }
+  }
+  if (Array.isArray(graph.forwardTraceEdges) && Array.isArray(graph.reverseTraceEdges)) {
+    const expectedReverse = canonicalEdges(graph.forwardTraceEdges.map((edge) => ({
+      from: edge.to,
+      to: edge.from,
+      relation: edge.relation,
+    })));
+    if (JSON.stringify(graph.reverseTraceEdges) !== JSON.stringify(expectedReverse)) {
+      errors.push("traceGraph reverse edges must exactly mirror forward edges.");
+    }
+  }
+  if (Array.isArray(graph.requirementIds) && Array.isArray(graph.forwardTraceEdges)) {
+    for (const requirementId of graph.requirementIds) {
+      const hasAuthority = graph.forwardTraceEdges.some((edge) =>
+        edge.to === requirementId
+          && (edge.relation === "source-supports-requirement"
+            || edge.relation === "decision-governs-requirement"));
+      const hasCapability = graph.forwardTraceEdges.some((edge) =>
+        edge.from === requirementId
+          && edge.to === `capability:${requirementId}`
+          && edge.relation === "requirement-defines-capability");
+      const hasEval = graph.forwardTraceEdges.some((edge) =>
+        edge.from === requirementId
+          && edge.to === `eval:${requirementId}`
+          && edge.relation === "requirement-defines-eval");
+      if (!hasAuthority) errors.push(`traceGraph requirement lacks source/decision authority: ${requirementId}`);
+      if (!hasCapability) errors.push(`traceGraph requirement lacks capability edge: ${requirementId}`);
+      if (!hasEval) errors.push(`traceGraph requirement lacks eval edge: ${requirementId}`);
+    }
+  }
+}
+
+function canonicalEdges(edges) {
+  const unique = new Map();
+  for (const edge of edges) {
+    const normalized = {
+      from: edge.from,
+      to: edge.to,
+      relation: edge.relation,
+    };
+    unique.set(JSON.stringify(normalized), normalized);
+  }
+  return [...unique.values()].sort((left, right) =>
+    JSON.stringify(left).localeCompare(JSON.stringify(right)));
+}
+
 function buildGovernanceGates(userNeed, requirementsTrace, gaps, governMissingEvidence) {
   return [
     {
@@ -447,12 +739,15 @@ function buildGovernanceGates(userNeed, requirementsTrace, gaps, governMissingEv
   ];
 }
 
-function buildValidation(requirementsTrace, gaps, governanceGates, governMissingEvidence) {
+function buildValidation(requirementsTrace, gaps, governanceGates, governMissingEvidence, traceGraph) {
   const errors = [];
   const warnings = [];
   if (requirementsTrace.length === 0) errors.push("requirementsTrace must not be empty.");
   if (gaps.length > 0) warnings.push(`${gaps.length} requirements have partial or missing evidence and must remain governed.`);
   if (gaps.length > 0 && !governMissingEvidence) errors.push("missing evidence is not converted into eval/governance constraints.");
+  const traceErrors = [];
+  validateTraceGraph(traceGraph, traceErrors);
+  errors.push(...traceErrors);
   for (const gate of governanceGates) if (gate.status !== "pass") errors.push(`governance gate failed: ${gate.id}`);
   return { ok: errors.length === 0, errors, warnings, gates: governanceGates };
 }
@@ -518,6 +813,8 @@ function buildEvidencePolicy(sourceRefs) {
   return {
     allowedRefs: ["discovery source ids", "discovery fact ids", "repo-relative bounded paths", "http(s) URLs without credentials"],
     sourceRefs,
+    matchingBasis: "mechanical-token-overlap-non-semantic",
+    semanticMatchingCertified: false,
     storageRules: [
       "Persist bounded fact refs and summaries only.",
       "Do not persist sensitive values, full conversation logs, full tool responses, or production runtime state in Stage 2 artifacts.",

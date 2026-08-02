@@ -1,0 +1,135 @@
+{
+  "schemaVersion": "agentmo.openclaw-capability-map.v1",
+  "capabilities": [
+    {
+      "capabilityId": "hook:after-attempt",
+      "carrier": "native-plugin",
+      "owner": "agentmo-openclaw-harness"
+    },
+    {
+      "capabilityId": "hook:after-tool",
+      "carrier": "native-plugin",
+      "owner": "agentmo-openclaw-harness"
+    },
+    {
+      "capabilityId": "hook:before-attempt",
+      "carrier": "native-plugin",
+      "owner": "agentmo-openclaw-harness"
+    },
+    {
+      "capabilityId": "hook:before-checkpoint",
+      "carrier": "native-plugin",
+      "owner": "agentmo-openclaw-harness"
+    },
+    {
+      "capabilityId": "resource:acceptance-cases",
+      "carrier": "workspace-content",
+      "owner": "agent-package"
+    },
+    {
+      "capabilityId": "resource:agent-loop",
+      "carrier": "native-plugin",
+      "owner": "agentmo-openclaw-harness"
+    },
+    {
+      "capabilityId": "resource:evidence-obligations",
+      "carrier": "workspace-content",
+      "owner": "agent-package"
+    },
+    {
+      "capabilityId": "resource:execute-transition",
+      "carrier": "workspace-content",
+      "owner": "agent-package"
+    },
+    {
+      "capabilityId": "resource:harness",
+      "carrier": "native-plugin",
+      "owner": "agentmo-openclaw-harness"
+    },
+    {
+      "capabilityId": "resource:install-transition",
+      "carrier": "workspace-content",
+      "owner": "agent-package"
+    },
+    {
+      "capabilityId": "resource:load-transition",
+      "carrier": "workspace-content",
+      "owner": "agent-package"
+    },
+    {
+      "capabilityId": "resource:memory",
+      "carrier": "workspace-content",
+      "owner": "agent-package"
+    },
+    {
+      "capabilityId": "resource:permissions",
+      "carrier": "workspace-content",
+      "owner": "agent-package"
+    },
+    {
+      "capabilityId": "resource:plugins",
+      "carrier": "native-plugin",
+      "owner": "agentmo-openclaw-harness"
+    },
+    {
+      "capabilityId": "resource:prompt",
+      "carrier": "workspace-content",
+      "owner": "agent-package"
+    },
+    {
+      "capabilityId": "resource:rag",
+      "carrier": "workspace-content",
+      "owner": "agent-package"
+    },
+    {
+      "capabilityId": "resource:recovery",
+      "carrier": "workspace-content",
+      "owner": "agent-package"
+    },
+    {
+      "capabilityId": "resource:runtime-binding",
+      "carrier": "workspace-content",
+      "owner": "agent-package"
+    },
+    {
+      "capabilityId": "resource:schedules",
+      "carrier": "workspace-content",
+      "owner": "agent-package"
+    },
+    {
+      "capabilityId": "resource:secrets",
+      "carrier": "workspace-content",
+      "owner": "agent-package"
+    },
+    {
+      "capabilityId": "resource:skills",
+      "carrier": "skill",
+      "owner": "agent-package"
+    },
+    {
+      "capabilityId": "resource:storage",
+      "carrier": "workspace-content",
+      "owner": "agent-package"
+    },
+    {
+      "capabilityId": "resource:tool-policy",
+      "carrier": "workspace-content",
+      "owner": "agent-package"
+    },
+    {
+      "capabilityId": "resource:tools",
+      "carrier": "workspace-content",
+      "owner": "agent-package"
+    },
+    {
+      "capabilityId": "resource:trust-boundaries",
+      "carrier": "workspace-content",
+      "owner": "agent-package"
+    },
+    {
+      "capabilityId": "resource:workspace-context",
+      "carrier": "workspace-content",
+      "owner": "agent-package"
+    }
+  ]
+}

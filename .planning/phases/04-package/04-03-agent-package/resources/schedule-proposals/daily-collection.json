@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "agentmo.package-resource.v1",
+  "resourceId": "resource:schedules",
+  "kind": "schedules",
+  "declaredContract": {
+    "proposals": [
+      {
+        "id": "daily-collection",
+        "enabled": true,
+        "cadence": "0 9 * * *",
+        "timezone": "Asia/Shanghai",
+        "agentTarget": "support-triage",
+        "sessionTarget": "isolated-scheduled-session",
+        "inputRef": "schedule-input:daily-collection",
+        "deliveryTarget": "operator-review-queue",
+        "timeoutMs": 900000,
+        "retry": {
+          "maximumAttempts": 2,
+          "failureAlert": true
+        },
+        "concurrency": {
+          "maximumActive": 1,
+          "policy": "skip-overlap"
+        },
+        "idempotency": "scheduled-window-plus-source-digest",
+        "skillsSnapshot": "persist-if-changed",
+        "retention": "operator-governed",
+        "requiredPermissions": [
+          "network:approved-sources",
+          "storage:workspace-wiki"
+        ]
+      }
+    ],
+    "registeredAtBuildContract": false,
+    "humanApprovalRequired": true
+  },
+  "materialized": true,
+  "installed": false,
+  "runtimeVerified": false,
+  "domainVerified": false
+}

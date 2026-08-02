@@ -2,6 +2,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { open } from "node:fs/promises";
 import {
   assertNoDuplicateIdentityMembers,
+  companionMultiplicityForDurableArtifact,
   companionSubjectsForDurableArtifact,
   resolveDurableArtifactDescriptor,
 } from "./artifact-registry.js";
@@ -14,7 +15,17 @@ const SHA256_DIGEST_PATTERN = /^sha256:[a-f0-9]{64}$/u;
 const SUBJECT_PATTERN = /^[a-z][a-z0-9-]*$/u;
 const ADMITTED_RESULTS = new WeakSet();
 const SOURCE_AUTHENTIC_RESULTS = new WeakSet();
-const SOURCE_CONTEXT_SUBJECTS = new Set(["run-eval", "birth-report", "delivery-report"]);
+const PRODUCER_AUTHORITY_SUBJECTS = new Set([
+  "openclaw-install-post-state",
+  "openclaw-official-action-result",
+  "openclaw-install-finalization",
+]);
+const SOURCE_CONTEXT_SUBJECTS = new Set([
+  "discovery-approval",
+  "run-eval",
+  "birth-report",
+  "delivery-report",
+]);
 const RAW_ADMISSION_FIELDS = new Set([
   "rawtranscript",
   "rawtranscripts",
@@ -102,6 +113,28 @@ export function parseDigestBindings(values, requiredSubjects) {
 }
 
 export async function loadAdmittedArtifact(options) {
+  const admission = validateAdmissionOptions(options);
+  const bytes = await readBoundedArtifact(
+    options?.filePath,
+    admission.maxBytes,
+    options?.openInput ?? open,
+  );
+  return admitCapturedArtifactBytes({ ...options, bytes });
+}
+
+export function admitCapturedArtifactBytes(options) {
+  const admission = validateAdmissionOptions(options);
+  const bytes = options?.bytes;
+  if (!Buffer.isBuffer(bytes)) {
+    throw new ArtifactAdmissionError("AGENTMO_ARTIFACT_BYTES_REQUIRED");
+  }
+  if (bytes.length > admission.maxBytes) {
+    throw new ArtifactAdmissionError("AGENTMO_ARTIFACT_INPUT_TOO_LARGE");
+  }
+  return admitExactArtifactBytes(bytes, options, admission);
+}
+
+function validateAdmissionOptions(options) {
   const subject = options?.subject;
   const expectedDigest = options?.expectedDigest;
   const maxBytes = options?.maxBytes ?? DEFAULT_MAX_ARTIFACT_BYTES;
@@ -114,11 +147,19 @@ export async function loadAdmittedArtifact(options) {
   if (!Number.isInteger(maxBytes) || maxBytes <= 0) {
     throw new ArtifactAdmissionError("AGENTMO_ARTIFACT_READ_FAILED");
   }
+  return { subject, expectedDigest, maxBytes };
+}
 
-  const bytes = await readBoundedArtifact(options?.filePath, maxBytes, options?.openInput ?? open);
+function admitExactArtifactBytes(bytes, options, admission) {
+  const { subject, expectedDigest } = admission;
   const actualDigest = digestRawBytes(bytes);
   if (!sameDigest(actualDigest, expectedDigest)) {
     throw new ArtifactAdmissionError("AGENTMO_ARTIFACT_DIGEST_MISMATCH");
+  }
+  if (PRODUCER_AUTHORITY_SUBJECTS.has(subject)) {
+    throw new ArtifactAdmissionError(
+      "AGENTMO_ARTIFACT_PRODUCER_AUTHORITY_REQUIRED",
+    );
   }
 
   let text;
@@ -146,7 +187,12 @@ export async function loadAdmittedArtifact(options) {
   if (!audit.ok || containsUnsafeAdmissionContent(value)) {
     throw new ArtifactAdmissionError("AGENTMO_ARTIFACT_UNSAFE_CONTENT");
   }
-  const validationContext = buildSourceValidationContext(subject, value, options?.companions);
+  const validationContext = buildSourceValidationContext(
+    subject,
+    value,
+    options?.companions,
+    actualDigest,
+  );
   const descriptor = resolveDurableArtifactDescriptor(value, subject, { validationContext });
   deepFreezeJson(value);
   const result = Object.freeze({
@@ -174,8 +220,13 @@ export function admittedArtifactProvenance(result, options = {}) {
   });
 }
 
-function buildSourceValidationContext(subject, value, companions) {
-  const requiredSubjects = companionSubjectsForDurableArtifact(subject, value);
+function buildSourceValidationContext(subject, value, companions, actualDigest) {
+  const referencedDiscoveryApproval = subject === "discovery-approval"
+    && plainObject(companions)
+    && hasExactCompanionSubjects(companions, ["design-plan"]);
+  const requiredSubjects = referencedDiscoveryApproval
+    ? ["design-plan"]
+    : companionSubjectsForDurableArtifact(subject, value);
   if (requiredSubjects === null) {
     if (companions !== undefined) {
       throw new ArtifactAdmissionError("AGENTMO_ARTIFACT_COMPANION_SET_REQUIRED");
@@ -185,13 +236,35 @@ function buildSourceValidationContext(subject, value, companions) {
   if (!plainObject(companions)) {
     throw new ArtifactAdmissionError("AGENTMO_ARTIFACT_COMPANION_SET_REQUIRED");
   }
+  const multiplicity = companionMultiplicityForDurableArtifact(subject);
+  const repeatable = multiplicity?.repeatable ?? {};
   const actualSubjects = Object.keys(companions);
   if (actualSubjects.length !== requiredSubjects.length
     || requiredSubjects.some((requiredSubject) => !Object.hasOwn(companions, requiredSubject))) {
     throw new ArtifactAdmissionError("AGENTMO_ARTIFACT_COMPANION_SET_REQUIRED");
   }
   for (const companionSubject of requiredSubjects) {
-    assertAuthenticCompanionAdmission(companions[companionSubject], companionSubject);
+    const companion = companions[companionSubject];
+    if (Object.hasOwn(repeatable, companionSubject)) {
+      if (!Array.isArray(companion)) {
+        throw new ArtifactAdmissionError("AGENTMO_ARTIFACT_COMPANION_SET_REQUIRED");
+      }
+      const digests = new Set();
+      for (const item of companion) {
+        assertAuthenticCompanionAdmission(item, companionSubject);
+        if (digests.has(item.digest)) {
+          throw new ArtifactAdmissionError(
+            "AGENTMO_ARTIFACT_COMPANION_SET_REQUIRED",
+          );
+        }
+        digests.add(item.digest);
+      }
+      continue;
+    }
+    if (Array.isArray(companion)) {
+      throw new ArtifactAdmissionError("AGENTMO_ARTIFACT_COMPANION_SET_REQUIRED");
+    }
+    assertAuthenticCompanionAdmission(companion, companionSubject);
   }
 
   const valueFor = (companionSubject) => companions[companionSubject].value;
@@ -199,6 +272,36 @@ function buildSourceValidationContext(subject, value, companions) {
     companions[companionSubject],
     { subject: companionSubject, value: valueFor(companionSubject) },
   );
+  const valuesFor = (companionSubject) => companions[companionSubject].map(
+    (item) => item.value,
+  );
+  const provenancesFor = (companionSubject) => companions[companionSubject].map(
+    (item) => admittedArtifactProvenance(item, {
+      subject: companionSubject,
+      value: item.value,
+    }),
+  );
+  if (referencedDiscoveryApproval) {
+    return {
+      referencedByDesignPlan: true,
+      designPlan: valueFor("design-plan"),
+      source: {
+        identity: "agentmo.discovery-approval.v1",
+        subject: "discovery-approval",
+        digest: actualDigest,
+      },
+    };
+  }
+  if (subject === "discovery-approval") {
+    return {
+      manifest: valueFor("discovery-manifest"),
+      discoveryDb: valueFor("discovery-db"),
+      sources: {
+        discoveryManifest: provenanceFor("discovery-manifest"),
+        discoveryDb: provenanceFor("discovery-db"),
+      },
+    };
+  }
   if (subject === "run-eval") {
     return {
       runState: valueFor("run-state"),
@@ -239,7 +342,93 @@ function buildSourceValidationContext(subject, value, companions) {
       },
     };
   }
+  if (subject === "openclaw-target-carrier-admission") {
+    return {
+      blueprint: valueFor("blueprint"),
+      buildContract: valueFor("build-contract"),
+      planApproval: valueFor("plan-approval"),
+      targetDescriptor: valueFor("openclaw-target-descriptor"),
+      sources: {
+        blueprint: provenanceFor("blueprint"),
+        buildContract: provenanceFor("build-contract"),
+        planApproval: provenanceFor("plan-approval"),
+        targetDescriptor: provenanceFor("openclaw-target-descriptor"),
+        "openclaw-target-descriptor": provenanceFor("openclaw-target-descriptor"),
+      },
+    };
+  }
+  if (subject === "openclaw-probe") {
+    const packageManifest = provenanceFor("package-manifest");
+    const carrier = provenanceFor("openclaw-target-carrier-admission");
+    const targetDescriptor = provenanceFor("openclaw-target-descriptor");
+    const carrierValue = valueFor("openclaw-target-carrier-admission");
+    return {
+      sources: {
+        archive: {
+          identity: "agentmo.package-archive.v1",
+          subject: "package-archive",
+          digest: value?.archive?.archiveDigest,
+        },
+        packageManifest,
+        blueprint: {
+          identity: "0.1",
+          subject: "blueprint",
+          digest: carrierValue?.authorities?.blueprintDigest,
+        },
+        buildContract: {
+          identity: "agentmo.build-contract.v1",
+          subject: "build-contract",
+          digest: carrierValue?.authorities?.buildContractDigest,
+        },
+        planApproval: {
+          identity: "agentmo.plan-approval.v1",
+          subject: "plan-approval",
+          digest: carrierValue?.authorities?.planApprovalDigest,
+        },
+        targetCarrierAdmission: carrier,
+        targetDescriptor,
+      },
+    };
+  }
+  if (subject === "openclaw-install-receipt") {
+    const installPlan = valueFor("openclaw-install-plan");
+    const sensitiveDecisions = valuesFor(
+      "openclaw-sensitive-action-decision",
+    );
+    if (sensitiveDecisions.length !== installPlan?.sensitiveActions?.length
+      || sensitiveDecisions.some((decision, index) => (
+        decision?.action?.actionId
+          !== installPlan.sensitiveActions[index]?.actionId
+      ))) {
+      throw new ArtifactAdmissionError(
+        "AGENTMO_ARTIFACT_COMPANION_SET_REQUIRED",
+      );
+    }
+    return {
+      installPlan,
+      installPlanSource: provenanceFor("openclaw-install-plan"),
+      ordinaryApproval: valueFor("openclaw-install-approval"),
+      ordinaryApprovalSource: provenanceFor("openclaw-install-approval"),
+      sensitiveDecisions,
+      sensitiveDecisionSources: provenancesFor(
+        "openclaw-sensitive-action-decision",
+      ),
+      conflictApproval: valueFor("openclaw-conflict-approval"),
+      conflictApprovalSource: provenanceFor("openclaw-conflict-approval"),
+      journal: valueFor("openclaw-install-private-journal"),
+      journalSource: provenanceFor("openclaw-install-private-journal"),
+      probe: valueFor("openclaw-probe"),
+      probeSource: provenanceFor("openclaw-probe"),
+      targetDescriptor: valueFor("openclaw-target-descriptor"),
+      targetDescriptorSource: provenanceFor("openclaw-target-descriptor"),
+    };
+  }
   throw new ArtifactAdmissionError("AGENTMO_ARTIFACT_COMPANION_SET_REQUIRED");
+}
+
+function hasExactCompanionSubjects(companions, subjects) {
+  const keys = Object.keys(companions);
+  return keys.length === subjects.length && subjects.every((subject) => keys.includes(subject));
 }
 
 function assertAuthenticCompanionAdmission(result, subject) {

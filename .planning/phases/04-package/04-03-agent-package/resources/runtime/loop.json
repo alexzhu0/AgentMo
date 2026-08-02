@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "agentmo.package-resource.v1",
+  "resourceId": "resource:agent-loop",
+  "kind": "agent-loop",
+  "declaredContract": {
+    "mechanism": "bounded-observe-decide-act-checkpoint",
+    "modelPolicy": "runtime-binding-only",
+    "authProfileRef": "runtime-auth-profile:default",
+    "fallbacks": [],
+    "thinking": "runtime-policy",
+    "maximumAttempts": 3,
+    "timeoutMs": 900000,
+    "concurrencyLane": "agentmo-package",
+    "compaction": {
+      "enabled": true,
+      "checkpointBeforeCompaction": true,
+      "successorSessionRequired": true
+    },
+    "toolLoopGuard": {
+      "maximumRepeatedCalls": 3,
+      "action": "stop-and-report"
+    },
+    "hooks": [
+      "before-attempt",
+      "after-tool",
+      "before-checkpoint",
+      "after-attempt"
+    ],
+    "stopReasons": [
+      "completed",
+      "approval-required",
+      "budget-exhausted",
+      "policy-denied",
+      "failed"
+    ],
+    "maximumUncheckpointedCycles": 1,
+    "automaticPromotion": false
+  },
+  "materialized": true,
+  "installed": false,
+  "runtimeVerified": false,
+  "domainVerified": false
+}

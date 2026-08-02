@@ -61,6 +61,20 @@ describe("discovery manifest", () => {
     assert.equal(result.errors.some((error) => error.includes("source_inventory[0].extraction_fields[1]")), true);
   });
 
+  it("accepts closed evidence classes and rejects unknown classifications", async () => {
+    const manifest = await loadExample();
+    manifest.source_inventory[0].evidence_class = "community";
+    assert.equal(validateDiscoveryManifest(manifest).ok, true);
+
+    manifest.source_inventory[0].evidence_class = "influencer";
+    const result = validateDiscoveryManifest(manifest);
+    assert.equal(result.ok, false);
+    assert.equal(
+      result.errors.some((error) => error.includes("source_inventory[0].evidence_class must be one of")),
+      true,
+    );
+  });
+
   it("loads a discovery manifest once from exact subject-bound bytes", async () => {
     const bytes = await readFile(MANIFEST_URL);
     let openCount = 0;

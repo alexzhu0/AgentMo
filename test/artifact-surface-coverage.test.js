@@ -13,7 +13,10 @@ import {
 } from "../src/persistability.js";
 import { buildAgentMoReport } from "../src/report.js";
 import { buildRunEval } from "../src/run-state.js";
-import { BUILDER_RELEASE_ASSET_INVENTORY } from "../src/builder-package.js";
+import {
+  BUILDER_NPM_TARBALL_INVENTORY,
+  BUILDER_RELEASE_ASSET_INVENTORY,
+} from "../src/builder-package.js";
 import {
   buildLiveSmokeSummary,
   persistLiveSmokeCandidate,
@@ -32,13 +35,45 @@ import {
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SUPPORT_BLUEPRINT = new URL("../examples/support-triage.agentmo.json", import.meta.url);
 const SYNTHETIC_DIGEST = `sha256:${"a".repeat(64)}`;
+const PHASE_4_PACKED_SECURITY_CLOSURE = Object.freeze([
+  "native/openclaw-fs-kernel.c",
+  "native/openclaw-process-supervisor.c",
+  "src/artifact-admission.js",
+  "src/artifact-contract.js",
+  "src/artifact-registry.js",
+  "src/cli.js",
+  "src/javascript-static-analysis.js",
+  "src/openclaw-authority-consumption.js",
+  "src/openclaw-authority-root-binding.js",
+  "src/openclaw-credential-handoff.js",
+  "src/openclaw-install-approval.js",
+  "src/openclaw-install-evidence.js",
+  "src/openclaw-install-plan.js",
+  "src/openclaw-install-receipt.js",
+  "src/openclaw-install-transaction.js",
+  "src/openclaw-official-action-runner.js",
+  "src/openclaw-probe-contract.js",
+  "src/openclaw-probe.js",
+  "src/openclaw-safe-fs.js",
+  "src/openclaw-target-admission.js",
+  "src/openclaw-target-descriptor.js",
+  "src/package-archive.js",
+  "src/package-carriers.js",
+  "src/package-contract.js",
+  "src/package-inspect.js",
+  "src/package-produce.js",
+  "src/persistability.js",
+  "src/plan-approval.js",
+  "src/targets/openclaw-package.js",
+]);
 
 describe("artifact/output surface inventory", () => {
   it("resolves aliases, namespaces, FileHandle calls, managed writers, and output channels", () => {
     const source = [
-      'import { writeFile as wf, open as openFile } from "node:fs/promises";',
+      'import { access, writeFile as wf, open as openFile } from "node:fs/promises";',
       'import * as fsp from "node:fs/promises";',
       'import { readFile as sourceIntakeReadFile } from "node:fs/promises";',
+      'await access("synthetic");',
       'const handle = await openFile("synthetic", "w");',
       'await sourceIntakeIo.open("synthetic", 0);',
       'await sourceIntakeIo.lstat("synthetic");',
@@ -55,6 +90,7 @@ describe("artifact/output surface inventory", () => {
     ].join("\n");
     const signatures = inventoryJavaScriptSource(source).map((item) => `${item.kind}:${item.callee}`);
     assert.deepEqual(signatures, [
+      "filesystem-read:fs.access",
       "filesystem-open:fs.open",
       "non-artifact-intake:sourceIntakeIo.open",
       "non-artifact-intake:sourceIntakeIo.lstat",
@@ -170,7 +206,7 @@ describe("artifact/output surface inventory", () => {
       assert.match(id, /^(?:src|bin|scripts|plugin)\//u);
       assert.match(
         classification.owner,
-        /^(?:phase-01\.1-plan-(?:0[2-9]|1[0-3])|phase-01\.2-plan-(?:04|05|06|11|12)|phase-02-plan-(?:02|03|04|06|07|08|09|11|12|13|14|15|16|17|18|19|20|21|22|23))$/u,
+        /^(?:phase-01\.1-plan-(?:0[2-9]|1[0-3])|phase-01\.2-plan-(?:04|05|06|11|12)|phase-02-plan-(?:02|03|04|06|07|08|09|11|12|13|14|15|16|17|18|19|20|21|22|23)|phase-03-plan-(?:01|03|04|05)|phase-04-plan-(?:03|04|05|07|08|09|12|13|14|15|16|17|19))$/u,
       );
       assert.match(
         classification.status,
@@ -294,6 +330,15 @@ describe("artifact/output surface inventory", () => {
     ]);
     assert.equal(allowed.every(([id, row]) => (
       row.owner === owners.get(id.split(":", 1)[0])
+        || (id.startsWith("src/cli.js:")
+          && [
+            "phase-03-plan-04",
+            "phase-03-plan-05",
+            "phase-04-plan-05",
+            "phase-04-plan-08",
+            "phase-04-plan-12",
+            "phase-04-plan-16",
+          ].includes(row.owner))
     )), true);
   });
 
@@ -332,6 +377,70 @@ describe("artifact/output surface inventory", () => {
     );
     assert.match(authorityModule, /loadCodexUatAttemptJournal/u);
     assert.match(authorityModule, /diagnoseBuilderInstall/u);
+  });
+
+  it("publishes the exact Phase 4 source-only security closure with no install authority or lifecycle hook", async () => {
+    const packageJson = JSON.parse(await readFile(
+      path.join(REPO_ROOT, "package.json"),
+      "utf8",
+    ));
+    const releaseSources = BUILDER_RELEASE_ASSET_INVENTORY
+      .map(({ sourcePath }) => sourcePath);
+    for (const sourcePath of PHASE_4_PACKED_SECURITY_CLOSURE) {
+      assert.equal(packageJson.files.includes(sourcePath), true, sourcePath);
+      assert.equal(releaseSources.includes(sourcePath), true, sourcePath);
+      assert.equal(BUILDER_NPM_TARBALL_INVENTORY.includes(sourcePath), true, sourcePath);
+      if (sourcePath.endsWith(".js")) {
+        assert.match(
+          packageJson.scripts.check,
+          new RegExp(`node --check ${sourcePath.replaceAll(".", "\\.")}(?: |$)`, "u"),
+          sourcePath,
+        );
+      }
+    }
+
+    for (const hook of ["preinstall", "install", "postinstall", "prepare"]) {
+      assert.equal(Object.hasOwn(packageJson.scripts, hook), false, hook);
+    }
+    for (const forbidden of [
+      ".env",
+      ".planning/",
+      "openclaw-fs-kernel.receipt.json",
+      "openclaw-authority-marker",
+      "authority-state",
+      "install-receipt.json",
+      "post-state/",
+      "official-action-results/",
+      "finalizations/",
+      "raw-transcript",
+    ]) {
+      assert.equal(
+        packageJson.files.some((entry) => entry.includes(forbidden)),
+        false,
+        forbidden,
+      );
+      assert.equal(releaseSources.some((entry) => entry.includes(forbidden)), false, forbidden);
+    }
+    assert.equal(
+      packageJson.files.some((entry) => (
+        entry.startsWith("native/")
+        && ![
+          "native/openclaw-fs-kernel.c",
+          "native/openclaw-process-supervisor.c",
+        ].includes(entry)
+      )),
+      false,
+    );
+    assert.equal(
+      releaseSources.some((entry) => (
+        entry.startsWith("native/")
+        && ![
+          "native/openclaw-fs-kernel.c",
+          "native/openclaw-process-supervisor.c",
+        ].includes(entry)
+      )),
+      false,
+    );
   });
 
   it("proves durable reads use one exact retained capture instead of trusting a gated label", async () => {
@@ -439,10 +548,25 @@ describe("artifact/output surface inventory", () => {
       report: "artifact",
       "discover-report": "artifact",
       "discover-pack": "artifact",
+      "discover-live": "artifact",
       "discover-workspace": "artifact",
+      "discovery-approve": "artifact",
       "need-report": "artifact",
+      "decision-ledger": "artifact",
       "design-plan": "artifact",
       "blueprint-draft": "artifact",
+      "build-contract": "artifact",
+      "openclaw-target-describe": "artifact",
+      "plan-approve": "artifact",
+      "openclaw-target-admit": "artifact",
+      "package-produce": "artifact",
+      "package-inspect": "non-artifact",
+      "openclaw-probe": "artifact",
+      "openclaw-install-genesis": "artifact",
+      "openclaw-install-preview": "artifact",
+      "openclaw-install-approve": "artifact",
+      "openclaw-install-apply": "artifact",
+      "openclaw-fs-kernel-build": "artifact",
       handoff: "artifact",
       status: "artifact",
       plan: "artifact",

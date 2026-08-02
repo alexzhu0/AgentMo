@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "agentmo.discovery-approval.v1",
+  "decision": "approve",
+  "decisionScope": "enter-plan",
+  "previewDigest": "sha256:23e072e8d58a3628ef14d32e1166b4bd22ae3ae5bd3704f38038741218f20fa0",
+  "bindings": {
+    "discoveryManifest": {
+      "identity": "agentmo.discovery.v1",
+      "subject": "discovery-manifest",
+      "digest": "sha256:55610efec07545dab6eef9cbb7d15e558460755502db0437ca5d5453b0a5b2dd"
+    },
+    "discoveryDb": {
+      "identity": "agentmo.discovery-db.v1",
+      "subject": "discovery-db",
+      "digest": "sha256:728a08c4eab8b351aefe648577d170980ee39293e11bf332781a8e9bb1c73d61"
+    }
+  },
+  "certificationBoundary": {
+    "localOperatorIntentOnly": true,
+    "authenticatedOrganization": false,
+    "sourceQuality": false,
+    "runtime": false,
+    "package": false,
+    "domain": false,
+    "production": false
+  }
+}

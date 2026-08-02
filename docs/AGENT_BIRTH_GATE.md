@@ -9,6 +9,31 @@ AgentMo birth is an evidence gate, not a branding claim.
 
 Birth is part of AgentMo stage 3: finish the Agent design, implementation, and delivery evidence loop. It follows stage 1 data discovery and stage 2 planning from user needs plus the discovery database.
 
+## Phase 4 package/install evidence is not Birth evidence
+
+Phase 4 can prove deterministic package closure, an exact-target read-only
+probe, separately published install authorities, preservation-first transaction
+mechanics, and a complete or incomplete receipt-last result. None of those
+artifacts is an input substitute for `agentmo.run.v1`, `agentmo.run-eval.v1`,
+or this gate.
+
+In particular:
+
+- a canonical package directory or D-42 archive is not `declared-ready`;
+- a matching probe fingerprint is not `live-success`;
+- an install plan or any ordinary/sensitive/conflict approval is not an
+  installation result;
+- a complete install receipt proves only bounded lifecycle mechanism execution,
+  not plugin load, agent execution, schedule execution, restart recovery, or
+  domain behavior; and
+- an incomplete receipt is explicit failure/preservation evidence and must
+  never be promoted into success by cleanup.
+
+Real OpenClaw install/upgrade/explicit-rollback/uninstall proof, runtime
+execution, recovery, bounded domain evaluation, Birth, and Delivery are Phase 5
+work. Phase 4 therefore keeps runtime, domain, Birth, Delivery, production, and
+wider-compatibility claims false.
+
 ## Required command
 
 ```bash

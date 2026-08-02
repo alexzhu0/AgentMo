@@ -88,7 +88,7 @@ export function draftBlueprint(discoveryDb, userNeed, options = {}) {
     },
     governance: {
       policies: [
-        "AgentMo-generated blueprints must preserve reviewed discovery/user-need provenance; Stage 3 admission is by valid design contract.",
+        "AgentMo-generated blueprints preserve exact discovery/user-need provenance but remain draft and non-authoritative until explicit plan approval.",
         "fail closed when source coverage or user need is insufficient",
         "bounded evidence by default",
         "birth requires build-state, run-state, run-eval, and birth-report evidence",
@@ -120,8 +120,19 @@ export function draftBlueprint(discoveryDb, userNeed, options = {}) {
           stage2_planning: {
             schemaVersion: designPlan.schemaVersion,
             ...(admittedInputs?.designPlan ? { admission: admittedInputs.designPlan } : {}),
+            authority: "draft-non-authoritative",
             requirement_count: Array.isArray(designPlan.requirementsTrace) ? designPlan.requirementsTrace.length : 0,
             gap_count: Array.isArray(designPlan.gaps) ? designPlan.gaps.length : 0,
+            trace: {
+              decision_ledger: designPlan.source.decisionLedger,
+              source_ids: designPlan.traceGraph.sourceIds,
+              decision_ids: designPlan.traceGraph.decisionIds,
+              requirement_ids: designPlan.traceGraph.requirementIds,
+              capability_ids: designPlan.traceGraph.capabilityIds,
+              eval_case_ids: designPlan.traceGraph.evalCaseIds,
+              forward_edges: designPlan.traceGraph.forwardTraceEdges,
+              reverse_edges: designPlan.traceGraph.reverseTraceEdges,
+            },
             evidence_policy: "bounded refs only; full Stage 2 evidence map remains in the design-plan artifact",
           },
         }),
@@ -220,12 +231,11 @@ function buildDesignContractProvenance(admittedInputs) {
   return {
     provenance: {
       source: "agentmo-stage2",
-      reviewed: admittedInputs !== null,
-      ...(admittedInputs === null ? {} : { review_ref: admissionReviewRef(admittedArtifacts) }),
+      reviewed: false,
       contract_version: DESIGN_CONTRACT_VERSION,
       notes: admittedInputs === null
         ? "In-memory Stage 2 draft; persistence requires exact admitted inputs and does not certify runtime or domain behavior."
-        : "Generated from exact admitted Stage 2 artifacts; admission does not certify runtime or domain behavior.",
+        : "Generated from exact admitted Stage 2 artifacts; exact admission is not human review and does not certify runtime or domain behavior.",
       admitted_artifacts: admittedArtifacts,
     },
   };
@@ -382,13 +392,6 @@ function admittedBlueprintInputs(discoveryDb, userNeed, designPlan, admissions) 
           }),
         }),
   };
-}
-
-function admissionReviewRef(admittedArtifacts) {
-  const digest = createHash("sha256")
-    .update(admittedArtifacts.map((item) => `${item.subject}=${item.digest}`).join("\n"))
-    .digest("hex");
-  return `admitted-inputs:sha256:${digest}`;
 }
 
 function hasExactKeys(value, expected) {

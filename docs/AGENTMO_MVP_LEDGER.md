@@ -1,5 +1,116 @@
 # AgentMo MVP Ledger
 
+## 2026-07-30 — Phase 4 bounded package and lifecycle mechanism closure
+
+Scope:
+
+- Re-admitted the Phase 3 source/decision/build-contract authority and the
+  reapproved exact native-plugin recipe into one deterministic, target-neutral
+  canonical Agent Package directory.
+- Encoded that directory as the only D-42 probe/preview/approval/apply
+  transport and closed the external archive, internal manifest, canonical
+  inventory, and complete member path/type/mode/length/digest authority.
+- Added one exact-target read-only synthetic-HOME OpenClaw probe, three
+  independent lifecycle approval families, four action-specific
+  genesis/predecessor bases, preservation-first recovery, and complete or
+  incomplete receipt-last publication.
+- Added the full Phase 4 module set to the exact Builder/npm packed closure and
+  kept package, inspection, probe, and receipt facts non-transitive.
+
+Exact bounded evidence:
+
+- Canonical directory:
+  `.planning/phases/04-package/04-03-agent-package/`.
+- D-42 archive:
+  `sha256:7726d7b635a972403c598bf53eeb9c44a75c57ffd5c4a573470a066a798b955f`.
+- Manifest:
+  `sha256:af98b46e5d5d5a6e46db7c7b020fea51115bae0829d943583ce9d756ce1d1c45`.
+- Canonical 40-member inventory:
+  `sha256:d6be393fc176c9f28811e9e8771fae7cff5efb81a824697a6300ae80466c32a5`.
+- Exact target descriptor:
+  `sha256:0abad669ae3cac7b6219737a728df21799eeec6ac7946e8fd38285f9e4322bee`.
+- Exact target/carrier admission:
+  `sha256:5549707121dc1753bfe00909c9dc26d59668de1408d7894b0ecb17340ebe2bf6`.
+- Selected target: OpenClaw `2026.7.1-2@0790d9f`; drift requires a new
+  descriptor, contract, approval, admission, probe, and lifecycle review.
+
+Lifecycle and credential boundary:
+
+- Install uses verified absent genesis; upgrade/uninstall use the exact current
+  receipt; explicit rollback also selects one predecessor receipt/archive.
+- Ordinary managed-write approval, each exact sensitive-action decision, and
+  the whole exact conflict-set approval cannot substitute for one another.
+- Automatic recovery removes only an attempt-created asset whose exact owner
+  marker, retained identity, and desired digest remain unchanged. Every
+  ambiguity preserves and produces bounded incomplete evidence.
+- Credential values stay in the official OpenClaw boundary. AgentMo persists
+  value-blind presence and bounded result metadata only; no MCP route exists.
+
+Observed component evidence:
+
+- Wave 8 fresh-process authority gate: 41/41; adjacent contract gate: 39/39.
+- Wave 9 authority/transaction gate: 50/50; adjacent subject/docs gate: 15/15.
+- Wave 10 package/target/lifecycle focused gate: 68/68.
+- Wave 10 Phase/Stage regression: 14/14.
+- Packed evidence at Wave 10 close: 23/24 full run plus the isolated post-fix
+  case at 1/1, for 24/24 current cases under that wave's bounded rerun rule.
+- Plan 11 complete Phase 4 focused gate: 68/68.
+- Plan 11 packed Builder plus artifact-surface gate: 41/41, with an explicit
+  exit 0 after 912.829 seconds and no timeout or cancellation.
+- Plan 11 Stage 2/3 and support-triage contract gate: 67/67.
+- The first Plan 11 full run exposed one load-sensitive PATH-shadow bound and
+  one exact production-spawn inventory omission. The former passed 1/1 in
+  isolation without changing its timeout; the latter was closed by adding only
+  the missing `src/openclaw-probe.js` row, then passed 1/1 and 18/18 in the
+  adjacent runtime/probe gate.
+- The required final `npm run check` passed 884 tests with 0 failures,
+  0 cancellations, and 1 declared skip; exit 0 after 1297.955 seconds.
+- Final `git diff --check` passed, and the historical
+  `release/2026.07.28.md` bytes remained
+  `sha256:37ed9dfc07601b0dc7e6afb39a24a048530704232b236065adf198867f6a6073`.
+
+Evidence boundary:
+
+- All target effects used disposable fixture roots or fake official seams.
+- No real OpenClaw lifecycle, credential login, plugin load, MCP connection,
+  runtime, schedule, restart, memory/RAG, domain, `live-success`, Birth,
+  Delivery, production, deployment, or wider-compatibility evidence was
+  created. Those remain Phase 5-owned.
+- `release/2026.07.29.md` is the canonical bounded Phase 4 record;
+  `release/2026.07.30.md` remains the later incremental Wave 8/9 record.
+- No `.env`, secret value, raw provider payload, transcript,
+  credential-bearing state, or unredacted process output was read or retained.
+
+## 2026-07-28 — Phase 3 approved research-to-build-contract closure
+
+Scope:
+
+- Composed bounded live discovery, exact `agentmo.discovery-approval.v1`, five-kind predecessor-bound decision ledger, exact-approved design planning, draft blueprint, complete OpenClaw `agentmo.build-contract.v1`, and exact `agentmo.plan-approval.v1` in fresh processes.
+- Closed the final Phase 3 inventory, including discovery sidecars and all five immutable decision-ledger journal sidecar classes, while asserting that no package, config application, install receipt, plugin activation, schedule application, runtime DB/run, birth, domain, or delivery evidence appears.
+- Synchronized the public command/digest contract and the roadmap ownership boundary: Phase 3 specifies/approves, Phase 4 generates/installs, and Phase 5 executes/proves runtime/recovery.
+
+Observed evidence:
+
+- `node --test test/phase3-contracts.test.js test/stage-contracts.test.js test/artifact-contract.test.js test/artifact-subjects.test.js test/artifact-surface-coverage.test.js test/command-docs.test.js`: 40 pass, 0 fail.
+- The composed collector test used an injected deterministic transport in a fresh Node process. It made no real network request and retained no raw provider payload.
+- Exact SHA-256 bindings were recomputed from each temporary file; temporary artifact hashes were not promoted into durable release authority.
+- A separately approved one-source HTTPS smoke returned HTTP 200 within `maxSources: 1`, 4 KiB, 5-second, zero-redirect bounds. The canonical record retained a 220-byte length, retrieval time, content digest, bounded sanitized summary, provider provenance, `context` evidence class, `unverified` confidence, and original reference; it did not retain the provider body.
+- The human-approved manifest/database pair was `sha256:808a689f7423f72b876cf797d5330b7ab31247e0ad942a55fa23cf3235afc8da` / `sha256:1688c1e2345129c567e5b97c391d6daa678d4ea5197c179bea7891cdb3764c18`.
+- The human-approved blueprint/build-contract pair was `sha256:fb3dfe071a5b0596b9047e6612345cc7d07b7836ab4013a67a3d97bd7c362d2a` / `sha256:df32b04672c965afe158493f9a43bd226c2935dfd3e788aaa83df4606d5e2ab3`.
+- Mutating either approved predecessor produced `AGENTMO_ARTIFACT_DIGEST_MISMATCH` and no successor approval artifact.
+- The complete post-remediation Phase 3 focused set passed 165/165; an independent recheck passed 81/81 and verified Roadmap 5/5 plus requirements 11/11 with no remaining gap.
+
+Evidence boundary:
+
+- `extraction_field` remains declaration-only. Deduplication, freshness, conflict candidates, and coverage are mechanical observations, not semantic proof.
+- Discovery and plan approvals are explicit local operator intent only; they do not establish authenticated organizational identity.
+- The approved build contract authorizes entry to Produce only. No package was generated/installed and no runtime, recovery, domain, production, deployment, or wider OpenClaw certification was created.
+- `declared-ready` still proves deterministic wiring only, and bounded live collection proves only the declared transport mechanism within its limits.
+
+Remaining boundary:
+
+- Task 3 verified bounded transport execution and explicit local operator intent only. No Agent Package was built or installed, no OpenClaw process ran, and no runtime, recovery, domain, production, deployment, or wider compatibility result was created.
+
 ## 2026-07-06 — MVP birth-loop implementation
 
 Scope:

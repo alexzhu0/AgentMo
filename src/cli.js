@@ -1,5 +1,5 @@
 import { dirname, isAbsolute, relative, resolve, win32 } from "node:path";
-import { readFile } from "node:fs/promises";
+import { lstat, readFile, realpath, writeFile } from "node:fs/promises";
 import {
   ArtifactAdmissionError,
   digestRawBytes,
@@ -18,6 +18,19 @@ import {
   planArtifactMigration,
 } from "./migration-filesystem.js";
 import { buildBirthReport, formatBirthReport } from "./birth-report.js";
+import {
+  admitNativePluginRecipe,
+  buildBuildContract,
+  writeBuildContract,
+} from "./build-contract.js";
+import {
+  buildOpenClawTargetCarrierAdmission,
+  writeOpenClawTargetCarrierAdmission,
+} from "./openclaw-target-admission.js";
+import {
+  buildOpenClawTargetDescriptor,
+  writeOpenClawTargetDescriptor,
+} from "./openclaw-target-descriptor.js";
 import {
   checkpointSummaryAdmission,
   loadBuilderCheckpoint,
@@ -74,8 +87,18 @@ import { probeBuilderAdapter } from "./builder-probe.js";
 import { loadAdmittedBlueprint, validateBlueprint } from "./blueprint.js";
 import { buildBlueprintDraftReport, draftBlueprint, formatBlueprintDraftReport, writeBlueprintDraft } from "./blueprint-draft.js";
 import { buildDeliveryReport, formatDeliveryReport } from "./delivery-report.js";
+import {
+  appendDecisionEntry,
+  loadDecisionLedger,
+} from "./decision-ledger.js";
 import { buildDesignPlan, buildDesignPlanReport, formatDesignPlanReport, writeDesignPlan } from "./design-plan.js";
+import {
+  buildDiscoveryApproval,
+  buildDiscoveryApprovalPreview,
+  writeDiscoveryApproval,
+} from "./discovery-approval.js";
 import { buildDiscoveryPack, formatDiscoveryPack, writeDiscoveryPack } from "./discovery-db.js";
+import { buildDiscoveryLive, formatDiscoveryLive, writeDiscoveryLive } from "./discovery-live.js";
 import { buildDiscoveryWorkspace, formatDiscoveryWorkspace, writeDiscoveryWorkspace } from "./discovery-source-workspace.js";
 import { buildDiscoveryReport, formatDiscoveryReport, loadDiscoveryManifest } from "./discovery.js";
 import { buildDomainEval, formatDomainEval } from "./domain-eval.js";
@@ -99,6 +122,49 @@ import {
   loadBuildState,
 } from "./control-snapshot.js";
 import { buildObservationReport, formatObservationReport, loadObservationRecord } from "./observation.js";
+import {
+  buildPlanApproval,
+  buildPlanApprovalPreview,
+  writePlanApproval,
+} from "./plan-approval.js";
+import { produceAgentPackage } from "./package-produce.js";
+import {
+  admitPackageArchiveManifest,
+  readPackageArchiveInventory,
+} from "./package-archive.js";
+import {
+  formatAgentPackageInspection,
+  inspectAgentPackage,
+} from "./package-inspect.js";
+import { probeOpenClawTarget } from "./openclaw-probe.js";
+import { validateOpenClawProbe } from "./openclaw-probe-contract.js";
+import {
+  buildOpenClawAbsentGenesisAuthority,
+  buildOpenClawInstallPlan,
+  verifyOpenClawAbsentGenesisAuthority,
+  writeOpenClawAbsentGenesisAuthority,
+  writeOpenClawInstallPlan,
+} from "./openclaw-install-plan.js";
+import {
+  buildOpenClawConflictApproval,
+  buildOpenClawInstallApproval,
+  buildOpenClawSensitiveActionDecision,
+  writeOpenClawInstallReviewDecisions,
+} from "./openclaw-install-approval.js";
+import {
+  formatOpenClawInstallReceipt,
+} from "./openclaw-install-receipt.js";
+import {
+  loadOpenClawAuthorityRootBinding,
+} from "./openclaw-authority-root-binding.js";
+import {
+  admitOpenClawInstallReceiptWithCompanions,
+  applyOpenClawInstallPlan,
+} from "./openclaw-install-transaction.js";
+import {
+  buildOpenClawFsKernel,
+  openOpenClawSafeFsSession,
+} from "./openclaw-safe-fs.js";
 import { scaffoldAgent } from "./scaffold.js";
 import { emitPersistableOutput, serializePersistableJson } from "./persistability.js";
 import { REDACTED_PATH, redactHostAbsolutePaths } from "./secret-redaction.js";
@@ -115,10 +181,25 @@ export const CLI_OUTPUT_OWNERS = Object.freeze({
   report: "artifact",
   "discover-report": "artifact",
   "discover-pack": "artifact",
+  "discover-live": "artifact",
   "discover-workspace": "artifact",
+  "discovery-approve": "artifact",
   "need-report": "artifact",
+  "decision-ledger": "artifact",
   "design-plan": "artifact",
   "blueprint-draft": "artifact",
+  "build-contract": "artifact",
+  "openclaw-target-describe": "artifact",
+  "plan-approve": "artifact",
+  "openclaw-target-admit": "artifact",
+  "package-produce": "artifact",
+  "package-inspect": "non-artifact",
+  "openclaw-probe": "artifact",
+  "openclaw-install-genesis": "artifact",
+  "openclaw-install-preview": "artifact",
+  "openclaw-install-approve": "artifact",
+  "openclaw-install-apply": "artifact",
+  "openclaw-fs-kernel-build": "artifact",
   handoff: "artifact",
   status: "artifact",
   plan: "artifact",
@@ -136,11 +217,23 @@ export const CLI_OUTPUT_OWNERS = Object.freeze({
 });
 
 const CLI_VALUE_OPTIONS = new Set([
-  "--agent", "--birth-report", "--build-state", "--cases", "--channel", "--checkpoint", "--design-plan", "--digest",
-  "--discovery-manifest", "--domain-eval", "--runtime-env-file", "--expect-status", "--fallback-from", "--message",
-  "--event", "--event-id", "--host", "--host-scope", "--message-file", "--model", "--need", "--openclaw-source-root", "--openclaw-state-dir", "--out",
-  "--plan-digest", "--project", "--provider", "--run-dir", "--run-eval", "--run-state", "--session-id", "--session-key", "--source-root",
-  "--consumer", "--receipt-digest", "--target", "--thinking", "--timeout-ms", "--to", "--transport", "--workspace",
+  "--agent", "--archive", "--archive-sha256", "--birth-report", "--blueprint", "--blueprint-sha256", "--build-contract", "--build-contract-sha256", "--build-state", "--cases", "--channel", "--checkpoint", "--decision-ledger", "--design-plan", "--digest",
+  "--discovery-approval", "--discovery-db", "--discovery-manifest", "--domain-eval", "--runtime-env-file", "--expect-status", "--fallback-from", "--manifest", "--message",
+  "--entry", "--event", "--event-id", "--expected-head-digest", "--host", "--host-scope", "--journal", "--message-file", "--model", "--native-plugin-recipe", "--need", "--openclaw-source-root", "--openclaw-state-dir", "--openclaw-target-root", "--out",
+  "--manifest-sha256", "--plan", "--plan-digest", "--project", "--provider", "--run-dir", "--run-eval", "--run-state", "--session-id", "--session-key", "--source-root",
+  "--consumer", "--plan-approval", "--plan-approval-sha256", "--preview-digest", "--receipt-digest", "--target", "--target-carrier-admission", "--target-carrier-admission-sha256", "--target-descriptor", "--target-descriptor-sha256", "--target-executable", "--target-package-json", "--target-build-info", "--target-root", "--thinking", "--timeout-ms", "--to", "--transport", "--workspace",
+  "--probe", "--probe-sha256", "--request-sha256", "--lifecycle",
+  "--absent-genesis", "--absent-genesis-sha256",
+  "--current-receipt", "--current-receipt-sha256",
+  "--predecessor-receipt", "--predecessor-receipt-sha256",
+  "--predecessor-archive", "--predecessor-archive-sha256",
+  "--plan-sha256", "--ordinary-out", "--sensitive-out", "--conflict-out",
+  "--install-plan", "--install-plan-sha256",
+  "--ordinary-approval", "--ordinary-approval-sha256",
+  "--sensitive-decision", "--sensitive-decision-sha256",
+  "--conflict-approval", "--conflict-approval-sha256",
+  "--binary-out", "--receipt-out",
+  "--fs-helper", "--fs-helper-receipt", "--fs-helper-receipt-digest",
   "--attempt-id", "--code", "--evidence-sha256", "--expected-head-sha256", "--journal", "--observation", "--request",
   "--uat", "--uat-baseline-package", "--uat-baseline-tarball", "--uat-candidate", "--uat-journal",
   "--uat-successor-package", "--uat-successor-tarball",
@@ -221,6 +314,25 @@ async function runCommand(args) {
       json: options.json,
       subject: "artifact-contract",
       format: formatArtifactContract,
+    });
+    return;
+  }
+
+  if (command === "openclaw-fs-kernel-build") {
+    const options = parseOpenClawFsKernelBuildArgs(rest);
+    const result = await buildOpenClawFsKernel({
+      binaryOut: options.binaryOut,
+      receiptOut: options.receiptOut,
+    });
+    await emitArtifactOutput({
+      schemaVersion: "agentmo.openclaw-fs-kernel-build-output.v1",
+      receiptDigest: result.receiptDigest,
+      pair: result.pair,
+      buildOnly: true,
+    }, {
+      json: options.json,
+      subject: "openclaw-fs-kernel-build-output",
+      format: (value) => `${value.receiptDigest}\n`,
     });
     return;
   }
@@ -578,6 +690,23 @@ async function runCommand(args) {
     return;
   }
 
+  if (command === "discover-live") {
+    const options = parseDiscoverLiveArgs(rest);
+    const manifest = await loadDiscoveryManifest(options.file, {
+      subject: "discovery-manifest",
+      expectedDigest: options.digests["discovery-manifest"],
+    });
+    const live = await buildDiscoveryLive(manifest, { manifestPath: options.file });
+    const paths = await writeDiscoveryLive(options.out, live);
+    const result = { ...live, paths };
+    await emitArtifactOutput(result, {
+      json: options.json,
+      subject: "discovery-live-output",
+      format: (value) => formatDiscoveryLive(value, value.paths),
+    });
+    return;
+  }
+
   if (command === "discover-workspace") {
     const options = parseDiscoverWorkspaceArgs(rest);
     const manifest = await loadDiscoveryManifest(options.file, {
@@ -599,6 +728,55 @@ async function runCommand(args) {
     return;
   }
 
+  if (command === "discovery-approve") {
+    const options = parseDiscoveryApproveArgs(rest);
+    const discoveryManifestAdmission = await loadAdmittedArtifact({
+      filePath: options.file,
+      subject: "discovery-manifest",
+      expectedDigest: options.digests["discovery-manifest"],
+    });
+    const discoveryDbAdmission = await loadAdmittedArtifact({
+      filePath: options.discoveryDb,
+      subject: "discovery-db",
+      expectedDigest: options.digests["discovery-db"],
+    });
+    const inputs = {
+      admissions: {
+        discoveryManifest: discoveryManifestAdmission,
+        discoveryDb: discoveryDbAdmission,
+      },
+    };
+    if (!options.approve) {
+      const preview = buildDiscoveryApprovalPreview(
+        discoveryManifestAdmission.value,
+        discoveryDbAdmission.value,
+        inputs,
+      );
+      await emitArtifactOutput(preview, {
+        json: options.json,
+        subject: "discovery-approval-preview",
+        format: (value) => `${value.previewDigest}\n`,
+      });
+      return;
+    }
+    const approval = buildDiscoveryApproval(
+      discoveryManifestAdmission.value,
+      discoveryDbAdmission.value,
+      {
+        ...inputs,
+        approve: true,
+        previewDigest: options.previewDigest,
+      },
+    );
+    await writeDiscoveryApproval(options.out, approval);
+    await emitArtifactOutput(approval, {
+      json: options.json,
+      subject: "discovery-approval",
+      format: (value) => `${value.schemaVersion} ${value.decisionScope}\n`,
+    });
+    return;
+  }
+
   if (command === "need-report") {
     const options = parseNeedReportArgs(rest);
     const need = await loadUserNeed(options.file, {
@@ -611,8 +789,50 @@ async function runCommand(args) {
     return;
   }
 
+  if (command === "decision-ledger") {
+    const options = parseDecisionLedgerArgs(rest);
+    if (options.action === "inspect") {
+      const ledger = await loadDecisionLedger({
+        journalPath: options.journal,
+        expectedHeadDigest: options.digests["decision-ledger"],
+      });
+      await emitArtifactOutput(decisionLedgerSummary(ledger), {
+        json: options.json,
+        subject: "decision-ledger-output",
+        format: formatDecisionLedgerSummary,
+      });
+      return;
+    }
+    const entryAdmission = await loadAdmittedArtifact({
+      filePath: options.entry,
+      subject: "decision-entry",
+      expectedDigest: options.digests["decision-entry"],
+    });
+    const { schemaVersion: _schemaVersion, ...entry } = entryAdmission.value;
+    const appended = await appendDecisionEntry({
+      journalPath: options.journal,
+      expectedHeadDigest: options.expectedHeadDigest,
+      entry,
+    });
+    const ledger = await loadDecisionLedger({
+      journalPath: options.journal,
+      expectedHeadDigest: appended.head.digest,
+    });
+    await emitArtifactOutput(decisionLedgerSummary(ledger), {
+      json: options.json,
+      subject: "decision-ledger-output",
+      format: formatDecisionLedgerSummary,
+    });
+    return;
+  }
+
   if (command === "design-plan") {
     const options = parseDesignPlanArgs(rest);
+    const discoveryManifestAdmission = await loadAdmittedArtifact({
+      filePath: options.manifest,
+      subject: "discovery-manifest",
+      expectedDigest: options.digests["discovery-manifest"],
+    });
     const discoveryDbAdmission = await loadAdmittedArtifact({
       filePath: options.file,
       subject: "discovery-db",
@@ -623,11 +843,30 @@ async function runCommand(args) {
       subject: "user-need",
       expectedDigest: options.digests["user-need"],
     });
+    const discoveryApprovalAdmission = await loadAdmittedArtifact({
+      filePath: options.discoveryApproval,
+      subject: "discovery-approval",
+      expectedDigest: options.digests["discovery-approval"],
+      companions: {
+        "discovery-manifest": discoveryManifestAdmission,
+        "discovery-db": discoveryDbAdmission,
+      },
+    });
+    const decisionLedger = await loadDecisionLedger({
+      journalPath: options.decisionLedger,
+      expectedHeadDigest: options.digests["decision-ledger"],
+    });
     const designPlan = buildDesignPlan(discoveryDbAdmission.value, userNeedAdmission.value, {
       target: options.target,
+      manifest: discoveryManifestAdmission.value,
+      discoveryApproval: discoveryApprovalAdmission.value,
+      decisionLedger,
       admissions: {
+        discoveryManifest: discoveryManifestAdmission,
         discoveryDb: discoveryDbAdmission,
+        discoveryApproval: discoveryApprovalAdmission,
         userNeed: userNeedAdmission,
+        decisionLedger,
       },
     });
     await writeDesignPlan(options.out, designPlan);
@@ -679,6 +918,558 @@ async function runCommand(args) {
       format: (value) => formatBlueprintDraftReport(value.report),
     });
     if (!report.ok) process.exitCode = 1;
+    return;
+  }
+
+  if (command === "build-contract") {
+    const options = parseBuildContractArgs(rest);
+    const blueprintAdmission = await loadAdmittedBlueprint(options.file, {
+      subject: "blueprint",
+      expectedDigest: options.digests.blueprint,
+    });
+    const designPlanAdmission = await loadAdmittedArtifact({
+      filePath: options.designPlan,
+      subject: "design-plan",
+      expectedDigest: options.digests["design-plan"],
+    });
+    const discoveryApprovalAdmission = await loadAdmittedArtifact({
+      filePath: options.discoveryApproval,
+      subject: "discovery-approval",
+      expectedDigest: options.digests["discovery-approval"],
+      companions: { "design-plan": designPlanAdmission },
+    });
+    const decisionLedger = await loadDecisionLedger({
+      journalPath: options.decisionLedger,
+      expectedHeadDigest: options.digests["decision-ledger"],
+    });
+    const targetDescriptorAdmission = await loadAdmittedArtifact({
+      filePath: options.targetDescriptor,
+      subject: "openclaw-target-descriptor",
+      expectedDigest: options.digests["openclaw-target-descriptor"],
+    });
+    const nativePluginRecipeAdmission = options.nativePluginRecipe
+      ? await admitNativePluginRecipe({
+          filePath: options.nativePluginRecipe,
+          expectedDigest: options.digests["native-plugin-recipe"],
+        })
+      : null;
+    const contract = buildBuildContract(
+      blueprintAdmission.value,
+      designPlanAdmission.value,
+      discoveryApprovalAdmission.value,
+      decisionLedger,
+      {
+        target: options.target,
+        admissions: {
+          blueprint: blueprintAdmission,
+          designPlan: designPlanAdmission,
+          discoveryApproval: discoveryApprovalAdmission,
+          decisionLedger,
+          targetDescriptor: targetDescriptorAdmission,
+        },
+        ...(nativePluginRecipeAdmission ? {
+          nativePluginRecipe: nativePluginRecipeAdmission.value,
+          nativePluginRecipeAdmission,
+        } : {}),
+      },
+    );
+    await writeBuildContract(options.out, contract);
+    await emitArtifactOutput(contract, {
+      json: options.json,
+      subject: "build-contract",
+      format: formatBuildContract,
+    });
+    return;
+  }
+
+  if (command === "openclaw-target-describe") {
+    const options = parseOpenClawTargetDescribeArgs(rest);
+    const descriptor = await buildOpenClawTargetDescriptor({
+      executablePath: options.targetExecutable,
+      packageJsonPath: options.targetPackageJson,
+      buildInfoPath: options.targetBuildInfo,
+      digests: {
+        "target-executable": options.digests["target-executable"],
+        "target-package-json": options.digests["target-package-json"],
+        "target-build-info": options.digests["target-build-info"],
+      },
+    });
+    await writeOpenClawTargetDescriptor(options.out, descriptor, {
+      helperPath: options.fsHelper,
+      receiptPath: options.fsHelperReceipt,
+      receiptDigest: options.fsHelperReceiptDigest,
+    });
+    const bytes = Buffer.from(serializePersistableJson(descriptor, {
+      subject: "openclaw-target-descriptor",
+    }), "utf8");
+    await emitArtifactOutput({ descriptor, digest: digestRawBytes(bytes) }, {
+      json: options.json,
+      subject: "openclaw-target-descriptor-output",
+      format: (value) => `${value.digest}\n`,
+    });
+    return;
+  }
+
+  if (command === "openclaw-target-admit") {
+    const options = parseOpenClawTargetAdmitArgs(rest);
+    const blueprintAdmission = await loadAdmittedBlueprint(options.file, {
+      subject: "blueprint",
+      expectedDigest: options.digests.blueprint,
+    });
+    const buildContractAdmission = await loadAdmittedArtifact({
+      filePath: options.buildContract,
+      subject: "build-contract",
+      expectedDigest: options.digests["build-contract"],
+    });
+    const planApprovalAdmission = await loadAdmittedArtifact({
+      filePath: options.planApproval,
+      subject: "plan-approval",
+      expectedDigest: options.digests["plan-approval"],
+    });
+    const targetDescriptorAdmission = await loadAdmittedArtifact({
+      filePath: options.targetDescriptor,
+      subject: "openclaw-target-descriptor",
+      expectedDigest: options.digests["openclaw-target-descriptor"],
+    });
+    const admission = await buildOpenClawTargetCarrierAdmission({
+      blueprint: blueprintAdmission.value,
+      buildContract: buildContractAdmission.value,
+      planApproval: planApprovalAdmission.value,
+      admissions: {
+        blueprint: blueprintAdmission,
+        buildContract: buildContractAdmission,
+        planApproval: planApprovalAdmission,
+        targetDescriptor: targetDescriptorAdmission,
+      },
+      target: {
+        executablePath: options.targetExecutable,
+        executableDigest: options.digests["target-executable"],
+        packageJsonPath: options.targetPackageJson,
+        packageJsonDigest: options.digests["target-package-json"],
+        buildInfoPath: options.targetBuildInfo,
+        buildInfoDigest: options.digests["target-build-info"],
+      },
+    });
+    await writeOpenClawTargetCarrierAdmission(options.out, admission, {
+      helperPath: options.fsHelper,
+      receiptPath: options.fsHelperReceipt,
+      receiptDigest: options.fsHelperReceiptDigest,
+    });
+    const bytes = Buffer.from(serializePersistableJson(admission, {
+      subject: "openclaw-target-carrier-admission",
+    }), "utf8");
+    await emitArtifactOutput({
+      admission,
+      digest: digestRawBytes(bytes),
+    }, {
+      json: options.json,
+      subject: "openclaw-target-carrier-admission-output",
+      format: (value) => `${value.digest}\n`,
+    });
+    return;
+  }
+
+  if (command === "package-produce") {
+    const options = parsePackageProduceArgs(rest);
+    const result = await produceAgentPackage({
+      artifacts: {
+        blueprint: artifactBinding(options.file, options.digests.blueprint),
+        designPlan: artifactBinding(options.designPlan, options.digests["design-plan"]),
+        discoveryApproval: artifactBinding(
+          options.discoveryApproval,
+          options.digests["discovery-approval"],
+        ),
+        decisionLedger: artifactBinding(options.decisionLedger, options.digests["decision-ledger"]),
+        buildContract: artifactBinding(options.buildContract, options.digests["build-contract"]),
+        planApproval: artifactBinding(options.planApproval, options.digests["plan-approval"]),
+        targetDescriptor: artifactBinding(
+          options.targetDescriptor,
+          options.digests["openclaw-target-descriptor"],
+        ),
+        targetCarrierAdmission: artifactBinding(
+          options.targetCarrierAdmission,
+          options.digests["openclaw-target-carrier-admission"],
+        ),
+      },
+      outputRoot: options.out,
+      archivePath: options.archive,
+      helperPath: options.fsHelper,
+      receiptPath: options.fsHelperReceipt,
+      receiptDigest: options.fsHelperReceiptDigest,
+    });
+    const report = {
+      schemaVersion: result.schemaVersion,
+      archiveDigest: result.archiveDigest,
+      manifestDigest: result.manifestDigest,
+      inventoryDigest: result.inventoryDigest,
+      certificationBoundary: result.certificationBoundary,
+    };
+    await emitArtifactOutput(report, {
+      json: options.json,
+      subject: "package-produce-output",
+      format: (value) => `${value.archiveDigest}\n`,
+    });
+    return;
+  }
+
+  if (command === "package-inspect") {
+    const options = parsePackageInspectArgs(rest);
+    const inspection = await inspectAgentPackage({
+      packagePath: options.file,
+      ...(options.archiveDigest === null
+        ? { expectedManifestDigest: options.manifestDigest }
+        : { expectedArchiveDigest: options.archiveDigest }),
+    });
+    await emitNonArtifactOutput(inspection, {
+      json: options.json,
+      subject: "package-inspection",
+      format: formatAgentPackageInspection,
+    });
+    return;
+  }
+
+  if (command === "openclaw-probe") {
+    const options = parseOpenClawProbeArgs(rest);
+    try {
+      await lstat(options.out);
+      throw cliError("AGENTMO_CLI_OUTPUT_REJECTED");
+    } catch (error) {
+      if (error?.code !== "ENOENT") throw error;
+    }
+    const probe = await probeOpenClawTarget({
+      archivePath: options.archive,
+      expectedArchiveDigest: options.archiveDigest,
+      blueprintPath: options.blueprint,
+      expectedBlueprintDigest: options.blueprintDigest,
+      buildContractPath: options.buildContract,
+      expectedBuildContractDigest: options.buildContractDigest,
+      planApprovalPath: options.planApproval,
+      expectedPlanApprovalDigest: options.planApprovalDigest,
+      targetCarrierAdmissionPath: options.targetCarrierAdmission,
+      expectedTargetCarrierAdmissionDigest: options.targetCarrierAdmissionDigest,
+      targetDescriptorPath: options.targetDescriptor,
+      expectedTargetDescriptorDigest: options.targetDescriptorDigest,
+      targetRoot: options.targetRoot,
+    });
+    try {
+      await writeFile(
+        options.out,
+        serializePersistableJson(probe, { subject: "openclaw-probe" }),
+        { encoding: "utf8", flag: "wx", mode: 0o600 },
+      );
+    } catch {
+      throw cliError("AGENTMO_CLI_OUTPUT_REJECTED");
+    }
+    await emitArtifactOutput(probe, {
+      json: options.json,
+      subject: "openclaw-probe",
+      format: formatOpenClawProbe,
+    });
+    return;
+  }
+
+  if (command === "openclaw-install-genesis") {
+    const options = parseOpenClawInstallGenesisArgs(rest);
+    const archive = await admitPackageArchiveManifest({
+      archivePath: options.archive,
+      expectedArchiveDigest: options.archiveDigest,
+    });
+    const probe = await loadExactOpenClawProbe(options, archive);
+    const request = await loadExactLifecycleJson(
+      options.request,
+      options.requestDigest,
+      () => ({ ok: true }),
+    );
+    assertLifecycleTargetMatchesProbe(request.target, probe);
+    const session = await openOpenClawSafeFsSession({
+      rootPath: options.targetRoot,
+      helperPath: options.fsHelper,
+      receiptPath: options.fsHelperReceipt,
+      receiptDigest: options.fsHelperReceiptDigest,
+    });
+    let authority;
+    try {
+      authority = await buildOpenClawAbsentGenesisAuthority({
+        target: request.target,
+        operations: request.operations,
+        observedAt: request.observedAt,
+        session,
+      });
+    } finally {
+      await session.close();
+    }
+    const written = await writeOpenClawAbsentGenesisAuthority(
+      options.out,
+      authority,
+    );
+    await emitArtifactOutput({ authority, digest: written.digest }, {
+      json: options.json,
+      subject: "openclaw-absent-genesis-output",
+      format: (value) => `${value.digest}\n`,
+    });
+    return;
+  }
+
+  if (command === "openclaw-install-preview") {
+    const options = parseOpenClawInstallPreviewArgs(rest);
+    const archiveInventory = await admitPackageArchiveManifest({
+      archivePath: options.archive,
+      expectedArchiveDigest: options.archiveDigest,
+    });
+    const probe = await loadExactOpenClawProbe(options, archiveInventory);
+    const request = await loadExactLifecycleJson(
+      options.request,
+      options.requestDigest,
+      () => ({ ok: true }),
+    );
+    assertLifecycleTargetMatchesProbe(request.target, probe);
+    const basis = await loadLifecycleBasis(options);
+    const authorityRootBinding = (await loadOpenClawAuthorityRootBinding(
+      options.authorityRootBinding,
+      options.authorityRootBindingDigest,
+    )).value;
+    if (options.lifecycle === "install") {
+      const session = await openOpenClawSafeFsSession({
+        rootPath: options.targetRoot,
+        helperPath: options.fsHelper,
+        receiptPath: options.fsHelperReceipt,
+        receiptDigest: options.fsHelperReceiptDigest,
+      });
+      try {
+        await verifyOpenClawAbsentGenesisAuthority({
+          authority: basis.absentGenesis,
+          operations: request.operations,
+          session,
+        });
+      } finally {
+        await session.close();
+      }
+    }
+    const plan = buildOpenClawInstallPlan({
+      lifecycle: options.lifecycle,
+      archiveBinding: {
+        archiveSha256: options.archiveDigest,
+        manifestDigest: archiveInventory.manifestDigest,
+        inventoryDigest: archiveInventory.inventoryDigest,
+        members: archiveInventory.members,
+      },
+      authorityRootBinding,
+      target: request.target,
+      operations: request.operations,
+      sensitiveActions: request.sensitiveActions,
+      conflicts: request.conflicts,
+      officialConfigDryRun: request.officialConfigDryRun,
+      ...basis,
+    });
+    const written = await writeOpenClawInstallPlan(options.out, plan);
+    await emitArtifactOutput({ plan, digest: written.digest }, {
+      json: options.json,
+      subject: "openclaw-install-plan-output",
+      format: (value) => `${value.digest}\n`,
+    });
+    return;
+  }
+
+  if (command === "openclaw-install-approve") {
+    const options = parseOpenClawInstallApproveArgs(rest);
+    const planAdmission = await loadAdmittedArtifact({
+      filePath: options.plan,
+      subject: "openclaw-install-plan",
+      expectedDigest: options.planDigest,
+    });
+    const request = await loadExactLifecycleJson(
+      options.request,
+      options.requestDigest,
+      () => ({ ok: true }),
+    );
+    const plan = planAdmission.value;
+    const common = {
+      decision: "approve",
+      issuedAt: request.issuedAt,
+      expiresAt: request.expiresAt,
+    };
+    const ordinary = buildOpenClawInstallApproval({
+      plan,
+      ...common,
+      useNonce: `${request.noncePrefix}:ordinary`,
+    });
+    const sensitive = plan.sensitiveActions.map((action, index) => ({
+      filePath: options.sensitiveOutputs[index],
+      action,
+      candidate: buildOpenClawSensitiveActionDecision({
+        plan,
+        action,
+        ...common,
+        useNonce: `${request.noncePrefix}:sensitive:${index}`,
+      }),
+    }));
+    const conflict = buildOpenClawConflictApproval({
+      plan,
+      conflicts: plan.conflicts,
+      ...common,
+      useNonce: `${request.noncePrefix}:conflict-set`,
+    });
+    const written = await writeOpenClawInstallReviewDecisions({
+      plan,
+      outputs: {
+        ordinary: {
+          filePath: options.ordinaryOut,
+          candidate: ordinary,
+        },
+        sensitive,
+        conflict: {
+          filePath: options.conflictOut,
+          candidate: conflict,
+        },
+      },
+      validation: {
+        now: request.validationNow,
+      },
+    });
+    await emitArtifactOutput({
+      installPlanDigest: plan.installPlanDigest,
+      outputs: written.map(({ digest }, index) => ({
+        subject: index === 0
+          ? "openclaw-install-approval"
+          : index === written.length - 1
+            ? "openclaw-conflict-approval"
+            : "openclaw-sensitive-action-decision",
+        digest,
+      })),
+      certificationBoundary: {
+        authorityPublicationOnly: true,
+        installed: false,
+        runtime: false,
+        domain: false,
+        production: false,
+      },
+    }, {
+      json: options.json,
+      subject: "openclaw-install-approval-output",
+      format: (value) => `${value.installPlanDigest}\n`,
+    });
+    return;
+  }
+
+  if (command === "openclaw-install-apply") {
+    const options = parseOpenClawInstallApplyArgs(rest);
+    const result = await applyOpenClawInstallPlan({
+      blueprintPath: options.blueprint,
+      blueprintDigest: options.blueprintDigest,
+      buildContractPath: options.buildContract,
+      buildContractDigest: options.buildContractDigest,
+      planApprovalPath: options.planApproval,
+      planApprovalDigest: options.planApprovalDigest,
+      targetDescriptorPath: options.targetDescriptor,
+      targetDescriptorDigest: options.targetDescriptorDigest,
+      targetCarrierAdmissionPath: options.targetCarrierAdmission,
+      targetCarrierAdmissionDigest: options.targetCarrierAdmissionDigest,
+      archivePath: options.archive,
+      archiveDigest: options.archiveDigest,
+      probePath: options.probe,
+      probeDigest: options.probeDigest,
+      installPlanPath: options.installPlan,
+      installPlanDigest: options.installPlanDigest,
+      installApprovalPath: options.ordinaryApproval,
+      installApprovalDigest: options.ordinaryApprovalDigest,
+      sensitiveDecisions: options.sensitiveDecisions,
+      conflictApprovalPath: options.conflictApproval,
+      conflictApprovalDigest: options.conflictApprovalDigest,
+      absentGenesisPath: options.absentGenesis,
+      absentGenesisDigest: options.absentGenesisDigest,
+      currentReceiptPath: options.currentReceipt,
+      currentReceiptDigest: options.currentReceiptDigest,
+      currentReceiptCompanions: options.currentReceiptCompanions,
+      selectedPredecessorReceiptPath: options.predecessorReceipt,
+      selectedPredecessorReceiptDigest: options.predecessorReceiptDigest,
+      selectedPredecessorReceiptCompanions:
+        options.predecessorReceiptCompanions,
+      selectedPredecessorArchivePath: options.predecessorArchive,
+      selectedPredecessorArchiveDigest: options.predecessorArchiveDigest,
+      openClawTargetRoot: options.openClawTargetRoot,
+      targetRoot: options.targetRoot,
+      outputPath: options.out,
+      helperPath: options.fsHelper,
+      receiptPath: options.fsHelperReceipt,
+      receiptDigest: options.fsHelperReceiptDigest,
+      attemptId: options.attemptId,
+      authorityRootBindingPath: options.authorityRootBinding,
+      authorityRootBindingDigest: options.authorityRootBindingDigest,
+      authorityStateRoot: await derivePublicOpenClawAuthorityStateRoot(
+        options.openClawTargetRoot,
+        options.targetDescriptorDigest,
+      ),
+    });
+    await emitArtifactOutput({
+      receipt: result.receipt,
+      digest: result.digest,
+      postEffectProvenance: structuredClone(
+        result.receipt.postEffectEvidence,
+      ),
+      certificationBoundary: {
+        lifecycleEvidenceOnly: true,
+        runtime: false,
+        domain: false,
+        birth: false,
+        delivery: false,
+        production: false,
+      },
+    }, {
+      json: options.json,
+      subject: "openclaw-install-apply-output",
+      format: (value) => formatOpenClawInstallReceipt(
+        value.receipt,
+        value.digest,
+      ),
+    });
+    return;
+  }
+
+  if (command === "plan-approve") {
+    const options = parsePlanApproveArgs(rest);
+    const blueprintAdmission = await loadAdmittedBlueprint(options.file, {
+      subject: "blueprint",
+      expectedDigest: options.digests.blueprint,
+    });
+    const buildContractAdmission = await loadAdmittedArtifact({
+      filePath: options.buildContract,
+      subject: "build-contract",
+      expectedDigest: options.digests["build-contract"],
+    });
+    const inputs = {
+      admissions: {
+        blueprint: blueprintAdmission,
+        buildContract: buildContractAdmission,
+      },
+    };
+    if (!options.approve) {
+      const preview = buildPlanApprovalPreview(
+        blueprintAdmission.value,
+        buildContractAdmission.value,
+        inputs,
+      );
+      await emitArtifactOutput(preview, {
+        json: options.json,
+        subject: "plan-approval-preview",
+        format: (value) => `${value.previewDigest}\n`,
+      });
+      return;
+    }
+    const approval = buildPlanApproval(
+      blueprintAdmission.value,
+      buildContractAdmission.value,
+      {
+        ...inputs,
+        approve: true,
+        previewDigest: options.previewDigest,
+      },
+    );
+    await writePlanApproval(options.out, approval);
+    await emitArtifactOutput(approval, {
+      json: options.json,
+      subject: "plan-approval",
+      format: (value) => `${value.schemaVersion} ${value.decisionScope}\n`,
+    });
     return;
   }
 
@@ -2018,6 +2809,7 @@ function cliErrorEnvelope(error) {
   const code = boundedCliErrorCode(error);
   const category = cliErrorCategory(code);
   const validationDetails = boundedArtifactValidationDetails(error);
+  const recovery = boundedOpenClawFsBuildRecovery(error);
   return {
     schemaVersion: "agentmo.cli-error.v1",
     ok: false,
@@ -2027,7 +2819,130 @@ function cliErrorEnvelope(error) {
       ? cliErrorGuidance(category, code)
       : `Correct the listed fields using \`agentmo artifact-contract ${validationDetails.subject} --json\`, then recompute the exact digest.`,
     ...(validationDetails ?? {}),
+    ...(recovery === null ? {} : { recovery }),
   };
+}
+
+function boundedOpenClawFsBuildRecovery(error) {
+  const recovery = error?.recovery;
+  if (error?.code !== "AGENTMO_OPENCLAW_FS_BUILD_REJECTED"
+    || !exactObjectKeys(recovery, [
+      "schemaVersion",
+      "failurePoint",
+      "disposition",
+      "retry",
+      "sameParent",
+      "parents",
+      "members",
+    ])
+    || recovery.schemaVersion !== "agentmo.openclaw-fs-build-recovery.v1"
+    || !/^[a-z0-9-]{1,64}$/u.test(recovery.failurePoint ?? "")
+    || recovery.disposition !== "recovery-required"
+    || recovery.retry !== "exact-pair-admission-required"
+    || typeof recovery.sameParent !== "boolean"
+    || !Array.isArray(recovery.parents)
+    || recovery.parents.length !== 2
+    || !Array.isArray(recovery.members)
+    || recovery.members.length !== 2) {
+    return null;
+  }
+  const parentRoles = ["binary-output-parent", "receipt-output-parent"];
+  const parents = recovery.parents.map((entry, index) => {
+    if (!exactObjectKeys(entry, [
+      "role",
+      "expectedIdentity",
+      "observedIdentity",
+      "disposition",
+    ])
+      || entry.role !== parentRoles[index]
+      || !["bound", "replaced", "unknown"].includes(entry.disposition)) {
+      return null;
+    }
+    const expectedIdentity = boundedSafeFsIdentity(entry.expectedIdentity, true);
+    const observedIdentity = entry.observedIdentity === null
+      ? null
+      : boundedSafeFsIdentity(entry.observedIdentity, true);
+    if (expectedIdentity === null
+      || (entry.observedIdentity !== null && observedIdentity === null)) {
+      return null;
+    }
+    return {
+      role: entry.role,
+      expectedIdentity,
+      observedIdentity,
+      disposition: entry.disposition,
+    };
+  });
+  const memberRoles = ["helper-binary", "build-receipt"];
+  const members = recovery.members.map((entry, index) => {
+    if (!exactObjectKeys(entry, [
+      "role",
+      "state",
+      "digest",
+      "identity",
+      "disposition",
+    ])
+      || entry.role !== memberRoles[index]
+      || !["created", "preserved", "unknown"].includes(entry.state)
+      || !["preserved", "absent", "unknown"].includes(entry.disposition)
+      || (entry.digest !== null
+        && !/^sha256:[a-f0-9]{64}$/u.test(entry.digest))
+      || (entry.identity === null) !== (entry.digest === null)) {
+      return null;
+    }
+    const identity = entry.identity === null
+      ? null
+      : boundedSafeFsIdentity(entry.identity, false);
+    if (entry.identity !== null && identity === null) return null;
+    return {
+      role: entry.role,
+      state: entry.state,
+      digest: entry.digest,
+      identity,
+      disposition: entry.disposition,
+    };
+  });
+  if (parents.includes(null) || members.includes(null)) return null;
+  return {
+    schemaVersion: recovery.schemaVersion,
+    failurePoint: recovery.failurePoint,
+    disposition: recovery.disposition,
+    retry: recovery.retry,
+    sameParent: recovery.sameParent,
+    parents,
+    members,
+  };
+}
+
+function boundedSafeFsIdentity(value, directory) {
+  const keys = directory
+    ? ["device", "inode", "mode", "owner"]
+    : [
+        "device",
+        "inode",
+        "links",
+        "mode",
+        "owner",
+        "size",
+        "modifiedNs",
+        "changedNs",
+      ];
+  if (!exactObjectKeys(value, keys)
+    || !keys.filter((key) => key !== "mode").every(
+      (key) => /^\d+$/u.test(value[key] ?? ""),
+    )
+    || !/^[0-7]{3,4}$/u.test(value.mode ?? "")) {
+    return null;
+  }
+  return Object.fromEntries(keys.map((key) => [key, value[key]]));
+}
+
+function exactObjectKeys(value, keys) {
+  return value !== null
+    && typeof value === "object"
+    && !Array.isArray(value)
+    && Object.keys(value).length === keys.length
+    && keys.every((key) => Object.hasOwn(value, key));
 }
 
 function boundedArtifactValidationDetails(error) {
@@ -2086,6 +3001,26 @@ function formatCliError(envelope) {
   if (Array.isArray(envelope.issues)) {
     lines.push("Issues:");
     for (const issue of envelope.issues) lines.push(`- ${issue}`);
+  }
+  if (envelope.recovery !== undefined) {
+    lines.push(
+      `Recovery: ${envelope.recovery.failurePoint} (${envelope.recovery.disposition})`,
+    );
+    for (const parent of envelope.recovery.parents) {
+      const identity = parent.observedIdentity ?? parent.expectedIdentity;
+      lines.push(
+        `- ${parent.role}: ${parent.disposition} ${identity.device}:${identity.inode}`,
+      );
+    }
+    for (const member of envelope.recovery.members) {
+      const identity = member.identity === null
+        ? "identity=unknown"
+        : `identity=${member.identity.device}:${member.identity.inode}`;
+      const digest = member.digest ?? "digest=unknown";
+      lines.push(
+        `- ${member.role}: ${member.state}/${member.disposition} ${identity} ${digest}`,
+      );
+    }
   }
   return `${lines.join("\n")}\n`;
 }
@@ -2154,6 +3089,31 @@ function parseDiscoverPackArgs(args) {
   }
   requireOptionValue(out, "--out");
   const digests = parseDigestBindings(digestBindings, subjectsForCommand("discover-pack"));
+  return { file: resolve(file), out: resolve(out), json, digests };
+}
+
+function parseDiscoverLiveArgs(args) {
+  const file = args[0];
+  if (!file) throw new Error("Missing discovery manifest file path.");
+  let out = null;
+  let json = false;
+  const digestBindings = [];
+  for (let index = 1; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--out") {
+      out = args[index + 1];
+      index += 1;
+    } else if (arg === "--json") {
+      json = true;
+    } else if (arg === "--digest") {
+      digestBindings.push(requireDigestBinding(args[index + 1]));
+      index += 1;
+    } else {
+      throw new Error(`Unknown discover-live option: ${arg}`);
+    }
+  }
+  requireOptionValue(out, "--out");
+  const digests = parseDigestBindings(digestBindings, subjectsForCommand("discover-live"));
   return { file: resolve(file), out: resolve(out), json, digests };
 }
 
@@ -2285,6 +3245,1315 @@ function parseNeedReportArgs(args) {
   return { file: resolve(file), json, digests };
 }
 
+function parseBuildContractArgs(args) {
+  const file = args[0];
+  if (!file) throw new Error("Missing blueprint file path.");
+  let designPlan = null;
+  let discoveryApproval = null;
+  let decisionLedger = null;
+  let targetDescriptor = null;
+  let out = null;
+  let target = "openclaw";
+  let nativePluginRecipe = null;
+  let json = false;
+  const digestBindings = [];
+  for (let index = 1; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--design-plan") {
+      designPlan = args[index + 1];
+      index += 1;
+    } else if (arg === "--discovery-approval") {
+      discoveryApproval = args[index + 1];
+      index += 1;
+    } else if (arg === "--decision-ledger") {
+      decisionLedger = args[index + 1];
+      index += 1;
+    } else if (arg === "--target-descriptor") {
+      targetDescriptor = args[index + 1];
+      index += 1;
+    } else if (arg === "--out") {
+      out = args[index + 1];
+      index += 1;
+    } else if (arg === "--target") {
+      target = args[index + 1];
+      index += 1;
+    } else if (arg === "--native-plugin-recipe") {
+      nativePluginRecipe = args[index + 1];
+      index += 1;
+    } else if (arg === "--digest") {
+      digestBindings.push(requireDigestBinding(args[index + 1]));
+      index += 1;
+    } else if (arg === "--json") {
+      json = true;
+    } else {
+      throw new Error(`Unknown build-contract option: ${arg}`);
+    }
+  }
+  requireOptionValue(designPlan, "--design-plan");
+  requireOptionValue(discoveryApproval, "--discovery-approval");
+  requireOptionValue(decisionLedger, "--decision-ledger");
+  requireOptionValue(targetDescriptor, "--target-descriptor");
+  requireOptionValue(out, "--out");
+  if (target !== "openclaw") throw new Error("build-contract target must be openclaw.");
+  if ((nativePluginRecipe === null) !== !digestBindings.some((binding) => (
+    binding.startsWith("native-plugin-recipe=")
+  ))) {
+    throw new Error("--native-plugin-recipe requires exactly one native-plugin-recipe digest.");
+  }
+  const digests = parseDigestBindings(digestBindings, subjectsForCommand("build-contract", {
+    includeOptionalSubjects: nativePluginRecipe ? ["native-plugin-recipe"] : [],
+  }));
+  return {
+    file: resolve(file),
+    designPlan: resolve(designPlan),
+    discoveryApproval: resolve(discoveryApproval),
+    decisionLedger: resolve(decisionLedger),
+    targetDescriptor: resolve(targetDescriptor),
+    out: resolve(out),
+    target,
+    nativePluginRecipe: nativePluginRecipe ? resolve(nativePluginRecipe) : null,
+    json,
+    digests,
+  };
+}
+
+function parseOpenClawTargetDescribeArgs(args) {
+  let targetExecutable = null;
+  let targetPackageJson = null;
+  let targetBuildInfo = null;
+  let out = null;
+  let fsHelper = null;
+  let fsHelperReceipt = null;
+  let fsHelperReceiptDigest = null;
+  let json = false;
+  const digestBindings = [];
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--target-executable") {
+      targetExecutable = args[index + 1];
+      index += 1;
+    } else if (arg === "--target-package-json") {
+      targetPackageJson = args[index + 1];
+      index += 1;
+    } else if (arg === "--target-build-info") {
+      targetBuildInfo = args[index + 1];
+      index += 1;
+    } else if (arg === "--out") {
+      out = args[index + 1];
+      index += 1;
+    } else if (arg === "--fs-helper") {
+      fsHelper = args[index + 1];
+      index += 1;
+    } else if (arg === "--fs-helper-receipt") {
+      fsHelperReceipt = args[index + 1];
+      index += 1;
+    } else if (arg === "--fs-helper-receipt-digest") {
+      fsHelperReceiptDigest = args[index + 1];
+      index += 1;
+    } else if (arg === "--digest") {
+      digestBindings.push(requireDigestBinding(args[index + 1]));
+      index += 1;
+    } else if (arg === "--json") {
+      json = true;
+    } else {
+      throw new Error(`Unknown openclaw-target-describe option: ${arg}`);
+    }
+  }
+  requireOptionValue(targetExecutable, "--target-executable");
+  requireOptionValue(targetPackageJson, "--target-package-json");
+  requireOptionValue(targetBuildInfo, "--target-build-info");
+  requireOptionValue(out, "--out");
+  requireOptionValue(fsHelper, "--fs-helper");
+  requireOptionValue(fsHelperReceipt, "--fs-helper-receipt");
+  requireOptionValue(fsHelperReceiptDigest, "--fs-helper-receipt-digest");
+  const digests = parseDigestBindings(
+    digestBindings,
+    subjectsForCommand("openclaw-target-describe"),
+  );
+  return {
+    targetExecutable: resolve(targetExecutable),
+    targetPackageJson: resolve(targetPackageJson),
+    targetBuildInfo: resolve(targetBuildInfo),
+    out: resolve(out),
+    fsHelper: resolve(fsHelper),
+    fsHelperReceipt: resolve(fsHelperReceipt),
+    fsHelperReceiptDigest,
+    json,
+    digests,
+  };
+}
+
+function parseOpenClawTargetAdmitArgs(args) {
+  const file = args[0];
+  if (!file) throw new Error("Missing blueprint file path.");
+  let buildContract = null;
+  let planApproval = null;
+  let targetExecutable = null;
+  let targetDescriptor = null;
+  let targetPackageJson = null;
+  let targetBuildInfo = null;
+  let out = null;
+  let fsHelper = null;
+  let fsHelperReceipt = null;
+  let fsHelperReceiptDigest = null;
+  let json = false;
+  const digestBindings = [];
+  for (let index = 1; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--build-contract") {
+      buildContract = args[index + 1];
+      index += 1;
+    } else if (arg === "--plan-approval") {
+      planApproval = args[index + 1];
+      index += 1;
+    } else if (arg === "--target-executable") {
+      targetExecutable = args[index + 1];
+      index += 1;
+    } else if (arg === "--target-descriptor") {
+      targetDescriptor = args[index + 1];
+      index += 1;
+    } else if (arg === "--target-package-json") {
+      targetPackageJson = args[index + 1];
+      index += 1;
+    } else if (arg === "--target-build-info") {
+      targetBuildInfo = args[index + 1];
+      index += 1;
+    } else if (arg === "--out") {
+      out = args[index + 1];
+      index += 1;
+    } else if (arg === "--fs-helper") {
+      fsHelper = args[index + 1];
+      index += 1;
+    } else if (arg === "--fs-helper-receipt") {
+      fsHelperReceipt = args[index + 1];
+      index += 1;
+    } else if (arg === "--fs-helper-receipt-digest") {
+      fsHelperReceiptDigest = args[index + 1];
+      index += 1;
+    } else if (arg === "--digest") {
+      digestBindings.push(requireDigestBinding(args[index + 1]));
+      index += 1;
+    } else if (arg === "--json") {
+      json = true;
+    } else {
+      throw new Error(`Unknown openclaw-target-admit option: ${arg}`);
+    }
+  }
+  requireOptionValue(buildContract, "--build-contract");
+  requireOptionValue(planApproval, "--plan-approval");
+  requireOptionValue(targetDescriptor, "--target-descriptor");
+  requireOptionValue(targetExecutable, "--target-executable");
+  requireOptionValue(targetPackageJson, "--target-package-json");
+  requireOptionValue(targetBuildInfo, "--target-build-info");
+  requireOptionValue(out, "--out");
+  requireOptionValue(fsHelper, "--fs-helper");
+  requireOptionValue(fsHelperReceipt, "--fs-helper-receipt");
+  requireOptionValue(fsHelperReceiptDigest, "--fs-helper-receipt-digest");
+  const digests = parseDigestBindings(
+    digestBindings,
+    subjectsForCommand("openclaw-target-admit"),
+  );
+  return {
+    file: resolve(file),
+    buildContract: resolve(buildContract),
+    planApproval: resolve(planApproval),
+    targetDescriptor: resolve(targetDescriptor),
+    targetExecutable: resolve(targetExecutable),
+    targetPackageJson: resolve(targetPackageJson),
+    targetBuildInfo: resolve(targetBuildInfo),
+    out: resolve(out),
+    fsHelper: resolve(fsHelper),
+    fsHelperReceipt: resolve(fsHelperReceipt),
+    fsHelperReceiptDigest,
+    json,
+    digests,
+  };
+}
+
+function parsePackageProduceArgs(args) {
+  const file = args[0];
+  if (!file) throw new Error("Missing blueprint file path.");
+  const options = {
+    file,
+    designPlan: null,
+    discoveryApproval: null,
+    decisionLedger: null,
+    buildContract: null,
+    planApproval: null,
+    targetDescriptor: null,
+    targetCarrierAdmission: null,
+    out: null,
+    archive: null,
+    fsHelper: null,
+    fsHelperReceipt: null,
+    fsHelperReceiptDigest: null,
+    json: false,
+  };
+  const digestBindings = [];
+  const names = new Map([
+    ["--design-plan", "designPlan"],
+    ["--discovery-approval", "discoveryApproval"],
+    ["--decision-ledger", "decisionLedger"],
+    ["--build-contract", "buildContract"],
+    ["--plan-approval", "planApproval"],
+    ["--target-descriptor", "targetDescriptor"],
+    ["--target-carrier-admission", "targetCarrierAdmission"],
+    ["--out", "out"],
+    ["--archive", "archive"],
+    ["--fs-helper", "fsHelper"],
+    ["--fs-helper-receipt", "fsHelperReceipt"],
+    ["--fs-helper-receipt-digest", "fsHelperReceiptDigest"],
+  ]);
+  for (let index = 1; index < args.length; index += 1) {
+    const arg = args[index];
+    if (names.has(arg)) {
+      options[names.get(arg)] = args[index + 1];
+      index += 1;
+    } else if (arg === "--digest") {
+      digestBindings.push(requireDigestBinding(args[index + 1]));
+      index += 1;
+    } else if (arg === "--json") {
+      options.json = true;
+    } else {
+      throw new Error(`Unknown package-produce option: ${arg}`);
+    }
+  }
+  for (const [flag, key] of names) requireOptionValue(options[key], flag);
+  options.digests = parseDigestBindings(
+    digestBindings,
+    subjectsForCommand("package-produce"),
+  );
+  for (const key of [
+    "file", "designPlan", "discoveryApproval", "decisionLedger", "buildContract",
+    "planApproval", "targetDescriptor", "targetCarrierAdmission", "out", "archive",
+    "fsHelper", "fsHelperReceipt",
+  ]) {
+    options[key] = resolve(options[key]);
+  }
+  return options;
+}
+
+function parsePackageInspectArgs(args) {
+  const file = args[0];
+  if (!file) throw new Error("Missing Agent Package directory or archive path.");
+  let archiveDigest = null;
+  let manifestDigest = null;
+  let json = false;
+  for (let index = 1; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--archive-sha256") {
+      archiveDigest = args[index + 1] ?? null;
+      index += 1;
+    } else if (arg === "--manifest-sha256") {
+      manifestDigest = args[index + 1] ?? null;
+      index += 1;
+    } else if (arg === "--json") {
+      json = true;
+    } else {
+      throw new Error(`Unknown package-inspect option: ${arg}`);
+    }
+  }
+  if ((archiveDigest === null) === (manifestDigest === null)) {
+    throw new Error(
+      "Exactly one of --archive-sha256 or --manifest-sha256 is required.",
+    );
+  }
+  return {
+    file: resolve(file),
+    archiveDigest,
+    manifestDigest,
+    json,
+  };
+}
+
+function parseOpenClawProbeArgs(args) {
+  const options = {
+    archive: null,
+    archiveDigest: null,
+    blueprint: null,
+    blueprintDigest: null,
+    buildContract: null,
+    buildContractDigest: null,
+    planApproval: null,
+    planApprovalDigest: null,
+    targetCarrierAdmission: null,
+    targetCarrierAdmissionDigest: null,
+    targetDescriptor: null,
+    targetDescriptorDigest: null,
+    targetRoot: null,
+    out: null,
+    json: false,
+  };
+  const names = new Map([
+    ["--archive", "archive"],
+    ["--archive-sha256", "archiveDigest"],
+    ["--blueprint", "blueprint"],
+    ["--blueprint-sha256", "blueprintDigest"],
+    ["--build-contract", "buildContract"],
+    ["--build-contract-sha256", "buildContractDigest"],
+    ["--plan-approval", "planApproval"],
+    ["--plan-approval-sha256", "planApprovalDigest"],
+    ["--target-carrier-admission", "targetCarrierAdmission"],
+    ["--target-carrier-admission-sha256", "targetCarrierAdmissionDigest"],
+    ["--target-descriptor", "targetDescriptor"],
+    ["--target-descriptor-sha256", "targetDescriptorDigest"],
+    ["--target-root", "targetRoot"],
+    ["--out", "out"],
+  ]);
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (names.has(arg)) {
+      options[names.get(arg)] = args[index + 1] ?? null;
+      index += 1;
+    } else if (arg === "--json") {
+      options.json = true;
+    } else {
+      throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+    }
+  }
+  for (const [flag, key] of names) requireOptionValue(options[key], flag);
+  for (const key of [
+    "archive", "blueprint", "buildContract", "planApproval",
+    "targetCarrierAdmission", "targetDescriptor", "targetRoot", "out",
+  ]) {
+    options[key] = resolve(options[key]);
+  }
+  return options;
+}
+
+function parseOpenClawInstallGenesisArgs(args) {
+  const options = {
+    archive: null,
+    archiveDigest: null,
+    blueprint: null,
+    blueprintDigest: null,
+    buildContract: null,
+    buildContractDigest: null,
+    planApproval: null,
+    planApprovalDigest: null,
+    targetCarrierAdmission: null,
+    targetCarrierAdmissionDigest: null,
+    targetDescriptor: null,
+    targetDescriptorDigest: null,
+    probe: null,
+    probeDigest: null,
+    request: null,
+    requestDigest: null,
+    targetRoot: null,
+    fsHelper: null,
+    fsHelperReceipt: null,
+    fsHelperReceiptDigest: null,
+    out: null,
+    json: false,
+  };
+  parseClosedLifecycleArgs(args, options, new Map([
+    ["--archive", "archive"],
+    ["--archive-sha256", "archiveDigest"],
+    ["--blueprint", "blueprint"],
+    ["--blueprint-sha256", "blueprintDigest"],
+    ["--build-contract", "buildContract"],
+    ["--build-contract-sha256", "buildContractDigest"],
+    ["--plan-approval", "planApproval"],
+    ["--plan-approval-sha256", "planApprovalDigest"],
+    ["--target-carrier-admission", "targetCarrierAdmission"],
+    ["--target-carrier-admission-sha256", "targetCarrierAdmissionDigest"],
+    ["--target-descriptor", "targetDescriptor"],
+    ["--target-descriptor-sha256", "targetDescriptorDigest"],
+    ["--probe", "probe"],
+    ["--probe-sha256", "probeDigest"],
+    ["--request", "request"],
+    ["--request-sha256", "requestDigest"],
+    ["--target-root", "targetRoot"],
+    ["--fs-helper", "fsHelper"],
+    ["--fs-helper-receipt", "fsHelperReceipt"],
+    ["--fs-helper-receipt-digest", "fsHelperReceiptDigest"],
+    ["--out", "out"],
+  ]));
+  for (const [key, flag] of [
+    ["archive", "--archive"],
+    ["archiveDigest", "--archive-sha256"],
+    ["blueprint", "--blueprint"],
+    ["blueprintDigest", "--blueprint-sha256"],
+    ["buildContract", "--build-contract"],
+    ["buildContractDigest", "--build-contract-sha256"],
+    ["planApproval", "--plan-approval"],
+    ["planApprovalDigest", "--plan-approval-sha256"],
+    ["targetCarrierAdmission", "--target-carrier-admission"],
+    ["targetCarrierAdmissionDigest", "--target-carrier-admission-sha256"],
+    ["targetDescriptor", "--target-descriptor"],
+    ["targetDescriptorDigest", "--target-descriptor-sha256"],
+    ["probe", "--probe"],
+    ["probeDigest", "--probe-sha256"],
+    ["request", "--request"],
+    ["requestDigest", "--request-sha256"],
+    ["targetRoot", "--target-root"],
+    ["fsHelper", "--fs-helper"],
+    ["fsHelperReceipt", "--fs-helper-receipt"],
+    ["fsHelperReceiptDigest", "--fs-helper-receipt-digest"],
+    ["out", "--out"],
+  ]) requireOptionValue(options[key], flag);
+  for (const key of [
+    "archive",
+    "blueprint",
+    "buildContract",
+    "planApproval",
+    "targetCarrierAdmission",
+    "targetDescriptor",
+    "probe",
+    "request",
+    "targetRoot",
+    "fsHelper",
+    "fsHelperReceipt",
+    "out",
+  ]) options[key] = resolve(options[key]);
+  return options;
+}
+
+function parseOpenClawInstallPreviewArgs(args) {
+  const options = {
+    lifecycle: null,
+    archive: null,
+    archiveDigest: null,
+    blueprint: null,
+    blueprintDigest: null,
+    buildContract: null,
+    buildContractDigest: null,
+    planApproval: null,
+    planApprovalDigest: null,
+    targetCarrierAdmission: null,
+    targetCarrierAdmissionDigest: null,
+    targetDescriptor: null,
+    targetDescriptorDigest: null,
+    probe: null,
+    probeDigest: null,
+    request: null,
+    requestDigest: null,
+    targetRoot: null,
+    fsHelper: null,
+    fsHelperReceipt: null,
+    fsHelperReceiptDigest: null,
+    authorityRootBinding: null,
+    authorityRootBindingDigest: null,
+    absentGenesis: null,
+    absentGenesisDigest: null,
+    currentReceipt: null,
+    currentReceiptDigest: null,
+    currentReceiptCompanionArgs: emptyReceiptCompanionArgs(),
+    predecessorReceipt: null,
+    predecessorReceiptDigest: null,
+    predecessorReceiptCompanionArgs: emptyReceiptCompanionArgs(),
+    predecessorArchive: null,
+    predecessorArchiveDigest: null,
+    out: null,
+    json: false,
+  };
+  const names = new Map([
+    ["--lifecycle", "lifecycle"],
+    ["--archive", "archive"],
+    ["--archive-sha256", "archiveDigest"],
+    ["--blueprint", "blueprint"],
+    ["--blueprint-sha256", "blueprintDigest"],
+    ["--build-contract", "buildContract"],
+    ["--build-contract-sha256", "buildContractDigest"],
+    ["--plan-approval", "planApproval"],
+    ["--plan-approval-sha256", "planApprovalDigest"],
+    ["--target-carrier-admission", "targetCarrierAdmission"],
+    ["--target-carrier-admission-sha256", "targetCarrierAdmissionDigest"],
+    ["--target-descriptor", "targetDescriptor"],
+    ["--target-descriptor-sha256", "targetDescriptorDigest"],
+    ["--probe", "probe"],
+    ["--probe-sha256", "probeDigest"],
+    ["--request", "request"],
+    ["--request-sha256", "requestDigest"],
+    ["--target-root", "targetRoot"],
+    ["--fs-helper", "fsHelper"],
+    ["--fs-helper-receipt", "fsHelperReceipt"],
+    ["--fs-helper-receipt-digest", "fsHelperReceiptDigest"],
+    ["--authority-root-binding", "authorityRootBinding"],
+    ["--authority-root-binding-sha256", "authorityRootBindingDigest"],
+    ["--absent-genesis", "absentGenesis"],
+    ["--absent-genesis-sha256", "absentGenesisDigest"],
+    ["--current-receipt", "currentReceipt"],
+    ["--current-receipt-sha256", "currentReceiptDigest"],
+    ["--predecessor-receipt", "predecessorReceipt"],
+    ["--predecessor-receipt-sha256", "predecessorReceiptDigest"],
+    ["--predecessor-archive", "predecessorArchive"],
+    ["--predecessor-archive-sha256", "predecessorArchiveDigest"],
+    ["--out", "out"],
+  ]);
+  parseClosedLifecycleArgs(args, options, names);
+  if (!["install", "upgrade", "rollback", "uninstall"].includes(
+    options.lifecycle,
+  )) {
+    throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+  }
+  for (const [key, flag] of [
+    ["archive", "--archive"],
+    ["archiveDigest", "--archive-sha256"],
+    ["blueprint", "--blueprint"],
+    ["blueprintDigest", "--blueprint-sha256"],
+    ["buildContract", "--build-contract"],
+    ["buildContractDigest", "--build-contract-sha256"],
+    ["planApproval", "--plan-approval"],
+    ["planApprovalDigest", "--plan-approval-sha256"],
+    ["targetCarrierAdmission", "--target-carrier-admission"],
+    ["targetCarrierAdmissionDigest", "--target-carrier-admission-sha256"],
+    ["targetDescriptor", "--target-descriptor"],
+    ["targetDescriptorDigest", "--target-descriptor-sha256"],
+    ["probe", "--probe"],
+    ["probeDigest", "--probe-sha256"],
+    ["request", "--request"],
+    ["requestDigest", "--request-sha256"],
+    ["targetRoot", "--target-root"],
+    ["fsHelper", "--fs-helper"],
+    ["fsHelperReceipt", "--fs-helper-receipt"],
+    ["fsHelperReceiptDigest", "--fs-helper-receipt-digest"],
+    ["authorityRootBinding", "--authority-root-binding"],
+    ["authorityRootBindingDigest", "--authority-root-binding-sha256"],
+    ["out", "--out"],
+  ]) requireOptionValue(options[key], flag);
+  const absent = options.absentGenesis !== null
+    && options.absentGenesisDigest !== null;
+  const current = options.currentReceipt !== null
+    && options.currentReceiptDigest !== null;
+  const predecessor = options.predecessorReceipt !== null
+    && options.predecessorReceiptDigest !== null
+    && options.predecessorArchive !== null
+    && options.predecessorArchiveDigest !== null;
+  const hasPartialMate = [
+    ["absentGenesis", "absentGenesisDigest"],
+    ["currentReceipt", "currentReceiptDigest"],
+    ["predecessorReceipt", "predecessorReceiptDigest"],
+    ["predecessorArchive", "predecessorArchiveDigest"],
+  ].some(([left, right]) => (
+    (options[left] === null) !== (options[right] === null)
+  ));
+  if (hasPartialMate
+    || (options.lifecycle === "install" && (!absent || current || predecessor))
+    || (["upgrade", "uninstall"].includes(options.lifecycle)
+      && (!current || absent || predecessor))
+    || (options.lifecycle === "rollback"
+      && (!current || !predecessor || absent))) {
+    throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+  }
+  options.currentReceiptCompanions = finalizeReceiptCompanionArgs(
+    options.currentReceiptCompanionArgs,
+    current,
+  );
+  options.predecessorReceiptCompanions = finalizeReceiptCompanionArgs(
+    options.predecessorReceiptCompanionArgs,
+    options.predecessorReceipt !== null,
+  );
+  delete options.currentReceiptCompanionArgs;
+  delete options.predecessorReceiptCompanionArgs;
+  for (const key of [
+    "archive",
+    "blueprint",
+    "buildContract",
+    "planApproval",
+    "targetCarrierAdmission",
+    "targetDescriptor",
+    "probe",
+    "request",
+    "targetRoot",
+    "fsHelper",
+    "fsHelperReceipt",
+    "authorityRootBinding",
+    "absentGenesis",
+    "currentReceipt",
+    "predecessorReceipt",
+    "predecessorArchive",
+    "out",
+  ]) {
+    if (options[key] !== null) options[key] = resolve(options[key]);
+  }
+  return options;
+}
+
+function parseOpenClawInstallApproveArgs(args) {
+  const options = {
+    plan: null,
+    planDigest: null,
+    request: null,
+    requestDigest: null,
+    ordinaryOut: null,
+    sensitiveOutputs: [],
+    conflictOut: null,
+    json: false,
+  };
+  const names = new Map([
+    ["--plan", "plan"],
+    ["--plan-sha256", "planDigest"],
+    ["--request", "request"],
+    ["--request-sha256", "requestDigest"],
+    ["--ordinary-out", "ordinaryOut"],
+    ["--conflict-out", "conflictOut"],
+  ]);
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (names.has(arg)) {
+      const key = names.get(arg);
+      if (options[key] !== null) throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+      options[key] = requireLifecycleValue(args[index + 1]);
+      index += 1;
+    } else if (arg === "--sensitive-out") {
+      options.sensitiveOutputs.push(requireLifecycleValue(args[index + 1]));
+      index += 1;
+    } else if (arg === "--json") {
+      options.json = true;
+    } else {
+      throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+    }
+  }
+  for (const [key, flag] of [
+    ["plan", "--plan"],
+    ["planDigest", "--plan-sha256"],
+    ["request", "--request"],
+    ["requestDigest", "--request-sha256"],
+    ["ordinaryOut", "--ordinary-out"],
+    ["conflictOut", "--conflict-out"],
+  ]) requireOptionValue(options[key], flag);
+  if (options.sensitiveOutputs.length === 0
+    || new Set([
+      options.ordinaryOut,
+      ...options.sensitiveOutputs,
+      options.conflictOut,
+    ]).size !== options.sensitiveOutputs.length + 2) {
+    throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+  }
+  for (const key of ["plan", "request", "ordinaryOut", "conflictOut"]) {
+    options[key] = resolve(options[key]);
+  }
+  options.sensitiveOutputs = options.sensitiveOutputs.map((value) => resolve(value));
+  return options;
+}
+
+function parseOpenClawFsKernelBuildArgs(args) {
+  const options = {
+    binaryOut: null,
+    receiptOut: null,
+    json: false,
+  };
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--binary-out" || arg === "--receipt-out") {
+      const key = arg === "--binary-out" ? "binaryOut" : "receiptOut";
+      if (options[key] !== null) throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+      options[key] = requireLifecycleValue(args[index + 1]);
+      index += 1;
+    } else if (arg === "--json") {
+      options.json = true;
+    } else {
+      throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+    }
+  }
+  requireOptionValue(options.binaryOut, "--binary-out");
+  requireOptionValue(options.receiptOut, "--receipt-out");
+  options.binaryOut = resolve(options.binaryOut);
+  options.receiptOut = resolve(options.receiptOut);
+  if (options.binaryOut === options.receiptOut) {
+    throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+  }
+  return options;
+}
+
+function parseOpenClawInstallApplyArgs(args) {
+  const options = {
+    lifecycle: null,
+    blueprint: null,
+    blueprintDigest: null,
+    buildContract: null,
+    buildContractDigest: null,
+    planApproval: null,
+    planApprovalDigest: null,
+    targetDescriptor: null,
+    targetDescriptorDigest: null,
+    targetCarrierAdmission: null,
+    targetCarrierAdmissionDigest: null,
+    archive: null,
+    archiveDigest: null,
+    probe: null,
+    probeDigest: null,
+    installPlan: null,
+    installPlanDigest: null,
+    ordinaryApproval: null,
+    ordinaryApprovalDigest: null,
+    sensitiveDecisionPaths: [],
+    sensitiveDecisionDigests: [],
+    conflictApproval: null,
+    conflictApprovalDigest: null,
+    absentGenesis: null,
+    absentGenesisDigest: null,
+    currentReceipt: null,
+    currentReceiptDigest: null,
+    currentReceiptCompanionArgs: emptyReceiptCompanionArgs(),
+    predecessorReceipt: null,
+    predecessorReceiptDigest: null,
+    predecessorReceiptCompanionArgs: emptyReceiptCompanionArgs(),
+    predecessorArchive: null,
+    predecessorArchiveDigest: null,
+    openClawTargetRoot: null,
+    targetRoot: null,
+    out: null,
+    fsHelper: null,
+    fsHelperReceipt: null,
+    fsHelperReceiptDigest: null,
+    authorityRootBinding: null,
+    authorityRootBindingDigest: null,
+    attemptId: null,
+    json: false,
+  };
+  const names = new Map([
+    ["--lifecycle", "lifecycle"],
+    ["--blueprint", "blueprint"],
+    ["--blueprint-sha256", "blueprintDigest"],
+    ["--build-contract", "buildContract"],
+    ["--build-contract-sha256", "buildContractDigest"],
+    ["--plan-approval", "planApproval"],
+    ["--plan-approval-sha256", "planApprovalDigest"],
+    ["--target-descriptor", "targetDescriptor"],
+    ["--target-descriptor-sha256", "targetDescriptorDigest"],
+    ["--target-carrier-admission", "targetCarrierAdmission"],
+    ["--target-carrier-admission-sha256", "targetCarrierAdmissionDigest"],
+    ["--archive", "archive"],
+    ["--archive-sha256", "archiveDigest"],
+    ["--probe", "probe"],
+    ["--probe-sha256", "probeDigest"],
+    ["--install-plan", "installPlan"],
+    ["--install-plan-sha256", "installPlanDigest"],
+    ["--ordinary-approval", "ordinaryApproval"],
+    ["--ordinary-approval-sha256", "ordinaryApprovalDigest"],
+    ["--conflict-approval", "conflictApproval"],
+    ["--conflict-approval-sha256", "conflictApprovalDigest"],
+    ["--absent-genesis", "absentGenesis"],
+    ["--absent-genesis-sha256", "absentGenesisDigest"],
+    ["--current-receipt", "currentReceipt"],
+    ["--current-receipt-sha256", "currentReceiptDigest"],
+    ["--predecessor-receipt", "predecessorReceipt"],
+    ["--predecessor-receipt-sha256", "predecessorReceiptDigest"],
+    ["--predecessor-archive", "predecessorArchive"],
+    ["--predecessor-archive-sha256", "predecessorArchiveDigest"],
+    ["--openclaw-target-root", "openClawTargetRoot"],
+    ["--target-root", "targetRoot"],
+    ["--out", "out"],
+    ["--fs-helper", "fsHelper"],
+    ["--fs-helper-receipt", "fsHelperReceipt"],
+    ["--fs-helper-receipt-digest", "fsHelperReceiptDigest"],
+    ["--authority-root-binding", "authorityRootBinding"],
+    ["--authority-root-binding-sha256", "authorityRootBindingDigest"],
+    ["--attempt-id", "attemptId"],
+  ]);
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    const companionFlag = parseReceiptCompanionFlag(arg);
+    if (companionFlag !== null) {
+      const bucket = companionFlag.prefix === "current"
+        ? options.currentReceiptCompanionArgs
+        : options.predecessorReceiptCompanionArgs;
+      const value = requireLifecycleValue(args[index + 1]);
+      if (companionFlag.repeatable) {
+        bucket[companionFlag.digest ? "sensitiveDigests" : "sensitivePaths"]
+          .push(value);
+      } else {
+        const field = `${companionFlag.key}${companionFlag.digest ? "Digest" : "Path"}`;
+        if (bucket[field] !== null) {
+          throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+        }
+        bucket[field] = value;
+      }
+      index += 1;
+    } else if (names.has(arg)) {
+      const key = names.get(arg);
+      if (options[key] !== null) throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+      options[key] = requireLifecycleValue(args[index + 1]);
+      index += 1;
+    } else if (arg === "--sensitive-decision") {
+      options.sensitiveDecisionPaths.push(requireLifecycleValue(args[index + 1]));
+      index += 1;
+    } else if (arg === "--sensitive-decision-sha256") {
+      options.sensitiveDecisionDigests.push(
+        requireLifecycleValue(args[index + 1]),
+      );
+      index += 1;
+    } else if (arg === "--json") {
+      options.json = true;
+    } else {
+      throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+    }
+  }
+  if (!["install", "upgrade", "rollback", "uninstall"].includes(options.lifecycle)) {
+    throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+  }
+  for (const [key, flag] of [
+    ["blueprint", "--blueprint"],
+    ["blueprintDigest", "--blueprint-sha256"],
+    ["buildContract", "--build-contract"],
+    ["buildContractDigest", "--build-contract-sha256"],
+    ["planApproval", "--plan-approval"],
+    ["planApprovalDigest", "--plan-approval-sha256"],
+    ["targetDescriptor", "--target-descriptor"],
+    ["targetDescriptorDigest", "--target-descriptor-sha256"],
+    ["targetCarrierAdmission", "--target-carrier-admission"],
+    ["targetCarrierAdmissionDigest", "--target-carrier-admission-sha256"],
+    ["archive", "--archive"],
+    ["archiveDigest", "--archive-sha256"],
+    ["probe", "--probe"],
+    ["probeDigest", "--probe-sha256"],
+    ["installPlan", "--install-plan"],
+    ["installPlanDigest", "--install-plan-sha256"],
+    ["ordinaryApproval", "--ordinary-approval"],
+    ["ordinaryApprovalDigest", "--ordinary-approval-sha256"],
+    ["conflictApproval", "--conflict-approval"],
+    ["conflictApprovalDigest", "--conflict-approval-sha256"],
+    ["openClawTargetRoot", "--openclaw-target-root"],
+    ["targetRoot", "--target-root"],
+    ["out", "--out"],
+    ["fsHelper", "--fs-helper"],
+    ["fsHelperReceipt", "--fs-helper-receipt"],
+    ["fsHelperReceiptDigest", "--fs-helper-receipt-digest"],
+    ["authorityRootBinding", "--authority-root-binding"],
+    ["authorityRootBindingDigest", "--authority-root-binding-sha256"],
+    ["attemptId", "--attempt-id"],
+  ]) requireOptionValue(options[key], flag);
+  if (options.sensitiveDecisionPaths.length
+      !== options.sensitiveDecisionDigests.length
+    || new Set(options.sensitiveDecisionPaths).size
+      !== options.sensitiveDecisionPaths.length) {
+    throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+  }
+  const pairs = [
+    ["conflictApproval", "conflictApprovalDigest"],
+    ["absentGenesis", "absentGenesisDigest"],
+    ["currentReceipt", "currentReceiptDigest"],
+    ["predecessorReceipt", "predecessorReceiptDigest"],
+    ["predecessorArchive", "predecessorArchiveDigest"],
+  ];
+  if (pairs.some(([left, right]) => (
+    (options[left] === null) !== (options[right] === null)
+  ))) {
+    throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+  }
+  const absent = options.absentGenesis !== null;
+  const current = options.currentReceipt !== null;
+  const predecessor = options.predecessorReceipt !== null
+    && options.predecessorArchive !== null;
+  if ((options.lifecycle === "install" && (!absent || current || predecessor))
+    || (["upgrade", "uninstall"].includes(options.lifecycle)
+      && (!current || absent || predecessor))
+    || (options.lifecycle === "rollback"
+      && (!current || !predecessor || absent))) {
+    throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+  }
+  options.currentReceiptCompanions = finalizeReceiptCompanionArgs(
+    options.currentReceiptCompanionArgs,
+    current,
+  );
+  options.predecessorReceiptCompanions = finalizeReceiptCompanionArgs(
+    options.predecessorReceiptCompanionArgs,
+    options.predecessorReceipt !== null,
+  );
+  delete options.currentReceiptCompanionArgs;
+  delete options.predecessorReceiptCompanionArgs;
+  for (const key of [
+    "blueprint",
+    "buildContract",
+    "planApproval",
+    "targetDescriptor",
+    "targetCarrierAdmission",
+    "archive",
+    "probe",
+    "installPlan",
+    "ordinaryApproval",
+    "conflictApproval",
+    "absentGenesis",
+    "currentReceipt",
+    "predecessorReceipt",
+    "predecessorArchive",
+    "openClawTargetRoot",
+    "targetRoot",
+    "out",
+    "fsHelper",
+    "fsHelperReceipt",
+    "authorityRootBinding",
+  ]) {
+    if (options[key] !== null) options[key] = resolve(options[key]);
+  }
+  options.sensitiveDecisions = options.sensitiveDecisionPaths.map(
+    (filePath, index) => ({
+      filePath: resolve(filePath),
+      digest: options.sensitiveDecisionDigests[index],
+    }),
+  );
+  return options;
+}
+
+async function derivePublicOpenClawAuthorityStateRoot(
+  openClawTargetRoot,
+  targetDescriptorDigest,
+) {
+  const canonicalTargetRoot = await realpath(openClawTargetRoot);
+  return resolve(
+    dirname(canonicalTargetRoot),
+    `.agentmo-openclaw-authority-${
+      targetDescriptorDigest.slice("sha256:".length)
+    }`,
+  );
+}
+
+function emptyReceiptCompanionArgs() {
+  const value = {
+    sensitivePaths: [],
+    sensitiveDigests: [],
+  };
+  for (const key of [
+    "installPlan",
+    "ordinaryApproval",
+    "conflictApproval",
+    "journal",
+    "probe",
+    "targetDescriptor",
+    "packageManifest",
+    "targetCarrierAdmission",
+    "blueprint",
+    "buildContract",
+    "planApproval",
+  ]) {
+    value[`${key}Path`] = null;
+    value[`${key}Digest`] = null;
+  }
+  return value;
+}
+
+function parseReceiptCompanionFlag(flag) {
+  const match = /^--(current|predecessor)-receipt-companion-(install-plan|ordinary-approval|sensitive-decision|conflict-approval|journal|probe|target-descriptor|package-manifest|target-carrier-admission|blueprint|build-contract|plan-approval)(-sha256)?$/u
+    .exec(flag);
+  if (!match) return null;
+  const keys = {
+    "install-plan": "installPlan",
+    "ordinary-approval": "ordinaryApproval",
+    "sensitive-decision": "sensitiveDecision",
+    "conflict-approval": "conflictApproval",
+    journal: "journal",
+    probe: "probe",
+    "target-descriptor": "targetDescriptor",
+    "package-manifest": "packageManifest",
+    "target-carrier-admission": "targetCarrierAdmission",
+    blueprint: "blueprint",
+    "build-contract": "buildContract",
+    "plan-approval": "planApproval",
+  };
+  return {
+    prefix: match[1],
+    key: keys[match[2]],
+    digest: match[3] === "-sha256",
+    repeatable: match[2] === "sensitive-decision",
+  };
+}
+
+function finalizeReceiptCompanionArgs(value, required) {
+  const any = value.sensitivePaths.length > 0
+    || value.sensitiveDigests.length > 0
+    || Object.entries(value).some(([key, item]) => (
+      !["sensitivePaths", "sensitiveDigests"].includes(key) && item !== null
+    ));
+  if (!required) {
+    if (any) throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+    return null;
+  }
+  if (value.sensitivePaths.length !== value.sensitiveDigests.length
+    || new Set(value.sensitivePaths).size !== value.sensitivePaths.length
+    || new Set(value.sensitiveDigests).size !== value.sensitiveDigests.length) {
+    throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+  }
+  const binding = (key) => {
+    const filePath = value[`${key}Path`];
+    const digest = value[`${key}Digest`];
+    if (filePath === null || digest === null) {
+      throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+    }
+    return { filePath: resolve(filePath), digest };
+  };
+  return {
+    installPlan: binding("installPlan"),
+    ordinaryApproval: binding("ordinaryApproval"),
+    sensitiveDecisions: value.sensitivePaths.map((filePath, index) => ({
+      filePath: resolve(filePath),
+      digest: value.sensitiveDigests[index],
+    })),
+    conflictApproval: binding("conflictApproval"),
+    journal: binding("journal"),
+    probe: binding("probe"),
+    targetDescriptor: binding("targetDescriptor"),
+    packageManifest: binding("packageManifest"),
+    targetCarrierAdmission: binding("targetCarrierAdmission"),
+    blueprint: binding("blueprint"),
+    buildContract: binding("buildContract"),
+    planApproval: binding("planApproval"),
+  };
+}
+
+function parseClosedLifecycleArgs(args, options, names) {
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    const companionFlag = parseReceiptCompanionFlag(arg);
+    if (companionFlag !== null
+      && options.currentReceiptCompanionArgs !== undefined
+      && options.predecessorReceiptCompanionArgs !== undefined) {
+      const bucket = companionFlag.prefix === "current"
+        ? options.currentReceiptCompanionArgs
+        : options.predecessorReceiptCompanionArgs;
+      const value = requireLifecycleValue(args[index + 1]);
+      if (companionFlag.repeatable) {
+        bucket[companionFlag.digest ? "sensitiveDigests" : "sensitivePaths"]
+          .push(value);
+      } else {
+        const field = `${companionFlag.key}${companionFlag.digest ? "Digest" : "Path"}`;
+        if (bucket[field] !== null) {
+          throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+        }
+        bucket[field] = value;
+      }
+      index += 1;
+    } else if (names.has(arg)) {
+      const key = names.get(arg);
+      if (options[key] !== null) throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+      options[key] = requireLifecycleValue(args[index + 1]);
+      index += 1;
+    } else if (arg === "--json") {
+      options.json = true;
+    } else {
+      throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+    }
+  }
+}
+
+function requireLifecycleValue(value) {
+  if (typeof value !== "string" || value.length === 0 || value.startsWith("--")
+    || value.includes("\0")) {
+    throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+  }
+  return value;
+}
+
+async function loadExactLifecycleJson(filePath, expectedDigest, validate) {
+  if (!/^sha256:[a-f0-9]{64}$/u.test(expectedDigest ?? "")) {
+    throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+  }
+  const bytes = await readBoundedNoFollowFile(filePath, 1024 * 1024);
+  if (digestRawBytes(bytes) !== expectedDigest) {
+    throw new ArtifactAdmissionError("AGENTMO_ARTIFACT_DIGEST_MISMATCH");
+  }
+  let value;
+  try {
+    const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    value = JSON.parse(text);
+    if (serializePersistableJson(value, { subject: "openclaw-lifecycle-input" })
+      !== text) {
+      throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+    }
+  } catch (error) {
+    if (error?.code) throw error;
+    throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+  }
+  const result = validate(value);
+  if (result?.ok !== true) throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+  return value;
+}
+
+async function loadExactOpenClawProbe(options, archive) {
+  const blueprint = await loadAdmittedArtifact({
+    filePath: options.blueprint,
+    subject: "blueprint",
+    expectedDigest: options.blueprintDigest,
+  });
+  const buildContract = await loadAdmittedArtifact({
+    filePath: options.buildContract,
+    subject: "build-contract",
+    expectedDigest: options.buildContractDigest,
+  });
+  const planApproval = await loadAdmittedArtifact({
+    filePath: options.planApproval,
+    subject: "plan-approval",
+    expectedDigest: options.planApprovalDigest,
+  });
+  const targetDescriptor = await loadAdmittedArtifact({
+    filePath: options.targetDescriptor,
+    subject: "openclaw-target-descriptor",
+    expectedDigest: options.targetDescriptorDigest,
+  });
+  const targetCarrierAdmission = await loadAdmittedArtifact({
+    filePath: options.targetCarrierAdmission,
+    subject: "openclaw-target-carrier-admission",
+    expectedDigest: options.targetCarrierAdmissionDigest,
+    companions: {
+      blueprint,
+      "build-contract": buildContract,
+      "plan-approval": planApproval,
+      "openclaw-target-descriptor": targetDescriptor,
+    },
+  });
+  return (await loadAdmittedArtifact({
+    filePath: options.probe,
+    subject: "openclaw-probe",
+    expectedDigest: options.probeDigest,
+    companions: {
+      "package-manifest": archive.manifest,
+      "openclaw-target-carrier-admission": targetCarrierAdmission,
+      "openclaw-target-descriptor": targetDescriptor,
+    },
+  })).value;
+}
+
+function assertLifecycleTargetMatchesProbe(target, probe) {
+  if (target?.targetId !== "openclaw"
+    || target.targetVersion !== probe?.target?.version
+    || target.targetRevision !== probe?.target?.sourceRevision
+    || target.probeFingerprintDigest !== probe?.fingerprintDigest
+    || !["project", "user"].includes(target.scope)
+    || typeof target.projectId !== "string"
+    || target.projectId.length === 0) {
+    throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+  }
+}
+
+async function loadLifecycleBasis(options) {
+  if (options.lifecycle === "install") {
+    const genesis = await loadAdmittedArtifact({
+      filePath: options.absentGenesis,
+      subject: "openclaw-absent-genesis",
+      expectedDigest: options.absentGenesisDigest,
+    });
+    return { absentGenesis: genesis.value };
+  }
+  const current = await admitOpenClawInstallReceiptWithCompanions(
+    options.currentReceipt,
+    options.currentReceiptDigest,
+    options.currentReceiptCompanions,
+  );
+  if (options.lifecycle !== "rollback") {
+    return { currentReceipt: lifecycleReceiptAuthority(current) };
+  }
+  const selected = await admitOpenClawInstallReceiptWithCompanions(
+    options.predecessorReceipt,
+    options.predecessorReceiptDigest,
+    options.predecessorReceiptCompanions,
+  );
+  const selectedInventory = await readPackageArchiveInventory({
+    archivePath: options.predecessorArchive,
+    expectedArchiveDigest: options.predecessorArchiveDigest,
+  });
+  const selectedArchiveBinding = {
+    archiveSha256: options.predecessorArchiveDigest,
+    ...selectedInventory,
+  };
+  if (serializePersistableJson(selected.value.authorityLedger.archive, {
+    subject: "openclaw-selected-receipt-archive",
+  }) !== serializePersistableJson(selectedArchiveBinding, {
+    subject: "openclaw-selected-receipt-archive",
+  })) {
+    throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+  }
+  return {
+    currentReceipt: lifecycleReceiptAuthority(current),
+    selectedPredecessorReceipt: lifecycleReceiptAuthority(selected),
+    selectedPredecessorArchiveBinding: selectedArchiveBinding,
+  };
+}
+
+function lifecycleReceiptAuthority(admission) {
+  const receipt = admission.value;
+  const operationSetDigest = digestRawBytes(Buffer.from(
+    serializePersistableJson(receipt.managedResults, {
+      subject: "openclaw-receipt-operation-set",
+    }),
+    "utf8",
+  ));
+  const ownershipDigest = digestRawBytes(Buffer.from(
+    serializePersistableJson(receipt.managedResults.map((operation) => ({
+      path: operation.path,
+      ownerMarker: operation.ownerMarker,
+      beforeFileIdentity: operation.beforeFileIdentity,
+      beforeParentIdentity: operation.beforeParentIdentity,
+    })), { subject: "openclaw-receipt-ownership" }),
+    "utf8",
+  ));
+  return {
+    schemaVersion: "agentmo.openclaw-install-receipt-authority.v1",
+    receiptDigest: admission.digest,
+    lifecycle: receipt.lifecycle,
+    targetId: receipt.authorityLedger.target.targetId,
+    scope: receipt.authorityLedger.target.scope,
+    archiveBinding: receipt.authorityLedger.archive,
+    operationSetDigest,
+    ownershipDigest,
+    authorityId: receipt.postEffectEvidence.postState.authorityId,
+    rootIdentity: receipt.postEffectEvidence.postState.rootIdentity,
+  };
+}
+
+function formatOpenClawProbe(value) {
+  return [
+    "AgentMo OpenClaw capability probe",
+    `Status: ${value.status}`,
+    `Fingerprint: ${value.fingerprintDigest}`,
+    "Certification: bounded observation only",
+  ].join("\n") + "\n";
+}
+
+function artifactBinding(filePath, expectedDigest) {
+  return { filePath, expectedDigest };
+}
+
+function parsePlanApproveArgs(args) {
+  const file = args[0];
+  if (!file) throw new Error("Missing blueprint file path.");
+  let buildContract = null;
+  let approve = false;
+  let previewDigest = null;
+  let out = null;
+  let json = false;
+  const digestBindings = [];
+  for (let index = 1; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--build-contract") {
+      buildContract = args[index + 1];
+      index += 1;
+    } else if (arg === "--approve") {
+      approve = true;
+    } else if (arg === "--preview-digest") {
+      previewDigest = args[index + 1];
+      index += 1;
+    } else if (arg === "--out") {
+      out = args[index + 1];
+      index += 1;
+    } else if (arg === "--digest") {
+      digestBindings.push(requireDigestBinding(args[index + 1]));
+      index += 1;
+    } else if (arg === "--json") {
+      json = true;
+    } else {
+      throw new Error(`Unknown plan-approve option: ${arg}`);
+    }
+  }
+  requireOptionValue(buildContract, "--build-contract");
+  if (approve) {
+    requireOptionValue(previewDigest, "--preview-digest");
+    requireOptionValue(out, "--out");
+  } else if (previewDigest !== null || out !== null) {
+    throw new Error("Approval output requires explicit --approve.");
+  }
+  const digests = parseDigestBindings(digestBindings, subjectsForCommand("plan-approve"));
+  return {
+    file: resolve(file),
+    buildContract: resolve(buildContract),
+    approve,
+    previewDigest,
+    out: out === null ? null : resolve(out),
+    json,
+    digests,
+  };
+}
+
 function parseArtifactContractArgs(args) {
   const subject = args[0];
   let json = false;
@@ -2301,18 +4570,170 @@ function parseArtifactContractArgs(args) {
   return { subject, json };
 }
 
+function parseDiscoveryApproveArgs(args) {
+  const file = args[0];
+  if (!file) throw new Error("Missing discovery manifest file path.");
+  let discoveryDb = null;
+  let approve = false;
+  let previewDigest = null;
+  let out = null;
+  let json = false;
+  const digestBindings = [];
+  for (let index = 1; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--discovery-db") {
+      discoveryDb = args[index + 1];
+      index += 1;
+    } else if (arg === "--approve") {
+      approve = true;
+    } else if (arg === "--preview-digest") {
+      previewDigest = args[index + 1];
+      index += 1;
+    } else if (arg === "--out") {
+      out = args[index + 1];
+      index += 1;
+    } else if (arg === "--digest") {
+      const binding = args[index + 1];
+      if (typeof binding !== "string" || binding.startsWith("--")) {
+        throw new ArtifactAdmissionError("AGENTMO_ARTIFACT_DIGEST_INVALID");
+      }
+      digestBindings.push(binding);
+      index += 1;
+    } else if (arg === "--json") {
+      json = true;
+    } else {
+      throw new Error(`Unknown discovery-approve option: ${arg}`);
+    }
+  }
+  requireOptionValue(discoveryDb, "--discovery-db");
+  if (approve) {
+    requireOptionValue(previewDigest, "--preview-digest");
+    requireOptionValue(out, "--out");
+  } else if (previewDigest !== null || out !== null) {
+    throw new Error("Approval output requires explicit --approve.");
+  }
+  const digests = parseDigestBindings(
+    digestBindings,
+    subjectsForCommand("discovery-approve"),
+  );
+  return {
+    file: resolve(file),
+    discoveryDb: resolve(discoveryDb),
+    approve,
+    previewDigest,
+    out: out === null ? null : resolve(out),
+    json,
+    digests,
+  };
+}
+
+function parseDecisionLedgerArgs(args) {
+  const action = args[0];
+  if (!["inspect", "append"].includes(action)) {
+    throw new Error("decision-ledger action must be inspect or append.");
+  }
+  let journal = null;
+  let entry = null;
+  let expectedHeadDigest;
+  let json = false;
+  const digestBindings = [];
+  for (let index = 1; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--journal") {
+      journal = args[index + 1];
+      index += 1;
+    } else if (arg === "--entry") {
+      entry = args[index + 1];
+      index += 1;
+    } else if (arg === "--expected-head-digest") {
+      expectedHeadDigest = args[index + 1];
+      index += 1;
+    } else if (arg === "--digest") {
+      digestBindings.push(requireDigestBinding(args[index + 1]));
+      index += 1;
+    } else if (arg === "--json") {
+      json = true;
+    } else {
+      throw new Error(`Unknown decision-ledger option: ${arg}`);
+    }
+  }
+  requireOptionValue(journal, "--journal");
+  if (action === "inspect") {
+    if (entry !== null || expectedHeadDigest !== undefined) {
+      throw new Error("decision-ledger inspect is read-only.");
+    }
+    const digests = parseDigestBindings(digestBindings, ["decision-ledger"]);
+    return { action, journal: resolve(journal), json, digests };
+  }
+  requireOptionValue(entry, "--entry");
+  if (expectedHeadDigest !== undefined) {
+    requireOptionValue(expectedHeadDigest, "--expected-head-digest");
+  }
+  const digests = parseDigestBindings(digestBindings, subjectsForCommand("decision-ledger"));
+  return {
+    action,
+    journal: resolve(journal),
+    entry: resolve(entry),
+    expectedHeadDigest,
+    json,
+    digests,
+  };
+}
+
+function decisionLedgerSummary(ledger) {
+  return {
+    schemaVersion: "agentmo.decision-ledger-summary.v1",
+    identity: ledger.schemaVersion,
+    entryCount: ledger.entries.length,
+    head: ledger.head,
+    recoveryRequired: ledger.recoveryRequired,
+    entries: ledger.entries.map((entry) => ({
+      entryId: entry.entryId,
+      entryKind: entry.entryKind,
+      sequence: entry.sequence,
+      predecessorDigest: entry.predecessorDigest,
+      valueDigest: entry.valueDigest,
+      sourceRefs: entry.sourceRefs,
+      decisionRefs: entry.decisionRefs,
+      requirementRefs: entry.requirementRefs,
+    })),
+  };
+}
+
+function formatDecisionLedgerSummary(summary) {
+  return [
+    `AgentMo decision ledger: ${summary.identity}`,
+    `Entries: ${summary.entryCount}`,
+    `Head: ${summary.head?.digest ?? "empty"}`,
+    `Recovery required: ${summary.recoveryRequired ? "yes" : "no"}`,
+    "",
+  ].join("\n");
+}
+
 function parseDesignPlanArgs(args) {
   const file = args[0];
   if (!file) throw new Error("Missing discovery-db file path.");
   let need = null;
+  let manifest = null;
+  let discoveryApproval = null;
+  let decisionLedger = null;
   let out = null;
   let target = "openclaw";
   let json = false;
   const digestBindings = [];
   for (let index = 1; index < args.length; index += 1) {
     const arg = args[index];
-    if (arg === "--need") {
+    if (arg === "--manifest") {
+      manifest = args[index + 1];
+      index += 1;
+    } else if (arg === "--discovery-approval") {
+      discoveryApproval = args[index + 1];
+      index += 1;
+    } else if (arg === "--need") {
       need = args[index + 1];
+      index += 1;
+    } else if (arg === "--decision-ledger") {
+      decisionLedger = args[index + 1];
       index += 1;
     } else if (arg === "--out") {
       out = args[index + 1];
@@ -2333,11 +4754,24 @@ function parseDesignPlanArgs(args) {
       throw new Error(`Unknown design-plan option: ${arg}`);
     }
   }
+  requireOptionValue(manifest, "--manifest");
+  requireOptionValue(discoveryApproval, "--discovery-approval");
   requireOptionValue(need, "--need");
+  requireOptionValue(decisionLedger, "--decision-ledger");
   requireOptionValue(out, "--out");
   assertKnownTarget(target, "design-plan target");
   const digests = parseDigestBindings(digestBindings, subjectsForCommand("design-plan"));
-  return { file: resolve(file), need: resolve(need), out: resolve(out), target, json, digests };
+  return {
+    file: resolve(file),
+    manifest: resolve(manifest),
+    discoveryApproval: resolve(discoveryApproval),
+    need: resolve(need),
+    decisionLedger: resolve(decisionLedger),
+    out: resolve(out),
+    target,
+    json,
+    digests,
+  };
 }
 
 function parseHandoffArgs(args) {
@@ -3527,6 +5961,20 @@ function formatBuildPlan(plan) {
   return `${lines.join("\n")}\n`;
 }
 
+function formatBuildContract(contract) {
+  return [
+    `AgentMo build contract: ${contract.agentId}`,
+    `Target: ${contract.targetRuntime.id}@${contract.targetRuntime.sourceRevision}`,
+    `Resources: ${contract.resources.length}`,
+    `Permissions: ${contract.permissions.length}`,
+    `Acceptance cases: ${contract.acceptanceCases.length}`,
+    `Evidence obligations: ${contract.evidenceObligations.length}`,
+    "Package built: no",
+    "Runtime certified: no",
+    "",
+  ].join("\n");
+}
+
 function formatRuntimePlan(plan) {
   const lines = [
     `AgentMo runtime plan: ${plan.agentId}`,
@@ -3626,15 +6074,32 @@ Usage:
   agentmo builder hook --checkpoint <checkpoint.json> --digest builder-checkpoint=sha256:<64hex> --event <event.json> --digest builder-event=sha256:<64hex> --out <checkpoint.json> [--json]
   agentmo migrate <input-0.json> [input-N.json ...] --digest migration-input-0=sha256:<64hex> [--digest migration-input-N=sha256:<64hex> ...] [--out <new-dir>] [--json]
   agentmo runtime-check --target openclaw [--json]
-  agentmo artifact-contract discovery-manifest|user-need [--json]
+  agentmo artifact-contract decision-entry|discovery-manifest|openclaw-probe|openclaw-target-carrier-admission|openclaw-target-descriptor|package-manifest|user-need [--json]
   agentmo validate <blueprint.json> --digest blueprint=sha256:<64hex>
   agentmo report <blueprint.json> --digest blueprint=sha256:<64hex> [--discovery-manifest <discovery.json> --digest discovery-manifest=sha256:<64hex>] [--json]
   agentmo discover-report <discovery.json> --digest discovery-manifest=sha256:<64hex> [--json]
   agentmo discover-pack <discovery.json> --digest discovery-manifest=sha256:<64hex> --out <dir> [--json]
+  agentmo discover-live <discovery.json> --digest discovery-manifest=sha256:<64hex> --out <absent-dir> [--json]
   agentmo discover-workspace <discovery.json> --digest discovery-manifest=sha256:<64hex> --source-root <dir> --out <dir> [--json]
+  agentmo discovery-approve <discovery.json> --discovery-db <agentmo-discovery-db.json> --digest discovery-manifest=sha256:<64hex> --digest discovery-db=sha256:<64hex> [--approve --preview-digest sha256:<64hex> --out <approval.json>] [--json]
   agentmo need-report <need.json> --digest user-need=sha256:<64hex> [--json]
-  agentmo design-plan <agentmo-discovery-db.json> --need <need.json> --digest discovery-db=sha256:<64hex> --digest user-need=sha256:<64hex> --out <agentmo-design-plan.json> [--target agentmo|openclaw] [--json]
+  agentmo decision-ledger append --journal <ledger.json> --entry <decision-entry.json> --digest decision-entry=sha256:<64hex> [--expected-head-digest sha256:<64hex>] [--json]
+  agentmo decision-ledger inspect --journal <ledger.json> --digest decision-ledger=sha256:<64hex> [--json]
+  agentmo design-plan <agentmo-discovery-db.json> --manifest <discovery.json> --discovery-approval <approval.json> --need <need.json> --decision-ledger <ledger.json> --digest discovery-manifest=sha256:<64hex> --digest discovery-db=sha256:<64hex> --digest discovery-approval=sha256:<64hex> --digest user-need=sha256:<64hex> --digest decision-ledger=sha256:<64hex> --out <agentmo-design-plan.json> [--target agentmo|openclaw] [--json]
   agentmo blueprint-draft <agentmo-discovery-db.json> --need <need.json> --digest discovery-db=sha256:<64hex> --digest user-need=sha256:<64hex> [--design-plan <agentmo-design-plan.json> --digest design-plan=sha256:<64hex>] --out <blueprint.json> [--target agentmo|openclaw] [--json]
+  agentmo build-contract <blueprint.json> --design-plan <agentmo-design-plan.json> --discovery-approval <approval.json> --decision-ledger <ledger.json> --target-descriptor <descriptor.json> [--native-plugin-recipe <recipe.json> --digest native-plugin-recipe=sha256:<64hex>] --digest blueprint=sha256:<64hex> --digest design-plan=sha256:<64hex> --digest discovery-approval=sha256:<64hex> --digest decision-ledger=sha256:<64hex> --digest openclaw-target-descriptor=sha256:<64hex> --out <build-contract.json> --target openclaw [--json]
+  agentmo plan-approve <blueprint.json> --build-contract <build-contract.json> --digest blueprint=sha256:<64hex> --digest build-contract=sha256:<64hex> [--approve --preview-digest sha256:<64hex> --out <plan-approval.json>] [--json]
+  agentmo openclaw-target-describe --target-executable <file> --target-package-json <package.json> --target-build-info <build-info.json> --digest target-executable=sha256:<64hex> --digest target-package-json=sha256:<64hex> --digest target-build-info=sha256:<64hex> --fs-helper <absolute-helper> --fs-helper-receipt <receipt.json> --fs-helper-receipt-digest sha256:<64hex> --out <descriptor.json> [--json]
+  agentmo openclaw-target-admit <blueprint.json> --build-contract <build-contract.json> --plan-approval <plan-approval.json> --target-descriptor <descriptor.json> --target-executable <file> --target-package-json <package.json> --target-build-info <build-info.json> --digest blueprint=sha256:<64hex> --digest build-contract=sha256:<64hex> --digest plan-approval=sha256:<64hex> --digest openclaw-target-descriptor=sha256:<64hex> --digest target-executable=sha256:<64hex> --digest target-package-json=sha256:<64hex> --digest target-build-info=sha256:<64hex> --fs-helper <absolute-helper> --fs-helper-receipt <receipt.json> --fs-helper-receipt-digest sha256:<64hex> --out <admission.json> [--json]
+  agentmo package-produce <blueprint.json> --design-plan <design-plan.json> --discovery-approval <approval.json> --decision-ledger <ledger.json> --build-contract <build-contract.json> --plan-approval <plan-approval.json> --target-descriptor <descriptor.json> --target-carrier-admission <admission.json> --digest <subject=sha256:...>... --fs-helper <absolute-helper> --fs-helper-receipt <receipt.json> --fs-helper-receipt-digest sha256:<64hex> --out <absent-dir> --archive <absent.d42> [--json]
+  agentmo package-inspect <directory> --manifest-sha256 sha256:<64hex> [--json]
+  agentmo package-inspect <archive.d42> --archive-sha256 sha256:<64hex> [--json]
+  agentmo openclaw-probe --archive <archive.d42> --archive-sha256 sha256:<64hex> --target-carrier-admission <admission.json> --target-carrier-admission-sha256 sha256:<64hex> --target-descriptor <descriptor.json> --target-descriptor-sha256 sha256:<64hex> --target-root <dir> --out <absent.json> [--json]
+  agentmo openclaw-install-genesis --archive <archive.d42> --archive-sha256 sha256:<64hex> --blueprint <blueprint.json> --blueprint-sha256 sha256:<64hex> --build-contract <contract.json> --build-contract-sha256 sha256:<64hex> --plan-approval <approval.json> --plan-approval-sha256 sha256:<64hex> --target-carrier-admission <admission.json> --target-carrier-admission-sha256 sha256:<64hex> --target-descriptor <descriptor.json> --target-descriptor-sha256 sha256:<64hex> --probe <probe.json> --probe-sha256 sha256:<64hex> --request <genesis-request.json> --request-sha256 sha256:<64hex> --target-root <isolated-root> --fs-helper <binary> --fs-helper-receipt <receipt.json> --fs-helper-receipt-digest sha256:<64hex> --out <absent.json> [--json]
+  agentmo openclaw-install-preview --lifecycle install|upgrade|rollback|uninstall --archive <archive.d42> --archive-sha256 sha256:<64hex> --blueprint <blueprint.json> --blueprint-sha256 sha256:<64hex> --build-contract <contract.json> --build-contract-sha256 sha256:<64hex> --plan-approval <approval.json> --plan-approval-sha256 sha256:<64hex> --target-carrier-admission <admission.json> --target-carrier-admission-sha256 sha256:<64hex> --target-descriptor <descriptor.json> --target-descriptor-sha256 sha256:<64hex> --probe <probe.json> --probe-sha256 sha256:<64hex> --request <preview-request.json> --request-sha256 sha256:<64hex> --target-root <isolated-root> --fs-helper <binary> --fs-helper-receipt <receipt.json> --fs-helper-receipt-digest sha256:<64hex> <exact lifecycle basis> --out <absent.json> [--json]
+  agentmo openclaw-install-approve --plan <install-plan.json> --plan-sha256 sha256:<64hex> --request <approval-request.json> --request-sha256 sha256:<64hex> --ordinary-out <absent.json> --sensitive-out <absent.json>... --conflict-out <absent.json> [--json]
+  agentmo openclaw-fs-kernel-build --binary-out <absent-private-path> --receipt-out <absent-private-path> [--json]
+  agentmo openclaw-install-apply --lifecycle install|upgrade|rollback|uninstall --blueprint <blueprint.json> --blueprint-sha256 sha256:<64hex> --build-contract <contract.json> --build-contract-sha256 sha256:<64hex> --plan-approval <approval.json> --plan-approval-sha256 sha256:<64hex> --target-descriptor <descriptor.json> --target-descriptor-sha256 sha256:<64hex> --target-carrier-admission <admission.json> --target-carrier-admission-sha256 sha256:<64hex> --archive <archive.d42> --archive-sha256 sha256:<64hex> --probe <probe.json> --probe-sha256 sha256:<64hex> --install-plan <plan.json> --install-plan-sha256 sha256:<64hex> --ordinary-approval <approval.json> --ordinary-approval-sha256 sha256:<64hex> --sensitive-decision <decision.json> --sensitive-decision-sha256 sha256:<64hex> [--conflict-approval <approval.json> --conflict-approval-sha256 sha256:<64hex>] [--absent-genesis <genesis.json> --absent-genesis-sha256 sha256:<64hex> | --current-receipt <receipt.json> --current-receipt-sha256 sha256:<64hex> [--predecessor-receipt <receipt.json> --predecessor-receipt-sha256 sha256:<64hex> --predecessor-archive <archive.d42> --predecessor-archive-sha256 sha256:<64hex>]] --fs-helper <absolute-helper> --fs-helper-receipt <receipt.json> --fs-helper-receipt-digest sha256:<64hex> --openclaw-target-root <approved-openclaw-root> --target-root <isolated-project-root> --out <absent-receipt.json> [--json]
   agentmo handoff <blueprint.json> --digest blueprint=sha256:<64hex> --target agentmo|openclaw --out <dir> [--json]
   agentmo status <blueprint.json> --digest blueprint=sha256:<64hex> [--build-state <path> --digest build-state=sha256:<64hex>] [--run-state <path> --digest run-state=sha256:<64hex>|--run-dir <dir> --digest run-index=sha256:<64hex> --digest run-state=sha256:<64hex>] [--json]
   agentmo plan <blueprint.json> --digest blueprint=sha256:<64hex> [--target agentmo|openclaw] [--json]
@@ -3659,10 +6124,25 @@ Concepts:
   report           Build a human or JSON AgentMo readiness report.
   discover-report  Validate and summarize a discovery/input manifest.
   discover-pack    Materialize a sanitized discovery database, facts JSONL, and coverage report.
+  discover-live    Fetch exact allowlisted HTTPS sources into bounded, provenance-bearing Stage 1 artifacts.
   discover-workspace  Read approved repo-bound local sources into sanitized Stage 1 discovery artifacts.
+  discovery-approve  Preview or explicitly approve one exact manifest plus one exact discovery DB for Plan entry.
   need-report      Validate and summarize a concrete user-need brief.
+  decision-ledger  Append or inspect typed predecessor-bound Plan decisions without transcript authority.
   design-plan      Produce a Stage 2 planning contract from discovery DB plus user need.
   blueprint-draft  Draft a valid AgentMo blueprint from discovery data plus user need, optionally gated by design-plan.
+  build-contract   Specify the complete traceable OpenClaw Agent Package resource graph without materializing it.
+  plan-approve     Preview or record exact local intent to enter Produce without certifying package or runtime.
+  openclaw-target-admit  Bind one exact OpenClaw target to one approved native-plugin recipe.
+  package-produce  Materialize one exact canonical Agent Package and its deterministic D-42 transport archive.
+  package-inspect  Verify one complete Agent Package closure offline without installing or invoking OpenClaw.
+  openclaw-probe  Fingerprint bounded read-only OpenClaw capability surfaces in a disposable synthetic HOME.
+  openclaw-install-genesis  Publish verified absence authority from one exact probe and request.
+  openclaw-install-preview  Publish an archive-only lifecycle proposal after exact predecessor admission.
+  openclaw-install-approve  Publish independent ordinary, per-action, and exact-conflict authorities.
+  openclaw-install-apply  Re-admit exact lifecycle authorities and publish one receipt-last bounded mechanism result.
+  openclaw-fs-kernel-build  Build the auditable retained-dirfd helper and durable closed receipt.
+  openclaw-target-describe Derive one exact target descriptor from retained first-party bytes.
   handoff          Write a coding/runtime handoff package for the generated blueprint.
   status           Build an auditable control snapshot from blueprint plus optional build/run state.
   plan             Dry-run deterministic scaffold operations without writing files.
@@ -3680,10 +6160,37 @@ Concepts:
 `;
 }
 
+const OPENCLAW_RECEIPT_COMPANION_NAMES = [
+  "install-plan",
+  "ordinary-approval",
+  "sensitive-decision",
+  "conflict-approval",
+  "journal",
+  "probe",
+  "target-descriptor",
+  "package-manifest",
+  "target-carrier-admission",
+  "blueprint",
+  "build-contract",
+  "plan-approval",
+];
+const OPENCLAW_RECEIPT_COMPANION_HELP = [
+  "Current receipt companion flags:",
+  ...OPENCLAW_RECEIPT_COMPANION_NAMES.flatMap((name) => [
+    `--current-receipt-companion-${name} <file>`,
+    `--current-receipt-companion-${name}-sha256 sha256:<64hex>`,
+  ]),
+  "Rollback predecessor companion flags:",
+  ...OPENCLAW_RECEIPT_COMPANION_NAMES.flatMap((name) => [
+    `--predecessor-receipt-companion-${name} <file>`,
+    `--predecessor-receipt-companion-${name}-sha256 sha256:<64hex>`,
+  ]),
+].join("\n");
+
 function commandHelpText(command) {
   const entries = {
     "artifact-contract": `AgentMo artifact-contract
-Usage: agentmo artifact-contract discovery-manifest|user-need [--json]
+Usage: agentmo artifact-contract decision-entry|discovery-manifest|openclaw-probe|openclaw-target-carrier-admission|openclaw-target-descriptor|package-manifest|user-need [--json]
 Exports the complete field-level JSON Schema and a valid minimal template.
 `,
     "discover-report": `AgentMo discover-report
@@ -3696,15 +6203,92 @@ Usage: agentmo discover-pack <discovery.json> --digest discovery-manifest=sha256
 Contract: agentmo artifact-contract discovery-manifest --json
 This is manifest materialization only; it does not crawl or fetch source locations.
 `,
+    "discover-live": `AgentMo discover-live
+Usage: agentmo discover-live <discovery.json> --digest discovery-manifest=sha256:<64hex> --out <absent-dir> [--json]
+Contract: agentmo artifact-contract discovery-manifest --json
+Fetches only exact allowlisted HTTPS URLs under explicit size, timeout, redirect, address, and content-type bounds.
+The resulting provenance proves bounded retrieval mechanics only; it does not certify semantic, domain, runtime, or production quality.
+`,
     "discover-workspace": `AgentMo discover-workspace
 Usage: agentmo discover-workspace <discovery.json> --digest discovery-manifest=sha256:<64hex> --source-root <dir> --out <dir> [--json]
 Contract: agentmo artifact-contract discovery-manifest --json
 Only approved repo-bound local files are read.
 `,
+    "discovery-approve": `AgentMo discovery-approve
+Usage: agentmo discovery-approve <discovery.json> --discovery-db <agentmo-discovery-db.json> --digest discovery-manifest=sha256:<64hex> --digest discovery-db=sha256:<64hex> [--approve --preview-digest sha256:<64hex> --out <approval.json>] [--json]
+Preview is write-free. Apply records local operator intent for enter-Plan only; it does not certify organizational authority, source quality, runtime, domain, package, or production readiness.
+`,
     "need-report": `AgentMo need-report
 Usage: agentmo need-report <need.json> --digest user-need=sha256:<64hex> [--json]
 Contract: agentmo artifact-contract user-need --json
 Valid example: examples/support-triage.need.json
+`,
+    "decision-ledger": `AgentMo decision-ledger
+Usage:
+  agentmo decision-ledger append --journal <ledger.json> --entry <decision-entry.json> --digest decision-entry=sha256:<64hex> [--expected-head-digest sha256:<64hex>] [--json]
+  agentmo decision-ledger inspect --journal <ledger.json> --digest decision-ledger=sha256:<64hex> [--json]
+Contract: agentmo artifact-contract decision-entry --json
+Append accepts one closed typed entry artifact and never accepts transcript or stdin authority. Successors require the exact current head digest.
+`,
+    "design-plan": `AgentMo design-plan
+Usage: agentmo design-plan <agentmo-discovery-db.json> --manifest <discovery.json> --discovery-approval <approval.json> --need <need.json> --decision-ledger <ledger.json> --digest discovery-manifest=sha256:<64hex> --digest discovery-db=sha256:<64hex> --digest discovery-approval=sha256:<64hex> --digest user-need=sha256:<64hex> --digest decision-ledger=sha256:<64hex> --out <agentmo-design-plan.json> [--target agentmo|openclaw] [--json]
+The four file artifacts and exact current decision-ledger head are independently admitted. The approval proves local enter-Plan intent only.
+`,
+    "build-contract": `AgentMo build-contract
+Usage: agentmo build-contract <blueprint.json> --design-plan <agentmo-design-plan.json> --discovery-approval <approval.json> --decision-ledger <ledger.json> --target-descriptor <descriptor.json> [--native-plugin-recipe <recipe.json> --digest native-plugin-recipe=sha256:<64hex>] --digest blueprint=sha256:<64hex> --digest design-plan=sha256:<64hex> --digest discovery-approval=sha256:<64hex> --digest decision-ledger=sha256:<64hex> --digest openclaw-target-descriptor=sha256:<64hex> --out <build-contract.json> --target openclaw [--json]
+Creates construction intent only. It does not generate, install, load, execute, schedule, or certify an Agent Package.
+`,
+    "plan-approve": `AgentMo plan-approve
+Usage: agentmo plan-approve <blueprint.json> --build-contract <build-contract.json> --digest blueprint=sha256:<64hex> --digest build-contract=sha256:<64hex> [--approve --preview-digest sha256:<64hex> --out <plan-approval.json>] [--json]
+Preview is write-free. Apply records exact local enter-Produce intent only and does not certify package, runtime, domain, or production readiness.
+`,
+    "openclaw-target-describe": `AgentMo openclaw-target-describe
+Usage: agentmo openclaw-target-describe --target-executable <file> --target-package-json <package.json> --target-build-info <build-info.json> --digest target-executable=sha256:<64hex> --digest target-package-json=sha256:<64hex> --digest target-build-info=sha256:<64hex> --fs-helper <absolute-helper> --fs-helper-receipt <receipt.json> --fs-helper-receipt-digest sha256:<64hex> --out <descriptor.json> [--json]
+Derives version, full revision, bounded display revision, Node range, member digests, retained identity basis, and target-root identity from exact first-party bytes. It does not certify source quality, installation, runtime, domain, or production readiness.
+`,
+    "openclaw-target-admit": `AgentMo openclaw-target-admit
+Usage: agentmo openclaw-target-admit <blueprint.json> --build-contract <build-contract.json> --plan-approval <plan-approval.json> --target-descriptor <descriptor.json> --target-executable <file> --target-package-json <package.json> --target-build-info <build-info.json> --digest blueprint=sha256:<64hex> --digest build-contract=sha256:<64hex> --digest plan-approval=sha256:<64hex> --digest openclaw-target-descriptor=sha256:<64hex> --digest target-executable=sha256:<64hex> --digest target-package-json=sha256:<64hex> --digest target-build-info=sha256:<64hex> --fs-helper <absolute-helper> --fs-helper-receipt <receipt.json> --fs-helper-receipt-digest sha256:<64hex> --out <admission.json> [--json]
+The command accepts no plugin implementation path, plugin bytes, MCP route, or activation authority.
+`,
+    "package-produce": `AgentMo package-produce
+Usage: agentmo package-produce <blueprint.json> --design-plan <design-plan.json> --discovery-approval <approval.json> --decision-ledger <ledger.json> --build-contract <build-contract.json> --plan-approval <plan-approval.json> --target-descriptor <descriptor.json> --target-carrier-admission <admission.json> --digest blueprint=sha256:<64hex> --digest design-plan=sha256:<64hex> --digest discovery-approval=sha256:<64hex> --digest decision-ledger=sha256:<64hex> --digest build-contract=sha256:<64hex> --digest plan-approval=sha256:<64hex> --digest openclaw-target-descriptor=sha256:<64hex> --digest openclaw-target-carrier-admission=sha256:<64hex> --fs-helper <absolute-helper> --fs-helper-receipt <receipt.json> --fs-helper-receipt-digest sha256:<64hex> --out <absent-dir> --archive <absent.d42> [--json]
+The command re-admits every authority, writes only absent phase-local outputs, and does not install, activate, execute, schedule, or write credential values.
+`,
+    "package-inspect": `AgentMo package-inspect
+Usage:
+  agentmo package-inspect <directory> --manifest-sha256 sha256:<64hex> [--json]
+  agentmo package-inspect <archive.d42> --archive-sha256 sha256:<64hex> [--json]
+Contract: agentmo artifact-contract package-manifest --json
+Inspection is offline and read-only. It verifies the complete manifest/inventory/member closure and does not install, activate, run OpenClaw, write credentials, register schedules, or certify runtime, domain, Birth, Delivery, or production behavior.
+`,
+    "openclaw-probe": `AgentMo openclaw-probe
+Usage: agentmo openclaw-probe --archive <archive.d42> --archive-sha256 sha256:<64hex> --blueprint <blueprint.json> --blueprint-sha256 sha256:<64hex> --build-contract <contract.json> --build-contract-sha256 sha256:<64hex> --plan-approval <approval.json> --plan-approval-sha256 sha256:<64hex> --target-carrier-admission <admission.json> --target-carrier-admission-sha256 sha256:<64hex> --target-descriptor <descriptor.json> --target-descriptor-sha256 sha256:<64hex> --target-root <dir> --out <probe.json> [--json]
+Contract: agentmo artifact-contract openclaw-probe --json
+The probe binds exact package and target authorities, invokes only fixed read-only capability surfaces with shell:false in a disposable synthetic HOME, and does not install, activate, connect MCP, invoke an agent, schedule work, use credentials, or certify runtime, domain, Birth, Delivery, or production readiness.
+`,
+    "openclaw-install-genesis": `AgentMo openclaw-install-genesis
+Usage: agentmo openclaw-install-genesis --archive <archive.d42> --archive-sha256 sha256:<64hex> --blueprint <blueprint.json> --blueprint-sha256 sha256:<64hex> --build-contract <contract.json> --build-contract-sha256 sha256:<64hex> --plan-approval <approval.json> --plan-approval-sha256 sha256:<64hex> --target-carrier-admission <admission.json> --target-carrier-admission-sha256 sha256:<64hex> --target-descriptor <descriptor.json> --target-descriptor-sha256 sha256:<64hex> --probe <probe.json> --probe-sha256 sha256:<64hex> --request <genesis-request.json> --request-sha256 sha256:<64hex> --target-root <isolated-root> --fs-helper <binary> --fs-helper-receipt <receipt.json> --fs-helper-receipt-digest sha256:<64hex> --out <absent.json> [--json]
+Publishes one create-only verified-absence authority. It performs no install, target mutation, OpenClaw process, credential, MCP, or runtime action.
+`,
+    "openclaw-install-preview": `AgentMo openclaw-install-preview
+Usage: agentmo openclaw-install-preview --lifecycle install|upgrade|rollback|uninstall --archive <archive.d42> --archive-sha256 sha256:<64hex> --blueprint <blueprint.json> --blueprint-sha256 sha256:<64hex> --build-contract <contract.json> --build-contract-sha256 sha256:<64hex> --plan-approval <approval.json> --plan-approval-sha256 sha256:<64hex> --target-carrier-admission <admission.json> --target-carrier-admission-sha256 sha256:<64hex> --target-descriptor <descriptor.json> --target-descriptor-sha256 sha256:<64hex> --probe <probe.json> --probe-sha256 sha256:<64hex> --request <preview-request.json> --request-sha256 sha256:<64hex> --target-root <isolated-root> --fs-helper <binary> --fs-helper-receipt <receipt.json> --fs-helper-receipt-digest sha256:<64hex> <exact lifecycle basis> --out <absent.json> [--json]
+Install requires --absent-genesis plus its external digest. Upgrade/uninstall require --current-receipt plus its external digest. Rollback additionally requires exact predecessor receipt/archive pairs. No target mutation occurs.
+${OPENCLAW_RECEIPT_COMPANION_HELP}
+`,
+    "openclaw-install-approve": `AgentMo openclaw-install-approve
+Usage: agentmo openclaw-install-approve --plan <install-plan.json> --plan-sha256 sha256:<64hex> --request <approval-request.json> --request-sha256 sha256:<64hex> --ordinary-out <absent.json> --sensitive-out <absent.json>... --conflict-out <absent.json> [--json]
+Publishes independent create-only ordinary, per-sensitive-action, and exact-conflict authority files from one frozen plan. It performs no lifecycle effect.
+`,
+    "openclaw-fs-kernel-build": `AgentMo openclaw-fs-kernel-build
+Usage: agentmo openclaw-fs-kernel-build --binary-out <absent-private-path> --receipt-out <absent-private-path> [--json]
+Builds the repository-owned retained-dirfd helper with the fixed system compiler, fixed argv, shell:false, and a closed environment. Both outputs must be absent. It performs no OpenClaw target mutation and does not use executable lookup, downloads, package lifecycle hooks, or apply-time autobuild.
+`,
+    "openclaw-install-apply": `AgentMo openclaw-install-apply
+Usage: agentmo openclaw-install-apply --lifecycle install|upgrade|rollback|uninstall --blueprint <blueprint.json> --blueprint-sha256 sha256:<64hex> --build-contract <contract.json> --build-contract-sha256 sha256:<64hex> --plan-approval <approval.json> --plan-approval-sha256 sha256:<64hex> --target-descriptor <descriptor.json> --target-descriptor-sha256 sha256:<64hex> --target-carrier-admission <admission.json> --target-carrier-admission-sha256 sha256:<64hex> --archive <archive.d42> --archive-sha256 sha256:<64hex> --probe <probe.json> --probe-sha256 sha256:<64hex> --install-plan <plan.json> --install-plan-sha256 sha256:<64hex> --ordinary-approval <approval.json> --ordinary-approval-sha256 sha256:<64hex> --sensitive-decision <decision.json> --sensitive-decision-sha256 sha256:<64hex> [--conflict-approval <approval.json> --conflict-approval-sha256 sha256:<64hex>] [--absent-genesis <genesis.json> --absent-genesis-sha256 sha256:<64hex> | --current-receipt <receipt.json> --current-receipt-sha256 sha256:<64hex> [--predecessor-receipt <receipt.json> --predecessor-receipt-sha256 sha256:<64hex> --predecessor-archive <archive.d42> --predecessor-archive-sha256 sha256:<64hex>]] --fs-helper <absolute-helper> --fs-helper-receipt <receipt.json> --fs-helper-receipt-digest sha256:<64hex> --openclaw-target-root <approved-openclaw-root> --target-root <isolated-project-root> --out <absent-receipt.json> [--json]
+Authority reservation requires --attempt-id <bounded-id>. The authority ledger path is derived from the exact target descriptor and reopened canonically; callers cannot select an authority or evidence root.
+An exact --conflict-approval pair is required even when the approved conflict set is empty.
+${OPENCLAW_RECEIPT_COMPANION_HELP}
+Every authority is re-read from exact published bytes with its caller-supplied SHA-256 before the private journal or target effect. The command accepts no package root, manifest-only, force, purge, blanket-overwrite, credential-value, raw-output, or MCP option. Receipt evidence is bounded lifecycle mechanism evidence only and does not certify runtime, domain, Birth, Delivery, production, or wider OpenClaw compatibility.
 `,
   };
   return Object.hasOwn(entries, command) ? entries[command] : null;

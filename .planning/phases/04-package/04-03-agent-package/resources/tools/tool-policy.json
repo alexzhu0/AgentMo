@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "agentmo.package-resource.v1",
+  "resourceId": "resource:tool-policy",
+  "kind": "tool-policy",
+  "declaredContract": {
+    "declaredNames": [
+      "support-triage_classify_ticket_category_and_priority",
+      "support-triage_draft_evidence_backed_customer_reply",
+      "support-triage_escalate_missing_policy_or_missing_customer_fact_cases"
+    ],
+    "toolsMdIsAuthority": false,
+    "effectivePolicyPipeline": [
+      "runtime-config",
+      "agent-policy",
+      "provider-capability",
+      "per-call-authorization"
+    ],
+    "sideEffects": "declared-per-tool",
+    "approvalMode": "permission-and-action-scoped",
+    "replaySafety": "declared-per-tool",
+    "failure": "deny-on-missing-policy-or-authorization",
+    "sandbox": "least-authority"
+  },
+  "materialized": true,
+  "installed": false,
+  "runtimeVerified": false,
+  "domainVerified": false
+}

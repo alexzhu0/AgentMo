@@ -82,8 +82,8 @@ describe("installed hook child supervisor", () => {
     const childTimeoutMs = declaredMilliseconds(hookSource, "CHILD_TIMEOUT_MS");
     const outerTimeoutMs = declaredMilliseconds(behaviorSource, "AUTHENTIC_HOOK_TIMEOUT_MS");
 
-    assert.ok(childTimeoutMs > 0);
-    assert.ok(outerTimeoutMs >= childTimeoutMs + 10_000);
+    assert.ok(childTimeoutMs >= 60_000);
+    assert.ok(outerTimeoutMs >= childTimeoutMs + 30_000);
   });
 
   it("rejects and kills a same-group ignored-stdio descendant before a late marker", async () => {

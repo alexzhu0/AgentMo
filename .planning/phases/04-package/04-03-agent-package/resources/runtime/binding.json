@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "agentmo.package-resource.v1",
+  "resourceId": "resource:runtime-binding",
+  "kind": "runtime-binding",
+  "declaredContract": {
+    "provider": "runtime-selected-provider",
+    "model": "runtime-selected-model",
+    "harness": "agentmo-openclaw-harness",
+    "channel": "runtime-selected-channel",
+    "transport": "runtime-selected-transport",
+    "sessionSelector": "isolated-or-explicit-existing-session",
+    "target": "openclaw",
+    "exactRevisionRequired": true
+  },
+  "materialized": true,
+  "installed": false,
+  "runtimeVerified": false,
+  "domainVerified": false
+}

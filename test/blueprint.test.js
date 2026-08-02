@@ -211,11 +211,11 @@ describe("blueprint validation", () => {
     const result = validateBlueprint(blueprint);
     assert.equal(result.ok, true, result.errors.join("\n"));
     assert.equal(blueprint.design_contract.provenance.source, "agentmo-stage2");
-    assert.equal(blueprint.design_contract.provenance.reviewed, true);
+    assert.equal(blueprint.design_contract.provenance.reviewed, false);
     assert.equal(blueprint.design_contract.provenance.contract_version, DESIGN_CONTRACT_VERSION);
     assert.equal(
       blueprint.governance.policies.includes(
-        "AgentMo-generated blueprints must preserve reviewed discovery/user-need provenance; Stage 3 admission is by valid design contract.",
+        "AgentMo-generated blueprints preserve exact discovery/user-need provenance but remain draft and non-authoritative until explicit plan approval.",
       ),
       true,
     );

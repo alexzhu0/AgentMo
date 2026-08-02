@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "agentmo.package-resource.v1",
+  "resourceId": "resource:recovery",
+  "kind": "recovery",
+  "declaredContract": {
+    "session": "persist-versioned-session-state",
+    "compaction": "archive-and-create-successor",
+    "restart": "readback-before-resume",
+    "cron": "resume-from-persisted-job-and-skills-snapshot",
+    "pluginDoctor": "required-after-install-or-upgrade",
+    "migrations": "fail-closed-on-unknown-version",
+    "rollback": "phase-4-owned-explicit-operation",
+    "failureClassification": "bounded-code-no-raw-runtime-output",
+    "maximumRetries": 2,
+    "checkpoints": [
+      "pre-install",
+      "post-load",
+      "post-execute"
+    ],
+    "resumeRequiresExactContractDigest": true
+  },
+  "materialized": true,
+  "installed": false,
+  "runtimeVerified": false,
+  "domainVerified": false
+}

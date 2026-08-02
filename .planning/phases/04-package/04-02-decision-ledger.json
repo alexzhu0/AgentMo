@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "agentmo.decision-ledger.v1",
+  "sequence": 0,
+  "predecessorDigest": null,
+  "entryId": "human-decision-01",
+  "entryKind": "human-decision",
+  "subject": "Bounded Stage 2 planning scope",
+  "reason": "Proceed with governed evidence gaps while preserving draft and non-authoritative status.",
+  "sourceRefs": [],
+  "decisionRefs": [],
+  "requirementRefs": [
+    "hard-failure-01",
+    "hard-failure-02",
+    "hard-failure-03",
+    "hard-failure-04",
+    "primary-task-01",
+    "primary-task-02",
+    "primary-task-03",
+    "success-criterion-01",
+    "success-criterion-02",
+    "success-criterion-03"
+  ]
+}

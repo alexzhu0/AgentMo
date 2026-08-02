@@ -681,6 +681,27 @@ function chunkSourceText(source, text, options) {
         kind: "source_chunk",
         text: chunkText,
         trustLevel: source.trustLevel,
+        declaredTrustLevel: source.trustLevel,
+        providerKind: "local",
+        providerPolicy: {
+          approvedRepoBoundFile: true,
+          networkAccess: false,
+          rawFileStored: false,
+        },
+        evidenceClass: "approved-local",
+        retrievalStatus: "succeeded",
+        confidence: "unverified",
+        confidenceRationale: "Approved local intake does not establish semantic correctness.",
+        originalLocation: options.location,
+        duplicateOf: null,
+        freshness: {
+          status: "unknown",
+          basis: "local-file-source-timestamp-not-persisted",
+          semanticConclusion: false,
+        },
+        conflictCandidates: [],
+        coverageGaps: [],
+        observationBasis: "mechanical-non-semantic",
         refs: [options.location].filter((item) => typeof item === "string" && item.length > 0),
         ref: {
           sourceId: source.id,
@@ -708,6 +729,19 @@ function sourceChunkToFact(chunk) {
     kind: "source_chunk",
     text: chunk.text,
     trustLevel: chunk.trustLevel,
+    declaredTrustLevel: chunk.declaredTrustLevel,
+    providerKind: chunk.providerKind,
+    providerPolicy: chunk.providerPolicy,
+    evidenceClass: chunk.evidenceClass,
+    retrievalStatus: chunk.retrievalStatus,
+    confidence: chunk.confidence,
+    confidenceRationale: chunk.confidenceRationale,
+    originalLocation: chunk.originalLocation,
+    duplicateOf: chunk.duplicateOf,
+    freshness: chunk.freshness,
+    conflictCandidates: chunk.conflictCandidates,
+    coverageGaps: chunk.coverageGaps,
+    observationBasis: chunk.observationBasis,
     refs: chunk.refs,
     tags: chunk.tags,
     ref: chunk.ref,
@@ -736,6 +770,7 @@ function rejectSource(baseCard, reason, code, checks) {
     ...baseCard,
     location: null,
     status: "rejected",
+    retrievalStatus: "rejected",
     reason: safeReason,
     rejectionCode: code,
     redacted: false,
@@ -763,6 +798,7 @@ function rejectedCard(source, reason, code) {
   return {
     ...sourceCardBase(source, null),
     status: "rejected",
+    retrievalStatus: "rejected",
     reason: genericRejectionReason(code, reason),
     rejectionCode: code,
     redacted: false,
@@ -773,12 +809,36 @@ function rejectedCard(source, reason, code) {
 }
 
 function sourceCardBase(source, location) {
+  const originalLocation = typeof location === "string" && location.length > 0
+    ? normalizeSlashes(location)
+    : null;
   return {
     sourceId: source.id,
     type: source.type,
     trustLevel: source.trustLevel,
+    declaredTrustLevel: source.trustLevel,
+    providerKind: "local",
+    providerPolicy: {
+      approvedRepoBoundFile: true,
+      networkAccess: false,
+      rawFileStored: false,
+    },
+    evidenceClass: "approved-local",
+    retrievalStatus: "succeeded",
+    confidence: "unverified",
+    confidenceRationale: "Approved local intake does not establish semantic correctness.",
+    originalLocation,
+    duplicateOf: null,
+    freshness: {
+      status: "unknown",
+      basis: "local-file-source-timestamp-not-persisted",
+      semanticConclusion: false,
+    },
+    conflictCandidates: [],
+    coverageGaps: [],
+    observationBasis: "mechanical-non-semantic",
     description: source.description,
-    location: typeof location === "string" && location.length > 0 ? normalizeSlashes(location) : null,
+    location: originalLocation,
   };
 }
 

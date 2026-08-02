@@ -338,6 +338,7 @@ function assertSafeEntry(key, value) {
     return;
   }
   if (isPersistabilityRawContentField(key)) {
+    if (normalizedKey === "prompt" && isDeclarativePromptContract(value)) return;
     if ((normalizedKey === "stdout" || normalizedKey === "stderr") && value !== null && typeof value === "object") {
       if (!isRedactedSummary(value)) fail("AGENTMO_PERSISTABILITY_SENSITIVE_MATERIAL");
       return;
@@ -354,6 +355,75 @@ function assertSafeEntry(key, value) {
   if (typeof value === "string" && isRawMaterialKind(key, value)) {
     fail("AGENTMO_PERSISTABILITY_SENSITIVE_MATERIAL");
   }
+}
+
+// A build contract may describe prompt-file topology without storing prompt
+// bodies. Keep this lane deliberately narrow: exact relative markdown paths,
+// bounded construction metadata, and no prompt text.
+function isDeclarativePromptContract(value) {
+  const fields = exactDataFields(value, [
+    "profile",
+    "bootstrapFiles",
+    "precedence",
+    "staticSections",
+    "dynamicSections",
+    "budgets",
+    "sourceDigests",
+    "secretPolicy",
+  ]);
+  if (fields === null
+    || fields.profile !== "openclaw-workspace-bootstrap"
+    || !Array.isArray(fields.bootstrapFiles)
+    || fields.bootstrapFiles.length === 0
+    || fields.bootstrapFiles.length > 32
+    || !Array.isArray(fields.precedence)
+    || fields.precedence.length === 0
+    || fields.precedence.length > 32) return false;
+  const safeName = /^[A-Z][A-Z0-9_-]{0,63}\.md$/u;
+  const safePath = /^openclaw\/workspace\/[A-Z][A-Z0-9_-]{0,63}\.md$/u;
+  for (const entry of fields.bootstrapFiles) {
+    const entryFields = exactDataFields(entry, [
+      "path",
+      "purpose",
+      "required",
+      "owner",
+      "authority",
+      "maxChars",
+      "contentSourceRefs",
+      "digest",
+      "secretAllowed",
+    ]);
+    if (entryFields === null
+      || typeof entryFields.path !== "string"
+      || !safePath.test(entryFields.path)
+      || typeof entryFields.purpose !== "string"
+      || typeof entryFields.required !== "boolean"
+      || typeof entryFields.owner !== "string"
+      || typeof entryFields.authority !== "string"
+      || !Number.isSafeInteger(entryFields.maxChars)
+      || entryFields.maxChars < 1
+      || !Array.isArray(entryFields.contentSourceRefs)
+      || entryFields.contentSourceRefs.length !== 0
+      || entryFields.digest !== null
+      || entryFields.secretAllowed !== false) return false;
+  }
+  return fields.precedence.every((name) => typeof name === "string" && safeName.test(name))
+    && Array.isArray(fields.staticSections)
+    && fields.staticSections.length > 0
+    && fields.staticSections.every((name) => typeof name === "string")
+    && Array.isArray(fields.dynamicSections)
+    && fields.dynamicSections.length > 0
+    && fields.dynamicSections.every((name) => typeof name === "string")
+    && exactDataFields(fields.budgets, [
+      "maximumBootstrapFiles",
+      "maximumStaticChars",
+      "maximumDynamicChars",
+      "overflow",
+    ]) !== null
+    && Array.isArray(fields.sourceDigests)
+    && fields.sourceDigests.length === 0
+    && Array.isArray(fields.secretPolicy)
+    && fields.secretPolicy.length === 0;
 }
 
 function isSafeSubjectPointer(value) {

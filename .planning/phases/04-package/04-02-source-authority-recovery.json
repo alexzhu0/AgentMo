@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "agentmo.phase4-source-authority-recovery.v1",
+  "status": "blocked-exact-human-approval-required",
+  "priorApprovedAuthority": {
+    "manifestDigest": "sha256:808a689f7423f72b876cf797d5330b7ab31247e0ad942a55fa23cf3235afc8da",
+    "databaseDigest": "sha256:1688c1e2345129c567e5b97c391d6daa678d4ea5197c179bea7891cdb3764c18",
+    "discoveryApprovalDigest": "sha256:b3b6485f5d121108918824f29c8096535952e2631306afb6bad4a05f69b0faf4",
+    "blueprintDigest": "sha256:fb3dfe071a5b0596b9047e6612345cc7d07b7836ab4013a67a3d97bd7c362d2a",
+    "buildContractDigest": "sha256:df32b04672c965afe158493f9a43bd226c2935dfd3e788aaa83df4606d5e2ab3",
+    "planApprovalDigest": "sha256:b75508f4e7e47d41e72e88d5330d45121704c5874426fb9401b6fa4c4f144f3b",
+    "exactSourceBytesPresent": false,
+    "restorationDisposition": "forbidden-from-summary"
+  },
+  "availableCurrentInputs": [
+    {
+      "subject": "discovery-manifest",
+      "relativePath": "examples/support-triage.discovery.json",
+      "sha256": "sha256:55610efec07545dab6eef9cbb7d15e558460755502db0437ca5d5453b0a5b2dd"
+    },
+    {
+      "subject": "discovery-db",
+      "relativePath": "examples/fixtures/support-triage/prebuilt-discovery-db.json",
+      "sha256": "sha256:728a08c4eab8b351aefe648577d170980ee39293e11bf332781a8e9bb1c73d61"
+    },
+    {
+      "subject": "user-need",
+      "relativePath": "examples/support-triage.need.json",
+      "sha256": "sha256:cd3795046bc60791543f8cc347c32b4164c50427025e0cb21a13c2481f8501bf"
+    },
+    {
+      "subject": "decision-entry",
+      "relativePath": "examples/support-triage.decision-entry.json",
+      "sha256": "sha256:a2d00fa6aa909edf9a234345037e8d6b704d91e46faa34c390eb464623ff830a"
+    }
+  ],
+  "requiredNextDecision": {
+    "scope": "approve-new-exact-discovery-pair-for-regenerated-phase3-chain",
+    "notCoveredByArchitectureDecision": true,
+    "downstreamArtifactsBlocked": [
+      "agentmo.discovery-approval.v1",
+      "agentmo.design-plan.v1",
+      "draft-blueprint",
+      "agentmo.build-contract.v1",
+      "agentmo.plan-approval.v1",
+      "agentmo.openclaw-target-carrier-admission.v1"
+    ]
+  },
+  "certificationBoundary": {
+    "candidateInventoryOnly": true,
+    "discoveryApproved": false,
+    "planApproved": false,
+    "packageBuilt": false,
+    "installed": false,
+    "runtime": false,
+    "domain": false,
+    "production": false
+  }
+}

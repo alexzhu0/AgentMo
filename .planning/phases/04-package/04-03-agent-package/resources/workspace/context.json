@@ -1,0 +1,129 @@
+{
+  "schemaVersion": "agentmo.package-resource.v1",
+  "resourceId": "resource:workspace-context",
+  "kind": "workspace-context",
+  "declaredContract": {
+    "profile": "openclaw-workspace-bootstrap",
+    "bootstrapFiles": [
+      {
+        "path": "openclaw/workspace/AGENTS.md",
+        "purpose": "operating-instructions",
+        "required": true,
+        "owner": "phase-4",
+        "authority": "workspace-instruction",
+        "maxChars": 32000,
+        "contentSourceRefs": [],
+        "digest": null,
+        "secretAllowed": false
+      },
+      {
+        "path": "openclaw/workspace/SOUL.md",
+        "purpose": "behavioral-style",
+        "required": true,
+        "owner": "phase-4",
+        "authority": "workspace-instruction",
+        "maxChars": 18000,
+        "contentSourceRefs": [],
+        "digest": null,
+        "secretAllowed": false
+      },
+      {
+        "path": "openclaw/workspace/IDENTITY.md",
+        "purpose": "visible-agent-identity",
+        "required": true,
+        "owner": "phase-4",
+        "authority": "workspace-instruction",
+        "maxChars": 18000,
+        "contentSourceRefs": [],
+        "digest": null,
+        "secretAllowed": false
+      },
+      {
+        "path": "openclaw/workspace/USER.md",
+        "purpose": "bounded-user-context",
+        "required": true,
+        "owner": "phase-4",
+        "authority": "workspace-instruction",
+        "maxChars": 18000,
+        "contentSourceRefs": [],
+        "digest": null,
+        "secretAllowed": false
+      },
+      {
+        "path": "openclaw/workspace/TOOLS.md",
+        "purpose": "non-authoritative-tool-guidance",
+        "required": true,
+        "owner": "phase-4",
+        "authority": "operator-guidance-only",
+        "maxChars": 18000,
+        "contentSourceRefs": [],
+        "digest": null,
+        "secretAllowed": false
+      },
+      {
+        "path": "openclaw/workspace/BOOTSTRAP.md",
+        "purpose": "first-run-guidance",
+        "required": false,
+        "owner": "phase-4",
+        "authority": "workspace-instruction",
+        "maxChars": 18000,
+        "contentSourceRefs": [],
+        "digest": null,
+        "secretAllowed": false
+      },
+      {
+        "path": "openclaw/workspace/MEMORY.md",
+        "purpose": "root-memory",
+        "required": true,
+        "owner": "phase-4",
+        "authority": "workspace-instruction",
+        "maxChars": 18000,
+        "contentSourceRefs": [],
+        "digest": null,
+        "secretAllowed": false
+      },
+      {
+        "path": "openclaw/workspace/HEARTBEAT.md",
+        "purpose": "scheduled-turn-guidance",
+        "required": false,
+        "owner": "phase-4",
+        "authority": "workspace-instruction",
+        "maxChars": 18000,
+        "contentSourceRefs": [],
+        "digest": null,
+        "secretAllowed": false
+      }
+    ],
+    "precedence": [
+      "AGENTS.md",
+      "SOUL.md",
+      "IDENTITY.md",
+      "USER.md",
+      "TOOLS.md"
+    ],
+    "staticSections": [
+      "runtime-identity",
+      "safety-boundary",
+      "effective-tool-policy",
+      "workspace-context"
+    ],
+    "dynamicSections": [
+      "runtime-line",
+      "channel-context",
+      "session-context",
+      "heartbeat-context"
+    ],
+    "budgets": {
+      "maximumBootstrapFiles": 8,
+      "maximumStaticChars": 72000,
+      "maximumDynamicChars": 18000,
+      "overflow": "fail-closed"
+    },
+    "sourceDigests": [],
+    "secretPolicy": []
+  },
+  "materialized": true,
+  "installed": false,
+  "runtimeVerified": false,
+  "domainVerified": false
+}

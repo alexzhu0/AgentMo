@@ -44,7 +44,7 @@ const FRESH_COMMAND_TERMINATION_GRACE_MS = 250;
 // The hook owns a separately bounded authenticated child. Leave enough
 // bounded settlement time for that child to close under parallel fresh-process
 // evaluation instead of turning a committed hook delivery into a false result.
-const AUTHENTIC_HOOK_TIMEOUT_MS = 45_000;
+const AUTHENTIC_HOOK_TIMEOUT_MS = 90_000;
 const AUTHENTIC_HOOK_PREVIEW_TIMEOUT_MS = 20_000;
 const AUTHENTIC_HOOK_SETUP_TIMEOUT_MS = 120_000;
 // README is required only by the self-contained NPM closure. Runtime bytes

@@ -255,6 +255,7 @@ if (process.argv[2] === "--version") {
 async function makeEscapedStdoutProbeCodex(root) {
   const bin = path.join(root, "escaped-probe-bin");
   const escapedPidPath = path.join(root, "escaped-probe-pid");
+  const startedAtPath = path.join(root, "escaped-probe-started-at");
   const escapedSource = `
 const fs = require("node:fs");
 fs.writeFileSync(${JSON.stringify(escapedPidPath)}, String(process.pid));
@@ -264,7 +265,9 @@ setInterval(() => {}, 1_000);
   await mkdir(bin);
   const executable = path.join(bin, "codex");
   await writeFile(executable, `#!${process.execPath}
+const fs = require("node:fs");
 if (process.argv[2] !== "--version") process.exit(2);
+fs.writeFileSync(${JSON.stringify(startedAtPath)}, String(Date.now()));
 process.stdout.write("codex-cli 0.144.2\\n");
 const child = require("node:child_process").spawn(process.execPath, ["-e", ${JSON.stringify(escapedSource)}], {
   detached: true,
@@ -274,7 +277,7 @@ child.unref();
 process.exit(0);
 `, "utf8");
   await chmod(executable, 0o755);
-  return { bin, escapedPidPath };
+  return { bin, escapedPidPath, startedAtPath };
 }
 
 async function runPackageCli(packageRoot, args, sharedHome = null) {
@@ -809,6 +812,7 @@ async function projectSnapshot(project) {
 }
 
 before(async () => {
+  if (process.env.AGENTMO_TEST_LANE === "main") return;
   const root = await mkdtemp(path.join(tmpdir(), "agentmo-packed-behavior-"));
   const host = path.join(root, "host");
   packedExecutionCwd = path.join(root, "isolated-execution-cwd");
@@ -915,7 +919,12 @@ before(async () => {
   behaviorModule = await import(`${pathToFileURL(path.join(packedPackageRoot, "src/builder-behavior-eval.js")).href}?packed=${Date.now()}`);
 });
 
-describe("packed fresh-process Builder behavior evaluation", () => {
+describe("packed fresh-process Builder behavior evaluation", {
+  concurrency: false,
+  skip: process.env.AGENTMO_TEST_LANE === "main"
+    ? "runs in the isolated packed-behavior lane"
+    : false,
+}, () => {
   it("observes every fixed scenario without claiming real Codex activation or domain quality", {
     timeout: 360_000,
   }, async () => {
@@ -1055,12 +1064,12 @@ describe("packed fresh-process Builder behavior evaluation", () => {
     const shadow = await makeEscapedStdoutProbeCodex(root);
     let escapedPid = null;
     try {
-      const startedAt = Date.now();
       const execution = await runStableCli([
         "builder", "behavior-eval", "--project", project,
         "--digest", `builder-install-receipt=${receiptDigest}`, "--json",
       ], project, home, { pathPrefix: [shadow.bin] });
-      const elapsedMs = Date.now() - startedAt;
+      const probeStartedAt = Number(await readFile(shadow.startedAtPath, "utf8"));
+      const elapsedMs = Date.now() - probeStartedAt;
       escapedPid = Number(await readFile(shadow.escapedPidPath, "utf8"));
 
       assert.notEqual(execution.code, 0);
@@ -1081,7 +1090,11 @@ describe("packed fresh-process Builder behavior evaluation", () => {
     }
   });
 
-  it("uses one immutable successor selection for receipt, hook, doctor, and behavior", async () => {
+  it("uses one immutable successor selection for receipt, hook, doctor, and behavior", {
+    skip: process.env.AGENTMO_TEST_LANE === "main"
+      ? "runs in the isolated immutable-successor lane"
+      : false,
+  }, async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agentmo-behavior-successor-"));
     const project = path.join(root, "project");
     const successorPackage = path.join(root, "successor-package");
