@@ -188,6 +188,31 @@ function startNode(filePath, input, options = {}) {
   return { child, exited };
 }
 
+async function waitForDirectChild(parent) {
+  if (process.platform !== "linux") {
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
+    if (parent.exitCode !== null) {
+      throw new Error("authenticated launcher parent exited before pathname swap");
+    }
+    return;
+  }
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline && parent.exitCode === null) {
+    const { stdout } = await execFileAsync(
+      "/bin/ps",
+      ["-axo", "pid=,ppid="],
+      { encoding: "utf8" },
+    );
+    const found = stdout.split("\n").some((line) => {
+      const match = /^\s*(\d+)\s+(\d+)\s*$/u.exec(line);
+      return match !== null && Number.parseInt(match[2], 10) === parent.pid;
+    });
+    if (found) return;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error("authenticated launcher child was not observed");
+}
+
 async function fakeCodexBin(root) {
   const bin = path.join(root, "fake-bin");
   const executable = path.join(bin, "codex");
@@ -4085,13 +4110,10 @@ describe("packed Codex Builder setup", { concurrency: false }, () => {
       hook_event_name: "PreCompact",
       session_id: "packed-chain-session",
     }), childOptions);
-    // Admission captures and digests the complete release before the child is
-    // started. Give that capture time to complete, then replace both pathname
-    // entries while the authenticated graph delivery is still in flight.
-    // The complete authenticated release now includes the Phase 4 runtime
-    // closure. Preserve the in-flight swap proof while allowing that larger
-    // fixed inventory to be captured before pathname replacement.
-    await new Promise((resolve) => setTimeout(resolve, 1_000));
+    // The adjacent launcher child is spawned only after admission has captured
+    // and digested the complete release. Observe that natural process boundary
+    // before replacing pathnames; a fixed delay races slower Linux runners.
+    await waitForDirectChild(swapped.child);
     assert.equal(swapped.child.exitCode, null);
     const swappedRunner = `${runnerPath}.retained-after-bootstrap`;
     const swappedLauncher = `${launcherPath}.retained-after-bootstrap`;
