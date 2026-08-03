@@ -68,11 +68,15 @@ jobs:
             --test-name-pattern='bootstrap clock admission fails' \
             test/openclaw-process-supervisor.test.js
 
-  full-project:
-    name: Full project regression
+  main-regression:
+    name: Main regression shard ${{ matrix.shard }}
     needs: native-supervisor
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5]
     steps:
       - name: Check out exact candidate
         uses: actions/checkout@v4
@@ -84,8 +88,52 @@ jobs:
         with:
           node-version: 24
 
-      - name: Run complete repository check
-        run: npm run check
+      - name: Run one stable main-test shard
+        shell: bash
+        env:
+          AGENTMO_TEST_LANE: main
+          SHARD_INDEX: ${{ matrix.shard }}
+          SHARD_TOTAL: 6
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(find test -type f -name '*.js' -print | LC_ALL=C sort)
+          selected=()
+          for index in "${!files[@]}"; do
+            if (( index % SHARD_TOTAL == SHARD_INDEX )); then
+              selected+=("${files[index]}")
+            fi
+          done
+          test "${#selected[@]}" -gt 0
+          node --test --test-concurrency=1 "${selected[@]}"
+
+  publication-and-packed:
+    name: Syntax, packed behavior, and publication
+    needs: native-supervisor
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Use Node.js 24 for OpenClaw-compatible regressions
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Check shipped and repository JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r file; do
+            node --check "$file"
+          done < <(find bin plugin scripts src -type f -name '*.js' -print | LC_ALL=C sort)
+
+      - name: Run packed behavior lanes
+        run: |
+          npm run check:test:packed-hook-chain
+          npm run check:test:packed-behavior
 
       - name: Verify publication inventory
         shell: bash
