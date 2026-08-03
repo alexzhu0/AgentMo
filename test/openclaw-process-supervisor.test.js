@@ -17,6 +17,9 @@ import { promisify } from "node:util";
 import {
   prepareOpenClawProcessSupervisor,
 } from "../src/openclaw-process-supervisor.js";
+import {
+  startNativeBuildOutputAttacker,
+} from "./helpers/native-build-output-attacker.js";
 
 const ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -172,7 +175,11 @@ it("Linux supervisor build rejects deterministic compiler-output substitution", 
     path.join(tmpdir(), "agentmo-supervisor-output-substitution-"),
   );
   await chmod(root, 0o700);
-  process.env.AGENTMO_TEST_NATIVE_BUILD_OUTPUT_SUBSTITUTION = "1";
+  const attacker = startNativeBuildOutputAttacker({
+    root,
+    buildDirectoryPrefix: "agentmo-process-supervisor-",
+    outputName: "supervisor",
+  });
   try {
     await assert.rejects(
       () => prepareOpenClawProcessSupervisor({ privateRoot: root }),
@@ -180,8 +187,9 @@ it("Linux supervisor build rejects deterministic compiler-output substitution", 
         error?.code === "AGENTMO_OPENCLAW_PROCESS_SUPERVISOR_REJECTED"
       ),
     );
+    assert.equal(await attacker.exited, 0);
   } finally {
-    delete process.env.AGENTMO_TEST_NATIVE_BUILD_OUTPUT_SUBSTITUTION;
+    attacker.stop();
   }
 });
 

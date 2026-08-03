@@ -80,7 +80,6 @@ export async function prepareOpenClawProcessSupervisor(options = {}) {
       BUILD_TIMEOUT_MS,
     );
     if (compilation.code !== 0 || compilation.signal !== null) fail();
-    await injectTestBuildOutputSubstitution(binaryPath);
     await chmod(binaryPath, 0o700);
     await syncFile(binaryPath);
     const primaryBinary = await inspectStableFile(binaryPath);
@@ -360,21 +359,6 @@ async function writeExclusiveFile(filePath, bytes, mode) {
     await handle?.close().catch(() => {});
   }
   return inspectStableFile(filePath);
-}
-
-async function injectTestBuildOutputSubstitution(filePath) {
-  if (process.env.AGENTMO_TEST_NATIVE_BUILD_OUTPUT_SUBSTITUTION !== "1") return;
-  let handle;
-  try {
-    handle = await open(
-      filePath,
-      constants.O_WRONLY | constants.O_TRUNC | (constants.O_NOFOLLOW ?? 0),
-    );
-    await handle.writeFile(Buffer.from("substituted-native-build-output\n"));
-    await handle.sync();
-  } finally {
-    await handle?.close().catch(() => {});
-  }
 }
 
 async function inspectCompiler(environment) {

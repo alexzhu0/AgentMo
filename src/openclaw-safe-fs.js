@@ -195,7 +195,6 @@ export async function buildOpenClawFsKernel(options = {}) {
     if (compilation.code !== 0 || compilation.signal !== null) {
       fail("AGENTMO_OPENCLAW_FS_BUILD_REJECTED");
     }
-    await injectTestBuildOutputSubstitution(stagingPath);
     await chmod(stagingPath, 0o700);
     const staged = await inspectStableFile(stagingPath);
     const verificationArgv = Object.freeze([
@@ -1170,21 +1169,6 @@ function parseClosedReceipt(bytes) {
     fail("AGENTMO_OPENCLAW_FS_ADMISSION_REJECTED");
   }
   return deepFreeze(receipt);
-}
-
-async function injectTestBuildOutputSubstitution(filePath) {
-  if (process.env.AGENTMO_TEST_NATIVE_BUILD_OUTPUT_SUBSTITUTION !== "1") return;
-  let handle;
-  try {
-    handle = await open(
-      filePath,
-      constants.O_WRONLY | constants.O_TRUNC | (constants.O_NOFOLLOW ?? 0),
-    );
-    await handle.writeFile(Buffer.from("substituted-native-build-output\n"));
-    await handle.sync();
-  } finally {
-    await handle?.close().catch(() => {});
-  }
 }
 
 async function syncDirectory(directoryPath) {

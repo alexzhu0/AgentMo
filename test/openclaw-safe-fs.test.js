@@ -24,6 +24,9 @@ import {
   buildOpenClawFsKernel,
   openOpenClawSafeFsSession,
 } from "../src/openclaw-safe-fs.js";
+import {
+  startNativeBuildOutputAttacker,
+} from "./helpers/native-build-output-attacker.js";
 
 const sha256 = (bytes) => (
   `sha256:${createHash("sha256").update(bytes).digest("hex")}`
@@ -313,7 +316,11 @@ describe("OpenClaw safe fs retained-dirfd kernel", () => {
       path.join(tmpdir(), "agentmo-safe-fs-output-substitution-"),
     );
     await chmod(root, 0o700);
-    process.env.AGENTMO_TEST_NATIVE_BUILD_OUTPUT_SUBSTITUTION = "1";
+    const attacker = startNativeBuildOutputAttacker({
+      root,
+      buildDirectoryPrefix: ".agentmo-openclaw-fs-build-",
+      outputName: "openclaw-fs-kernel.stage",
+    });
     try {
       await assert.rejects(
         () => buildOpenClawFsKernel({
@@ -322,8 +329,9 @@ describe("OpenClaw safe fs retained-dirfd kernel", () => {
         }),
         (error) => error?.code === "AGENTMO_OPENCLAW_FS_BUILD_REJECTED",
       );
+      assert.equal(await attacker.exited, 0);
     } finally {
-      delete process.env.AGENTMO_TEST_NATIVE_BUILD_OUTPUT_SUBSTITUTION;
+      attacker.stop();
     }
   });
 
