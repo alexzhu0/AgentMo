@@ -56,9 +56,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          timeout --signal=KILL 90s node --test \
-            test/openclaw-process-supervisor.test.js \
+          timeout --signal=KILL 60s node --test \
             test/openclaw-credential-handoff.test.js
+          timeout --signal=KILL 60s node --test \
+            --test-name-pattern='^(?!.*(?:direct pidfd admission fails|bootstrap clock admission fails))' \
+            test/openclaw-process-supervisor.test.js
+          timeout --signal=KILL 20s node --test \
+            --test-name-pattern='direct pidfd admission fails' \
+            test/openclaw-process-supervisor.test.js
+          timeout --signal=KILL 20s node --test \
+            --test-name-pattern='bootstrap clock admission fails' \
+            test/openclaw-process-supervisor.test.js
 
   full-project:
     name: Full project regression

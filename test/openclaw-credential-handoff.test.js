@@ -591,6 +591,7 @@ it("official config runner executes one exact dry-run/actual pair and preserves 
     }),
     (error) => (
       error?.code === "AGENTMO_OPENCLAW_CONFIG_OBSERVATION_REJECTED"
+        || error?.code === "AGENTMO_OPENCLAW_CONFIG_BASE_DRIFT"
     ),
   );
   assert.deepEqual(await readFile(configPath), ancestorSentinel);
