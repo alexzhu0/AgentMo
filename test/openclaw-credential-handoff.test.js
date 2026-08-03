@@ -513,7 +513,9 @@ it("official config runner executes one exact dry-run/actual pair and preserves 
         baseObservation: actualObservation,
         safeFsSession: actualRaceSession,
       }),
-      (error) => error?.code === "AGENTMO_OPENCLAW_CONFIG_BASE_DRIFT",
+      (error) => (
+        error?.code === "AGENTMO_OPENCLAW_CONFIG_OBSERVATION_REJECTED"
+      ),
     );
   } finally {
     if (actualSwap !== undefined) {
@@ -647,8 +649,6 @@ it("official config runner executes one exact dry-run/actual pair and preserves 
     }),
     (error) => (
       error?.code === "AGENTMO_OPENCLAW_CONFIG_OBSERVATION_REJECTED"
-        || error?.code === "AGENTMO_OPENCLAW_CONFIG_BASE_DRIFT"
-        || error?.code === "AGENTMO_OPENCLAW_CONFIG_CANDIDATE_NAME_DRIFT"
     ),
   );
   assert.deepEqual(await readFile(configPath), ancestorSentinel);
