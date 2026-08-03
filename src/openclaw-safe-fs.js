@@ -27,6 +27,8 @@ const COMPILER_SOURCE_DESCRIPTOR = 3;
 const COMPILER_OUTPUT_DESCRIPTOR = 4;
 const COMPILER_SOURCE_PATH = `/proc/self/fd/${COMPILER_SOURCE_DESCRIPTOR}`;
 const COMPILER_OUTPUT_PATH = `/proc/self/fd/${COMPILER_OUTPUT_DESCRIPTOR}`;
+const EXECUTION_HELPER_DESCRIPTOR = 3;
+const EXECUTION_HELPER_PATH = `/proc/self/fd/${EXECUTION_HELPER_DESCRIPTOR}`;
 const DIGEST_PATTERN = /^sha256:[a-f0-9]{64}$/u;
 const SUPPORTED_PLATFORMS = new Set(["linux"]);
 const MAX_FILE_BYTES = 2 * 1024 * 1024;
@@ -545,33 +547,38 @@ export async function openOpenClawSafeFsSession(options = {}) {
     await executionHandle.close();
   }
   await syncDirectory(executionRoot);
-  const executionBefore = await inspectStableFile(executionPath);
-  if (executionBefore.digest !== admitted.helper.digest) {
-    fail("AGENTMO_OPENCLAW_FS_SESSION_REJECTED");
-  }
-  const child = spawn(executionPath, [], {
-    cwd: executionRoot,
-    env: {
-      LANG: "C",
-      LC_ALL: "C",
-      PATH: "/usr/bin:/bin",
-    },
-    shell: false,
-    stdio: ["pipe", "pipe", "pipe"],
-  });
-  const protocol = createProtocol(child);
-  let executionAfter;
+  let retainedExecution;
+  let child;
   try {
-    executionAfter = await inspectStableFile(executionPath);
-  } catch {
-    await protocol.abort();
+    retainedExecution = await retainStableFile(executionPath);
+    if (retainedExecution.digest !== admitted.helper.digest) {
+      fail("AGENTMO_OPENCLAW_FS_SESSION_REJECTED");
+    }
+    child = spawn(EXECUTION_HELPER_PATH, [], {
+      cwd: executionRoot,
+      env: {
+        LANG: "C",
+        LC_ALL: "C",
+        PATH: "/usr/bin:/bin",
+      },
+      shell: false,
+      stdio: [
+        "pipe",
+        "pipe",
+        "pipe",
+        retainedExecution.handle.fd,
+      ],
+    });
+  } catch (error) {
+    if (error instanceof OpenClawSafeFsError
+      && error.code === "AGENTMO_OPENCLAW_FS_SESSION_REJECTED") {
+      throw error;
+    }
     fail("AGENTMO_OPENCLAW_FS_SESSION_REJECTED");
+  } finally {
+    await retainedExecution?.handle.close().catch(() => {});
   }
-  if (executionAfter.digest !== admitted.helper.digest
-    || !sameFileObject(executionBefore.identity, executionAfter.identity)) {
-    await protocol.abort();
-    fail("AGENTMO_OPENCLAW_FS_SESSION_REJECTED");
-  }
+  const protocol = createProtocol(child);
   const opened = await protocol.request({
     operation: "open",
     rootPath: path.resolve(options.rootPath),

@@ -260,6 +260,20 @@ it("fails closed before native build or admission outside Linux", {
   );
 });
 
+it("executes the safe-fs helper only through one retained inherited descriptor", async () => {
+  const source = await readFile(
+    fileURLToPath(new URL("../src/openclaw-safe-fs.js", import.meta.url)),
+    "utf8",
+  );
+  assert.match(source, /const EXECUTION_HELPER_DESCRIPTOR = 3;/u);
+  assert.match(
+    source,
+    /const EXECUTION_HELPER_PATH = `\/proc\/self\/fd\/\$\{EXECUTION_HELPER_DESCRIPTOR\}`;/u,
+  );
+  assert.match(source, /spawn\(EXECUTION_HELPER_PATH, \[\], \{/u);
+  assert.doesNotMatch(source, /spawn\(executionPath, \[\], \{/u);
+});
+
 describe("OpenClaw safe fs retained-dirfd kernel", {
   skip: process.platform !== "linux",
 }, () => {
@@ -495,6 +509,110 @@ describe("OpenClaw safe fs retained-dirfd kernel", {
       disposition: "preserved",
       reason: "private-execution-copy-not-unlinked-by-pathname",
     });
+  });
+
+  it("executes retained helper bytes after the execution-copy pathname changes", async () => {
+    const isolatedRoot = await mkdtemp(
+      path.join(tmpdir(), "agentmo-safe-fs-retained-exec-"),
+    );
+    const isolatedSourceRoot = path.join(isolatedRoot, "src");
+    const isolatedNativeRoot = path.join(isolatedRoot, "native");
+    const isolatedBuildRoot = path.join(isolatedRoot, "build");
+    const targetRoot = path.join(isolatedRoot, "target");
+    await Promise.all([
+      mkdir(isolatedSourceRoot),
+      mkdir(isolatedNativeRoot),
+      mkdir(isolatedBuildRoot),
+      mkdir(targetRoot),
+    ]);
+    await Promise.all([
+      chmod(isolatedBuildRoot, 0o700),
+      chmod(targetRoot, 0o700),
+    ]);
+    const readyPath = path.join(isolatedRoot, "retained-ready");
+    const releasePath = path.join(isolatedRoot, "retained-release");
+    const replacementMarker = path.join(isolatedRoot, "replacement-executed");
+    const modulePath = path.join(isolatedSourceRoot, "openclaw-safe-fs.mjs");
+    const productionSource = await readFile(
+      fileURLToPath(new URL("../src/openclaw-safe-fs.js", import.meta.url)),
+      "utf8",
+    );
+    const spawnNeedle = "    child = spawn(EXECUTION_HELPER_PATH, [], {";
+    assert.equal(productionSource.split(spawnNeedle).length, 2);
+    const isolatedSource = productionSource.replace(spawnNeedle, [
+      "    {",
+      "      const barrierFs = await import(\"node:fs/promises\");",
+      `      await barrierFs.writeFile(${JSON.stringify(readyPath)}, executionPath);`,
+      "      for (;;) {",
+      "        try {",
+      `          await barrierFs.access(${JSON.stringify(releasePath)});`,
+      "          break;",
+      "        } catch (error) {",
+      "          if (error?.code !== \"ENOENT\") throw error;",
+      "          await new Promise((resolve) => setTimeout(resolve, 5));",
+      "        }",
+      "      }",
+      "    }",
+      spawnNeedle,
+    ].join("\n"));
+    await Promise.all([
+      writeFile(modulePath, isolatedSource),
+      copyFile(SOURCE_PATH, path.join(isolatedNativeRoot, "openclaw-fs-kernel.c")),
+    ]);
+    const isolated = await import(pathToFileURL(modulePath).href);
+    const isolatedHelperPath = path.join(
+      isolatedBuildRoot,
+      "openclaw-fs-kernel",
+    );
+    const isolatedReceiptPath = path.join(
+      isolatedBuildRoot,
+      "openclaw-fs-kernel.receipt.json",
+    );
+    const built = await isolated.buildOpenClawFsKernel({
+      binaryOut: isolatedHelperPath,
+      receiptOut: isolatedReceiptPath,
+    });
+    const sessionPromise = isolated.openOpenClawSafeFsSession({
+      rootPath: targetRoot,
+      helperPath: isolatedHelperPath,
+      receiptPath: isolatedReceiptPath,
+      receiptDigest: built.receiptDigest,
+    });
+    let executionPath;
+    const started = Date.now();
+    while (Date.now() - started < 10_000) {
+      try {
+        executionPath = await readFile(readyPath, "utf8");
+        break;
+      } catch (error) {
+        if (error?.code !== "ENOENT") throw error;
+      }
+      await new Promise((resolve) => setImmediate(resolve));
+    }
+    if (typeof executionPath !== "string") {
+      await writeFile(releasePath, "release\n", { mode: 0o600, flag: "wx" });
+      await sessionPromise.catch(() => {});
+      assert.fail("retained execution barrier was not reached");
+    }
+    const retainedExecutionPath = `${executionPath}.retained`;
+    try {
+      await rename(executionPath, retainedExecutionPath);
+      await writeFile(executionPath, [
+        "#!/bin/sh",
+        `printf replacement > ${JSON.stringify(replacementMarker)}`,
+        "exit 86",
+        "",
+      ].join("\n"), { mode: 0o700, flag: "wx" });
+    } finally {
+      await writeFile(releasePath, "release\n", { mode: 0o600, flag: "wx" });
+    }
+    const session = await sessionPromise;
+    await session.close();
+    await assert.rejects(
+      () => access(replacementMarker),
+      (error) => error?.code === "ENOENT",
+    );
+    assert.equal((await lstat(retainedExecutionPath)).isFile(), true);
   });
 
   it("preserves an existing build destination byte-for-byte with the same identity", async () => {

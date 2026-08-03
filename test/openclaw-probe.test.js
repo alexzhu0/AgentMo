@@ -31,7 +31,6 @@ import {
   buildOpenClawTargetDescriptor,
   writeOpenClawTargetDescriptor,
 } from "../src/openclaw-target-descriptor.js";
-import { produceAgentPackage } from "../src/package-produce.js";
 import {
   buildPlanApproval,
   buildPlanApprovalPreview,
@@ -40,6 +39,7 @@ import {
 import {
   buildApprovedPackageFixture,
   packageProduceOptions,
+  produceAgentPackageFixture,
 } from "./helpers/package-produce-fixture.js";
 
 const CLI = path.resolve("bin/agentmo.js");
@@ -54,7 +54,7 @@ describe("read-only OpenClaw capability probe", () => {
     const fixture = await buildApprovedPackageFixture();
     const packageRoot = path.join(fixture.root, "probe-package");
     const archivePath = path.join(fixture.root, "probe-package.d42");
-    const produced = await produceAgentPackage(
+    const produced = await produceAgentPackageFixture(
       packageProduceOptions(fixture, packageRoot, archivePath),
     );
     const operatorHome = await mkdtemp(path.join(tmpdir(), "agentmo-operator-home-"));
@@ -92,7 +92,7 @@ describe("read-only OpenClaw capability probe", () => {
     const fixture = await buildApprovedPackageFixture();
     const packageRoot = path.join(fixture.root, "drift-package");
     const archivePath = path.join(fixture.root, "drift-package.d42");
-    const produced = await produceAgentPackage(
+    const produced = await produceAgentPackageFixture(
       packageProduceOptions(fixture, packageRoot, archivePath),
     );
     const marker = path.join(fixture.root, "must-remain-absent");
@@ -126,7 +126,7 @@ describe("read-only OpenClaw capability probe", () => {
     const packageRoot = path.join(fixture.root, "cli-package");
     const archivePath = path.join(fixture.root, "cli-package.d42");
     const outPath = path.join(fixture.root, "openclaw-probe.json");
-    const produced = await produceAgentPackage(
+    const produced = await produceAgentPackageFixture(
       packageProduceOptions(fixture, packageRoot, archivePath),
     );
     const result = spawnSync(process.execPath, [
@@ -181,7 +181,7 @@ describe("read-only OpenClaw capability probe", () => {
   }, async () => {
     const fixture = await buildApprovedPackageFixture();
     const archivePath = path.join(fixture.root, "self-auth-package.d42");
-    const produced = await produceAgentPackage(
+    const produced = await produceAgentPackageFixture(
       packageProduceOptions(
         fixture,
         path.join(fixture.root, "self-auth-package"),
@@ -199,7 +199,7 @@ describe("read-only OpenClaw capability probe", () => {
   it("rejects an identity-only carrier when real source companions are absent", async () => {
     const fixture = await buildApprovedPackageFixture();
     const archivePath = path.join(fixture.root, "identity-only-package.d42");
-    const produced = await produceAgentPackage(
+    const produced = await produceAgentPackageFixture(
       packageProduceOptions(
         fixture,
         path.join(fixture.root, "identity-only-package"),
@@ -220,7 +220,7 @@ describe("read-only OpenClaw capability probe", () => {
   }, async () => {
     const fixture = await buildApprovedPackageFixture();
     const archivePath = path.join(fixture.root, "unsupported-platform-package.d42");
-    const produced = await produceAgentPackage(
+    const produced = await produceAgentPackageFixture(
       packageProduceOptions(
         fixture,
         path.join(fixture.root, "unsupported-platform-package"),
@@ -570,7 +570,7 @@ async function buildExecutableProbeFixture(sourceBuilder) {
     fixture.digests[subject] = sha256(await readFile(fixture.paths[subject]));
   }
   const archivePath = path.join(fixture.root, "executable-probe-package.d42");
-  const produced = await produceAgentPackage(packageProduceOptions(
+  const produced = await produceAgentPackageFixture(packageProduceOptions(
     fixture,
     path.join(fixture.root, "executable-probe-package"),
     archivePath,

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import {
@@ -20,6 +20,8 @@ import {
   buildPlanApprovalPreview,
   writePlanApproval,
 } from "../../src/plan-approval.js";
+import { buildPackageArchive } from "../../src/package-archive.js";
+import { produceAgentPackage } from "../../src/package-produce.js";
 import { serializePersistableJson } from "../../src/persistability.js";
 import { buildSupportContractInputs } from "./build-contract-fixture.js";
 
@@ -181,11 +183,19 @@ export async function buildApprovedPackageFixture(options = {}) {
       buildInfoDigest: digestBytes(await readFile(inputs.targetFiles.buildInfoPath)),
     },
   });
-  await writeOpenClawTargetCarrierAdmission(
-    paths["openclaw-target-carrier-admission"],
-    targetAdmission,
-    inputs.publication,
-  );
+  if (process.platform === "linux") {
+    await writeOpenClawTargetCarrierAdmission(
+      paths["openclaw-target-carrier-admission"],
+      targetAdmission,
+      inputs.publication,
+    );
+  } else {
+    await writeCanonical(
+      paths["openclaw-target-carrier-admission"],
+      targetAdmission,
+      "openclaw-target-carrier-admission",
+    );
+  }
 
   const digests = {};
   for (const [subject, filePath] of Object.entries(paths)) {
@@ -226,6 +236,48 @@ export function packageProduceOptions(fixture, outputRoot, archivePath) {
     receiptPath: fixture.publication.receiptPath,
     receiptDigest: fixture.publication.receiptDigest,
   };
+}
+
+export async function produceAgentPackageFixture(options) {
+  if (process.platform === "linux") return produceAgentPackage(options);
+  let captured = null;
+  try {
+    await produceAgentPackage(options, {
+      async afterArchiveBuild(summary) {
+        const archive = await buildPackageArchive({
+          packageRoot: summary.stageRoot,
+        });
+        await cp(summary.stageRoot, options.outputRoot, {
+          recursive: true,
+          force: false,
+          errorOnExist: true,
+          preserveTimestamps: true,
+        });
+        await writeFile(options.archivePath, archive.bytes, {
+          flag: "wx",
+          mode: 0o644,
+        });
+        captured = Object.freeze({
+          schemaVersion: "agentmo.package-produce-result.v1",
+          outputRoot: path.resolve(options.outputRoot),
+          archivePath: path.resolve(options.archivePath),
+          archiveDigest: archive.archiveDigest,
+          manifestDigest: archive.manifestDigest,
+          inventoryDigest: archive.inventoryDigest,
+          certificationBoundary: Object.freeze({
+            installed: false,
+            runtime: false,
+            domain: false,
+            production: false,
+          }),
+        });
+        throw new Error("AGENTMO_TEST_PACKAGE_FIXTURE_CAPTURED");
+      },
+    });
+  } catch (error) {
+    if (captured === null) throw error;
+  }
+  return captured;
 }
 
 async function writeCanonical(filePath, value, subject) {

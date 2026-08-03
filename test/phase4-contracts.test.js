@@ -92,6 +92,7 @@ import { buildSupportContractInputs } from "./helpers/build-contract-fixture.js"
 import {
   buildApprovedPackageFixture,
   packageProduceOptions,
+  produceAgentPackageFixture,
 } from "./helpers/package-produce-fixture.js";
 
 const sha256 = (text) => (
@@ -437,7 +438,7 @@ it("Phase 4 Wave 10 composes the declared support-triage package through offline
   const fixture = await buildApprovedPackageFixture();
   const packageRoot = path.join(fixture.root, "phase4-declared-package");
   const archivePath = path.join(fixture.root, "phase4-declared-package.d42");
-  const produced = await produceAgentPackage(
+  const produced = await produceAgentPackageFixture(
     packageProduceOptions(fixture, packageRoot, archivePath),
   );
   const inspection = await inspectAgentPackage({

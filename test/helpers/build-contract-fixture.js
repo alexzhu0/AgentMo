@@ -15,6 +15,7 @@ import {
   writeOpenClawTargetDescriptor,
 } from "../../src/openclaw-target-descriptor.js";
 import { buildOpenClawFsKernel } from "../../src/openclaw-safe-fs.js";
+import { serializePersistableJson } from "../../src/persistability.js";
 
 const MANIFEST_FILE = new URL("../../examples/support-triage.discovery.json", import.meta.url);
 const DB_FILE = new URL("../../examples/fixtures/support-triage/prebuilt-discovery-db.json", import.meta.url);
@@ -62,11 +63,21 @@ export async function buildSupportContractInputs(options = {}) {
     },
   });
   const targetDescriptorPath = path.join(root, "openclaw-target-descriptor.json");
-  await writeOpenClawTargetDescriptor(
-    targetDescriptorPath,
-    targetDescriptorCandidate,
-    publication,
-  );
+  if (process.platform === "linux") {
+    await writeOpenClawTargetDescriptor(
+      targetDescriptorPath,
+      targetDescriptorCandidate,
+      publication,
+    );
+  } else {
+    await writeFile(
+      targetDescriptorPath,
+      Buffer.from(serializePersistableJson(targetDescriptorCandidate, {
+        subject: "openclaw-target-descriptor",
+      }), "utf8"),
+      { flag: "wx", mode: 0o600 },
+    );
+  }
   const targetDescriptor = await admitFile(
     targetDescriptorPath,
     "openclaw-target-descriptor",
@@ -185,6 +196,13 @@ async function buildOpenClawFsPublicationFixture() {
   const root = await mkdtemp(path.join(tmpdir(), "agentmo-safe-fs-fixture-"));
   const helperPath = path.join(root, "openclaw-fs-kernel");
   const receiptPath = path.join(root, "openclaw-fs-kernel.receipt.json");
+  if (process.platform !== "linux") {
+    return Object.freeze({
+      helperPath,
+      receiptPath,
+      receiptDigest: `sha256:${"0".repeat(64)}`,
+    });
+  }
   const built = await buildOpenClawFsKernel({
     binaryOut: helperPath,
     receiptOut: receiptPath,
