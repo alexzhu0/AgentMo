@@ -3332,15 +3332,15 @@ reconcileExactModuleSurfaces(IO_SURFACE_ALLOWLIST, [
   `),
   exactModuleSurfaceGroup("src/cli.js", "phase-04-plan-08", "gated", `
     1276:durable-loader:loadAdmittedArtifact
-    4474:durable-loader:loadAdmittedArtifact
+    4527:durable-loader:loadAdmittedArtifact
   `),
   exactModuleSurfaceGroup("src/cli.js", "phase-04-plan-12", "gated", `
-    4417:durable-loader:loadAdmittedArtifact
-    4422:durable-loader:loadAdmittedArtifact
-    4427:durable-loader:loadAdmittedArtifact
-    4432:durable-loader:loadAdmittedArtifact
-    4437:durable-loader:loadAdmittedArtifact
-    4448:durable-loader:loadAdmittedArtifact
+    4470:durable-loader:loadAdmittedArtifact
+    4475:durable-loader:loadAdmittedArtifact
+    4480:durable-loader:loadAdmittedArtifact
+    4485:durable-loader:loadAdmittedArtifact
+    4490:durable-loader:loadAdmittedArtifact
+    4501:durable-loader:loadAdmittedArtifact
   `),
   exactModuleSurfaceGroup("src/cli.js", "phase-04-plan-16", "gated", `
     4219:filesystem-read:fs.realpath
@@ -3354,10 +3354,10 @@ reconcileExactModuleSurfaces(IO_SURFACE_ALLOWLIST, [
     3068:process-output:process.stderr.write
   `),
   exactModuleSurfaceGroup("src/cli.js", "phase-02-plan-20", "transient-runtime", `
-    5514:filesystem-read:fs.readFile
+    5567:filesystem-read:fs.readFile
   `),
   exactModuleSurfaceGroup("src/cli.js", "phase-02-plan-20", "ephemeral-secret", `
-    5540:filesystem-read:fs.readFile
+    5593:filesystem-read:fs.readFile
   `),
   exactModuleSurfaceGroup("src/openclaw-authority-consumption.js", "phase-04-plan-14", "gated", `
     66:filesystem-lifecycle:fs.mkdir

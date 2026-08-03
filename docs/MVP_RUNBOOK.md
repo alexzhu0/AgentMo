@@ -403,7 +403,10 @@ descriptor, and every historical predecessor. A non-install chain uses one
 canonical request-only `--current-receipt-companion-bundle` or
 `--predecessor-receipt-companion-bundle` plus its external digest; the bundle
 is read bounded/no-follow and is never an installed or durable package
-artifact. Flat companion flags remain valid only where the selected receipt is
+artifact. Every `filePath` inside the bundle is a portable relative reference
+resolved against the bundle's parent directory; absolute, drive-qualified,
+backslash, empty-segment, `.` and `..` references fail before evidence intake.
+Flat companion flags remain valid only where the selected receipt is
 an install receipt with no predecessor. Run
 `node ./bin/agentmo.js openclaw-install-apply --help` for the closed
 `--current-receipt-companion-*` and

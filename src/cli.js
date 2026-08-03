@@ -4338,11 +4338,64 @@ async function finalizeReceiptCompanionInput(options, prefix, required) {
     return finalizeReceiptCompanionArgs(companionArgs, required);
   }
   if (!required) throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
-  return loadExactLifecycleJson(
-    resolve(bundlePath),
+  const resolvedBundlePath = resolve(bundlePath);
+  const bundle = await loadExactLifecycleJson(
+    resolvedBundlePath,
     bundleDigest,
     validateOpenClawInstallReceiptCompanionBindings,
   );
+  return resolveReceiptCompanionBundle(resolvedBundlePath, bundle);
+}
+
+function resolveReceiptCompanionBundle(bundlePath, value) {
+  const binding = (candidate) => ({
+    ...candidate,
+    filePath: resolveLifecycleBundleRef(bundlePath, candidate.filePath),
+  });
+  return {
+    installPlan: binding(value.installPlan),
+    ordinaryApproval: binding(value.ordinaryApproval),
+    sensitiveDecisions: value.sensitiveDecisions.map(binding),
+    conflictApproval: binding(value.conflictApproval),
+    journal: binding(value.journal),
+    probe: binding(value.probe),
+    targetDescriptor: binding(value.targetDescriptor),
+    packageManifest: binding(value.packageManifest),
+    targetCarrierAdmission: binding(value.targetCarrierAdmission),
+    blueprint: binding(value.blueprint),
+    buildContract: binding(value.buildContract),
+    planApproval: binding(value.planApproval),
+    predecessor: value.predecessor === null
+      ? null
+      : {
+          filePath: resolveLifecycleBundleRef(bundlePath, value.predecessor.filePath),
+          digest: value.predecessor.digest,
+          companions: resolveReceiptCompanionBundle(bundlePath, value.predecessor.companions),
+        },
+  };
+}
+
+function resolveLifecycleBundleRef(bundlePath, value) {
+  if (typeof value !== "string"
+    || value.length === 0
+    || value.includes("\0")
+    || value.includes("\\")
+    || isAbsolute(value)
+    || win32.isAbsolute(value)
+    || /^[A-Za-z]:/u.test(value)
+    || value.split("/").some((segment) => ["", ".", ".."].includes(segment))) {
+    throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+  }
+  const bundleDirectory = dirname(bundlePath);
+  const candidate = resolve(bundleDirectory, value);
+  const bounded = relative(bundleDirectory, candidate);
+  if (bounded.length === 0
+    || isAbsolute(bounded)
+    || bounded === ".."
+    || bounded.startsWith(`..${pathSeparator()}`)) {
+    throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+  }
+  return candidate;
 }
 
 function parseClosedLifecycleArgs(args, options, names) {

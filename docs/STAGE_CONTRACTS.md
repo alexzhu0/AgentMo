@@ -134,7 +134,9 @@ exact plan, approvals, ordered sensitive decisions, journal, probe, package
 manifest, target/carrier admission, blueprint, build contract, plan approval,
 and target descriptor. Preview and apply transport a non-install chain only
 through an exact external-digest-bound, bounded/no-follow companion bundle;
-the request bundle is not installed or persisted as package authority.
+the request bundle is not installed or persisted as package authority, and
+its file bindings must be portable relative references confined to the bundle
+parent (absolute and traversal-shaped references fail before evidence intake).
 Structural receipt validity or generic JSON plus a
 caller-recomputed digest is not current or historical authority.
 

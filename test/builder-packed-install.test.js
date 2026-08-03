@@ -1570,8 +1570,33 @@ async function packedReceiptCompanionBundleArgs(
   label,
 ) {
   const bundlePath = path.join(directory, `${label}-${prefix}-companions.json`);
+  const relativeBinding = (binding) => ({
+    ...binding,
+    filePath: path.relative(directory, binding.filePath).split(path.sep).join("/"),
+  });
+  const relativeCompanions = (value) => ({
+    installPlan: relativeBinding(value.installPlan),
+    ordinaryApproval: relativeBinding(value.ordinaryApproval),
+    sensitiveDecisions: value.sensitiveDecisions.map(relativeBinding),
+    conflictApproval: relativeBinding(value.conflictApproval),
+    journal: relativeBinding(value.journal),
+    probe: relativeBinding(value.probe),
+    targetDescriptor: relativeBinding(value.targetDescriptor),
+    packageManifest: relativeBinding(value.packageManifest),
+    targetCarrierAdmission: relativeBinding(value.targetCarrierAdmission),
+    blueprint: relativeBinding(value.blueprint),
+    buildContract: relativeBinding(value.buildContract),
+    planApproval: relativeBinding(value.planApproval),
+    predecessor: value.predecessor === null
+      ? null
+      : {
+          ...value.predecessor,
+          filePath: path.relative(directory, value.predecessor.filePath).split(path.sep).join("/"),
+          companions: relativeCompanions(value.predecessor.companions),
+        },
+  });
   const bytes = Buffer.from(serializePersistableJson(
-    companions,
+    relativeCompanions(companions),
     { subject: "openclaw-receipt-companion-request" },
   ));
   await writeFile(bundlePath, bytes);
@@ -2018,7 +2043,7 @@ describe("packed Codex Builder setup", { concurrency: false }, () => {
         : await packedReceiptCompanionBundleArgs(
           "current",
           current.companions,
-          journeyRoot,
+          fixture.root,
           lifecycle,
         );
       const predecessorCompanionArgs = selected === null
@@ -2026,7 +2051,7 @@ describe("packed Codex Builder setup", { concurrency: false }, () => {
         : await packedReceiptCompanionBundleArgs(
           "predecessor",
           selected.companions,
-          journeyRoot,
+          fixture.root,
           lifecycle,
         );
       const previewBasisArgs = lifecycle === "install"

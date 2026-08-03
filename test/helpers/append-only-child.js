@@ -20,6 +20,7 @@ async function main() {
     configurationBytes = process.argv[2];
   }
   const configuration = JSON.parse(configurationBytes);
+  let terminal;
   try {
     let value;
     if (configuration.action === "append") {
@@ -33,13 +34,17 @@ async function main() {
     } else {
       throw new Error("unknown append-only child action");
     }
-    process.send?.({ type: "result", value });
+    terminal = { type: "result", value };
   } catch (error) {
-    process.send?.({
+    terminal = {
       type: "error",
       error: { name: error?.name ?? null, code: error?.code ?? null },
-    });
+    };
     process.exitCode = 1;
+  }
+  if (typeof process.send === "function" && process.connected) {
+    await new Promise((resolve) => process.send(terminal, () => resolve()));
+    if (process.connected) process.disconnect();
   }
 }
 
