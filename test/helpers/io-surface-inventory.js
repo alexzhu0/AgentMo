@@ -3281,83 +3281,83 @@ reconcileExactModuleSurfaces(IO_SURFACE_ALLOWLIST, [
     2649:filesystem-read:fs.realpath
   `),
   exactModuleSurfaceGroup("src/cli.js", "phase-03-plan-05", "gated", `
-    615:durable-loader:loadAdmittedBlueprint
-    640:durable-loader:loadAdmittedBlueprint
-    645:durable-loader:loadAdmittedArtifact
-    733:durable-loader:loadAdmittedArtifact
-    738:durable-loader:loadAdmittedArtifact
-    806:durable-loader:loadAdmittedArtifact
-    831:durable-loader:loadAdmittedArtifact
-    836:durable-loader:loadAdmittedArtifact
-    841:durable-loader:loadAdmittedArtifact
-    846:durable-loader:loadAdmittedArtifact
-    886:durable-loader:loadAdmittedArtifact
-    891:durable-loader:loadAdmittedArtifact
-    897:durable-loader:loadAdmittedArtifact
-    926:durable-loader:loadAdmittedBlueprint
-    930:durable-loader:loadAdmittedArtifact
-    935:durable-loader:loadAdmittedArtifact
-    945:durable-loader:loadAdmittedArtifact
-    1015:durable-loader:loadAdmittedBlueprint
-    1019:durable-loader:loadAdmittedArtifact
-    1024:durable-loader:loadAdmittedArtifact
-    1029:durable-loader:loadAdmittedArtifact
-    1430:durable-loader:loadAdmittedBlueprint
-    1434:durable-loader:loadAdmittedArtifact
-    1478:durable-loader:loadAdmittedBlueprint
-    1503:durable-loader:loadAdmittedBlueprint
-    1534:durable-loader:loadAdmittedBlueprint
-    1546:durable-loader:loadAdmittedBlueprint
-    1562:durable-loader:loadAdmittedArtifact
-    1636:durable-loader:loadAdmittedBlueprint
-    1640:durable-loader:loadAdmittedArtifact
-    1645:durable-loader:loadAdmittedArtifact
-    1650:durable-loader:loadAdmittedArtifact
-    1675:durable-loader:loadAdmittedBlueprint
-    1679:durable-loader:loadAdmittedArtifact
-    1698:durable-loader:loadAdmittedBlueprint
-    1702:durable-loader:loadAdmittedArtifact
-    1707:durable-loader:loadAdmittedArtifact
-    1712:durable-loader:loadAdmittedArtifact
-    1718:durable-loader:loadAdmittedArtifact
-    1730:durable-loader:loadAdmittedArtifact
-    1779:durable-loader:loadAdmittedBlueprint
-    2772:serializer-to-sink:emitPersistableOutput
-    2784:serializer-to-sink:emitPersistableOutput
-    2797:serializer-to-sink:emitPersistableOutput
+    616:durable-loader:loadAdmittedBlueprint
+    641:durable-loader:loadAdmittedBlueprint
+    646:durable-loader:loadAdmittedArtifact
+    734:durable-loader:loadAdmittedArtifact
+    739:durable-loader:loadAdmittedArtifact
+    807:durable-loader:loadAdmittedArtifact
+    832:durable-loader:loadAdmittedArtifact
+    837:durable-loader:loadAdmittedArtifact
+    842:durable-loader:loadAdmittedArtifact
+    847:durable-loader:loadAdmittedArtifact
+    887:durable-loader:loadAdmittedArtifact
+    892:durable-loader:loadAdmittedArtifact
+    898:durable-loader:loadAdmittedArtifact
+    927:durable-loader:loadAdmittedBlueprint
+    931:durable-loader:loadAdmittedArtifact
+    936:durable-loader:loadAdmittedArtifact
+    946:durable-loader:loadAdmittedArtifact
+    1016:durable-loader:loadAdmittedBlueprint
+    1020:durable-loader:loadAdmittedArtifact
+    1025:durable-loader:loadAdmittedArtifact
+    1030:durable-loader:loadAdmittedArtifact
+    1431:durable-loader:loadAdmittedBlueprint
+    1435:durable-loader:loadAdmittedArtifact
+    1479:durable-loader:loadAdmittedBlueprint
+    1504:durable-loader:loadAdmittedBlueprint
+    1535:durable-loader:loadAdmittedBlueprint
+    1547:durable-loader:loadAdmittedBlueprint
+    1563:durable-loader:loadAdmittedArtifact
+    1637:durable-loader:loadAdmittedBlueprint
+    1641:durable-loader:loadAdmittedArtifact
+    1646:durable-loader:loadAdmittedArtifact
+    1651:durable-loader:loadAdmittedArtifact
+    1676:durable-loader:loadAdmittedBlueprint
+    1680:durable-loader:loadAdmittedArtifact
+    1699:durable-loader:loadAdmittedBlueprint
+    1703:durable-loader:loadAdmittedArtifact
+    1708:durable-loader:loadAdmittedArtifact
+    1713:durable-loader:loadAdmittedArtifact
+    1719:durable-loader:loadAdmittedArtifact
+    1731:durable-loader:loadAdmittedArtifact
+    1780:durable-loader:loadAdmittedBlueprint
+    2773:serializer-to-sink:emitPersistableOutput
+    2785:serializer-to-sink:emitPersistableOutput
+    2798:serializer-to-sink:emitPersistableOutput
   `),
   exactModuleSurfaceGroup("src/cli.js", "phase-04-plan-05", "gated", `
-    1134:filesystem-read:fs.lstat
-    1155:filesystem:fs.writeFile
+    1135:filesystem-read:fs.lstat
+    1156:filesystem:fs.writeFile
   `),
   exactModuleSurfaceGroup("src/cli.js", "phase-04-plan-08", "gated", `
-    1275:durable-loader:loadAdmittedArtifact
-    4421:durable-loader:loadAdmittedArtifact
+    1276:durable-loader:loadAdmittedArtifact
+    4474:durable-loader:loadAdmittedArtifact
   `),
   exactModuleSurfaceGroup("src/cli.js", "phase-04-plan-12", "gated", `
-    4364:durable-loader:loadAdmittedArtifact
-    4369:durable-loader:loadAdmittedArtifact
-    4374:durable-loader:loadAdmittedArtifact
-    4379:durable-loader:loadAdmittedArtifact
-    4384:durable-loader:loadAdmittedArtifact
-    4395:durable-loader:loadAdmittedArtifact
+    4417:durable-loader:loadAdmittedArtifact
+    4422:durable-loader:loadAdmittedArtifact
+    4427:durable-loader:loadAdmittedArtifact
+    4432:durable-loader:loadAdmittedArtifact
+    4437:durable-loader:loadAdmittedArtifact
+    4448:durable-loader:loadAdmittedArtifact
   `),
   exactModuleSurfaceGroup("src/cli.js", "phase-04-plan-16", "gated", `
-    4194:filesystem-read:fs.realpath
+    4219:filesystem-read:fs.realpath
   `),
   exactModuleSurfaceGroup("src/cli.js", "phase-02-plan-20", "non-artifact", `
-    3055:process-output:process.stdout.write
+    3056:process-output:process.stdout.write
   `),
   exactModuleSurfaceGroup("src/cli.js", "phase-02-plan-20", "diagnostic", `
-    3059:process-output:process.stdout.write
-    3063:process-output:process.stdout.write
-    3067:process-output:process.stderr.write
+    3060:process-output:process.stdout.write
+    3064:process-output:process.stdout.write
+    3068:process-output:process.stderr.write
   `),
   exactModuleSurfaceGroup("src/cli.js", "phase-02-plan-20", "transient-runtime", `
-    5447:filesystem-read:fs.readFile
+    5514:filesystem-read:fs.readFile
   `),
   exactModuleSurfaceGroup("src/cli.js", "phase-02-plan-20", "ephemeral-secret", `
-    5473:filesystem-read:fs.readFile
+    5540:filesystem-read:fs.readFile
   `),
   exactModuleSurfaceGroup("src/openclaw-authority-consumption.js", "phase-04-plan-14", "gated", `
     66:filesystem-lifecycle:fs.mkdir
@@ -3422,8 +3422,8 @@ reconcileExactModuleSurfaces(IO_SURFACE_ALLOWLIST, [
     809:filesystem-read:fs.lstat
     1799:filesystem-read:fs.realpath
     1800:filesystem-read:fs.lstat
-    1975:filesystem-read:fs.access
-    1985:filesystem-read:fs.access
+    1979:filesystem-read:fs.access
+    1989:filesystem-read:fs.access
   `),
   exactModuleSurfaceGroup("src/openclaw-install-transaction.js", "phase-04-plan-16", "gated", `
     965:durable-loader:loadAdmittedArtifact
