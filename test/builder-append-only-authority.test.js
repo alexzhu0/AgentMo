@@ -234,7 +234,7 @@ async function killSelectedRecordEffectWriter(fixture, request) {
   const child = startInputChild("append", request, { detached: true });
   const terminalPromise = collectChild(child, 30_000);
   const entries = path.join(fixture.storeRoot, "entries");
-  const deadline = Date.now() + 30_000;
+  const deadline = Date.now() + 20_000;
   let killed = null;
   while (Date.now() < deadline && child.exitCode === null) {
     const names = await readdir(entries).catch((error) => {
@@ -261,37 +261,29 @@ async function killSelectedRecordEffectWriter(fixture, request) {
       await new Promise((resolve) => setImmediate(resolve));
       continue;
     }
-    const candidates = processRows().filter(
-      (row) => row.ppid === child.pid && row.pgid === child.pid,
-    );
-    if (candidates.length !== 1) {
-      await new Promise((resolve) => setImmediate(resolve));
-      continue;
-    }
-    const effectPid = candidates[0].pid;
     try {
-      process.kill(effectPid, "SIGSTOP");
+      process.kill(-child.pid, "SIGSTOP");
     } catch (error) {
       if (error?.code === "ESRCH") continue;
       throw error;
     }
     await new Promise((resolve) => setTimeout(resolve, 10));
-    const retained = processRows().some(
-      (row) => row.pid === effectPid && row.ppid === child.pid && row.pgid === child.pid,
+    const candidates = processRows().filter(
+      (row) => row.ppid === child.pid && row.pgid === child.pid,
     );
     const stoppedStats = await lstat(stagePath, { bigint: true }).catch(() => null);
-    if (!retained
+    if (candidates.length !== 1
       || stoppedStats === null
       || stoppedStats.size <= 0n
       || stoppedStats.size >= BigInt(selectedLength)) {
       try {
-        process.kill(effectPid, "SIGCONT");
+        process.kill(-child.pid, "SIGCONT");
       } catch (error) {
         if (error?.code !== "ESRCH") throw error;
       }
       continue;
     }
-    process.kill(effectPid, "SIGKILL");
+    const effectPid = candidates[0].pid;
     killed = Object.freeze({
       effectPid,
       selectedLength,
@@ -300,7 +292,7 @@ async function killSelectedRecordEffectWriter(fixture, request) {
       stagePath,
       stoppedSize: Number(stoppedStats.size),
     });
-    process.kill(child.pid, "SIGKILL");
+    process.kill(-child.pid, "SIGKILL");
     break;
   }
   const terminal = await terminalPromise;
@@ -847,7 +839,7 @@ describe("append-only authority without production fault controls", () => {
     const fixture = await authorityFixture("agentmo-append-partial-record-writer-");
     const request = appendRequest(fixture, "partial-record-writer", {
       kind: "partial-record-writer",
-      filler: "r".repeat(768 * 1024),
+      filler: Array.from({ length: 256 }, () => "r".repeat(512)),
     });
     const killed = await killSelectedRecordEffectWriter(fixture, request);
     const prefixBytes = await readFile(killed.stagePath);
