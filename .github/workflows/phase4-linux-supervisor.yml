@@ -59,7 +59,10 @@ jobs:
           timeout --signal=KILL 60s node --test \
             test/openclaw-credential-handoff.test.js
           timeout --signal=KILL 60s node --test \
-            --test-name-pattern='^(?!.*(?:direct pidfd admission fails|bootstrap clock admission fails))' \
+            --test-name-pattern='^(?!.*(?:direct pidfd admission fails|bootstrap clock admission fails|x32-numbered syscalls))' \
+            test/openclaw-process-supervisor.test.js
+          timeout --signal=KILL 20s node --test \
+            --test-name-pattern='x32-numbered syscalls' \
             test/openclaw-process-supervisor.test.js
           timeout --signal=KILL 20s node --test \
             --test-name-pattern='direct pidfd admission fails' \

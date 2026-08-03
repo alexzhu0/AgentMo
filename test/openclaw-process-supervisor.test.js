@@ -153,6 +153,17 @@ it("supervisor preparation is fail-closed before build outside Linux", {
   );
 });
 
+it("Linux x86_64 supervisor filter rejects x32-numbered syscalls while allowing native numbers", {
+  skip: process.platform !== "linux" || process.arch !== "x64",
+  timeout: 20_000,
+}, async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "agentmo-supervisor-x32-"));
+  const binary = await compileSupervisor(root);
+  const result = await execFileAsync(binary, ["--self-test-x32-filter"]);
+  assert.equal(result.stdout, "");
+  assert.equal(result.stderr, "");
+});
+
 it("Linux supervisor build rejects deterministic compiler-output substitution", {
   skip: process.platform !== "linux",
   timeout: 20_000,

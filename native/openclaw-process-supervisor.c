@@ -158,6 +158,19 @@ static bool install_process_group_lock(void) {
   return prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &program) == 0;
 }
 
+#if defined(__x86_64__)
+static int self_test_x32_filter(void) {
+  if (!install_process_group_lock()) return 78;
+  errno = 0;
+  long x32_result = syscall(__X32_SYSCALL_BIT | __NR_getpid);
+  if (x32_result != -1 || errno != ENOSYS) return 1;
+  errno = 0;
+  long native_result = syscall(__NR_getpid);
+  if (native_result != (long)getpid() || errno != 0) return 1;
+  return 0;
+}
+#endif
+
 static int64_t monotonic_milliseconds(void) {
 #if AGENTMO_TEST_CLOCK_FAIL_AFTER == 0
   errno = EIO;
@@ -475,6 +488,11 @@ static bool parse_timeout(const char *value, int64_t *timeout_ms) {
 }
 
 int main(int argc, char **argv) {
+#if defined(__x86_64__)
+  if (argc == 2 && strcmp(argv[1], "--self-test-x32-filter") == 0) {
+    return self_test_x32_filter();
+  }
+#endif
   if (argc < 5 || strcmp(argv[1], "--timeout-ms") != 0
     || strcmp(argv[3], "--") != 0 || fcntl(REPORT_FD, F_GETFD) < 0
     || fcntl(TARGET_RUNTIME_FD, F_GETFD) < 0
