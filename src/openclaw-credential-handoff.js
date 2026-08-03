@@ -78,7 +78,6 @@ export async function runApprovedOpenClawCredentialHandoff(options = {}) {
       "decision",
       "validation",
       "verifiedExecutable",
-      "runOfficialRoute",
     ])
     || !validProposal(options.proposal)
     || !plainObject(options.decision)
@@ -101,8 +100,7 @@ export async function runApprovedOpenClawCredentialHandoff(options = {}) {
       action: options.proposal.action,
       now: options.validation.now,
       authorityReservation: options.validation.authorityReservation,
-    }).ok
-    || typeof options.runOfficialRoute !== "function") {
+    }).ok) {
     fail("AGENTMO_OPENCLAW_CREDENTIAL_APPROVAL_INVALID");
   }
   const action = options.proposal.action;

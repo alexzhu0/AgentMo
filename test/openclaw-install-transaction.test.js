@@ -918,8 +918,7 @@ describe("OpenClaw install receipt-last transaction", () => {
           ...fixture,
         });
 
-        let processStarts = 0;
-        const result = await runApprovedOpenClawCredentialHandoff({
+        const handoffOptions = {
           proposal,
           decision: fixture.sensitiveDecisions[0],
           validation: {
@@ -932,13 +931,25 @@ describe("OpenClaw install receipt-last transaction", () => {
             path: path.join(authorityStateRoot, "must-not-be-created"),
             digest: fixture.probe.cli.executableDigest,
           },
-          runOfficialRoute: async () => {
-            processStarts += 1;
-            throw new Error("credential process must not start");
-          },
-        });
+        };
+        let processStarts = 0;
+        await assert.rejects(
+          () => runApprovedOpenClawCredentialHandoff({
+            ...handoffOptions,
+            runOfficialRoute: async () => {
+              processStarts += 1;
+              throw new Error("credential process must not start");
+            },
+          }),
+          (error) => (
+            error?.code === "AGENTMO_OPENCLAW_CREDENTIAL_APPROVAL_INVALID"
+          ),
+        );
 
         assert.equal(processStarts, 0, label);
+        const result = await runApprovedOpenClawCredentialHandoff(
+          handoffOptions,
+        );
         assert.deepEqual(Object.keys(result).sort(), [
           "actionDigest",
           "credentialPresent",

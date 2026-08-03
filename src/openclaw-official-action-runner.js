@@ -115,7 +115,6 @@ async function runCredential(options) {
     "decision",
     "validation",
     "verifiedExecutable",
-    "runProcess",
   ])) {
     fail();
   }
@@ -124,7 +123,6 @@ async function runCredential(options) {
     decision: options.decision,
     validation: options.validation,
     verifiedExecutable: options.verifiedExecutable,
-    runOfficialRoute: options.runProcess ?? spawnVerifiedOpenClaw,
   });
 }
 
@@ -142,7 +140,6 @@ async function runConfigPatch(options) {
     "patch",
     "expectedBaseDigest",
     "expectedResultDigest",
-    "runProcess",
   ])
     || !validValidation(options.validation)
     || !validVerifiedExecutable(options.verifiedExecutable)
@@ -160,10 +157,7 @@ async function runConfigPatch(options) {
       action: options.action,
       now: options.validation.now,
       authorityReservation: options.validation.authorityReservation,
-    }).ok
-    || !(options.runProcess === null
-      || options.runProcess === undefined
-      || typeof options.runProcess === "function")) {
+    }).ok) {
     fail();
   }
   const patchBytes = Buffer.from(serializePersistableJson(options.patch, {
@@ -221,7 +215,6 @@ async function runConfigPatch(options) {
         PATH: "/usr/bin:/bin",
       }),
     });
-    const runner = options.runProcess ?? spawnVerifiedOpenClaw;
     await assertApprovedBaseCurrent(options);
     await assertCandidateNameCurrent(candidate);
     const dryRunInvocation = Object.freeze({
@@ -230,7 +223,7 @@ async function runConfigPatch(options) {
       retainedConfigFd: candidate.dryRunHandle.fd,
     });
     const dryRun = boundedResult(
-      await runner(dryRunInvocation),
+      await spawnVerifiedOpenClaw(dryRunInvocation),
       dryRunInvocation,
     );
     if (!successful(dryRun)) {
@@ -251,7 +244,7 @@ async function runConfigPatch(options) {
       retainedConfigFd: candidate.actualHandle.fd,
     });
     const actual = boundedResult(
-      await runner(actualInvocation),
+      await spawnVerifiedOpenClaw(actualInvocation),
       actualInvocation,
     );
     if (!successful(actual)) {
@@ -845,16 +838,18 @@ async function assertVerifiedFile(filePath, digest, mode) {
   }
 }
 
-export function runOpenClawOfficialProcess(invocation, options = {}) {
-  return runSupervisedProcess(invocation, options);
+export function runOpenClawOfficialProcess(invocation, ...additionalArgs) {
+  if (additionalArgs.length !== 0) {
+    return authenticProcessResult(
+      supervisorUnavailableResult("invalid-supervisor-invocation"),
+      validProcessInvocation(invocation) ? invocation : null,
+    );
+  }
+  return runSupervisedProcess(invocation);
 }
 
-async function runSupervisedProcess(invocation, options) {
-  if (!validProcessInvocation(invocation)
-    || !plainObject(options)
-    || !Object.keys(options).every((key) => key === "spawnProcess")
-    || !(options.spawnProcess === undefined
-      || typeof options.spawnProcess === "function")) {
+async function runSupervisedProcess(invocation) {
+  if (!validProcessInvocation(invocation)) {
     return authenticProcessResult(
       supervisorUnavailableResult("invalid-supervisor-invocation"),
       validProcessInvocation(invocation) ? invocation : null,
@@ -894,7 +889,6 @@ async function runSupervisedProcess(invocation, options) {
       invocation,
     );
   }
-  const spawnProcess = options.spawnProcess ?? spawn;
   return new Promise((resolve) => {
     let child;
     let retainedClosed = false;
@@ -912,7 +906,7 @@ async function runSupervisedProcess(invocation, options) {
         && invocation.retainedConfigFd >= 0
         ? invocation.retainedConfigFd
         : "ignore";
-      child = spawnProcess(
+      child = spawn(
         `/proc/self/fd/${SUPERVISOR_EXECUTABLE_FD}`,
         [
           "--timeout-ms",

@@ -401,7 +401,6 @@ export async function applyOpenClawInstallTransaction(options = {}) {
             patch: operation.configPatch.patch,
             expectedBaseDigest: operation.baseDigest,
             expectedResultDigest: operation.desiredDigest,
-            runProcess: null,
           });
           const appliedIndex = applied.findIndex(({ path: candidate }) => (
             candidate === operation.path
@@ -448,7 +447,6 @@ export async function applyOpenClawInstallTransaction(options = {}) {
             },
             verifiedExecutable: officialExecutable?.verifiedExecutable
               ?? proposalOnlyExecutableBinding(options.openClawTargetRoot, probe),
-            runProcess: null,
           });
         } else {
           fail("AGENTMO_OPENCLAW_INSTALL_OFFICIAL_ACTION_REQUIRED");

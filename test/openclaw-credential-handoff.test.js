@@ -1,6 +1,4 @@
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
-import { readlinkSync, renameSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import {
   access,
@@ -285,11 +283,10 @@ it("official config runner executes one exact dry-run/actual pair and preserves 
     receiptDigest: fixture.publication.receiptDigest,
   });
   const baseObservation = await session.observe("openclaw.json");
-  const executeConfig = ({
+  const configOptions = ({
     baseObservation: observation,
     safeFsSession = session,
-    runProcess = null,
-  }) => runOpenClawOfficialAction({
+  }) => ({
       route: "config-patch",
       action,
       decision,
@@ -313,8 +310,33 @@ it("official config runner executes one exact dry-run/actual pair and preserves 
       patch,
       expectedBaseDigest: digestBytes(beforeBytes),
       expectedResultDigest: digestBytes(afterBytes),
-      runProcess,
     });
+  const executeConfig = (options) => runOpenClawOfficialAction(
+    configOptions(options),
+  );
+  let injectedRunnerReached = false;
+  await assert.rejects(
+    () => runOpenClawOfficialAction({
+      ...configOptions({ baseObservation }),
+      runProcess: async () => {
+        injectedRunnerReached = true;
+        return Object.freeze({
+          exitCode: 0,
+          timedOut: false,
+          outputLimitExceeded: false,
+          processStarted: true,
+          processGroupClosed: true,
+          quiescenceVerified: true,
+          containment: "linux-subreaper-pidfd-proc-children",
+          failureCode: null,
+        });
+      },
+    }),
+    (error) => (
+      error?.code === "AGENTMO_OPENCLAW_OFFICIAL_ACTION_REJECTED"
+    ),
+  );
+  assert.equal(injectedRunnerReached, false);
   const result = await executeConfig({ baseObservation });
   if (process.platform !== "linux") {
     assert.equal(result.disposition, "unsupported");
@@ -375,6 +397,25 @@ it("official config runner executes one exact dry-run/actual pair and preserves 
     await rename(configPath, path.join(root, `preserved-${label}.json`));
     await rename(retainedPath, configPath);
   };
+  const currentCandidatePath = async () => {
+    const candidates = [];
+    for (const entry of await readdir(executableRoot, { withFileTypes: true })) {
+      if (!entry.isDirectory()
+        || !entry.name.startsWith("agentmo-config-candidate-")) continue;
+      const candidatePath = path.join(executableRoot, entry.name, "candidate.json");
+      try {
+        const candidateStats = await stat(candidatePath, { bigint: true });
+        candidates.push({ candidatePath, changedNs: candidateStats.ctimeNs });
+      } catch (error) {
+        if (error?.code !== "ENOENT") throw error;
+      }
+    }
+    candidates.sort((left, right) => (
+      left.changedNs > right.changedNs ? -1 : 1
+    ));
+    assert.notEqual(candidates[0], undefined);
+    return candidates[0].candidatePath;
+  };
 
   const preObservation = await resetBase();
   let observeCount = 0;
@@ -398,17 +439,22 @@ it("official config runner executes one exact dry-run/actual pair and preserves 
 
   const dryRunObservation = await resetBase();
   let dryRunSwap;
+  let dryRunObserveCount = 0;
+  const dryRunRaceSession = Object.freeze({
+    async observe(relativePath) {
+      const observed = await session.observe(relativePath);
+      dryRunObserveCount += 1;
+      if (dryRunObserveCount === 3) {
+        dryRunSwap = await swapFinal("dry-run-actual");
+      }
+      return observed;
+    },
+    replaceExact: (...args) => session.replaceExact(...args),
+  });
   await assert.rejects(
     () => executeConfig({
       baseObservation: dryRunObservation,
-      runProcess: async (invocation) => {
-        const execution = await openClawOfficialActions
-          .runOpenClawOfficialProcess(invocation);
-        if (invocation.argv.includes("--dry-run")) {
-          dryRunSwap = await swapFinal("dry-run-actual");
-        }
-        return execution;
-      },
+      safeFsSession: dryRunRaceSession,
     }),
     (error) => error?.code === "AGENTMO_OPENCLAW_CONFIG_BASE_DRIFT",
   );
@@ -416,43 +462,44 @@ it("official config runner executes one exact dry-run/actual pair and preserves 
 
   const actualObservation = await resetBase();
   let actualSwap;
+  let actualObserveCount = 0;
+  const actualRaceSession = Object.freeze({
+    async observe(relativePath) {
+      const observed = await session.observe(relativePath);
+      actualObserveCount += 1;
+      if (actualObserveCount === 4) {
+        actualSwap = await swapFinal("actual-post");
+      }
+      return observed;
+    },
+    replaceExact: (...args) => session.replaceExact(...args),
+  });
   await assert.rejects(
     () => executeConfig({
       baseObservation: actualObservation,
-      runProcess: async (invocation) => {
-        const execution = await openClawOfficialActions
-          .runOpenClawOfficialProcess(invocation);
-        if (!invocation.argv.includes("--dry-run")) {
-          actualSwap = await swapFinal("actual-post");
-        }
-        return execution;
-      },
+      safeFsSession: actualRaceSession,
     }),
     (error) => error?.code === "AGENTMO_OPENCLAW_CONFIG_BASE_DRIFT",
   );
   await restoreFinal(actualSwap, "actual-post");
 
   const dryMutationObservation = await resetBase();
+  let dryMutationObserveCount = 0;
+  const dryMutationRaceSession = Object.freeze({
+    async observe(relativePath) {
+      const observed = await session.observe(relativePath);
+      dryMutationObserveCount += 1;
+      if (dryMutationObserveCount === 2) {
+        await writeFile(await currentCandidatePath(), afterBytes);
+      }
+      return observed;
+    },
+    replaceExact: (...args) => session.replaceExact(...args),
+  });
   await assert.rejects(
     () => executeConfig({
       baseObservation: dryMutationObservation,
-      runProcess: async (invocation) => {
-        const execution = await openClawOfficialActions
-          .runOpenClawOfficialProcess(invocation);
-        if (invocation.argv.includes("--dry-run")) {
-          const { fsyncSync, ftruncateSync, writeSync } = await import("node:fs");
-          ftruncateSync(invocation.retainedConfigFd, 0);
-          writeSync(
-            invocation.retainedConfigFd,
-            afterBytes,
-            0,
-            afterBytes.length,
-            0,
-          );
-          fsyncSync(invocation.retainedConfigFd);
-        }
-        return execution;
-      },
+      safeFsSession: dryMutationRaceSession,
     }),
     (error) => (
       error?.code === "AGENTMO_OPENCLAW_CONFIG_DRY_RUN_MUTATED_CANDIDATE"
@@ -465,56 +512,33 @@ it("official config runner executes one exact dry-run/actual pair and preserves 
   let retainedCandidatePath;
   let replacementBefore;
   let actualInvocationReached = false;
+  let candidateSwapObserveCount = 0;
+  const candidateSwapRaceSession = Object.freeze({
+    async observe(relativePath) {
+      const observed = await session.observe(relativePath);
+      candidateSwapObserveCount += 1;
+      if (candidateSwapObserveCount === 2) {
+        replacementPath = await currentCandidatePath();
+        retainedCandidatePath = path.join(
+          path.dirname(replacementPath),
+          "candidate.preserved.json",
+        );
+        await rename(replacementPath, retainedCandidatePath);
+        await writeFile(replacementPath, "replacement-victim", {
+          mode: 0o600,
+          flag: "wx",
+        });
+        replacementBefore = await stat(replacementPath, { bigint: true });
+      }
+      if (candidateSwapObserveCount > 2) actualInvocationReached = true;
+      return observed;
+    },
+    replaceExact: (...args) => session.replaceExact(...args),
+  });
   await assert.rejects(
     () => executeConfig({
       baseObservation: candidateSwapObservation,
-      runProcess: async (invocation) => {
-        const execution = await openClawOfficialActions
-          .runOpenClawOfficialProcess(invocation);
-        if (invocation.argv.includes("--dry-run")) {
-          const candidateRoots = (await readdir(executableRoot, {
-            withFileTypes: true,
-          })).filter((entry) => (
-            entry.isDirectory()
-              && entry.name.startsWith("agentmo-config-candidate-")
-          ));
-          const { fstatSync } = await import("node:fs");
-          const retained = fstatSync(invocation.retainedConfigFd, {
-            bigint: true,
-          });
-          let candidateRoot;
-          for (const entry of candidateRoots) {
-            const proposedRoot = path.join(executableRoot, entry.name);
-            try {
-              const proposed = await stat(
-                path.join(proposedRoot, "candidate.json"),
-                { bigint: true },
-              );
-              if (proposed.dev === retained.dev && proposed.ino === retained.ino) {
-                candidateRoot = proposedRoot;
-                break;
-              }
-            } catch (error) {
-              if (error?.code !== "ENOENT") throw error;
-            }
-          }
-          assert.notEqual(candidateRoot, undefined);
-          replacementPath = path.join(candidateRoot, "candidate.json");
-          retainedCandidatePath = path.join(
-            candidateRoot,
-            "candidate.preserved.json",
-          );
-          await rename(replacementPath, retainedCandidatePath);
-          await writeFile(replacementPath, "replacement-victim", {
-            mode: 0o600,
-            flag: "wx",
-          });
-          replacementBefore = await stat(replacementPath, { bigint: true });
-        } else {
-          actualInvocationReached = true;
-        }
-        return execution;
-      },
+      safeFsSession: candidateSwapRaceSession,
     }),
     (error) => (
       error?.code === "AGENTMO_OPENCLAW_CONFIG_CANDIDATE_NAME_DRIFT"
@@ -531,40 +555,22 @@ it("official config runner executes one exact dry-run/actual pair and preserves 
   assert.deepEqual(await readFile(retainedCandidatePath), beforeBytes);
   assert.deepEqual(await readFile(configPath), beforeBytes);
 
-  const quiescenceObservation = await resetBase();
-  await assert.rejects(
-    () => executeConfig({
-      baseObservation: quiescenceObservation,
-      runProcess: async (invocation) => {
-        const execution = await openClawOfficialActions
-          .runOpenClawOfficialProcess(invocation);
-        if (invocation.argv.includes("--dry-run")) return execution;
-        return {
-          ...execution,
-          quiescenceVerified: false,
-          failureCode: "command-failed-quiescence-unverified",
-        };
-      },
-    }),
-    (error) => (
-      error?.code === "AGENTMO_OPENCLAW_OFFICIAL_RESULT_REJECTED"
-    ),
-  );
-  assert.deepEqual(await readFile(configPath), beforeBytes);
-
   const hardLinkObservation = await resetBase();
   const hardLinkPath = path.join(root, "external-hardlink-sentinel.json");
+  let hardLinkObserveCount = 0;
+  const hardLinkRaceSession = Object.freeze({
+    async observe(relativePath) {
+      const observed = await session.observe(relativePath);
+      hardLinkObserveCount += 1;
+      if (hardLinkObserveCount === 4) await link(configPath, hardLinkPath);
+      return observed;
+    },
+    replaceExact: (...args) => session.replaceExact(...args),
+  });
   await assert.rejects(
     () => executeConfig({
       baseObservation: hardLinkObservation,
-      runProcess: async (invocation) => {
-        const execution = await openClawOfficialActions
-          .runOpenClawOfficialProcess(invocation);
-        if (!invocation.argv.includes("--dry-run")) {
-          await link(configPath, hardLinkPath);
-        }
-        return execution;
-      },
+      safeFsSession: hardLinkRaceSession,
     }),
     (error) => (
       error?.code === "AGENTMO_OPENCLAW_CONFIG_OBSERVATION_REJECTED"
@@ -577,19 +583,24 @@ it("official config runner executes one exact dry-run/actual pair and preserves 
   const ancestorObservation = await resetBase();
   const retainedRoot = `${root}-retained`;
   const ancestorSentinel = Buffer.from("external-ancestor-sentinel");
+  let ancestorObserveCount = 0;
+  const ancestorRaceSession = Object.freeze({
+    async observe(relativePath) {
+      const observed = await session.observe(relativePath);
+      ancestorObserveCount += 1;
+      if (ancestorObserveCount === 4) {
+        await rename(root, retainedRoot);
+        await mkdir(root, { mode: 0o700 });
+        await writeFile(configPath, ancestorSentinel, { mode: 0o600 });
+      }
+      return observed;
+    },
+    replaceExact: (...args) => session.replaceExact(...args),
+  });
   await assert.rejects(
     () => executeConfig({
       baseObservation: ancestorObservation,
-      runProcess: async (invocation) => {
-        const execution = await openClawOfficialActions
-          .runOpenClawOfficialProcess(invocation);
-        if (!invocation.argv.includes("--dry-run")) {
-          await rename(root, retainedRoot);
-          await mkdir(root, { mode: 0o700 });
-          await writeFile(configPath, ancestorSentinel, { mode: 0o600 });
-        }
-        return execution;
-      },
+      safeFsSession: ancestorRaceSession,
     }),
     (error) => (
       error?.code === "AGENTMO_OPENCLAW_CONFIG_OBSERVATION_REJECTED"
@@ -702,85 +713,6 @@ it("official process runner TERM-to-KILLs a stubborn group before returning", {
   assert.equal(Date.now() - startedAt >= 500, true);
 });
 
-it("official process runner executes retained supervisor and target fds after pathname swaps", {
-  skip: process.platform !== "linux",
-  timeout: 20_000,
-}, async () => {
-  const marker = path.join(tmpdir(), `agentmo-retained-exec-${process.pid}.txt`);
-  const fixture = await officialProcessFixture("process.exit(0);\n", {
-    timeoutMs: 2_000,
-  });
-  let swapped = false;
-  const result = await openClawOfficialActions.runOpenClawOfficialProcess(
-    fixture.invocation,
-    {
-      spawnProcess(executable, argv, options) {
-        const supervisorPath = readlinkSync(
-          `/proc/self/fd/${options.stdio[5]}`,
-        );
-        renameSync(supervisorPath, `${supervisorPath}.retained`);
-        writeFileSync(supervisorPath, [
-          "#!/bin/sh",
-          `printf fake > ${JSON.stringify(marker)}`,
-        ].join("\n"), { mode: 0o700 });
-        renameSync(
-          fixture.invocation.executable,
-          `${fixture.invocation.executable}.retained`,
-        );
-        writeFileSync(fixture.invocation.executable, [
-          "import { writeFileSync } from 'node:fs';",
-          `writeFileSync(${JSON.stringify(marker)}, 'fake');`,
-        ].join("\n"), { mode: 0o700 });
-        swapped = true;
-        return spawn(executable, argv, options);
-      },
-    },
-  );
-  assert.equal(swapped, true);
-  assert.equal(result.exitCode, 0);
-  assert.equal(result.processGroupClosed, true);
-  assert.equal(result.quiescenceVerified, true);
-  await assert.rejects(() => access(marker));
-});
-
-it("official process outer watchdog kills an authenticated stubborn target group before settlement", {
-  skip: process.platform !== "linux",
-  timeout: 20_000,
-}, async () => {
-  const root = await mkdtemp(path.join(tmpdir(), "agentmo-outer-watchdog-"));
-  const marker = path.join(root, "late-marker.txt");
-  const fakeSupervisor = path.join(root, "fake-supervisor.cjs");
-  await writeFile(fakeSupervisor, [
-    "const { spawn } = require('node:child_process');",
-    "const { writeSync } = require('node:fs');",
-    "const payload = \"const { writeFileSync } = require('node:fs'); process.on('SIGTERM', () => {}); setTimeout(() => writeFileSync(process.argv[1], 'late'), 3500); setInterval(() => {}, 1000)\";",
-    "const target = spawn(process.execPath, ['-e', payload, process.argv[2]], { detached: true, stdio: 'ignore' });",
-    "writeSync(8, `${target.pid}\\n`);",
-    "process.on('SIGTERM', () => {});",
-    "setInterval(() => {}, 1000);",
-  ].join("\n"));
-  const fixture = await officialProcessFixture("process.exit(0);\n", {
-    timeoutMs: 50,
-  });
-  const startedAt = Date.now();
-  const result = await openClawOfficialActions.runOpenClawOfficialProcess(
-    fixture.invocation,
-    {
-      spawnProcess(executable, argv, options) {
-        void executable;
-        void argv;
-        return spawn(process.execPath, [fakeSupervisor, marker], options);
-      },
-    },
-  );
-  assert.equal(Date.now() - startedAt < 6_000, true);
-  assert.equal(result.failureCode, "supervisor-watchdog-expired");
-  assert.equal(result.processGroupClosed, true);
-  assert.equal(result.quiescenceVerified, true);
-  await wait(1_000);
-  await assert.rejects(() => access(marker));
-});
-
 it("official process runner blocks setsid ignored-stdio escape before returning", {
   skip: process.platform !== "linux",
   timeout: 10_000,
@@ -824,30 +756,6 @@ it("official process runner blocks setsid ignored-stdio escape before returning"
   await assert.rejects(() => access(markerPath));
 });
 
-it("official process runner settles supervisor spawn exceptions without starting OpenClaw", {
-  skip: process.platform !== "linux",
-}, async () => {
-  const fixture = await officialProcessFixture("process.exit(0);\n");
-  const synchronous = await openClawOfficialActions.runOpenClawOfficialProcess(
-    fixture.invocation,
-    {
-      spawnProcess() {
-        const error = new Error("synthetic spawn failure");
-        error.code = "ENOENT";
-        throw error;
-      },
-    },
-  );
-
-  assert.equal(synchronous.exitCode, 1);
-  assert.equal(synchronous.timedOut, false);
-  assert.equal(synchronous.outputLimitExceeded, false);
-  assert.equal(synchronous.processStarted, false);
-  assert.equal(synchronous.processGroupClosed, true);
-  assert.equal(synchronous.quiescenceVerified, true);
-  assert.equal(synchronous.failureCode, "spawn-failed");
-});
-
 it("official process runner rejects caller-selected liveness proof before spawn", {
   timeout: 10_000,
 }, async () => {
@@ -868,9 +776,7 @@ it("official process runner rejects caller-selected liveness proof before spawn"
   assert.equal(result.failureCode, "invalid-supervisor-invocation");
 });
 
-it("official process runner is unsupported before spawn outside Linux", {
-  skip: process.platform === "linux",
-}, async () => {
+it("official process runner rejects caller-selected spawn before admission", async () => {
   const fixture = await officialProcessFixture("process.exit(0);\n");
   let spawnReached = false;
   const result = await openClawOfficialActions.runOpenClawOfficialProcess(
@@ -887,8 +793,5 @@ it("official process runner is unsupported before spawn outside Linux", {
   assert.equal(result.processStarted, false);
   assert.equal(result.processGroupClosed, true);
   assert.equal(result.quiescenceVerified, true);
-  assert.equal(
-    result.failureCode,
-    "platform-descendant-containment-unavailable",
-  );
+  assert.equal(result.failureCode, "invalid-supervisor-invocation");
 });
