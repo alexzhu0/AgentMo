@@ -75,7 +75,12 @@ static void handle_output_limit(int signal_number) {
 }
 
 static int pidfd_open_exact(pid_t pid) {
-#if AGENTMO_TEST_PIDFD_FAIL_AFTER >= 0
+#if AGENTMO_TEST_PIDFD_FAIL_AFTER == 0
+  if (pid != getpid()) {
+    errno = EMFILE;
+    return -1;
+  }
+#elif AGENTMO_TEST_PIDFD_FAIL_AFTER > 0
   if (pid != getpid()
     && g_pidfd_open_attempts >= (size_t)AGENTMO_TEST_PIDFD_FAIL_AFTER) {
     errno = EMFILE;
@@ -151,7 +156,10 @@ static bool install_process_group_lock(void) {
 }
 
 static int64_t monotonic_milliseconds(void) {
-#if AGENTMO_TEST_CLOCK_FAIL_AFTER >= 0
+#if AGENTMO_TEST_CLOCK_FAIL_AFTER == 0
+  errno = EIO;
+  return -1;
+#elif AGENTMO_TEST_CLOCK_FAIL_AFTER > 0
   if (g_clock_attempts >= (size_t)AGENTMO_TEST_CLOCK_FAIL_AFTER) {
     errno = EIO;
     return -1;

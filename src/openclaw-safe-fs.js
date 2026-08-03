@@ -7,6 +7,7 @@ import {
   mkdtemp,
   open,
   readFile,
+  realpath,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -696,7 +697,8 @@ function createProtocol(child) {
 }
 
 async function inspectCompiler(environment) {
-  const file = await inspectStableFile(COMPILER_PATH, {
+  const compilerRealPath = await realpath(COMPILER_PATH);
+  const file = await inspectStableFile(compilerRealPath, {
     allowMultipleLinks: true,
   });
   const version = await runBoundedProcess(

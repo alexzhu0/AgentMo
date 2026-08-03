@@ -50,7 +50,7 @@ jobs:
             -Wall \
             -Wextra \
             -Werror \
-            -fsyntax-only
+            -o "${RUNNER_TEMP}/agentmo-openclaw-fs-kernel"
 
       - name: Execute Linux containment and credential regressions
         shell: bash
