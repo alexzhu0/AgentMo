@@ -300,12 +300,13 @@ async function killSelectedRecordEffectWriter(fixture, request) {
       stagePath,
       stoppedSize: Number(stoppedStats.size),
     });
+    process.kill(child.pid, "SIGKILL");
     break;
   }
   const terminal = await terminalPromise;
   assert.notEqual(killed, null, `selected record writer escaped: ${terminal.type ?? "none"}`);
-  assert.equal(terminal.type, "error");
-  assert.equal(terminal.code, 1);
+  assert.equal(terminal.code, null);
+  assert.equal(terminal.signal, "SIGKILL");
   return killed;
 }
 
@@ -840,7 +841,7 @@ describe("append-only authority without production fault controls", () => {
     assert.equal(state.aborted.length, 1);
   });
 
-  it("resumes the same selected record inode after SIGSTOP and SIGKILL hit its real writer", {
+  it("resumes the same selected record inode after SIGSTOP and SIGKILL crash its real writer and owner", {
     skip: !PROCESS_TREE_INSPECTION_AVAILABLE,
   }, async () => {
     const fixture = await authorityFixture("agentmo-append-partial-record-writer-");

@@ -2043,16 +2043,16 @@ describe("packed Codex Builder setup", { concurrency: false }, () => {
         : await packedReceiptCompanionBundleArgs(
           "current",
           current.companions,
-          fixture.root,
-          lifecycle,
+          path.dirname(fixture.root),
+          `${path.basename(fixture.root)}-${lifecycle}`,
         );
       const predecessorCompanionArgs = selected === null
         ? []
         : await packedReceiptCompanionBundleArgs(
           "predecessor",
           selected.companions,
-          fixture.root,
-          lifecycle,
+          path.dirname(fixture.root),
+          `${path.basename(fixture.root)}-${lifecycle}`,
         );
       const previewBasisArgs = lifecycle === "install"
         ? [
