@@ -29,6 +29,7 @@
 #define REPORT_FD 4
 #define TARGET_RUNTIME_FD 6
 #define TARGET_SCRIPT_FD 7
+#define BOOTSTRAP_REPORT_FD 8
 #ifndef AGENTMO_MAX_TRACKED
 #define AGENTMO_MAX_TRACKED 4096
 #endif
@@ -211,6 +212,11 @@ static void sleep_poll(void) {
   struct timespec interval = { .tv_sec = 0, .tv_nsec = POLL_NS };
   while (nanosleep(&interval, &interval) != 0 && errno == EINTR) {
   }
+}
+
+static bool process_group_empty(pid_t leader) {
+  if (kill(-leader, 0) == 0) return false;
+  return errno == ESRCH;
 }
 
 static ssize_t tracked_index(
@@ -473,6 +479,7 @@ int main(int argc, char **argv) {
     || strcmp(argv[3], "--") != 0 || fcntl(REPORT_FD, F_GETFD) < 0
     || fcntl(TARGET_RUNTIME_FD, F_GETFD) < 0
     || fcntl(TARGET_SCRIPT_FD, F_GETFD) < 0
+    || fcntl(BOOTSTRAP_REPORT_FD, F_GETFD) < 0
     || argc < 6 || strcmp(argv[5], "/proc/self/fd/7") != 0) {
     return 64;
   }
@@ -536,6 +543,7 @@ int main(int argc, char **argv) {
     close(bootstrap_ready[0]);
     close(bootstrap_go[1]);
     close(REPORT_FD);
+    close(BOOTSTRAP_REPORT_FD);
     if (setpgid(0, 0) != 0 || !install_process_group_lock()) _exit(126);
     if (!write_control_byte(bootstrap_ready[1], 'R')) _exit(126);
     close(bootstrap_ready[1]);
@@ -565,6 +573,13 @@ int main(int argc, char **argv) {
     abort_bootstrap(direct, -1, bootstrap_go[1]);
     return 78;
   }
+  if (dprintf(BOOTSTRAP_REPORT_FD, "%ld\n", (long)direct) <= 0) {
+    close(BOOTSTRAP_REPORT_FD);
+    close(tracked[0].pidfd);
+    abort_bootstrap(direct, -1, bootstrap_go[1]);
+    return 78;
+  }
+  close(BOOTSTRAP_REPORT_FD);
   if (!write_control_byte(bootstrap_go[1], 'G')) {
     close(tracked[0].pidfd);
     abort_bootstrap(direct, -1, bootstrap_go[1]);
@@ -578,6 +593,7 @@ int main(int argc, char **argv) {
   bool timed_out = false;
   bool output_limit = false;
   bool containment_error = false;
+  bool clock_failed = false;
   bool descendant_outlived = false;
   int64_t shutdown_at = 0;
   unsigned int empty_polls = 0;
@@ -596,6 +612,7 @@ int main(int argc, char **argv) {
     int64_t now = monotonic_milliseconds();
     if (now < 0) {
       containment_error = true;
+      clock_failed = true;
       shutdown = true;
     }
     if (!shutdown && g_output_limit != 0) {
@@ -613,11 +630,18 @@ int main(int argc, char **argv) {
       shutdown = true;
     }
     if (shutdown && shutdown_at == 0) {
-      shutdown_at = now;
-      signal_tracked(tracked, tracked_count, SIGTERM);
-      (void)kill(-direct, SIGTERM);
+      shutdown_at = now >= 0 ? now : -1;
+      if (clock_failed) {
+        sent_kill = true;
+        signal_tracked(tracked, tracked_count, SIGKILL);
+        (void)kill(-direct, SIGKILL);
+      } else {
+        signal_tracked(tracked, tracked_count, SIGTERM);
+        (void)kill(-direct, SIGTERM);
+      }
     }
-    if (shutdown && !sent_kill && now - shutdown_at >= TERM_GRACE_MS) {
+    if (shutdown && !sent_kill && (now < 0
+      || now - shutdown_at >= TERM_GRACE_MS)) {
       sent_kill = true;
       signal_tracked(tracked, tracked_count, SIGKILL);
       (void)kill(-direct, SIGKILL);
@@ -629,8 +653,9 @@ int main(int argc, char **argv) {
         sent_kill ? SIGKILL : SIGTERM
       );
     }
+    bool group_empty = process_group_empty(direct);
     if (visible_count == 0 && !any_alive(tracked, tracked_count)
-      && direct_closed) {
+      && direct_closed && group_empty) {
       empty_polls += 1;
     } else {
       empty_polls = 0;
@@ -654,7 +679,8 @@ int main(int argc, char **argv) {
       );
       break;
     }
-    if (shutdown && sent_kill && now - shutdown_at >= KILL_PROOF_MS) {
+    if (shutdown && sent_kill && now >= 0 && shutdown_at >= 0
+      && now - shutdown_at >= KILL_PROOF_MS) {
       report_result(
         timed_out ? 124 : 1,
         timed_out,

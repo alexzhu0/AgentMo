@@ -66,10 +66,12 @@ async function runSupervisorRaw(binary, script, marker) {
       "ignore",
       runtimeHandle.fd,
       scriptHandle.fd,
+      "pipe",
     ],
   });
   const protocol = [];
   child.stdio[4].on("data", (chunk) => protocol.push(chunk));
+  child.stdio[8].resume();
   const code = await new Promise((resolve, reject) => {
     child.once("error", reject);
     child.once("close", resolve);
@@ -325,5 +327,32 @@ it("Linux supervisor never execs the target when bootstrap clock admission fails
   const result = await runSupervisorRaw(binary, script, marker);
   assert.equal(result.code, 78);
   assert.equal(result.protocol, "");
+  await assert.rejects(() => access(marker));
+});
+
+it("Linux supervisor immediately kills a SIGTERM-resistant canary after post-bootstrap clock failure", {
+  skip: process.platform !== "linux",
+  timeout: 20_000,
+}, async () => {
+  const root = await mkdtemp(
+    path.join(tmpdir(), "agentmo-supervisor-runtime-clock-"),
+  );
+  const binary = await compileSupervisor(root, [
+    "AGENTMO_TEST_CLOCK_FAIL_AFTER=1",
+  ]);
+  const script = path.join(root, "clock-resistant.cjs");
+  const marker = path.join(root, "late-marker.txt");
+  await writeFile(script, [
+    "const { writeFileSync } = require('node:fs');",
+    "process.on('SIGTERM', () => {});",
+    "setTimeout(() => writeFileSync(process.argv[2], 'late'), 400);",
+    "setInterval(() => {}, 1000);",
+  ].join("\n"));
+
+  const result = await runSupervisor(binary, script, marker);
+  await wait(500);
+  assert.equal(result.failureCode, "containment-proof-failed");
+  assert.equal(result.processGroupClosed, true);
+  assert.equal(result.quiescenceVerified, true);
   await assert.rejects(() => access(marker));
 });

@@ -30,6 +30,9 @@ const MAX_CONFIG_BYTES = 40 * 1024;
 const SUPERVISOR_EXECUTABLE_FD = 5;
 const TARGET_RUNTIME_FD = 6;
 const TARGET_SCRIPT_FD = 7;
+const BOOTSTRAP_REPORT_FD = 8;
+const OUTER_WATCHDOG_GRACE_MS = 2_750;
+const OUTER_GROUP_PROOF_MS = 2_000;
 const AUTHENTIC_PROCESS_RESULTS = new WeakMap();
 
 export class OpenClawOfficialActionError extends Error {
@@ -932,6 +935,7 @@ async function runSupervisedProcess(invocation, options) {
             supervisor.retainedBinary.fd,
             runtimeHandle.fd,
             targetHandle.fd,
+            "pipe",
           ],
           detached: false,
           windowsHide: true,
@@ -947,9 +951,14 @@ async function runSupervisedProcess(invocation, options) {
     const protocol = [];
     let outputLimitSignaled = false;
     let settled = false;
+    let bootstrapBytes = 0;
+    const bootstrap = [];
+    let directPgid = null;
+    let watchdog;
     const settle = (value) => {
       if (settled) return;
       settled = true;
+      clearTimeout(watchdog);
       closeRetained();
       resolve(authenticProcessResult(value, invocation));
     };
@@ -971,6 +980,23 @@ async function runSupervisedProcess(invocation, options) {
       }
       protocol.push(chunk);
     });
+    child.stdio?.[BOOTSTRAP_REPORT_FD]?.on("data", (chunk) => {
+      bootstrapBytes += chunk.length;
+      if (bootstrapBytes > 64) {
+        child.kill("SIGTERM");
+        return;
+      }
+      bootstrap.push(chunk);
+      const text = Buffer.concat(bootstrap).toString("ascii");
+      if (/^[1-9]\d*\n$/u.test(text)) directPgid = Number(text.trim());
+    });
+    watchdog = setTimeout(() => {
+      void (async () => {
+        const groupClosed = await killAndProveProcessGroupClosed(directPgid);
+        child.kill("SIGKILL");
+        settle(supervisorWatchdogFailureResult(groupClosed, directPgid));
+      })();
+    }, invocation.timeoutMs + OUTER_WATCHDOG_GRACE_MS);
     child.once("error", () => settle(spawnFailureResult()));
     child.once("close", () => {
       if (settled) return;
@@ -993,6 +1019,27 @@ async function runSupervisedProcess(invocation, options) {
       settle(Object.freeze(parsed));
     });
   });
+}
+
+async function killAndProveProcessGroupClosed(directPgid) {
+  if (!Number.isSafeInteger(directPgid) || directPgid <= 0) return false;
+  const deadline = Date.now() + OUTER_GROUP_PROOF_MS;
+  do {
+    try {
+      process.kill(-directPgid, "SIGKILL");
+    } catch (error) {
+      if (error?.code === "ESRCH") return true;
+      return false;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    try {
+      process.kill(-directPgid, 0);
+    } catch (error) {
+      if (error?.code === "ESRCH") return true;
+      return false;
+    }
+  } while (Date.now() < deadline);
+  return false;
 }
 
 async function retainExactExecutable(filePath, expectedDigest, options = {}) {
@@ -1165,6 +1212,19 @@ function supervisorProtocolFailureResult() {
     quiescenceVerified: false,
     containment: "linux-subreaper-pidfd-proc-children",
     failureCode: "supervisor-protocol-failed",
+  });
+}
+
+function supervisorWatchdogFailureResult(groupClosed, directPgid) {
+  return Object.freeze({
+    exitCode: 1,
+    timedOut: false,
+    outputLimitExceeded: false,
+    processStarted: Number.isSafeInteger(directPgid),
+    processGroupClosed: groupClosed,
+    quiescenceVerified: groupClosed,
+    containment: "linux-subreaper-pidfd-proc-children",
+    failureCode: "supervisor-watchdog-expired",
   });
 }
 

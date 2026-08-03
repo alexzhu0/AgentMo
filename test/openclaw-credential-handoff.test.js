@@ -743,6 +743,44 @@ it("official process runner executes retained supervisor and target fds after pa
   await assert.rejects(() => access(marker));
 });
 
+it("official process outer watchdog kills an authenticated stubborn target group before settlement", {
+  skip: process.platform !== "linux",
+  timeout: 20_000,
+}, async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "agentmo-outer-watchdog-"));
+  const marker = path.join(root, "late-marker.txt");
+  const fakeSupervisor = path.join(root, "fake-supervisor.cjs");
+  await writeFile(fakeSupervisor, [
+    "const { spawn } = require('node:child_process');",
+    "const { writeSync } = require('node:fs');",
+    "const payload = \"const { writeFileSync } = require('node:fs'); process.on('SIGTERM', () => {}); setTimeout(() => writeFileSync(process.argv[1], 'late'), 3500); setInterval(() => {}, 1000)\";",
+    "const target = spawn(process.execPath, ['-e', payload, process.argv[2]], { detached: true, stdio: 'ignore' });",
+    "writeSync(8, `${target.pid}\\n`);",
+    "process.on('SIGTERM', () => {});",
+    "setInterval(() => {}, 1000);",
+  ].join("\n"));
+  const fixture = await officialProcessFixture("process.exit(0);\n", {
+    timeoutMs: 50,
+  });
+  const startedAt = Date.now();
+  const result = await openClawOfficialActions.runOpenClawOfficialProcess(
+    fixture.invocation,
+    {
+      spawnProcess(executable, argv, options) {
+        void executable;
+        void argv;
+        return spawn(process.execPath, [fakeSupervisor, marker], options);
+      },
+    },
+  );
+  assert.equal(Date.now() - startedAt < 6_000, true);
+  assert.equal(result.failureCode, "supervisor-watchdog-expired");
+  assert.equal(result.processGroupClosed, true);
+  assert.equal(result.quiescenceVerified, true);
+  await wait(1_000);
+  await assert.rejects(() => access(marker));
+});
+
 it("official process runner blocks setsid ignored-stdio escape before returning", {
   skip: process.platform !== "linux",
   timeout: 10_000,
