@@ -122,7 +122,7 @@ it("sensitive runner rejects unsupported and ambiguous OpenClaw action routes be
 
 it("official config runner executes one exact dry-run/actual pair and preserves unknown fields", {
   skip: process.platform !== "linux",
-}, async () => {
+}, async (t) => {
   const fixture = await buildApprovedPackageFixture();
   const root = await mkdtemp(path.join(tmpdir(), "agentmo-official-config-"));
   await chmod(root, 0o700);
@@ -301,6 +301,9 @@ it("official config runner executes one exact dry-run/actual pair and preserves 
     receiptPath: fixture.publication.receiptPath,
     receiptDigest: fixture.publication.receiptDigest,
   });
+  t.after(async () => {
+    await session.close();
+  });
   const baseObservation = await session.observe("openclaw.json");
   const configOptions = ({
     baseObservation: observation,
@@ -367,7 +370,6 @@ it("official config runner executes one exact dry-run/actual pair and preserves 
     assert.equal(result.processGroupFacts.dryRun.processStarted, false);
     assert.equal(result.processGroupFacts.actual.processStarted, false);
     assert.deepEqual(await readFile(configPath), beforeBytes);
-    await session.close();
     return;
   }
   assert.equal(result.base.digest, digestBytes(beforeBytes));
@@ -447,14 +449,19 @@ it("official config runner executes one exact dry-run/actual pair and preserves 
     },
     replaceExact: (...args) => session.replaceExact(...args),
   });
-  await assert.rejects(
-    () => executeConfig({
-      baseObservation: preObservation,
-      safeFsSession: preDryRunSession,
-    }),
-    (error) => error?.code === "AGENTMO_OPENCLAW_CONFIG_BASE_DRIFT",
-  );
-  await restoreFinal(preSwap, "pre-dry-run");
+  try {
+    await assert.rejects(
+      () => executeConfig({
+        baseObservation: preObservation,
+        safeFsSession: preDryRunSession,
+      }),
+      (error) => error?.code === "AGENTMO_OPENCLAW_CONFIG_BASE_DRIFT",
+    );
+  } finally {
+    if (preSwap !== undefined) {
+      await restoreFinal(preSwap, "pre-dry-run");
+    }
+  }
 
   const dryRunObservation = await resetBase();
   let dryRunSwap;
@@ -470,14 +477,21 @@ it("official config runner executes one exact dry-run/actual pair and preserves 
     },
     replaceExact: (...args) => session.replaceExact(...args),
   });
-  await assert.rejects(
-    () => executeConfig({
-      baseObservation: dryRunObservation,
-      safeFsSession: dryRunRaceSession,
-    }),
-    (error) => error?.code === "AGENTMO_OPENCLAW_CONFIG_BASE_DRIFT",
-  );
-  await restoreFinal(dryRunSwap, "dry-run-actual");
+  try {
+    await assert.rejects(
+      () => executeConfig({
+        baseObservation: dryRunObservation,
+        safeFsSession: dryRunRaceSession,
+      }),
+      (error) => (
+        error?.code === "AGENTMO_OPENCLAW_CONFIG_OBSERVATION_REJECTED"
+      ),
+    );
+  } finally {
+    if (dryRunSwap !== undefined) {
+      await restoreFinal(dryRunSwap, "dry-run-actual");
+    }
+  }
 
   const actualObservation = await resetBase();
   let actualSwap;
@@ -493,14 +507,19 @@ it("official config runner executes one exact dry-run/actual pair and preserves 
     },
     replaceExact: (...args) => session.replaceExact(...args),
   });
-  await assert.rejects(
-    () => executeConfig({
-      baseObservation: actualObservation,
-      safeFsSession: actualRaceSession,
-    }),
-    (error) => error?.code === "AGENTMO_OPENCLAW_CONFIG_BASE_DRIFT",
-  );
-  await restoreFinal(actualSwap, "actual-post");
+  try {
+    await assert.rejects(
+      () => executeConfig({
+        baseObservation: actualObservation,
+        safeFsSession: actualRaceSession,
+      }),
+      (error) => error?.code === "AGENTMO_OPENCLAW_CONFIG_BASE_DRIFT",
+    );
+  } finally {
+    if (actualSwap !== undefined) {
+      await restoreFinal(actualSwap, "actual-post");
+    }
+  }
 
   const dryMutationObservation = await resetBase();
   let dryMutationObserveCount = 0;
@@ -586,18 +605,23 @@ it("official config runner executes one exact dry-run/actual pair and preserves 
     },
     replaceExact: (...args) => session.replaceExact(...args),
   });
-  await assert.rejects(
-    () => executeConfig({
-      baseObservation: hardLinkObservation,
-      safeFsSession: hardLinkRaceSession,
-    }),
-    (error) => (
-      error?.code === "AGENTMO_OPENCLAW_CONFIG_OBSERVATION_REJECTED"
-    ),
-  );
-  assert.deepEqual(await readFile(configPath), beforeBytes);
-  assert.deepEqual(await readFile(hardLinkPath), beforeBytes);
-  await unlink(hardLinkPath);
+  try {
+    await assert.rejects(
+      () => executeConfig({
+        baseObservation: hardLinkObservation,
+        safeFsSession: hardLinkRaceSession,
+      }),
+      (error) => (
+        error?.code === "AGENTMO_OPENCLAW_CONFIG_OBSERVATION_REJECTED"
+      ),
+    );
+    assert.deepEqual(await readFile(configPath), beforeBytes);
+    assert.deepEqual(await readFile(hardLinkPath), beforeBytes);
+  } finally {
+    await unlink(hardLinkPath).catch((error) => {
+      if (error?.code !== "ENOENT") throw error;
+    });
+  }
 
   const ancestorObservation = await resetBase();
   const retainedRoot = `${root}-retained`;
@@ -632,7 +656,6 @@ it("official config runner executes one exact dry-run/actual pair and preserves 
     await readFile(path.join(retainedRoot, "openclaw.json")),
     beforeBytes,
   );
-  await session.close();
 });
 
 it("official process runner kills a delayed-mutation grandchild before bounded settlement", {
