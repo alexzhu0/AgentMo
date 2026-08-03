@@ -32,7 +32,7 @@ Release 记录按日期倒序维护（最新在前），不要按版本号排序
 
 | 日期 | 阶段 | 状态 | 记录 | GitHub Release |
 | --- | --- | --- | --- | --- |
-| 2026.08.03 | Phase 4：exact-candidate Linux native gate 与 gap-closure pre-audit 前置证据 | `7c902af` native job green；full-project successor 与 noncanonical/canonical review pending；未发布 release | [`2026.08.03.md`](./2026.08.03.md) | 待发布 |
+| 2026.08.03 | Phase 4：exact-candidate Linux native gate 与 gap-closure pre-audit 前置证据 | `7c902af` native job green；full-project job 60m timeout/inconclusive，pre-audit blocked；未发布 release | [`2026.08.03.md`](./2026.08.03.md) | 待发布 |
 | 2026.08.02 | Phase 4：authority-root、named candidate 与 Linux supervisor 多轮对抗加固 | remediation 已进入 `codex/phase2-poc-baseline` Linux CI 候选；Darwin 聚焦 gate 6 pass / 0 fail / 11 Linux skip；精确 commit 的 Linux gate 后再复审，未发布 release | [`2026.08.02.md`](./2026.08.02.md) | 待发布 |
 | 2026.07.31 | Phase 4：8 Critical / 2 Warning post-audit remediation，canonical ledger、producer-auth evidence、Linux retained-candidate config、bounded process group、nested closure 与 recoverable evidence | current-source full/pack/diff 已绿；fresh re-audit Critical 3 / Warning 0，Phase 4 blocked；未提交或发布 | [`2026.07.31.md`](./2026.07.31.md) | 待发布 |
 | 2026.07.30 | Phase 4：fresh reprobe、retained-dirfd helper、durable authority、four lifecycle、strict receipts 与 extracted source-only distribution | 04-19 最终 lane-structured gate exit 0：main 935 pass/0 fail、两条负载敏感场景各 1/1；pack 99 entries 与 diff-check exit 0；noncanonical/canonical review 仍待执行，未提交或发布 | [`2026.07.30.md`](./2026.07.30.md) | 待发布 |
