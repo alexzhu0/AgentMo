@@ -252,10 +252,24 @@ describe("OpenClaw safe fs retained-dirfd kernel", () => {
       PATH: "/usr/bin:/bin",
       TMPDIR: receipt.environment.TMPDIR,
     });
-    assert.deepEqual(receipt.argv.slice(0, 2), [
-      "/usr/bin/cc",
-      SOURCE_PATH,
-    ]);
+    assert.equal(receipt.argv[0], "/usr/bin/cc");
+    assert.equal(path.basename(receipt.argv[1]), "kernel-source.c");
+    assert.equal(
+      receipt.reproducibility.strategy,
+      "independent-double-build-from-retained-source",
+    );
+    assert.equal(
+      receipt.reproducibility.retainedSource.digest,
+      receipt.source.digest,
+    );
+    assert.equal(
+      receipt.reproducibility.verificationBinary.digest,
+      receipt.binary.digest,
+    );
+    assert.deepEqual(
+      receipt.reproducibility.verificationArgv,
+      receipt.argv,
+    );
     assert.equal(receipt.argv.includes("-o"), true);
     assert.equal(
       path.basename(receipt.argv.at(-1)),
@@ -292,6 +306,25 @@ describe("OpenClaw safe fs retained-dirfd kernel", () => {
       receiptPath,
       receiptDigest,
     })), true);
+  });
+
+  it("rejects deterministic compiler-output substitution before fs-kernel admission", async () => {
+    const root = await mkdtemp(
+      path.join(tmpdir(), "agentmo-safe-fs-output-substitution-"),
+    );
+    await chmod(root, 0o700);
+    process.env.AGENTMO_TEST_NATIVE_BUILD_OUTPUT_SUBSTITUTION = "1";
+    try {
+      await assert.rejects(
+        () => buildOpenClawFsKernel({
+          binaryOut: path.join(root, "openclaw-fs-kernel"),
+          receiptOut: path.join(root, "openclaw-fs-kernel.receipt.json"),
+        }),
+        (error) => error?.code === "AGENTMO_OPENCLAW_FS_BUILD_REJECTED",
+      );
+    } finally {
+      delete process.env.AGENTMO_TEST_NATIVE_BUILD_OUTPUT_SUBSTITUTION;
+    }
   });
 
   it("reports private build and execution objects preserved instead of pathname cleanup", async () => {

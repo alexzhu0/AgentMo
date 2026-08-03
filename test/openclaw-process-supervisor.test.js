@@ -132,6 +132,27 @@ it("supervisor preparation is fail-closed before build outside Linux", {
   );
 });
 
+it("Linux supervisor build rejects deterministic compiler-output substitution", {
+  skip: process.platform !== "linux",
+  timeout: 20_000,
+}, async () => {
+  const root = await mkdtemp(
+    path.join(tmpdir(), "agentmo-supervisor-output-substitution-"),
+  );
+  await chmod(root, 0o700);
+  process.env.AGENTMO_TEST_NATIVE_BUILD_OUTPUT_SUBSTITUTION = "1";
+  try {
+    await assert.rejects(
+      () => prepareOpenClawProcessSupervisor({ privateRoot: root }),
+      (error) => (
+        error?.code === "AGENTMO_OPENCLAW_PROCESS_SUPERVISOR_REJECTED"
+      ),
+    );
+  } finally {
+    delete process.env.AGENTMO_TEST_NATIVE_BUILD_OUTPUT_SUBSTITUTION;
+  }
+});
+
 it("Linux supervisor recycles terminal pidfds before the bounded capacity is reused", {
   skip: process.platform !== "linux",
   timeout: 20_000,

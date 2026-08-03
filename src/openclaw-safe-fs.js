@@ -41,6 +41,7 @@ const RECEIPT_KEYS = [
   "argv",
   "environment",
   "environmentDigest",
+  "reproducibility",
   "binary",
   "publication",
   "receipt",
@@ -54,6 +55,12 @@ const COMPILER_KEYS = [
   "fingerprint",
 ];
 const BINARY_KEYS = ["path", "digest", "identity"];
+const REPRODUCIBILITY_KEYS = [
+  "strategy",
+  "retainedSource",
+  "verificationArgv",
+  "verificationBinary",
+];
 const PUBLICATION_KEYS = [
   "schemaVersion",
   "sameParent",
@@ -155,9 +162,21 @@ export async function buildOpenClawFsKernel(options = {}) {
       buildPrivateRoot,
       "openclaw-fs-kernel.stage",
     );
+    const verificationPath = stagingPath;
+    const retainedSourcePath = path.join(buildPrivateRoot, "kernel-source.c");
+    const [source, compiler] = await Promise.all([
+      inspectStableFile(SOURCE_PATH),
+      inspectCompiler(environment),
+    ]);
+    const retainedSource = await publishExclusiveFile(
+      retainedSourcePath,
+      source.bytes,
+      0o400,
+      () => {},
+    );
     const argv = Object.freeze([
       COMPILER_PATH,
-      SOURCE_PATH,
+      retainedSourcePath,
       "-std=c11",
       "-O2",
       "-Wall",
@@ -167,10 +186,6 @@ export async function buildOpenClawFsKernel(options = {}) {
       stagingPath,
     ]);
     failurePoint = "compilation";
-    const [source, compiler] = await Promise.all([
-      inspectStableFile(SOURCE_PATH),
-      inspectCompiler(environment),
-    ]);
     const compilation = await runBoundedProcess(
       COMPILER_PATH,
       argv.slice(1),
@@ -180,8 +195,29 @@ export async function buildOpenClawFsKernel(options = {}) {
     if (compilation.code !== 0 || compilation.signal !== null) {
       fail("AGENTMO_OPENCLAW_FS_BUILD_REJECTED");
     }
+    await injectTestBuildOutputSubstitution(stagingPath);
     await chmod(stagingPath, 0o700);
     const staged = await inspectStableFile(stagingPath);
+    const verificationArgv = Object.freeze([
+      ...argv.slice(0, -1),
+      verificationPath,
+    ]);
+    const verificationCompilation = await runBoundedProcess(
+      COMPILER_PATH,
+      verificationArgv.slice(1),
+      environment,
+      BUILD_TIMEOUT_MS,
+    );
+    if (verificationCompilation.code !== 0
+      || verificationCompilation.signal !== null) {
+      fail("AGENTMO_OPENCLAW_FS_BUILD_REJECTED");
+    }
+    await chmod(verificationPath, 0o700);
+    const verificationBinary = await inspectStableFile(verificationPath);
+    if (!staged.bytes.equals(verificationBinary.bytes)
+      || retainedSource.digest !== source.digest) {
+      fail("AGENTMO_OPENCLAW_FS_BUILD_REJECTED");
+    }
     const executable = await publishExclusiveFile(
       binaryOut,
       staged.bytes,
@@ -222,6 +258,20 @@ export async function buildOpenClawFsKernel(options = {}) {
         argv: [...argv],
         environment: { ...CLOSED_ENVIRONMENT_DESCRIPTOR },
         environmentDigest: digestCanonical(CLOSED_ENVIRONMENT_DESCRIPTOR),
+        reproducibility: {
+          strategy: "independent-double-build-from-retained-source",
+          retainedSource: {
+            path: retainedSourcePath,
+            digest: retainedSource.digest,
+            identity: retainedSource.identity,
+          },
+          verificationArgv: [...verificationArgv],
+          verificationBinary: {
+            path: verificationPath,
+            digest: verificationBinary.digest,
+            identity: verificationBinary.identity,
+          },
+        },
         binary: {
           path: binaryOut,
           digest: executable.digest,
@@ -311,6 +361,8 @@ export async function admitOpenClawFsKernel(options = {}) {
     const stagingRoot = typeof stagingPath === "string"
       ? path.dirname(stagingPath)
       : "";
+    const retainedSourcePath = path.join(stagingRoot, "kernel-source.c");
+    const verificationPath = stagingPath;
     if (!path.isAbsolute(stagingPath ?? "")
       || path.basename(stagingPath) !== "openclaw-fs-kernel.stage"
       || path.dirname(stagingRoot) !== path.dirname(options.helperPath)
@@ -319,7 +371,7 @@ export async function admitOpenClawFsKernel(options = {}) {
     }
     const expectedArgv = [
       COMPILER_PATH,
-      SOURCE_PATH,
+      retainedSourcePath,
       "-std=c11",
       "-O2",
       "-Wall",
@@ -328,19 +380,35 @@ export async function admitOpenClawFsKernel(options = {}) {
       "-o",
       stagingPath,
     ];
-    if (!same(receipt.argv, expectedArgv)) {
+    const expectedVerificationArgv = [
+      ...expectedArgv.slice(0, -1),
+      verificationPath,
+    ];
+    if (!same(receipt.argv, expectedArgv)
+      || receipt.reproducibility.strategy
+        !== "independent-double-build-from-retained-source"
+      || receipt.reproducibility.retainedSource.path !== retainedSourcePath
+      || receipt.reproducibility.verificationBinary.path !== verificationPath
+      || !same(
+        receipt.reproducibility.verificationArgv,
+        expectedVerificationArgv,
+      )) {
       fail("AGENTMO_OPENCLAW_FS_ADMISSION_REJECTED");
     }
     const [
       source,
       compiler,
       binary,
+      retainedSource,
+      verificationBinary,
       binaryParent,
       receiptParent,
     ] = await Promise.all([
       inspectStableFile(SOURCE_PATH),
       inspectCompilerWithFreshClosedEnvironment(),
       inspectStableFile(options.helperPath),
+      inspectStableFile(retainedSourcePath),
+      inspectStableFile(verificationPath),
       inspectStableDirectory(path.dirname(options.helperPath)),
       inspectStableDirectory(path.dirname(options.receiptPath)),
     ]);
@@ -352,6 +420,20 @@ export async function admitOpenClawFsKernel(options = {}) {
       || compiler.fingerprint !== receipt.compiler.fingerprint
       || binary.digest !== receipt.binary.digest
       || !sameFileObject(binary.identity, receipt.binary.identity)
+      || retainedSource.digest !== receipt.source.digest
+      || retainedSource.digest
+        !== receipt.reproducibility.retainedSource.digest
+      || !sameFileObject(
+        retainedSource.identity,
+        receipt.reproducibility.retainedSource.identity,
+      )
+      || verificationBinary.digest !== binary.digest
+      || verificationBinary.digest
+        !== receipt.reproducibility.verificationBinary.digest
+      || !sameFileObject(
+        verificationBinary.identity,
+        receipt.reproducibility.verificationBinary.identity,
+      )
       || !sameDirectoryObject(
         binaryParent.identity,
         receipt.publication.binaryParentIdentity,
@@ -1047,11 +1129,16 @@ function parseClosedReceipt(bytes) {
     || receipt.kind !== "agentmo-openclaw-fs-kernel"
     || !sameKeys(receipt.source, SOURCE_KEYS)
     || !sameKeys(receipt.compiler, COMPILER_KEYS)
+    || !sameKeys(receipt.reproducibility, REPRODUCIBILITY_KEYS)
+    || !sameKeys(receipt.reproducibility.retainedSource, BINARY_KEYS)
+    || !sameKeys(receipt.reproducibility.verificationBinary, BINARY_KEYS)
     || !sameKeys(receipt.binary, BINARY_KEYS)
     || !sameKeys(receipt.publication, PUBLICATION_KEYS)
     || !sameKeys(receipt.receipt, RECEIPT_SELF_KEYS)
     || !validIdentity(receipt.source.identity)
     || !validIdentity(receipt.compiler.identity)
+    || !validIdentity(receipt.reproducibility.retainedSource.identity)
+    || !validIdentity(receipt.reproducibility.verificationBinary.identity)
     || !validIdentity(receipt.binary.identity)
     || receipt.publication.schemaVersion
       !== OPENCLAW_FS_BUILD_PAIR_SCHEMA_VERSION
@@ -1063,12 +1150,18 @@ function parseClosedReceipt(bytes) {
     || !sameKeys(receipt.environment, ENVIRONMENT_KEYS)
     || !Array.isArray(receipt.argv)
     || !receipt.argv.every((value) => typeof value === "string")
+    || !Array.isArray(receipt.reproducibility.verificationArgv)
+    || !receipt.reproducibility.verificationArgv.every(
+      (value) => typeof value === "string",
+    )
     || ![
       receipt.source.digest,
       receipt.compiler.digest,
       receipt.compiler.versionDigest,
       receipt.compiler.fingerprint,
       receipt.environmentDigest,
+      receipt.reproducibility.retainedSource.digest,
+      receipt.reproducibility.verificationBinary.digest,
       receipt.binary.digest,
     ].every((value) => DIGEST_PATTERN.test(value ?? ""))) {
     fail("AGENTMO_OPENCLAW_FS_ADMISSION_REJECTED");
@@ -1077,6 +1170,21 @@ function parseClosedReceipt(bytes) {
     fail("AGENTMO_OPENCLAW_FS_ADMISSION_REJECTED");
   }
   return deepFreeze(receipt);
+}
+
+async function injectTestBuildOutputSubstitution(filePath) {
+  if (process.env.AGENTMO_TEST_NATIVE_BUILD_OUTPUT_SUBSTITUTION !== "1") return;
+  let handle;
+  try {
+    handle = await open(
+      filePath,
+      constants.O_WRONLY | constants.O_TRUNC | (constants.O_NOFOLLOW ?? 0),
+    );
+    await handle.writeFile(Buffer.from("substituted-native-build-output\n"));
+    await handle.sync();
+  } finally {
+    await handle?.close().catch(() => {});
+  }
 }
 
 async function syncDirectory(directoryPath) {
