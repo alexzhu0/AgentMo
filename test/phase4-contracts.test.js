@@ -444,7 +444,7 @@ it("Phase 4 Wave 10 composes the declared support-triage package through offline
     packagePath: archivePath,
     expectedArchiveDigest: produced.archiveDigest,
   });
-  const probe = await probeOpenClawTarget({
+  const options = {
     archivePath,
     expectedArchiveDigest: produced.archiveDigest,
     blueprintPath: fixture.paths.blueprint,
@@ -461,14 +461,10 @@ it("Phase 4 Wave 10 composes the declared support-triage package through offline
     expectedTargetDescriptorDigest:
       fixture.digests["openclaw-target-descriptor"],
     targetRoot: path.dirname(fixture.inputs.targetFiles.packageJsonPath),
-  });
+  };
 
   assert.equal(inspection.files.length, 40);
   assert.equal(inspection.transport.archiveDigest, produced.archiveDigest);
-  assert.equal(probe.archive.archiveDigest, produced.archiveDigest);
-  assert.equal(probe.archive.manifestDigest, produced.manifestDigest);
-  assert.equal(probe.target.exactTargetMatch, true);
-  assert.equal(probe.isolation.syntheticHomeDiscarded, true);
   assert.equal(
     inspection.carriers.some(({ carrier }) => carrier === "mcp-server"),
     false,
@@ -486,6 +482,22 @@ it("Phase 4 Wave 10 composes the declared support-triage package through offline
     delivery: false,
     production: false,
   });
+  if (process.platform !== "linux") {
+    await assert.rejects(
+      probeOpenClawTarget(options),
+      (error) => (
+        error?.code
+          === "AGENTMO_OPENCLAW_PROBE_PLATFORM_FD_TRANSPORT_UNAVAILABLE"
+      ),
+    );
+    return;
+  }
+
+  const probe = await probeOpenClawTarget(options);
+  assert.equal(probe.archive.archiveDigest, produced.archiveDigest);
+  assert.equal(probe.archive.manifestDigest, produced.manifestDigest);
+  assert.equal(probe.target.exactTargetMatch, true);
+  assert.equal(probe.isolation.syntheticHomeDiscarded, true);
   assert.deepEqual(probe.certificationBoundary, {
     readOnlyCapabilityObservation: true,
     installed: false,

@@ -48,7 +48,9 @@ const sha256 = (bytes) => (
 );
 
 describe("read-only OpenClaw capability probe", () => {
-  it("binds the exact archive and target authority without touching operator state", async () => {
+  it("binds the exact archive and target authority without touching operator state", {
+    skip: process.platform !== "linux",
+  }, async () => {
     const fixture = await buildApprovedPackageFixture();
     const packageRoot = path.join(fixture.root, "probe-package");
     const archivePath = path.join(fixture.root, "probe-package.d42");
@@ -117,7 +119,9 @@ describe("read-only OpenClaw capability probe", () => {
     await assert.rejects(() => lstat(marker), (error) => error?.code === "ENOENT");
   });
 
-  it("exposes a create-only durable JSON CLI route", async () => {
+  it("exposes a create-only durable JSON CLI route", {
+    skip: process.platform !== "linux",
+  }, async () => {
     const fixture = await buildApprovedPackageFixture();
     const packageRoot = path.join(fixture.root, "cli-package");
     const archivePath = path.join(fixture.root, "cli-package.d42");
@@ -172,7 +176,9 @@ describe("read-only OpenClaw capability probe", () => {
     );
   });
 
-  it("rejects a self-auth probe whose internally consistent digest has no companion provenance", async () => {
+  it("rejects a self-auth probe whose internally consistent digest has no companion provenance", {
+    skip: process.platform !== "linux",
+  }, async () => {
     const fixture = await buildApprovedPackageFixture();
     const archivePath = path.join(fixture.root, "self-auth-package.d42");
     const produced = await produceAgentPackage(
@@ -209,7 +215,36 @@ describe("read-only OpenClaw capability probe", () => {
     );
   });
 
-  it("rejects a private cwd escape without reading the caller working directory", async () => {
+  it("fails closed when the platform cannot execute both retained runtime and script objects", {
+    skip: process.platform === "linux",
+  }, async () => {
+    const fixture = await buildApprovedPackageFixture();
+    const archivePath = path.join(fixture.root, "unsupported-platform-package.d42");
+    const produced = await produceAgentPackage(
+      packageProduceOptions(
+        fixture,
+        path.join(fixture.root, "unsupported-platform-package"),
+        archivePath,
+      ),
+    );
+
+    await assert.rejects(
+      probeOpenClawTarget(
+        probeOptions(fixture, archivePath, produced.archiveDigest),
+      ),
+      (error) => {
+        assert.equal(
+          error?.code,
+          "AGENTMO_OPENCLAW_PROBE_PLATFORM_FD_TRANSPORT_UNAVAILABLE",
+        );
+        return true;
+      },
+    );
+  });
+
+  it("rejects a private cwd escape without reading the caller working directory", {
+    skip: process.platform !== "linux",
+  }, async () => {
     const callerCwd = await mkdtemp(path.join(tmpdir(), "agentmo-probe-caller-cwd-"));
     const sentinelPath = path.join(callerCwd, "attacker-module.json");
     await writeFile(sentinelPath, '{"valueBlindCanary":true}\n');
@@ -243,7 +278,9 @@ describe("read-only OpenClaw capability probe", () => {
     );
   });
 
-  it("rejects an executable swap between observations without executing replacement bytes", async () => {
+  it("rejects an executable swap between observations without executing replacement bytes", {
+    skip: process.platform !== "linux",
+  }, async () => {
     const fixture = await buildExecutableProbeFixture(({
       executablePath,
       markerPath,
@@ -277,7 +314,46 @@ describe("read-only OpenClaw capability probe", () => {
     );
   });
 
-  it("rejects a target swap between observations instead of certifying stale members", async () => {
+  it("executes the retained private script after its pathname is replaced", {
+    skip: process.platform !== "linux",
+  }, async () => {
+    const fixture = await buildExecutableProbeFixture(({ markerPath }) => [
+      "import { chmodSync, writeFileSync } from 'node:fs';",
+      "import path from 'node:path';",
+      "if (process.argv.includes('--version')) {",
+      "  const privateExecutable = path.join(process.env.TMPDIR, 'bin', 'openclaw-probe-target.mjs');",
+      `  writeFileSync(privateExecutable, ${JSON.stringify([
+        "import { writeFileSync } from 'node:fs';",
+        `writeFileSync(${JSON.stringify(markerPath)}, 'replacement-executed');`,
+        "",
+      ].join("\n"))});`,
+      "  chmodSync(privateExecutable, 0o700);",
+      "}",
+      "",
+    ].join("\n"));
+
+    const probe = await probeOpenClawTarget(
+      probeOptions(
+        fixture,
+        fixture.archivePath,
+        fixture.produced.archiveDigest,
+      ),
+    );
+
+    assert.equal(probe.status, "compatible");
+    assert.deepEqual(
+      probe.cli.observations.map(({ exitCode }) => exitCode),
+      [0, 0, 0],
+    );
+    await assert.rejects(
+      () => access(fixture.markerPath),
+      (error) => error?.code === "ENOENT",
+    );
+  });
+
+  it("rejects a target swap between observations instead of certifying stale members", {
+    skip: process.platform !== "linux",
+  }, async () => {
     const fixture = await buildExecutableProbeFixture(({
       packageJsonPath,
     }) => [
@@ -300,7 +376,9 @@ describe("read-only OpenClaw capability probe", () => {
     );
   });
 
-  it("preserves a private-root replacement instead of recursive pathname cleanup", async () => {
+  it("preserves a private-root replacement instead of recursive pathname cleanup", {
+    skip: process.platform !== "linux",
+  }, async () => {
     let preservedRoot;
     const fixture = await buildExecutableProbeFixture(({ markerPath }) => {
       preservedRoot = `${markerPath}.preserved-private-root`;

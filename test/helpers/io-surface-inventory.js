@@ -3554,30 +3554,41 @@ reconcileExactModuleSurfaces(IO_SURFACE_ALLOWLIST, [
     1020:file-handle-read:FileHandle.read
   `),
   exactModuleSurfaceGroup("src/openclaw-probe.js", "phase-04-plan-12", "gated", `
-    91:durable-loader:loadAdmittedArtifact
-    97:durable-loader:loadAdmittedArtifact
-    118:filesystem-lifecycle:fs.mkdtemp
-    119:filesystem-lifecycle:fs.chmod
-    132:filesystem-lifecycle:fs.mkdir
-    133:filesystem-lifecycle:fs.chmod
-    379:filesystem-read:fs.lstat
-    385:filesystem-read:fs.realpath
-    394:filesystem-open:fs.open
-    398:file-handle-read:FileHandle.stat
-    407:file-handle-read:FileHandle.stat
-    449:file-handle-read:FileHandle.read
-    461:filesystem-open:fs.open
-    469:file-handle:FileHandle.writeFile
-    470:file-handle-lifecycle:FileHandle.sync
-    474:filesystem-lifecycle:fs.chmod
-    475:filesystem-open:fs.open
-    480:file-handle-read:FileHandle.stat
-    500:filesystem-read:fs.lstat
+    95:durable-loader:loadAdmittedArtifact
+    101:durable-loader:loadAdmittedArtifact
+    123:filesystem-lifecycle:fs.mkdtemp
+    124:filesystem-lifecycle:fs.chmod
+    137:filesystem-lifecycle:fs.mkdir
+    138:filesystem-lifecycle:fs.chmod
+    141:filesystem-read:fs.lstat
+    401:filesystem-read:fs.lstat
+    407:filesystem-read:fs.realpath
+    416:filesystem-open:fs.open
+    420:file-handle-read:FileHandle.stat
+    429:file-handle-read:FileHandle.stat
+    471:file-handle-read:FileHandle.read
+    484:filesystem-open:fs.open
+    492:file-handle:FileHandle.writeFile
+    493:file-handle-lifecycle:FileHandle.sync
+    494:managed-filesystem:writableHandle.chmod
+    495:file-handle-read:FileHandle.stat
+    496:filesystem-open:fs.open
+    500:file-handle-read:FileHandle.stat
+    506:filesystem-lifecycle:fs.unlink
     507:file-handle-read:FileHandle.stat
-    508:filesystem-read:fs.lstat
-    519:filesystem-read:fs.lstat
-    526:filesystem-open:fs.open
-    531:file-handle-read:FileHandle.stat
+    533:filesystem-open:fs.open
+    537:filesystem-open:fs.open
+    538:file-handle-read:FileHandle.stat
+    539:file-handle-read:FileHandle.stat
+    540:filesystem-read:fs.lstat
+    567:filesystem-read:fs.lstat
+    574:file-handle-read:FileHandle.stat
+    575:filesystem-read:fs.lstat
+    586:filesystem-read:fs.lstat
+    595:filesystem-open:fs.open
+    597:file-handle-read:FileHandle.stat
+    598:file-handle-read:FileHandle.stat
+    604:file-handle-read:FileHandle.stat
   `),
   exactModuleSurfaceGroup("src/package-archive.js", "phase-04-plan-03", "gated", `
     34:filesystem-read:fs.lstat

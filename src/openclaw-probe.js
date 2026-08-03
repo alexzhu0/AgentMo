@@ -8,6 +8,7 @@ import {
   mkdtemp,
   open,
   realpath,
+  unlink,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -39,6 +40,8 @@ const DIGEST_PATTERN = /^sha256:[a-f0-9]{64}$/u;
 const MAX_TARGET_MEMBER_BYTES = 16 * 1024 * 1024;
 const MAX_CHILD_OUTPUT_BYTES = 64 * 1024;
 const CHILD_TIMEOUT_MS = 10_000;
+const RUNTIME_EXECUTION_FD = 3;
+const PROBE_SCRIPT_FD = 0;
 const PROBE_COMMANDS = Object.freeze([
   Object.freeze({ id: "version", args: Object.freeze(["--version"]) }),
   Object.freeze({
@@ -73,6 +76,7 @@ export class OpenClawProbeError extends Error {
 
 export async function probeOpenClawTarget(options = {}) {
   let privateRoot = null;
+  let retainedExecution = null;
   let retainedTarget = null;
   let stage = "OPTIONS";
   try {
@@ -115,6 +119,7 @@ export async function probeOpenClawTarget(options = {}) {
     retainedTarget = await retainTargetMembers(targetRoot, descriptor, admission);
 
     stage = "PRIVATE_EXECUTION";
+    const executionTransport = retainedExecutionTransport();
     privateRoot = await mkdtemp(path.join(tmpdir(), "agentmo-openclaw-probe-"));
     await chmod(privateRoot, 0o700);
     const privateBin = path.join(privateRoot, "bin");
@@ -132,14 +137,32 @@ export async function probeOpenClawTarget(options = {}) {
       await mkdir(directory, { mode: 0o700 });
       await chmod(directory, 0o700);
     }
+    const privateRootIdentity = statIdentity(
+      await lstat(privateRoot, { bigint: true }),
+    );
     const privateExecutable = path.join(privateBin, "openclaw-probe-target.mjs");
     const executable = retainedTarget.members.find(({ role }) => role === "executable");
     if (!executable) fail("AGENTMO_OPENCLAW_PROBE_TARGET_AUTHORITY_MISMATCH");
-    const privateExecutableIdentity = await writePrivateExecutable(
-      privateExecutable,
-      executable.bytes,
-      executable.sha256,
-    );
+    const retainedRuntime = await retainCurrentRuntime();
+    try {
+      const privateExecutableIdentity = await retainPrivateExecutable(
+        privateExecutable,
+        executable.bytes,
+        executable.sha256,
+      );
+      retainedExecution = {
+        transport: executionTransport,
+        privateRoot: {
+          path: privateRoot,
+          identity: privateRootIdentity,
+        },
+        runtime: retainedRuntime,
+        script: privateExecutableIdentity,
+      };
+    } catch (error) {
+      await retainedRuntime.handle.close().catch(() => {});
+      throw error;
+    }
     const environment = Object.freeze({
       HOME: syntheticHome,
       LANG: "C",
@@ -155,11 +178,10 @@ export async function probeOpenClawTarget(options = {}) {
       await revalidateExecutionAuthority(
         retainedTarget,
         descriptor,
-        privateExecutable,
-        privateExecutableIdentity,
+        retainedExecution,
       );
       cliObservations.push(await runIsolatedObservation(
-        privateExecutable,
+        retainedExecution,
         command,
         environment,
         privateCwd,
@@ -167,8 +189,7 @@ export async function probeOpenClawTarget(options = {}) {
       await revalidateExecutionAuthority(
         retainedTarget,
         descriptor,
-        privateExecutable,
-        privateExecutableIdentity,
+        retainedExecution,
       );
     }
 
@@ -317,6 +338,7 @@ export async function probeOpenClawTarget(options = {}) {
     if (error instanceof OpenClawProbeError) throw error;
     fail(`AGENTMO_OPENCLAW_PROBE_${stage}_REJECTED`);
   } finally {
+    await closeRetainedExecution(retainedExecution);
     await closeRetainedTarget(retainedTarget);
     // The private tree is never removed through a reopened pathname. A failed
     // or replacement-ambiguous tree remains preserved for OS/operator recovery.
@@ -455,47 +477,92 @@ async function readRetainedBytes(handle, before) {
   return bytes;
 }
 
-async function writePrivateExecutable(filePath, bytes, expectedDigest) {
-  let handle;
+async function retainPrivateExecutable(filePath, bytes, expectedDigest) {
+  let writableHandle;
+  let retainedHandle;
   try {
-    handle = await open(
+    writableHandle = await open(
       filePath,
-      FS_CONSTANTS.O_WRONLY
+      FS_CONSTANTS.O_RDWR
         | FS_CONSTANTS.O_CREAT
         | FS_CONSTANTS.O_EXCL
         | FS_CONSTANTS.O_NOFOLLOW,
       0o700,
     );
-    await handle.writeFile(bytes);
-    await handle.sync();
-  } finally {
-    await handle?.close();
-  }
-  await chmod(filePath, 0o700);
-  const privateHandle = await open(
-    filePath,
-    FS_CONSTANTS.O_RDONLY | FS_CONSTANTS.O_NOFOLLOW,
-  );
-  try {
-    const stats = await privateHandle.stat({ bigint: true });
-    const observed = await readRetainedBytes(privateHandle, stats);
-    if (digestRawBytes(observed) !== expectedDigest) {
+    await writableHandle.writeFile(bytes);
+    await writableHandle.sync();
+    await writableHandle.chmod(0o700);
+    const writtenStats = await writableHandle.stat({ bigint: true });
+    retainedHandle = await open(
+      `/proc/self/fd/${writableHandle.fd}`,
+      FS_CONSTANTS.O_RDONLY,
+    );
+    const retainedStats = await retainedHandle.stat({ bigint: true });
+    const observed = await readRetainedBytes(retainedHandle, retainedStats);
+    if (!sameIdentity(statIdentity(writtenStats), statIdentity(retainedStats))
+      || digestRawBytes(observed) !== expectedDigest) {
       fail("AGENTMO_OPENCLAW_PROBE_PRIVATE_COPY_DRIFT");
     }
+    await unlink(filePath);
+    const anonymousStats = await retainedHandle.stat({ bigint: true });
+    if (!anonymousStats.isFile()
+      || anonymousStats.nlink !== 0n
+      || digestRawBytes(
+        await readRetainedBytes(retainedHandle, anonymousStats),
+      ) !== expectedDigest) {
+      fail("AGENTMO_OPENCLAW_PROBE_PRIVATE_COPY_DRIFT");
+    }
+    await writableHandle.close();
+    writableHandle = null;
     return {
       digest: expectedDigest,
-      identity: statIdentity(stats),
+      identity: statIdentity(anonymousStats),
+      handle: retainedHandle,
     };
+  } catch (error) {
+    await writableHandle?.close().catch(() => {});
+    await retainedHandle?.close().catch(() => {});
+    throw error;
+  }
+}
+
+async function retainCurrentRuntime() {
+  let runtimeHandle;
+  let loadedRuntimeHandle;
+  try {
+    runtimeHandle = await open(
+      process.execPath,
+      FS_CONSTANTS.O_RDONLY | FS_CONSTANTS.O_NOFOLLOW,
+    );
+    loadedRuntimeHandle = await open("/proc/self/exe", FS_CONSTANTS.O_RDONLY);
+    const runtimeStats = await runtimeHandle.stat({ bigint: true });
+    const loadedStats = await loadedRuntimeHandle.stat({ bigint: true });
+    const pathStats = await lstat(process.execPath, { bigint: true });
+    if (!runtimeStats.isFile()
+      || !loadedStats.isFile()
+      || !pathStats.isFile()
+      || pathStats.isSymbolicLink()
+      || (runtimeStats.mode & 0o111n) === 0n
+      || !sameIdentity(statIdentity(runtimeStats), statIdentity(loadedStats))
+      || !sameIdentity(statIdentity(runtimeStats), statIdentity(pathStats))) {
+      fail("AGENTMO_OPENCLAW_PROBE_RUNTIME_DRIFT");
+    }
+    return {
+      handle: runtimeHandle,
+      identity: statIdentity(runtimeStats),
+    };
+  } catch (error) {
+    await runtimeHandle?.close().catch(() => {});
+    throw error;
   } finally {
-    await privateHandle.close();
+    await loadedRuntimeHandle?.close().catch(() => {});
   }
 }
 
 async function revalidateExecutionAuthority(
   retained,
   descriptor,
-  privateExecutable,
-  privateIdentity,
+  execution,
 ) {
   const rootStats = await lstat(retained.root, { bigint: true });
   if (!rootStats.isDirectory()
@@ -516,25 +583,54 @@ async function revalidateExecutionAuthority(
       fail("AGENTMO_OPENCLAW_PROBE_TARGET_DRIFT");
     }
   }
-  const privateStats = await lstat(privateExecutable, { bigint: true });
-  if (!privateStats.isFile()
-    || privateStats.isSymbolicLink()
-    || privateStats.nlink !== 1n
-    || !sameIdentity(statIdentity(privateStats), privateIdentity.identity)) {
+  const privateRootStats = await lstat(execution.privateRoot.path, { bigint: true });
+  if (!privateRootStats.isDirectory()
+    || privateRootStats.isSymbolicLink()
+    || !sameIdentity(
+      statIdentity(privateRootStats),
+      execution.privateRoot.identity,
+    )) {
     fail("AGENTMO_OPENCLAW_PROBE_PRIVATE_COPY_DRIFT");
   }
-  const handle = await open(
-    privateExecutable,
-    FS_CONSTANTS.O_RDONLY | FS_CONSTANTS.O_NOFOLLOW,
-  );
+  const loadedRuntimeHandle = await open("/proc/self/exe", FS_CONSTANTS.O_RDONLY);
   try {
-    const bytes = await readRetainedBytes(handle, await handle.stat({ bigint: true }));
-    if (digestRawBytes(bytes) !== privateIdentity.digest) {
+    const runtimeStats = await execution.runtime.handle.stat({ bigint: true });
+    const loadedRuntimeStats = await loadedRuntimeHandle.stat({ bigint: true });
+    if (!runtimeStats.isFile()
+      || !sameIdentity(statIdentity(runtimeStats), execution.runtime.identity)
+      || !sameIdentity(statIdentity(runtimeStats), statIdentity(loadedRuntimeStats))) {
+      fail("AGENTMO_OPENCLAW_PROBE_RUNTIME_DRIFT");
+    }
+    const scriptStats = await execution.script.handle.stat({ bigint: true });
+    const bytes = await readRetainedBytes(execution.script.handle, scriptStats);
+    if (!scriptStats.isFile()
+      || !sameIdentity(statIdentity(scriptStats), execution.script.identity)
+      || digestRawBytes(bytes) !== execution.script.digest) {
       fail("AGENTMO_OPENCLAW_PROBE_PRIVATE_COPY_DRIFT");
     }
   } finally {
-    await handle.close();
+    await loadedRuntimeHandle.close();
   }
+}
+
+function retainedExecutionTransport() {
+  if (process.platform !== "linux") {
+    fail("AGENTMO_OPENCLAW_PROBE_PLATFORM_FD_TRANSPORT_UNAVAILABLE");
+  }
+  return {
+    executable: `/proc/self/fd/${RUNTIME_EXECUTION_FD}`,
+    runtimeFd: RUNTIME_EXECUTION_FD,
+    script: "-",
+    scriptFd: PROBE_SCRIPT_FD,
+  };
+}
+
+async function closeRetainedExecution(retained) {
+  if (!retained) return;
+  await Promise.allSettled([
+    retained.runtime.handle.close(),
+    retained.script.handle.close(),
+  ]);
 }
 
 async function closeRetainedTarget(retained) {
@@ -542,12 +638,13 @@ async function closeRetainedTarget(retained) {
   await Promise.allSettled(retained.members.map(({ handle }) => handle.close()));
 }
 
-async function runIsolatedObservation(executablePath, command, environment, cwd) {
+async function runIsolatedObservation(execution, command, environment, cwd) {
   const result = await spawnBounded(
-    process.execPath,
-    [executablePath, ...command.args],
+    execution.transport.executable,
+    ["--input-type=module", execution.transport.script, ...command.args],
     environment,
     cwd,
+    execution,
   );
   const stdout = normalizeChildOutput(result.stdout);
   const stderr = normalizeChildOutput(result.stderr);
@@ -562,13 +659,16 @@ async function runIsolatedObservation(executablePath, command, environment, cwd)
   };
 }
 
-function spawnBounded(executable, args, env, cwd) {
+function spawnBounded(executable, args, env, cwd, execution) {
   return new Promise((resolve, reject) => {
+    const stdio = ["ignore", "pipe", "pipe", "ignore"];
+    stdio[execution.transport.runtimeFd] = execution.runtime.handle.fd;
+    stdio[execution.transport.scriptFd] = execution.script.handle.fd;
     const child = spawn(executable, args, {
       cwd,
       env,
       shell: false,
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio,
     });
     const stdout = [];
     const stderr = [];
