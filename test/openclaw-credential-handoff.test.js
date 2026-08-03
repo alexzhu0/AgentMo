@@ -101,9 +101,28 @@ it("sensitive runner rejects unsupported and ambiguous OpenClaw action routes be
       route,
     );
   }
+  let injectedRunnerReached = false;
+  for (const route of ["config-patch", "credential-auth"]) {
+    await assert.rejects(
+      () => runOpenClawOfficialAction({
+        route,
+        runProcess: async () => {
+          injectedRunnerReached = true;
+          return { exitCode: 0 };
+        },
+      }),
+      (error) => (
+        error?.code === "AGENTMO_OPENCLAW_OFFICIAL_ACTION_REJECTED"
+      ),
+      route,
+    );
+  }
+  assert.equal(injectedRunnerReached, false);
 });
 
-it("official config runner executes one exact dry-run/actual pair and preserves unknown fields", async () => {
+it("official config runner executes one exact dry-run/actual pair and preserves unknown fields", {
+  skip: process.platform !== "linux",
+}, async () => {
   const fixture = await buildApprovedPackageFixture();
   const root = await mkdtemp(path.join(tmpdir(), "agentmo-official-config-"));
   await chmod(root, 0o700);
