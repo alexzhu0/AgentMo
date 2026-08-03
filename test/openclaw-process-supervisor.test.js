@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { execFile, spawn } from "node:child_process";
-import { access, chmod, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import {
+  access,
+  chmod,
+  mkdtemp,
+  open,
+  readFile,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { setTimeout as wait } from "node:timers/promises";
@@ -39,16 +46,27 @@ async function compileSupervisor(root, definitions = []) {
 }
 
 async function runSupervisorRaw(binary, script, marker) {
+  const runtimeHandle = await open(process.execPath, "r");
+  const scriptHandle = await open(script, "r");
   const child = spawn(binary, [
     "--timeout-ms",
     "2000",
     "--",
     process.execPath,
-    script,
+    "/proc/self/fd/7",
     marker,
   ], {
     shell: false,
-    stdio: ["ignore", "ignore", "ignore", "ignore", "pipe"],
+    stdio: [
+      "ignore",
+      "ignore",
+      "ignore",
+      "ignore",
+      "pipe",
+      "ignore",
+      runtimeHandle.fd,
+      scriptHandle.fd,
+    ],
   });
   const protocol = [];
   child.stdio[4].on("data", (chunk) => protocol.push(chunk));
@@ -56,6 +74,7 @@ async function runSupervisorRaw(binary, script, marker) {
     child.once("error", reject);
     child.once("close", resolve);
   });
+  await Promise.all([runtimeHandle.close(), scriptHandle.close()]);
   return { code, protocol: Buffer.concat(protocol).toString("utf8") };
 }
 
@@ -104,7 +123,7 @@ it("supervisor source inventory closes the Linux descendant-containment primitiv
   }
   assert.match(
     nativeSource,
-    /if \(setpgid\(0, 0\) != 0 \|\| !install_process_group_lock\(\)\) _exit\(126\);[\s\S]+write_control_byte\(bootstrap_ready\[1\], 'R'\)[\s\S]+read_control_byte\(bootstrap_go\[0\], 'G'\)[\s\S]+execv/u,
+    /if \(setpgid\(0, 0\) != 0 \|\| !install_process_group_lock\(\)\) _exit\(126\);[\s\S]+write_control_byte\(bootstrap_ready\[1\], 'R'\)[\s\S]+read_control_byte\(bootstrap_go\[0\], 'G'\)[\s\S]+execveat/u,
   );
   assert.match(
     nativeSource,

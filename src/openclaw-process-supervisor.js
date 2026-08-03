@@ -148,10 +148,19 @@ export async function prepareOpenClawProcessSupervisor(options = {}) {
       await receiptHandle.close();
     }
     const receiptDigest = digestBytes(receiptBytes);
-    return admitOpenClawProcessSupervisor({
+    const admitted = await admitOpenClawProcessSupervisor({
       binaryPath,
       receiptPath,
       receiptDigest,
+    });
+    const retainedBinary = await retainVerifiedExecutable(
+      admitted.binaryPath,
+      admitted.binaryDigest,
+      admitted.binaryIdentity,
+    );
+    return Object.freeze({
+      ...admitted,
+      retainedBinary,
     });
   } catch (error) {
     if (error instanceof OpenClawProcessSupervisorError) throw error;
@@ -295,6 +304,7 @@ export async function admitOpenClawProcessSupervisor(options = {}) {
       kind: receipt.kind,
       binaryPath: path.resolve(options.binaryPath),
       binaryDigest: binary.digest,
+      binaryIdentity: binary.identity,
       receiptPath: path.resolve(options.receiptPath),
       receiptDigest: options.receiptDigest,
       privateBuildCleanup: {
@@ -305,6 +315,33 @@ export async function admitOpenClawProcessSupervisor(options = {}) {
   } catch (error) {
     if (error instanceof OpenClawProcessSupervisorError) throw error;
     fail();
+  }
+}
+
+async function retainVerifiedExecutable(filePath, digest, expectedIdentity) {
+  let handle;
+  try {
+    handle = await open(
+      path.resolve(filePath),
+      constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0),
+    );
+    const before = await handle.stat({ bigint: true });
+    const bytes = await handle.readFile();
+    const after = await handle.stat({ bigint: true });
+    const current = await lstat(path.resolve(filePath), { bigint: true });
+    if (!before.isFile()
+      || before.nlink !== 1n
+      || !sameStableStats(before, after)
+      || !sameStableStats(after, current)
+      || bytes.length !== Number(before.size)
+      || digestBytes(bytes) !== digest
+      || !sameJson(identity(after), expectedIdentity)) {
+      fail();
+    }
+    return handle;
+  } catch (error) {
+    await handle?.close().catch(() => {});
+    throw error;
   }
 }
 

@@ -27,6 +27,9 @@ import {
 const DIGEST_PATTERN = /^sha256:[a-f0-9]{64}$/u;
 const MAX_OUTPUT_BYTES = 64 * 1024;
 const MAX_CONFIG_BYTES = 40 * 1024;
+const SUPERVISOR_EXECUTABLE_FD = 5;
+const TARGET_RUNTIME_FD = 6;
+const TARGET_SCRIPT_FD = 7;
 const AUTHENTIC_PROCESS_RESULTS = new WeakMap();
 
 export class OpenClawOfficialActionError extends Error {
@@ -869,34 +872,73 @@ async function runSupervisedProcess(invocation, options) {
       invocation,
     );
   }
+  let runtimeHandle;
+  let targetHandle;
+  try {
+    runtimeHandle = await retainExactExecutable(process.execPath, null, {
+      allowMultipleLinks: true,
+    });
+    targetHandle = await retainExactExecutable(
+      invocation.executable,
+      invocation.executableDigest,
+    );
+  } catch {
+    await supervisor.retainedBinary.close().catch(() => {});
+    await runtimeHandle?.close().catch(() => {});
+    await targetHandle?.close().catch(() => {});
+    return authenticProcessResult(
+      supervisorUnavailableResult("retained-executable-admission-failed"),
+      invocation,
+    );
+  }
   const spawnProcess = options.spawnProcess ?? spawn;
   return new Promise((resolve) => {
     let child;
+    let retainedClosed = false;
+    const closeRetained = () => {
+      if (retainedClosed) return;
+      retainedClosed = true;
+      void Promise.all([
+        supervisor.retainedBinary.close().catch(() => {}),
+        runtimeHandle?.close().catch(() => {}),
+        targetHandle?.close().catch(() => {}),
+      ]);
+    };
     try {
       const retainedConfig = Number.isSafeInteger(invocation.retainedConfigFd)
         && invocation.retainedConfigFd >= 0
         ? invocation.retainedConfigFd
         : "ignore";
       child = spawnProcess(
-        supervisor.binaryPath,
+        `/proc/self/fd/${SUPERVISOR_EXECUTABLE_FD}`,
         [
           "--timeout-ms",
           String(invocation.timeoutMs),
           "--",
           process.execPath,
-          invocation.executable,
+          `/proc/self/fd/${TARGET_SCRIPT_FD}`,
           ...invocation.argv,
         ],
         {
           cwd: invocation.cwd,
           env: invocation.environment,
           shell: false,
-          stdio: ["ignore", "pipe", "pipe", retainedConfig, "pipe"],
+          stdio: [
+            "ignore",
+            "pipe",
+            "pipe",
+            retainedConfig,
+            "pipe",
+            supervisor.retainedBinary.fd,
+            runtimeHandle.fd,
+            targetHandle.fd,
+          ],
           detached: false,
           windowsHide: true,
         },
       );
     } catch {
+      closeRetained();
       resolve(authenticProcessResult(spawnFailureResult(), invocation));
       return;
     }
@@ -908,8 +950,10 @@ async function runSupervisedProcess(invocation, options) {
     const settle = (value) => {
       if (settled) return;
       settled = true;
+      closeRetained();
       resolve(authenticProcessResult(value, invocation));
     };
+    child.once("spawn", closeRetained);
     const consumeOutput = (chunk) => {
       outputBytes += chunk.length;
       if (outputBytes > MAX_OUTPUT_BYTES && !outputLimitSignaled) {
@@ -949,6 +993,46 @@ async function runSupervisedProcess(invocation, options) {
       settle(Object.freeze(parsed));
     });
   });
+}
+
+async function retainExactExecutable(filePath, expectedDigest, options = {}) {
+  let handle;
+  try {
+    handle = await open(
+      filePath,
+      constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0),
+    );
+    const before = await handle.stat({ bigint: true });
+    const bytes = await handle.readFile();
+    const after = await handle.stat({ bigint: true });
+    const current = await lstat(filePath, { bigint: true });
+    if (!before.isFile()
+      || (options.allowMultipleLinks ? before.nlink < 1n : before.nlink !== 1n)
+      || !sameStableExecutableStats(before, after)
+      || !sameStableExecutableStats(after, current)
+      || bytes.length !== Number(before.size)
+      || (expectedDigest !== null && digestBytes(bytes) !== expectedDigest)) {
+      fail("AGENTMO_OPENCLAW_OFFICIAL_EXECUTABLE_REJECTED");
+    }
+    return handle;
+  } catch (error) {
+    await handle?.close().catch(() => {});
+    if (error instanceof OpenClawOfficialActionError) throw error;
+    fail("AGENTMO_OPENCLAW_OFFICIAL_EXECUTABLE_REJECTED");
+  }
+}
+
+function sameStableExecutableStats(left, right) {
+  return left.isFile()
+    && right.isFile()
+    && left.dev === right.dev
+    && left.ino === right.ino
+    && left.nlink === right.nlink
+    && left.mode === right.mode
+    && left.uid === right.uid
+    && left.size === right.size
+    && left.mtimeNs === right.mtimeNs
+    && left.ctimeNs === right.ctimeNs;
 }
 
 function validProcessInvocation(value) {

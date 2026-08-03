@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { readlinkSync, renameSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import {
   access,
@@ -698,6 +700,47 @@ it("official process runner TERM-to-KILLs a stubborn group before returning", {
   assert.equal(result.processGroupClosed, true);
   assert.equal(result.quiescenceVerified, true);
   assert.equal(Date.now() - startedAt >= 500, true);
+});
+
+it("official process runner executes retained supervisor and target fds after pathname swaps", {
+  skip: process.platform !== "linux",
+  timeout: 20_000,
+}, async () => {
+  const marker = path.join(tmpdir(), `agentmo-retained-exec-${process.pid}.txt`);
+  const fixture = await officialProcessFixture("process.exit(0);\n", {
+    timeoutMs: 2_000,
+  });
+  let swapped = false;
+  const result = await openClawOfficialActions.runOpenClawOfficialProcess(
+    fixture.invocation,
+    {
+      spawnProcess(executable, argv, options) {
+        const supervisorPath = readlinkSync(
+          `/proc/self/fd/${options.stdio[5]}`,
+        );
+        renameSync(supervisorPath, `${supervisorPath}.retained`);
+        writeFileSync(supervisorPath, [
+          "#!/bin/sh",
+          `printf fake > ${JSON.stringify(marker)}`,
+        ].join("\n"), { mode: 0o700 });
+        renameSync(
+          fixture.invocation.executable,
+          `${fixture.invocation.executable}.retained`,
+        );
+        writeFileSync(fixture.invocation.executable, [
+          "import { writeFileSync } from 'node:fs';",
+          `writeFileSync(${JSON.stringify(marker)}, 'fake');`,
+        ].join("\n"), { mode: 0o700 });
+        swapped = true;
+        return spawn(executable, argv, options);
+      },
+    },
+  );
+  assert.equal(swapped, true);
+  assert.equal(result.exitCode, 0);
+  assert.equal(result.processGroupClosed, true);
+  assert.equal(result.quiescenceVerified, true);
+  await assert.rejects(() => access(marker));
 });
 
 it("official process runner blocks setsid ignored-stdio escape before returning", {

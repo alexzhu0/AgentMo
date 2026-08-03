@@ -27,6 +27,8 @@
 #endif
 
 #define REPORT_FD 4
+#define TARGET_RUNTIME_FD 6
+#define TARGET_SCRIPT_FD 7
 #ifndef AGENTMO_MAX_TRACKED
 #define AGENTMO_MAX_TRACKED 4096
 #endif
@@ -468,7 +470,10 @@ static bool parse_timeout(const char *value, int64_t *timeout_ms) {
 
 int main(int argc, char **argv) {
   if (argc < 5 || strcmp(argv[1], "--timeout-ms") != 0
-    || strcmp(argv[3], "--") != 0 || fcntl(REPORT_FD, F_GETFD) < 0) {
+    || strcmp(argv[3], "--") != 0 || fcntl(REPORT_FD, F_GETFD) < 0
+    || fcntl(TARGET_RUNTIME_FD, F_GETFD) < 0
+    || fcntl(TARGET_SCRIPT_FD, F_GETFD) < 0
+    || argc < 6 || strcmp(argv[5], "/proc/self/fd/7") != 0) {
     return 64;
   }
   int64_t timeout_ms = 0;
@@ -536,7 +541,7 @@ int main(int argc, char **argv) {
     close(bootstrap_ready[1]);
     if (!read_control_byte(bootstrap_go[0], 'G')) _exit(126);
     close(bootstrap_go[0]);
-    execv(argv[4], &argv[4]);
+    execveat(TARGET_RUNTIME_FD, "", &argv[4], environ, AT_EMPTY_PATH);
     _exit(127);
   }
   close(bootstrap_ready[1]);
