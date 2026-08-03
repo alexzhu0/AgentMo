@@ -74,7 +74,8 @@ The operator-visible closure of D-32..D-42 is:
 
 The 2026-07-31 noncanonical pre-verification audit is retained as historical
 evidence: it reported Critical 3 / Warning 0 after an earlier eight-Critical /
-two-Warning remediation pass. The current dirty worktree addresses those three
+two-Warning remediation pass. The
+`7c902af59b5705de5ca31e83561adeaaeeed130f` candidate addresses those three
 findings with an exact external authority-root binding, preserved named config
 candidates with path/FD identity checks, and a Linux native subreaper/pidfd
 supervisor with terminal-slot recycling, pre-exec pidfd/clock handshake, x32
@@ -83,13 +84,17 @@ official process execution rejects before spawn. Prior Phase 4 install plans,
 approvals, and receipts do not bind the new root authority and must be regenerated
 and explicitly reapproved. A second fresh re-audit found a supervisor
 capacity/pidfd gap and stale contract text. A third re-audit then found
-supervisor-signal, bootstrap-failure, and x32 gaps. The current worktree adds
+supervisor-signal, bootstrap-failure, and x32 gaps. That candidate adds
 their targeted implementation and Linux-only regressions. The latest completed
 aggregate attempt reached main 956 pass / 0 fail / 10 skip and
 packed hook 1/1; after its one load-sensitive hook replay failure received a
-test-first bounded timeout fix, packed behavior passes 8/8. The Linux native
-runtime gate and a new independent zero-blocker re-audit remain required; this
-is not a Phase 4 passed or production-ready claim.
+test-first bounded timeout fix, packed behavior passes 8/8. The Ubuntu 24.04 /
+Node 20.20.2 native supervisor job for that exact candidate completed
+successfully in GitHub Actions run `30781382363`, job `91586558379`. This
+proves only the bounded Linux containment and credential regressions in the
+workflow; the exact-candidate full-project job and a new independent
+zero-blocker audit remain required. It is not a Phase 4 passed or
+production-ready claim.
 
 The selected support-triage package closure is:
 

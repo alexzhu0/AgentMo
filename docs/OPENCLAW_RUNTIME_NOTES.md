@@ -152,8 +152,13 @@ JavaScript/native supervisor pair. No runtime evidence instance, compiled
 helper, receipt, authority state, or install hook enters the tarball. The latest
 aggregate attempt reached main 956 pass / 0 fail / 10 skip and packed hook 1/1;
 after its load-sensitive hook replay received a test-first bounded timeout fix,
-packed behavior passes 8/8. The Linux native runtime gate and a new independent
-audit remain mandatory.
+packed behavior passes 8/8. The exact
+`7c902af59b5705de5ca31e83561adeaaeeed130f` candidate passed the bounded Ubuntu
+24.04 / Node 20.20.2 native supervisor job in GitHub Actions run `30781382363`
+(job `91586558379`). The exact-candidate full-project successor and a new
+independent zero-blocker audit remain mandatory. This result does not upgrade
+the fixture mechanism into live OpenClaw, domain, Birth, Delivery, production,
+or wider-compatibility evidence.
 
 ## Runtime layout
 

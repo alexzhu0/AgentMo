@@ -176,9 +176,11 @@ direct pidfd and clock admission succeed. The inherited seccomp lock rejects
 x32 on x86_64 and denies `setsid`, `setpgid`, outbound signal syscalls,
 `pidfd_send_signal`, and `ptrace`; the supervisor is non-dumpable and recycles
 terminal pidfd slots. `/proc` enumeration plus the original process group drive
-bounded TERM/KILL settlement. Non-Linux platforms reject before spawn. This is
-current-source design pending Linux adversarial execution, not a general OS
-sandbox or a completed Phase 4 claim.
+bounded TERM/KILL settlement. Non-Linux platforms reject before spawn. The
+exact `7c902af59b5705de5ca31e83561adeaaeeed130f` candidate passed the bounded
+Ubuntu 24.04 / Node 20.20.2 native containment and credential job in GitHub
+Actions run `30781382363`; that job is not a general OS sandbox proof, full
+project gate, canonical Phase 4 verdict, or production certification.
 
 Phase 4 evidence proves deterministic package, exact admission, bounded probe,
 approval, preservation, transaction, and receipt mechanisms only. Real
@@ -193,8 +195,9 @@ fresh re-audit found a supervisor capacity/pidfd-admission gap. The current
 worktree subsequently added slot recycling and the inherited group lock. A
 third re-audit found supervisor-signal, bootstrap-failure, and x32 gaps; current
 source adds signal/ptrace denial, the pre-exec handshake, x32 rejection, and
-Linux-only regressions. Its Linux runtime and later fresh-audit gates must be
-recorded separately. The package must continue to
+Linux-only regressions. Its exact-candidate Linux native job is recorded
+separately in `release/2026.08.03.md`; the full-project successor and later
+fresh-audit gates must still be recorded separately. The package must continue to
 exclude runtime evidence instances, compiled helpers, helper receipts,
 authority state, and install hooks.
 
