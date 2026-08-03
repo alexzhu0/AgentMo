@@ -1531,7 +1531,21 @@ function validObservedParentIdentity(value) {
 }
 
 function boundedProcessFacts(value) {
-  if (!validProcessFacts(value)) {
+  const runnerFacts = plainObject(value)
+    && sameKeys(value, [
+      "processStarted",
+      "processGroupClosed",
+      "quiescenceVerified",
+      "containment",
+    ])
+    && [
+      value.processStarted,
+      value.processGroupClosed,
+      value.quiescenceVerified,
+    ].every((item) => typeof item === "boolean")
+    && (value.containment === null
+      || value.containment === "linux-subreaper-pidfd-proc-children");
+  if (!(validProcessFacts(value) || runnerFacts)) {
     fail("AGENTMO_OPENCLAW_OFFICIAL_RESULT_EVIDENCE_REJECTED");
   }
   return {

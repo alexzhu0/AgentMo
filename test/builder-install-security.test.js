@@ -465,7 +465,7 @@ async function runFileLimitedAppend(options) {
     "/bin/sh",
     [
       "-c",
-      "ulimit -c 0; ulimit -f 1; exec \"$@\"",
+      "ulimit -c 0; ulimit -f 4; exec \"$@\"",
       "agentmo-install-file-limited",
       process.execPath,
       appendOnlyChild,
@@ -1144,7 +1144,7 @@ describe("Builder v1 append-only install attempts", () => {
       idempotencyKey: `attempt:${operationId}`,
       payload: {
         schemaVersion: "agentmo.builder-install-attempt.v2",
-        filler: "x".repeat(2_000),
+        filler: "x".repeat(16_000),
       },
     };
     const limited = await runFileLimitedAppend(request);

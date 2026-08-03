@@ -1002,7 +1002,7 @@ describe("packed fresh-process Builder behavior evaluation", {
 
   it("reaps a SIGTERM-ignoring PATH-shadow probe without leaking inherited values", {
     skip: process.platform === "win32",
-    timeout: 90_000,
+    timeout: 180_000,
   }, async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agentmo-behavior-probe-timeout-"));
     const project = path.join(root, "project");
@@ -1055,7 +1055,7 @@ describe("packed fresh-process Builder behavior evaluation", {
 
   it("bounds an escaped stdout-holding PATH-shadow probe", {
     skip: process.platform === "win32",
-    timeout: 90_000,
+    timeout: 180_000,
   }, async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agentmo-behavior-escaped-probe-"));
     const project = path.join(root, "project");

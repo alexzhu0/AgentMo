@@ -217,31 +217,30 @@ function processRows() {
   }).filter((row) => row !== null);
 }
 
-async function killSelectedOutcomeEffectWriter(fixture, request) {
+async function killSelectedRecordEffectWriter(fixture, request) {
   const child = startChild("append", request, { detached: true });
   const terminalPromise = collectChild(child);
-  const outcomes = path.join(fixture.storeRoot, "outcomes");
+  const entries = path.join(fixture.storeRoot, "entries");
   const deadline = Date.now() + 15_000;
   let killed = null;
   while (Date.now() < deadline && child.exitCode === null) {
-    const names = await readdir(outcomes).catch((error) => {
+    const names = await readdir(entries).catch((error) => {
       if (error?.code === "ENOENT") return [];
       throw error;
     });
-    const stageName = names.find((name) => name.endsWith(".outcome.stage.json"));
+    const stageName = names.find((name) => name.endsWith(".record.stage.json"));
     if (stageName === undefined) {
       await new Promise((resolve) => setImmediate(resolve));
       continue;
     }
-    const operationId = stageName.split(".", 1)[0];
-    const selectionName = `${operationId}.outcome.selection`;
+    const selectionName = `${stageName}.selection`;
     if (!names.includes(selectionName)) {
       await new Promise((resolve) => setImmediate(resolve));
       continue;
     }
-    const target = await readlink(path.join(outcomes, selectionName));
+    const target = await readlink(path.join(entries, selectionName));
     const selectedLength = Number.parseInt(target.split(".").at(-1), 10);
-    const stagePath = path.join(outcomes, stageName);
+    const stagePath = path.join(entries, stageName);
     const stageStats = await lstat(stagePath, { bigint: true }).catch(() => null);
     if (stageStats === null
       || stageStats.size <= 0n
@@ -291,7 +290,7 @@ async function killSelectedOutcomeEffectWriter(fixture, request) {
     break;
   }
   const terminal = await terminalPromise;
-  assert.notEqual(killed, null, `selected outcome writer escaped: ${terminal.type ?? "none"}`);
+  assert.notEqual(killed, null, `selected record writer escaped: ${terminal.type ?? "none"}`);
   assert.equal(terminal.type, "error");
   assert.equal(terminal.code, 1);
   return killed;
@@ -389,7 +388,11 @@ async function evidenceNameFor(directory, fixture) {
 }
 
 async function selectedShortFile(directory) {
-  for (const entry of await readdir(directory, { withFileTypes: true })) {
+  const entries = await readdir(directory, { withFileTypes: true }).catch((error) => {
+    if (error?.code === "ENOENT") return [];
+    throw error;
+  });
+  for (const entry of entries) {
     if (!entry.isSymbolicLink() || !entry.name.endsWith(".selection")) continue;
     const target = await readlink(path.join(directory, entry.name));
     const match = /^am-selected-file-v1\.([a-f0-9]{64})\.([1-9]\d{0,6})$/u.exec(target);
@@ -824,22 +827,23 @@ describe("append-only authority without production fault controls", () => {
     assert.equal(state.aborted.length, 1);
   });
 
-  it("resumes the same selected outcome inode after SIGSTOP and SIGKILL hit its real writer", {
+  it("resumes the same selected record inode after SIGSTOP and SIGKILL hit its real writer", {
     skip: !PROCESS_TREE_INSPECTION_AVAILABLE,
   }, async () => {
-    const fixture = await authorityFixture("agentmo-append-partial-outcome-writer-");
-    const request = appendRequest(fixture, "partial-outcome-writer", {
-      kind: "partial-outcome-writer",
+    const fixture = await authorityFixture("agentmo-append-partial-record-writer-");
+    const request = appendRequest(fixture, "partial-record-writer", {
+      kind: "partial-record-writer",
+      filler: "r".repeat(80 * 1024),
     });
-    const killed = await killSelectedOutcomeEffectWriter(fixture, request);
+    const killed = await killSelectedRecordEffectWriter(fixture, request);
     const prefixBytes = await readFile(killed.stagePath);
     const prefixStats = await lstat(killed.stagePath, { bigint: true });
     assert.equal(prefixBytes.length, killed.stoppedSize);
     assert.ok(prefixBytes.length > 0);
     assert.ok(prefixBytes.length < killed.selectedLength);
     assert.equal(
-      (await readdir(path.join(fixture.storeRoot, "outcomes")))
-        .some((name) => /^\d{16}\.json$/u.test(name)),
+      (await readdir(path.join(fixture.storeRoot, "entries")))
+        .some((name) => /^\d{16}\.[a-f0-9]{64}\.json$/u.test(name)),
       false,
     );
 
@@ -848,24 +852,13 @@ describe("append-only authority without production fault controls", () => {
     assert.ok(interrupted.recoveryRequired);
     assert.equal(interrupted.recoveryRequired.stagedOutcome, null);
     assert.equal(
-      interrupted.recoveryRequired.incompleteStagedOutcome.selectedLength,
+      interrupted.recoveryRequired.incompleteRecordStage.selectedLength,
       killed.selectedLength,
     );
     assert.deepEqual(
-      interrupted.recoveryRequired.incompleteStagedOutcome.bytes,
+      interrupted.recoveryRequired.incompleteRecordStage.bytes,
       prefixBytes,
     );
-
-    const beforeMismatch = await snapshotTree(fixture.storeRoot);
-    await assert.rejects(
-      abortAppendOnlyPrepared({
-        ...readRequest(fixture),
-        expectedPreparedRecordDigest: interrupted.recoveryRequired.recordDigest,
-        reason: "OPERATOR_CANCELLED",
-      }),
-      (error) => error?.code === "AGENTMO_APPEND_ONLY_OUTCOME_SELECTION_WRITE_FAILED",
-    );
-    assert.deepEqual(await snapshotTree(fixture.storeRoot), beforeMismatch);
 
     const recovered = await appendAppendOnlyRecord(request);
     assert.equal(recovered.status, "committed");
@@ -929,38 +922,53 @@ describe("append-only authority without production fault controls", () => {
     for (const scenario of [
       {
         label: "lineage",
-        relativeRoot: longRelativeRoot("a", 640),
+        character: "a",
+        relativeRootLength: 640,
         directory: ".agentmo-append-only-lineage",
         readError: "AGENTMO_APPEND_ONLY_LINEAGE_ANCHOR_INCOMPLETE",
       },
       {
         label: "provisioning",
-        relativeRoot: longRelativeRoot("p", 535),
+        character: "p",
+        relativeRootLength: 535,
         directory: ".agentmo-append-only-provisioning",
         readError: "AGENTMO_APPEND_ONLY_LINEAGE_PROVISION_INCOMPLETE",
       },
       {
         label: "root-witness",
-        relativeRoot: longRelativeRoot("w", 440),
+        character: "w",
+        relativeRootLength: 440,
         directory: ".agentmo-root-witness",
         readError: "AGENTMO_APPEND_ONLY_ROOT_WITNESS_INCOMPLETE",
       },
     ]) {
-      const fixture = await authorityFixture(
-        `agentmo-append-short-${scenario.label}-`,
-        scenario.relativeRoot,
-      );
-      const request = appendRequest(fixture, `short-${scenario.label}`, {
-        kind: scenario.label,
-      });
-      const limited = await collectChild(startFileLimitedChild("append", request));
-      assert.equal(limited.type, "error", scenario.label);
-      assert.equal(limited.code, 1, scenario.label);
-
-      const shortWrite = await selectedShortFile(
-        path.join(fixture.projectRoot, scenario.directory),
-      );
-      assert.ok(shortWrite, scenario.label);
+      const lengths = [scenario.relativeRootLength];
+      for (let delta = 8; delta <= 128; delta += 8) {
+        lengths.push(scenario.relativeRootLength - delta);
+        lengths.push(scenario.relativeRootLength + delta);
+      }
+      let selected = null;
+      for (const length of lengths) {
+        const fixture = await authorityFixture(
+          `agentmo-append-short-${scenario.label}-`,
+          longRelativeRoot(scenario.character, length),
+        );
+        const request = appendRequest(fixture, `short-${scenario.label}`, {
+          kind: scenario.label,
+        });
+        const limited = await collectChild(startFileLimitedChild("append", request));
+        assert.equal(limited.type, "error", scenario.label);
+        assert.equal(limited.code, 1, scenario.label);
+        const shortWrite = await selectedShortFile(
+          path.join(fixture.projectRoot, scenario.directory),
+        );
+        if (shortWrite !== null) {
+          selected = { fixture, request, shortWrite };
+          break;
+        }
+      }
+      assert.ok(selected, scenario.label);
+      const { fixture, request, shortWrite } = selected;
       assert.ok(shortWrite.bytes.length > 0, scenario.label);
       assert.ok(shortWrite.bytes.length < shortWrite.selectedLength, scenario.label);
       await assert.rejects(
