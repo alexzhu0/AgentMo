@@ -130,7 +130,10 @@ one ordered official-action-result per action, and one append-only finalization
 inside the canonical ledger. Admission reopens those bytes and recomputes the
 receipt; generic JSON plus a digest cannot create authority. Predecessor
 receipts recurse through the same producer-auth evidence and full
-plan/approval/journal/probe/package/target/source companion graph.
+plan/approval/journal/probe/package/target/source companion graph. Public
+preview/apply commands carry recursive non-install history through one exact
+external-digest-bound companion request bundle, read bounded/no-follow and
+never installed or persisted as package authority.
 
 The `secrets apply` and `models auth login` grammar is proposal-only. Phase 4
 credential execution is unsupported, starts no process, records

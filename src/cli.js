@@ -160,6 +160,7 @@ import {
 import {
   admitOpenClawInstallReceiptWithCompanions,
   applyOpenClawInstallPlan,
+  validateOpenClawInstallReceiptCompanionBindings,
 } from "./openclaw-install-transaction.js";
 import {
   buildOpenClawFsKernel,
@@ -1211,7 +1212,7 @@ async function runCommand(args) {
   }
 
   if (command === "openclaw-install-preview") {
-    const options = parseOpenClawInstallPreviewArgs(rest);
+    const options = await parseOpenClawInstallPreviewArgs(rest);
     const archiveInventory = await admitPackageArchiveManifest({
       archivePath: options.archive,
       expectedArchiveDigest: options.archiveDigest,
@@ -1223,11 +1224,11 @@ async function runCommand(args) {
       () => ({ ok: true }),
     );
     assertLifecycleTargetMatchesProbe(request.target, probe);
-    const basis = await loadLifecycleBasis(options);
     const authorityRootBinding = (await loadOpenClawAuthorityRootBinding(
       options.authorityRootBinding,
       options.authorityRootBindingDigest,
     )).value;
+    const basis = await loadLifecycleBasis(options, authorityRootBinding);
     if (options.lifecycle === "install") {
       const session = await openOpenClawSafeFsSession({
         rootPath: options.targetRoot,
@@ -1352,7 +1353,7 @@ async function runCommand(args) {
   }
 
   if (command === "openclaw-install-apply") {
-    const options = parseOpenClawInstallApplyArgs(rest);
+    const options = await parseOpenClawInstallApplyArgs(rest);
     const result = await applyOpenClawInstallPlan({
       blueprintPath: options.blueprint,
       blueprintDigest: options.blueprintDigest,
@@ -3709,7 +3710,7 @@ function parseOpenClawInstallGenesisArgs(args) {
   return options;
 }
 
-function parseOpenClawInstallPreviewArgs(args) {
+async function parseOpenClawInstallPreviewArgs(args) {
   const options = {
     lifecycle: null,
     archive: null,
@@ -3729,6 +3730,7 @@ function parseOpenClawInstallPreviewArgs(args) {
     request: null,
     requestDigest: null,
     targetRoot: null,
+    openClawTargetRoot: null,
     fsHelper: null,
     fsHelperReceipt: null,
     fsHelperReceiptDigest: null,
@@ -3739,9 +3741,13 @@ function parseOpenClawInstallPreviewArgs(args) {
     currentReceipt: null,
     currentReceiptDigest: null,
     currentReceiptCompanionArgs: emptyReceiptCompanionArgs(),
+    currentReceiptCompanionBundle: null,
+    currentReceiptCompanionBundleDigest: null,
     predecessorReceipt: null,
     predecessorReceiptDigest: null,
     predecessorReceiptCompanionArgs: emptyReceiptCompanionArgs(),
+    predecessorReceiptCompanionBundle: null,
+    predecessorReceiptCompanionBundleDigest: null,
     predecessorArchive: null,
     predecessorArchiveDigest: null,
     out: null,
@@ -3766,6 +3772,7 @@ function parseOpenClawInstallPreviewArgs(args) {
     ["--request", "request"],
     ["--request-sha256", "requestDigest"],
     ["--target-root", "targetRoot"],
+    ["--openclaw-target-root", "openClawTargetRoot"],
     ["--fs-helper", "fsHelper"],
     ["--fs-helper-receipt", "fsHelperReceipt"],
     ["--fs-helper-receipt-digest", "fsHelperReceiptDigest"],
@@ -3775,8 +3782,12 @@ function parseOpenClawInstallPreviewArgs(args) {
     ["--absent-genesis-sha256", "absentGenesisDigest"],
     ["--current-receipt", "currentReceipt"],
     ["--current-receipt-sha256", "currentReceiptDigest"],
+    ["--current-receipt-companion-bundle", "currentReceiptCompanionBundle"],
+    ["--current-receipt-companion-bundle-sha256", "currentReceiptCompanionBundleDigest"],
     ["--predecessor-receipt", "predecessorReceipt"],
     ["--predecessor-receipt-sha256", "predecessorReceiptDigest"],
+    ["--predecessor-receipt-companion-bundle", "predecessorReceiptCompanionBundle"],
+    ["--predecessor-receipt-companion-bundle-sha256", "predecessorReceiptCompanionBundleDigest"],
     ["--predecessor-archive", "predecessorArchive"],
     ["--predecessor-archive-sha256", "predecessorArchiveDigest"],
     ["--out", "out"],
@@ -3805,6 +3816,7 @@ function parseOpenClawInstallPreviewArgs(args) {
     ["request", "--request"],
     ["requestDigest", "--request-sha256"],
     ["targetRoot", "--target-root"],
+    ["openClawTargetRoot", "--openclaw-target-root"],
     ["fsHelper", "--fs-helper"],
     ["fsHelperReceipt", "--fs-helper-receipt"],
     ["fsHelperReceiptDigest", "--fs-helper-receipt-digest"],
@@ -3836,12 +3848,14 @@ function parseOpenClawInstallPreviewArgs(args) {
       && (!current || !predecessor || absent))) {
     throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
   }
-  options.currentReceiptCompanions = finalizeReceiptCompanionArgs(
-    options.currentReceiptCompanionArgs,
+  options.currentReceiptCompanions = await finalizeReceiptCompanionInput(
+    options,
+    "current",
     current,
   );
-  options.predecessorReceiptCompanions = finalizeReceiptCompanionArgs(
-    options.predecessorReceiptCompanionArgs,
+  options.predecessorReceiptCompanions = await finalizeReceiptCompanionInput(
+    options,
+    "predecessor",
     options.predecessorReceipt !== null,
   );
   delete options.currentReceiptCompanionArgs;
@@ -3856,6 +3870,7 @@ function parseOpenClawInstallPreviewArgs(args) {
     "probe",
     "request",
     "targetRoot",
+    "openClawTargetRoot",
     "fsHelper",
     "fsHelperReceipt",
     "authorityRootBinding",
@@ -3957,7 +3972,7 @@ function parseOpenClawFsKernelBuildArgs(args) {
   return options;
 }
 
-function parseOpenClawInstallApplyArgs(args) {
+async function parseOpenClawInstallApplyArgs(args) {
   const options = {
     lifecycle: null,
     blueprint: null,
@@ -3987,9 +4002,13 @@ function parseOpenClawInstallApplyArgs(args) {
     currentReceipt: null,
     currentReceiptDigest: null,
     currentReceiptCompanionArgs: emptyReceiptCompanionArgs(),
+    currentReceiptCompanionBundle: null,
+    currentReceiptCompanionBundleDigest: null,
     predecessorReceipt: null,
     predecessorReceiptDigest: null,
     predecessorReceiptCompanionArgs: emptyReceiptCompanionArgs(),
+    predecessorReceiptCompanionBundle: null,
+    predecessorReceiptCompanionBundleDigest: null,
     predecessorArchive: null,
     predecessorArchiveDigest: null,
     openClawTargetRoot: null,
@@ -4029,8 +4048,12 @@ function parseOpenClawInstallApplyArgs(args) {
     ["--absent-genesis-sha256", "absentGenesisDigest"],
     ["--current-receipt", "currentReceipt"],
     ["--current-receipt-sha256", "currentReceiptDigest"],
+    ["--current-receipt-companion-bundle", "currentReceiptCompanionBundle"],
+    ["--current-receipt-companion-bundle-sha256", "currentReceiptCompanionBundleDigest"],
     ["--predecessor-receipt", "predecessorReceipt"],
     ["--predecessor-receipt-sha256", "predecessorReceiptDigest"],
+    ["--predecessor-receipt-companion-bundle", "predecessorReceiptCompanionBundle"],
+    ["--predecessor-receipt-companion-bundle-sha256", "predecessorReceiptCompanionBundleDigest"],
     ["--predecessor-archive", "predecessorArchive"],
     ["--predecessor-archive-sha256", "predecessorArchiveDigest"],
     ["--openclaw-target-root", "openClawTargetRoot"],
@@ -4144,12 +4167,14 @@ function parseOpenClawInstallApplyArgs(args) {
       && (!current || !predecessor || absent))) {
     throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
   }
-  options.currentReceiptCompanions = finalizeReceiptCompanionArgs(
-    options.currentReceiptCompanionArgs,
+  options.currentReceiptCompanions = await finalizeReceiptCompanionInput(
+    options,
+    "current",
     current,
   );
-  options.predecessorReceiptCompanions = finalizeReceiptCompanionArgs(
-    options.predecessorReceiptCompanionArgs,
+  options.predecessorReceiptCompanions = await finalizeReceiptCompanionInput(
+    options,
+    "predecessor",
     options.predecessorReceipt !== null,
   );
   delete options.currentReceiptCompanionArgs;
@@ -4289,7 +4314,35 @@ function finalizeReceiptCompanionArgs(value, required) {
     blueprint: binding("blueprint"),
     buildContract: binding("buildContract"),
     planApproval: binding("planApproval"),
+    predecessor: null,
   };
+}
+
+function receiptCompanionArgsPresent(value) {
+  return value.sensitivePaths.length > 0
+    || value.sensitiveDigests.length > 0
+    || Object.entries(value).some(([key, item]) => (
+      !["sensitivePaths", "sensitiveDigests"].includes(key) && item !== null
+    ));
+}
+
+async function finalizeReceiptCompanionInput(options, prefix, required) {
+  const companionArgs = options[`${prefix}ReceiptCompanionArgs`];
+  const bundlePath = options[`${prefix}ReceiptCompanionBundle`];
+  const bundleDigest = options[`${prefix}ReceiptCompanionBundleDigest`];
+  if ((bundlePath === null) !== (bundleDigest === null)
+    || (bundlePath !== null && receiptCompanionArgsPresent(companionArgs))) {
+    throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+  }
+  if (bundlePath === null) {
+    return finalizeReceiptCompanionArgs(companionArgs, required);
+  }
+  if (!required) throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+  return loadExactLifecycleJson(
+    resolve(bundlePath),
+    bundleDigest,
+    validateOpenClawInstallReceiptCompanionBindings,
+  );
 }
 
 function parseClosedLifecycleArgs(args, options, names) {
@@ -4416,7 +4469,7 @@ function assertLifecycleTargetMatchesProbe(target, probe) {
   }
 }
 
-async function loadLifecycleBasis(options) {
+async function loadLifecycleBasis(options, authorityRootBinding) {
   if (options.lifecycle === "install") {
     const genesis = await loadAdmittedArtifact({
       filePath: options.absentGenesis,
@@ -4429,6 +4482,13 @@ async function loadLifecycleBasis(options) {
     options.currentReceipt,
     options.currentReceiptDigest,
     options.currentReceiptCompanions,
+    {
+      openClawTargetRoot: options.openClawTargetRoot,
+      helperPath: options.fsHelper,
+      receiptPath: options.fsHelperReceipt,
+      receiptDigest: options.fsHelperReceiptDigest,
+      authorityRootBinding,
+    },
   );
   if (options.lifecycle !== "rollback") {
     return { currentReceipt: lifecycleReceiptAuthority(current) };
@@ -4437,6 +4497,13 @@ async function loadLifecycleBasis(options) {
     options.predecessorReceipt,
     options.predecessorReceiptDigest,
     options.predecessorReceiptCompanions,
+    {
+      openClawTargetRoot: options.openClawTargetRoot,
+      helperPath: options.fsHelper,
+      receiptPath: options.fsHelperReceipt,
+      receiptDigest: options.fsHelperReceiptDigest,
+      authorityRootBinding,
+    },
   );
   const selectedInventory = await readPackageArchiveInventory({
     archivePath: options.predecessorArchive,
@@ -6096,7 +6163,7 @@ Usage:
   agentmo package-inspect <archive.d42> --archive-sha256 sha256:<64hex> [--json]
   agentmo openclaw-probe --archive <archive.d42> --archive-sha256 sha256:<64hex> --target-carrier-admission <admission.json> --target-carrier-admission-sha256 sha256:<64hex> --target-descriptor <descriptor.json> --target-descriptor-sha256 sha256:<64hex> --target-root <dir> --out <absent.json> [--json]
   agentmo openclaw-install-genesis --archive <archive.d42> --archive-sha256 sha256:<64hex> --blueprint <blueprint.json> --blueprint-sha256 sha256:<64hex> --build-contract <contract.json> --build-contract-sha256 sha256:<64hex> --plan-approval <approval.json> --plan-approval-sha256 sha256:<64hex> --target-carrier-admission <admission.json> --target-carrier-admission-sha256 sha256:<64hex> --target-descriptor <descriptor.json> --target-descriptor-sha256 sha256:<64hex> --probe <probe.json> --probe-sha256 sha256:<64hex> --request <genesis-request.json> --request-sha256 sha256:<64hex> --target-root <isolated-root> --fs-helper <binary> --fs-helper-receipt <receipt.json> --fs-helper-receipt-digest sha256:<64hex> --out <absent.json> [--json]
-  agentmo openclaw-install-preview --lifecycle install|upgrade|rollback|uninstall --archive <archive.d42> --archive-sha256 sha256:<64hex> --blueprint <blueprint.json> --blueprint-sha256 sha256:<64hex> --build-contract <contract.json> --build-contract-sha256 sha256:<64hex> --plan-approval <approval.json> --plan-approval-sha256 sha256:<64hex> --target-carrier-admission <admission.json> --target-carrier-admission-sha256 sha256:<64hex> --target-descriptor <descriptor.json> --target-descriptor-sha256 sha256:<64hex> --probe <probe.json> --probe-sha256 sha256:<64hex> --request <preview-request.json> --request-sha256 sha256:<64hex> --target-root <isolated-root> --fs-helper <binary> --fs-helper-receipt <receipt.json> --fs-helper-receipt-digest sha256:<64hex> <exact lifecycle basis> --out <absent.json> [--json]
+  agentmo openclaw-install-preview --lifecycle install|upgrade|rollback|uninstall --archive <archive.d42> --archive-sha256 sha256:<64hex> --blueprint <blueprint.json> --blueprint-sha256 sha256:<64hex> --build-contract <contract.json> --build-contract-sha256 sha256:<64hex> --plan-approval <approval.json> --plan-approval-sha256 sha256:<64hex> --target-carrier-admission <admission.json> --target-carrier-admission-sha256 sha256:<64hex> --target-descriptor <descriptor.json> --target-descriptor-sha256 sha256:<64hex> --probe <probe.json> --probe-sha256 sha256:<64hex> --request <preview-request.json> --request-sha256 sha256:<64hex> --openclaw-target-root <approved-openclaw-root> --target-root <isolated-root> --fs-helper <binary> --fs-helper-receipt <receipt.json> --fs-helper-receipt-digest sha256:<64hex> <exact lifecycle basis> --out <absent.json> [--json]
   agentmo openclaw-install-approve --plan <install-plan.json> --plan-sha256 sha256:<64hex> --request <approval-request.json> --request-sha256 sha256:<64hex> --ordinary-out <absent.json> --sensitive-out <absent.json>... --conflict-out <absent.json> [--json]
   agentmo openclaw-fs-kernel-build --binary-out <absent-private-path> --receipt-out <absent-private-path> [--json]
   agentmo openclaw-install-apply --lifecycle install|upgrade|rollback|uninstall --blueprint <blueprint.json> --blueprint-sha256 sha256:<64hex> --build-contract <contract.json> --build-contract-sha256 sha256:<64hex> --plan-approval <approval.json> --plan-approval-sha256 sha256:<64hex> --target-descriptor <descriptor.json> --target-descriptor-sha256 sha256:<64hex> --target-carrier-admission <admission.json> --target-carrier-admission-sha256 sha256:<64hex> --archive <archive.d42> --archive-sha256 sha256:<64hex> --probe <probe.json> --probe-sha256 sha256:<64hex> --install-plan <plan.json> --install-plan-sha256 sha256:<64hex> --ordinary-approval <approval.json> --ordinary-approval-sha256 sha256:<64hex> --sensitive-decision <decision.json> --sensitive-decision-sha256 sha256:<64hex> [--conflict-approval <approval.json> --conflict-approval-sha256 sha256:<64hex>] [--absent-genesis <genesis.json> --absent-genesis-sha256 sha256:<64hex> | --current-receipt <receipt.json> --current-receipt-sha256 sha256:<64hex> [--predecessor-receipt <receipt.json> --predecessor-receipt-sha256 sha256:<64hex> --predecessor-archive <archive.d42> --predecessor-archive-sha256 sha256:<64hex>]] --fs-helper <absolute-helper> --fs-helper-receipt <receipt.json> --fs-helper-receipt-digest sha256:<64hex> --openclaw-target-root <approved-openclaw-root> --target-root <isolated-project-root> --out <absent-receipt.json> [--json]
@@ -6175,6 +6242,9 @@ const OPENCLAW_RECEIPT_COMPANION_NAMES = [
   "plan-approval",
 ];
 const OPENCLAW_RECEIPT_COMPANION_HELP = [
+  "For a non-install receipt chain, use one exact recursive bundle instead of flat flags:",
+  "--current-receipt-companion-bundle <file> --current-receipt-companion-bundle-sha256 sha256:<64hex>",
+  "--predecessor-receipt-companion-bundle <file> --predecessor-receipt-companion-bundle-sha256 sha256:<64hex>",
   "Current receipt companion flags:",
   ...OPENCLAW_RECEIPT_COMPANION_NAMES.flatMap((name) => [
     `--current-receipt-companion-${name} <file>`,
@@ -6271,7 +6341,7 @@ Usage: agentmo openclaw-install-genesis --archive <archive.d42> --archive-sha256
 Publishes one create-only verified-absence authority. It performs no install, target mutation, OpenClaw process, credential, MCP, or runtime action.
 `,
     "openclaw-install-preview": `AgentMo openclaw-install-preview
-Usage: agentmo openclaw-install-preview --lifecycle install|upgrade|rollback|uninstall --archive <archive.d42> --archive-sha256 sha256:<64hex> --blueprint <blueprint.json> --blueprint-sha256 sha256:<64hex> --build-contract <contract.json> --build-contract-sha256 sha256:<64hex> --plan-approval <approval.json> --plan-approval-sha256 sha256:<64hex> --target-carrier-admission <admission.json> --target-carrier-admission-sha256 sha256:<64hex> --target-descriptor <descriptor.json> --target-descriptor-sha256 sha256:<64hex> --probe <probe.json> --probe-sha256 sha256:<64hex> --request <preview-request.json> --request-sha256 sha256:<64hex> --target-root <isolated-root> --fs-helper <binary> --fs-helper-receipt <receipt.json> --fs-helper-receipt-digest sha256:<64hex> <exact lifecycle basis> --out <absent.json> [--json]
+Usage: agentmo openclaw-install-preview --lifecycle install|upgrade|rollback|uninstall --archive <archive.d42> --archive-sha256 sha256:<64hex> --blueprint <blueprint.json> --blueprint-sha256 sha256:<64hex> --build-contract <contract.json> --build-contract-sha256 sha256:<64hex> --plan-approval <approval.json> --plan-approval-sha256 sha256:<64hex> --target-carrier-admission <admission.json> --target-carrier-admission-sha256 sha256:<64hex> --target-descriptor <descriptor.json> --target-descriptor-sha256 sha256:<64hex> --probe <probe.json> --probe-sha256 sha256:<64hex> --request <preview-request.json> --request-sha256 sha256:<64hex> --openclaw-target-root <approved-openclaw-root> --target-root <isolated-root> --fs-helper <binary> --fs-helper-receipt <receipt.json> --fs-helper-receipt-digest sha256:<64hex> <exact lifecycle basis> --out <absent.json> [--json]
 Install requires --absent-genesis plus its external digest. Upgrade/uninstall require --current-receipt plus its external digest. Rollback additionally requires exact predecessor receipt/archive pairs. No target mutation occurs.
 ${OPENCLAW_RECEIPT_COMPANION_HELP}
 `,

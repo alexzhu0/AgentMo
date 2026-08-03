@@ -282,6 +282,7 @@ node ./bin/agentmo.js openclaw-install-preview --lifecycle install \
   --target-descriptor "$TARGET_DESCRIPTOR" --target-descriptor-sha256 "$(digest_file "$TARGET_DESCRIPTOR")" \
   --probe "$PROBE" --probe-sha256 "$(digest_file "$PROBE")" \
   --request "$PREVIEW_REQUEST" --request-sha256 "$(digest_file "$PREVIEW_REQUEST")" \
+  --openclaw-target-root "$OPENCLAW_TARGET_ROOT" \
   --target-root "$ISOLATED_PROJECT_ROOT" \
   --fs-helper "$FS_HELPER" --fs-helper-receipt "$FS_HELPER_RECEIPT" \
   --fs-helper-receipt-digest "$FS_HELPER_RECEIPT_DIGEST" \
@@ -298,10 +299,12 @@ node ./bin/agentmo.js openclaw-install-preview --lifecycle upgrade \
   --target-descriptor "$TARGET_DESCRIPTOR" --target-descriptor-sha256 "$(digest_file "$TARGET_DESCRIPTOR")" \
   --probe "$PROBE" --probe-sha256 "$(digest_file "$PROBE")" \
   --request "$PREVIEW_REQUEST" --request-sha256 "$(digest_file "$PREVIEW_REQUEST")" \
+  --openclaw-target-root "$OPENCLAW_TARGET_ROOT" \
   --target-root "$ISOLATED_PROJECT_ROOT" \
   --fs-helper "$FS_HELPER" --fs-helper-receipt "$FS_HELPER_RECEIPT" \
   --fs-helper-receipt-digest "$FS_HELPER_RECEIPT_DIGEST" \
   --current-receipt "$CURRENT_RECEIPT" --current-receipt-sha256 "$(digest_file "$CURRENT_RECEIPT")" \
+  --current-receipt-companion-bundle "$CURRENT_COMPANION_BUNDLE" --current-receipt-companion-bundle-sha256 "$(digest_file "$CURRENT_COMPANION_BUNDLE")" \
   --out "$INSTALL_PLAN" --json
 
 # explicit rollback: current receipt plus selected predecessor receipt/archive
@@ -314,11 +317,14 @@ node ./bin/agentmo.js openclaw-install-preview --lifecycle rollback \
   --target-descriptor "$TARGET_DESCRIPTOR" --target-descriptor-sha256 "$(digest_file "$TARGET_DESCRIPTOR")" \
   --probe "$PROBE" --probe-sha256 "$(digest_file "$PROBE")" \
   --request "$PREVIEW_REQUEST" --request-sha256 "$(digest_file "$PREVIEW_REQUEST")" \
+  --openclaw-target-root "$OPENCLAW_TARGET_ROOT" \
   --target-root "$ISOLATED_PROJECT_ROOT" \
   --fs-helper "$FS_HELPER" --fs-helper-receipt "$FS_HELPER_RECEIPT" \
   --fs-helper-receipt-digest "$FS_HELPER_RECEIPT_DIGEST" \
   --current-receipt "$CURRENT_RECEIPT" --current-receipt-sha256 "$(digest_file "$CURRENT_RECEIPT")" \
+  --current-receipt-companion-bundle "$CURRENT_COMPANION_BUNDLE" --current-receipt-companion-bundle-sha256 "$(digest_file "$CURRENT_COMPANION_BUNDLE")" \
   --predecessor-receipt "$PREDECESSOR_RECEIPT" --predecessor-receipt-sha256 "$(digest_file "$PREDECESSOR_RECEIPT")" \
+  --predecessor-receipt-companion-bundle "$PREDECESSOR_COMPANION_BUNDLE" --predecessor-receipt-companion-bundle-sha256 "$(digest_file "$PREDECESSOR_COMPANION_BUNDLE")" \
   --predecessor-archive "$PREDECESSOR_ARCHIVE" --predecessor-archive-sha256 "$(digest_file "$PREDECESSOR_ARCHIVE")" \
   --out "$INSTALL_PLAN" --json
 ```
@@ -390,10 +396,15 @@ receipt pair. For explicit rollback, also add the exact selected predecessor
 receipt/archive pairs. Repeat the sensitive-decision pair for each action;
 always include the exact conflict-approval pair, including for an empty set.
 Current and rollback predecessor receipts additionally require their explicit
-companion path plus external-digest pairs for the install plan, ordinary
-approval, ordered sensitive decisions, conflict approval, private journal,
-probe, package manifest, target/carrier admission, blueprint, build contract,
-plan approval, and target descriptor. Run
+companion closure for the install plan, ordinary approval, ordered sensitive
+decisions, conflict approval, private journal, probe, package manifest,
+target/carrier admission, blueprint, build contract, plan approval, target
+descriptor, and every historical predecessor. A non-install chain uses one
+canonical request-only `--current-receipt-companion-bundle` or
+`--predecessor-receipt-companion-bundle` plus its external digest; the bundle
+is read bounded/no-follow and is never an installed or durable package
+artifact. Flat companion flags remain valid only where the selected receipt is
+an install receipt with no predecessor. Run
 `node ./bin/agentmo.js openclaw-install-apply --help` for the closed
 `--current-receipt-companion-*` and
 `--predecessor-receipt-companion-*` flag families; omission, substitution,

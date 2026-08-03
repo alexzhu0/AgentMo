@@ -1563,38 +1563,22 @@ async function runPackedPhase4Cli(args, fixtureRoot) {
   });
 }
 
-function packedReceiptCompanionArgs(prefix, companions) {
-  const flags = [];
-  const single = [
-    ["install-plan", "installPlan"],
-    ["ordinary-approval", "ordinaryApproval"],
-    ["conflict-approval", "conflictApproval"],
-    ["journal", "journal"],
-    ["probe", "probe"],
-    ["target-descriptor", "targetDescriptor"],
-    ["package-manifest", "packageManifest"],
-    ["target-carrier-admission", "targetCarrierAdmission"],
-    ["blueprint", "blueprint"],
-    ["build-contract", "buildContract"],
-    ["plan-approval", "planApproval"],
+async function packedReceiptCompanionBundleArgs(
+  prefix,
+  companions,
+  directory,
+  label,
+) {
+  const bundlePath = path.join(directory, `${label}-${prefix}-companions.json`);
+  const bytes = Buffer.from(serializePersistableJson(
+    companions,
+    { subject: "openclaw-receipt-companion-request" },
+  ));
+  await writeFile(bundlePath, bytes);
+  return [
+    `--${prefix}-receipt-companion-bundle`, bundlePath,
+    `--${prefix}-receipt-companion-bundle-sha256`, digestRawBytes(bytes),
   ];
-  for (const [flagName, key] of single) {
-    flags.push(
-      `--${prefix}-receipt-companion-${flagName}`,
-      companions[key].filePath,
-      `--${prefix}-receipt-companion-${flagName}-sha256`,
-      companions[key].digest,
-    );
-  }
-  for (const decision of companions.sensitiveDecisions) {
-    flags.push(
-      `--${prefix}-receipt-companion-sensitive-decision`,
-      decision.filePath,
-      `--${prefix}-receipt-companion-sensitive-decision-sha256`,
-      decision.digest,
-    );
-  }
-  return flags;
 }
 
 function packedJournalPath(targetRoot, installPlanDigest, attemptId) {
@@ -2029,6 +2013,22 @@ describe("packed Codex Builder setup", { concurrency: false }, () => {
       ));
       await writeFile(previewRequestPath, previewRequestBytes);
       const planPath = path.join(journeyRoot, `${lifecycle}-plan.json`);
+      const currentCompanionArgs = current === null
+        ? []
+        : await packedReceiptCompanionBundleArgs(
+          "current",
+          current.companions,
+          journeyRoot,
+          lifecycle,
+        );
+      const predecessorCompanionArgs = selected === null
+        ? []
+        : await packedReceiptCompanionBundleArgs(
+          "predecessor",
+          selected.companions,
+          journeyRoot,
+          lifecycle,
+        );
       const previewBasisArgs = lifecycle === "install"
         ? [
           "--absent-genesis", genesisPath,
@@ -2038,20 +2038,17 @@ describe("packed Codex Builder setup", { concurrency: false }, () => {
           ? [
             "--current-receipt", current.path,
             "--current-receipt-sha256", current.digest,
-            ...packedReceiptCompanionArgs("current", current.companions),
+            ...currentCompanionArgs,
             "--predecessor-receipt", selected.path,
             "--predecessor-receipt-sha256", selected.digest,
-            ...packedReceiptCompanionArgs(
-              "predecessor",
-              selected.companions,
-            ),
+            ...predecessorCompanionArgs,
             "--predecessor-archive", archivePath,
             "--predecessor-archive-sha256", produced.archiveDigest,
           ]
           : [
             "--current-receipt", current.path,
             "--current-receipt-sha256", current.digest,
-            ...packedReceiptCompanionArgs("current", current.companions),
+            ...currentCompanionArgs,
           ];
       const previewCli = await runPackedPhase4Cli([
         "openclaw-install-preview",
@@ -2066,6 +2063,7 @@ describe("packed Codex Builder setup", { concurrency: false }, () => {
         "--request", previewRequestPath,
         "--request-sha256", digestRawBytes(previewRequestBytes),
         "--target-root", targetRoot,
+        "--openclaw-target-root", openClawTargetRoot,
         "--fs-helper", helperPath,
         "--fs-helper-receipt", helperReceiptPath,
         "--fs-helper-receipt-digest", helperReceiptDigest,

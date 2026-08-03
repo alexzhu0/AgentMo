@@ -99,6 +99,19 @@ function startChild(action, options, spawnOptions = {}) {
   );
 }
 
+function startInputChild(action, options, spawnOptions = {}) {
+  const child = spawn(
+    process.execPath,
+    [CHILD_ENTRY, "--stdin"],
+    {
+      ...spawnOptions,
+      stdio: ["pipe", "ignore", "ignore", "ipc"],
+    },
+  );
+  child.stdin.end(JSON.stringify({ action, options }));
+  return child;
+}
+
 function startFileLimitedChild(action, options) {
   return spawn(
     "/bin/sh",
@@ -139,13 +152,13 @@ async function runChild(action, options) {
   return collectChild(child);
 }
 
-async function collectChild(child) {
+async function collectChild(child, timeoutMs = 15_000) {
   return new Promise((resolve, reject) => {
     let terminal = null;
     const timeout = setTimeout(() => {
       child.kill("SIGKILL");
       reject(new Error("append-only child timed out"));
-    }, 15_000);
+    }, timeoutMs);
     child.on("error", reject);
     child.on("message", (message) => {
       if (["result", "error"].includes(message?.type)) terminal = message;
@@ -218,10 +231,10 @@ function processRows() {
 }
 
 async function killSelectedRecordEffectWriter(fixture, request) {
-  const child = startChild("append", request, { detached: true });
-  const terminalPromise = collectChild(child);
+  const child = startInputChild("append", request, { detached: true });
+  const terminalPromise = collectChild(child, 30_000);
   const entries = path.join(fixture.storeRoot, "entries");
-  const deadline = Date.now() + 15_000;
+  const deadline = Date.now() + 30_000;
   let killed = null;
   while (Date.now() < deadline && child.exitCode === null) {
     const names = await readdir(entries).catch((error) => {
@@ -833,7 +846,7 @@ describe("append-only authority without production fault controls", () => {
     const fixture = await authorityFixture("agentmo-append-partial-record-writer-");
     const request = appendRequest(fixture, "partial-record-writer", {
       kind: "partial-record-writer",
-      filler: "r".repeat(80 * 1024),
+      filler: "r".repeat(768 * 1024),
     });
     const killed = await killSelectedRecordEffectWriter(fixture, request);
     const prefixBytes = await readFile(killed.stagePath);
@@ -923,32 +936,35 @@ describe("append-only authority without production fault controls", () => {
       {
         label: "lineage",
         character: "a",
-        relativeRootLength: 640,
+        relativeRootLengths: process.platform === "linux" ? [128, 640] : [640, 128],
         directory: ".agentmo-append-only-lineage",
         readError: "AGENTMO_APPEND_ONLY_LINEAGE_ANCHOR_INCOMPLETE",
       },
       {
         label: "provisioning",
         character: "p",
-        relativeRootLength: 535,
+        relativeRootLengths: process.platform === "linux" ? [24, 535] : [535, 24],
         directory: ".agentmo-append-only-provisioning",
         readError: "AGENTMO_APPEND_ONLY_LINEAGE_PROVISION_INCOMPLETE",
       },
       {
         label: "root-witness",
         character: "w",
-        relativeRootLength: 440,
+        relativeRootLengths: process.platform === "linux" ? [0, 440] : [440, 0],
         directory: ".agentmo-root-witness",
         readError: "AGENTMO_APPEND_ONLY_ROOT_WITNESS_INCOMPLETE",
       },
     ]) {
-      const lengths = [scenario.relativeRootLength];
-      for (let delta = 8; delta <= 128; delta += 8) {
-        lengths.push(scenario.relativeRootLength - delta);
-        lengths.push(scenario.relativeRootLength + delta);
+      const lengths = [];
+      for (const center of scenario.relativeRootLengths) {
+        lengths.push(center);
+        for (let delta = 8; delta <= 128; delta += 8) {
+          lengths.push(center - delta);
+          lengths.push(center + delta);
+        }
       }
       let selected = null;
-      for (const length of lengths) {
+      for (const length of [...new Set(lengths.filter((value) => value >= 0))]) {
         const fixture = await authorityFixture(
           `agentmo-append-short-${scenario.label}-`,
           longRelativeRoot(scenario.character, length),

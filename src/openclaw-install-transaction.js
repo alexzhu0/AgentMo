@@ -1952,6 +1952,10 @@ function validReceiptCompanionBindings(value) {
       === value.sensitiveDecisions.length;
 }
 
+export function validateOpenClawInstallReceiptCompanionBindings(value) {
+  return Object.freeze({ ok: validReceiptCompanionBindings(value) });
+}
+
 function assertReceiptEvidenceAuthorityOptions(value) {
   if (!plainObject(value)
     || !sameKeys(value, [

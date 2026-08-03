@@ -132,7 +132,10 @@ recomputes receipt fields from them. Current and rollback predecessor receipts
 are recursively admitted through the same producer-auth evidence plus their
 exact plan, approvals, ordered sensitive decisions, journal, probe, package
 manifest, target/carrier admission, blueprint, build contract, plan approval,
-and target descriptor. Structural receipt validity or generic JSON plus a
+and target descriptor. Preview and apply transport a non-install chain only
+through an exact external-digest-bound, bounded/no-follow companion bundle;
+the request bundle is not installed or persisted as package authority.
+Structural receipt validity or generic JSON plus a
 caller-recomputed digest is not current or historical authority.
 
 Unknown, modified, externally owned, identity-drifted, or ownership-ambiguous

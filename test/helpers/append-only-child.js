@@ -6,7 +6,20 @@ import {
 } from "../../src/builder-append-only-authority.js";
 
 async function main() {
-  const configuration = JSON.parse(process.argv[2]);
+  let configurationBytes;
+  if (process.argv[2] === "--stdin") {
+    const chunks = [];
+    let length = 0;
+    for await (const chunk of process.stdin) {
+      length += chunk.length;
+      if (length > 2 * 1024 * 1024) throw new Error("append-only child input too large");
+      chunks.push(chunk);
+    }
+    configurationBytes = Buffer.concat(chunks).toString("utf8");
+  } else {
+    configurationBytes = process.argv[2];
+  }
+  const configuration = JSON.parse(configurationBytes);
   try {
     let value;
     if (configuration.action === "append") {
