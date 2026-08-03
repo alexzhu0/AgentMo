@@ -167,7 +167,7 @@ it("Linux x86_64 supervisor filter rejects x32-numbered syscalls while allowing 
   assert.equal(result.stderr, "");
 });
 
-it("Linux supervisor build rejects deterministic compiler-output substitution", {
+it("Linux supervisor publishes retained compiler bytes during repeated output-path replacement", {
   skip: process.platform !== "linux",
   timeout: 20_000,
 }, async () => {
@@ -178,16 +178,35 @@ it("Linux supervisor build rejects deterministic compiler-output substitution", 
   const attacker = startNativeBuildOutputAttacker({
     root,
     buildDirectoryPrefix: "agentmo-process-supervisor-",
-    outputName: "supervisor",
+    outputNames: ["supervisor.primary", "supervisor"],
+    replacementCount: 4,
   });
   try {
-    await assert.rejects(
-      () => prepareOpenClawProcessSupervisor({ privateRoot: root }),
-      (error) => (
-        error?.code === "AGENTMO_OPENCLAW_PROCESS_SUPERVISOR_REJECTED"
-      ),
-    );
+    const built = await prepareOpenClawProcessSupervisor({ privateRoot: root });
     assert.equal(await attacker.exited, 0);
+    const receipt = JSON.parse(await readFile(built.receiptPath, "utf8"));
+    assert.equal(
+      receipt.reproducibility.strategy,
+      "independent-double-build-from-retained-fd-source-and-outputs",
+    );
+    assert.deepEqual(receipt.argv.slice(1, 4), ["-x", "c", "/proc/self/fd/3"]);
+    assert.equal(receipt.argv.at(-1), "/proc/self/fd/4");
+    assert.equal(receipt.reproducibility.source.descriptor, 3);
+    assert.equal(receipt.reproducibility.primaryOutput.descriptor, 4);
+    assert.equal(receipt.reproducibility.verificationOutput.descriptor, 4);
+    assert.notEqual(
+      receipt.reproducibility.primaryOutput.identity.inode,
+      receipt.reproducibility.verificationOutput.identity.inode,
+    );
+    assert.equal(
+      receipt.reproducibility.primaryOutput.digest,
+      receipt.binary.digest,
+    );
+    assert.equal(
+      receipt.reproducibility.verificationOutput.digest,
+      receipt.binary.digest,
+    );
+    await built.retainedBinary.close();
   } finally {
     attacker.stop();
   }

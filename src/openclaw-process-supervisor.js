@@ -15,6 +15,12 @@ const SOURCE_PATH = fileURLToPath(
   new URL("../native/openclaw-process-supervisor.c", import.meta.url),
 );
 const COMPILER_PATH = "/usr/bin/cc";
+const COMPILER_SOURCE_DESCRIPTOR = 3;
+const COMPILER_OUTPUT_DESCRIPTOR = 4;
+const COMPILER_SOURCE_PATH = `/proc/self/fd/${COMPILER_SOURCE_DESCRIPTOR}`;
+const COMPILER_OUTPUT_PATH = `/proc/self/fd/${COMPILER_OUTPUT_DESCRIPTOR}`;
+const RECEIPT_SCHEMA_VERSION =
+  "agentmo.openclaw-process-supervisor-receipt.v2";
 const MAX_FILE_BYTES = 2 * 1024 * 1024;
 const MAX_TOOL_OUTPUT_BYTES = 64 * 1024;
 const BUILD_TIMEOUT_MS = 30_000;
@@ -43,8 +49,11 @@ export async function prepareOpenClawProcessSupervisor(options = {}) {
   );
   await chmod(buildRoot, 0o700);
   const binaryPath = path.join(buildRoot, "supervisor");
-  const verificationPath = binaryPath;
-  const retainedSourcePath = path.join(buildRoot, "supervisor-source.c");
+  const primaryOutputPath = path.join(buildRoot, "supervisor.primary");
+  const verificationOutputPath = path.join(
+    buildRoot,
+    "supervisor.verification",
+  );
   const receiptPath = path.join(buildRoot, "supervisor.receipt.json");
   const environment = Object.freeze({
     HOME: buildRoot,
@@ -53,56 +62,78 @@ export async function prepareOpenClawProcessSupervisor(options = {}) {
     PATH: "/usr/bin:/bin",
     TMPDIR: buildRoot,
   });
+  let retainedSourceHandle;
+  let primaryOutputHandle;
+  let verificationOutputHandle;
   try {
-    const [source, compiler] = await Promise.all([
-      inspectStableFile(SOURCE_PATH),
-      inspectCompiler(environment),
-    ]);
-    const retainedSource = await writeExclusiveFile(
-      retainedSourcePath,
-      source.bytes,
-      0o400,
+    const source = await retainStableFile(SOURCE_PATH);
+    retainedSourceHandle = source.handle;
+    const compiler = await inspectCompiler(environment);
+    primaryOutputHandle = await createRetainedBuildOutput(primaryOutputPath);
+    verificationOutputHandle = await createRetainedBuildOutput(
+      verificationOutputPath,
     );
     const argv = [
-      retainedSourcePath,
+      "-x",
+      "c",
+      COMPILER_SOURCE_PATH,
       "-std=c11",
       "-O2",
       "-Wall",
       "-Wextra",
       "-Werror",
       "-o",
-      binaryPath,
+      COMPILER_OUTPUT_PATH,
     ];
     const compilation = await runBounded(
       COMPILER_PATH,
       argv,
       environment,
       BUILD_TIMEOUT_MS,
+      {
+        source: retainedSourceHandle,
+        output: primaryOutputHandle,
+      },
     );
     if (compilation.code !== 0 || compilation.signal !== null) fail();
-    await chmod(binaryPath, 0o700);
-    await syncFile(binaryPath);
-    const primaryBinary = await inspectStableFile(binaryPath);
-    const verificationArgv = [
-      ...argv.slice(0, -1),
-      verificationPath,
-    ];
+    const primaryOutput = await finalizeRetainedBuildOutput(
+      primaryOutputHandle,
+    );
+    const verificationArgv = [...argv];
     const verificationCompilation = await runBounded(
       COMPILER_PATH,
       verificationArgv,
       environment,
       BUILD_TIMEOUT_MS,
+      {
+        source: retainedSourceHandle,
+        output: verificationOutputHandle,
+      },
     );
     if (verificationCompilation.code !== 0
       || verificationCompilation.signal !== null) fail();
-    await chmod(verificationPath, 0o700);
-    await syncFile(verificationPath);
-    const verificationBinary = await inspectStableFile(verificationPath);
-    if (!primaryBinary.bytes.equals(verificationBinary.bytes)
-      || retainedSource.digest !== source.digest) fail();
-    const binary = verificationBinary;
+    const verificationOutput = await finalizeRetainedBuildOutput(
+      verificationOutputHandle,
+    );
+    const retainedSource = await inspectRetainedFile(
+      retainedSourceHandle,
+      source.identity,
+    );
+    if (!primaryOutput.bytes.equals(verificationOutput.bytes)
+      || retainedSource.digest !== source.digest
+      || !sameJson(retainedSource.identity, source.identity)
+      || sameUnderlyingFile(
+        primaryOutput.identity,
+        verificationOutput.identity,
+      )) fail();
+    const binary = await writeExclusiveFile(
+      binaryPath,
+      primaryOutput.bytes,
+      0o700,
+    );
+    if (binary.digest !== primaryOutput.digest) fail();
     const receipt = {
-      schemaVersion: "agentmo.openclaw-process-supervisor-receipt.v1",
+      schemaVersion: RECEIPT_SCHEMA_VERSION,
       kind: "linux-subreaper-pidfd-proc-children",
       platform: process.platform,
       arch: process.arch,
@@ -123,12 +154,24 @@ export async function prepareOpenClawProcessSupervisor(options = {}) {
         TMPDIR: "<agentmo-private-tmp>",
       },
       reproducibility: {
-        strategy: "independent-double-build-from-retained-source",
-        retainedSource: boundedFileAuthority(retainedSourcePath, retainedSource),
+        strategy:
+          "independent-double-build-from-retained-fd-source-and-outputs",
+        source: retainedFdAuthority(
+          COMPILER_SOURCE_DESCRIPTOR,
+          COMPILER_SOURCE_PATH,
+          retainedSource,
+        ),
+        primaryArgv: [COMPILER_PATH, ...argv],
+        primaryOutput: retainedFdAuthority(
+          COMPILER_OUTPUT_DESCRIPTOR,
+          COMPILER_OUTPUT_PATH,
+          primaryOutput,
+        ),
         verificationArgv: [COMPILER_PATH, ...verificationArgv],
-        verificationBinary: boundedFileAuthority(
-          verificationPath,
-          verificationBinary,
+        verificationOutput: retainedFdAuthority(
+          COMPILER_OUTPUT_DESCRIPTOR,
+          COMPILER_OUTPUT_PATH,
+          verificationOutput,
         ),
       },
       binary: boundedFileAuthority(binaryPath, binary),
@@ -164,6 +207,12 @@ export async function prepareOpenClawProcessSupervisor(options = {}) {
   } catch (error) {
     if (error instanceof OpenClawProcessSupervisorError) throw error;
     fail();
+  } finally {
+    await Promise.all([
+      retainedSourceHandle?.close().catch(() => {}),
+      primaryOutputHandle?.close().catch(() => {}),
+      verificationOutputHandle?.close().catch(() => {}),
+    ]);
   }
 }
 
@@ -196,7 +245,7 @@ export async function admitOpenClawProcessSupervisor(options = {}) {
       "binary",
     ])
       || receipt.schemaVersion
-        !== "agentmo.openclaw-process-supervisor-receipt.v1"
+        !== RECEIPT_SCHEMA_VERSION
       || receipt.kind !== "linux-subreaper-pidfd-proc-children"
       || receipt.platform !== "linux"
       || receipt.platform !== process.platform
@@ -216,18 +265,25 @@ export async function admitOpenClawProcessSupervisor(options = {}) {
       || !validFileAuthority(receipt.binary)
       || !sameKeys(receipt.reproducibility, [
         "strategy",
-        "retainedSource",
+        "source",
+        "primaryArgv",
+        "primaryOutput",
         "verificationArgv",
-        "verificationBinary",
+        "verificationOutput",
       ])
       || receipt.reproducibility.strategy
-        !== "independent-double-build-from-retained-source"
-      || !validFileAuthority(receipt.reproducibility.retainedSource)
+        !== "independent-double-build-from-retained-fd-source-and-outputs"
+      || !validRetainedFdAuthority(receipt.reproducibility.source)
+      || !Array.isArray(receipt.reproducibility.primaryArgv)
+      || !receipt.reproducibility.primaryArgv.every(
+        (value) => typeof value === "string",
+      )
+      || !validRetainedFdAuthority(receipt.reproducibility.primaryOutput)
       || !Array.isArray(receipt.reproducibility.verificationArgv)
       || !receipt.reproducibility.verificationArgv.every(
         (value) => typeof value === "string",
       )
-      || !validFileAuthority(receipt.reproducibility.verificationBinary)
+      || !validRetainedFdAuthority(receipt.reproducibility.verificationOutput)
       || receipt.source.path !== SOURCE_PATH
       || receipt.compiler.path !== COMPILER_PATH
       || receipt.binary.path !== path.resolve(options.binaryPath)
@@ -241,30 +297,39 @@ export async function admitOpenClawProcessSupervisor(options = {}) {
       fail();
     }
     const buildRoot = path.dirname(options.binaryPath);
-    const retainedSourcePath = path.join(buildRoot, "supervisor-source.c");
-    const verificationPath = path.resolve(options.binaryPath);
     const expectedArgv = [
       COMPILER_PATH,
-      retainedSourcePath,
+      "-x",
+      "c",
+      COMPILER_SOURCE_PATH,
       "-std=c11",
       "-O2",
       "-Wall",
       "-Wextra",
       "-Werror",
       "-o",
-      path.resolve(options.binaryPath),
-    ];
-    const expectedVerificationArgv = [
-      ...expectedArgv.slice(0, -1),
-      verificationPath,
+      COMPILER_OUTPUT_PATH,
     ];
     if (!sameJson(receipt.argv, expectedArgv)
+      || !sameJson(receipt.reproducibility.primaryArgv, expectedArgv)
       || !sameJson(
         receipt.reproducibility.verificationArgv,
-        expectedVerificationArgv,
+        expectedArgv,
       )
-      || receipt.reproducibility.retainedSource.path !== retainedSourcePath
-      || receipt.reproducibility.verificationBinary.path !== verificationPath
+      || receipt.reproducibility.source.descriptor
+        !== COMPILER_SOURCE_DESCRIPTOR
+      || receipt.reproducibility.source.path !== COMPILER_SOURCE_PATH
+      || receipt.reproducibility.primaryOutput.descriptor
+        !== COMPILER_OUTPUT_DESCRIPTOR
+      || receipt.reproducibility.primaryOutput.path !== COMPILER_OUTPUT_PATH
+      || receipt.reproducibility.verificationOutput.descriptor
+        !== COMPILER_OUTPUT_DESCRIPTOR
+      || receipt.reproducibility.verificationOutput.path
+        !== COMPILER_OUTPUT_PATH
+      || sameUnderlyingFile(
+        receipt.reproducibility.primaryOutput.identity,
+        receipt.reproducibility.verificationOutput.identity,
+      )
       || path.dirname(options.receiptPath) !== buildRoot
       || !path.basename(buildRoot).startsWith("agentmo-process-supervisor-")) {
       fail();
@@ -276,13 +341,11 @@ export async function admitOpenClawProcessSupervisor(options = {}) {
       PATH: "/usr/bin:/bin",
       TMPDIR: buildRoot,
     };
-    const [source, compiler, binary, retainedSource, verificationBinary]
+    const [source, compiler, binary]
       = await Promise.all([
       inspectStableFile(SOURCE_PATH),
       inspectCompiler(freshEnvironment),
       inspectStableFile(options.binaryPath),
-      inspectStableFile(retainedSourcePath),
-      inspectStableFile(verificationPath),
     ]);
     if (!sameFileAuthority(receipt.source, source)
       || receipt.compiler.realPath !== compiler.realPath
@@ -290,13 +353,13 @@ export async function admitOpenClawProcessSupervisor(options = {}) {
       || receipt.compiler.versionDigest !== compiler.versionDigest
       || !sameJson(receipt.compiler.identity, compiler.identity)
       || !sameFileAuthority(receipt.binary, binary)
-      || retainedSource.digest !== source.digest
-      || !sameFileAuthority(receipt.reproducibility.retainedSource, retainedSource)
-      || verificationBinary.digest !== binary.digest
-      || !sameFileAuthority(
-        receipt.reproducibility.verificationBinary,
-        verificationBinary,
-      )) {
+      || receipt.reproducibility.source.digest !== source.digest
+      || !sameJson(
+        receipt.reproducibility.source.identity,
+        source.identity,
+      )
+      || receipt.reproducibility.primaryOutput.digest !== binary.digest
+      || receipt.reproducibility.verificationOutput.digest !== binary.digest) {
       fail();
     }
     return deepFreeze({
@@ -359,6 +422,89 @@ async function writeExclusiveFile(filePath, bytes, mode) {
     await handle?.close().catch(() => {});
   }
   return inspectStableFile(filePath);
+}
+
+async function retainStableFile(filePath) {
+  let handle;
+  try {
+    handle = await open(
+      path.resolve(filePath),
+      constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0),
+    );
+    const retained = await inspectRetainedFile(handle);
+    const current = await lstat(path.resolve(filePath), { bigint: true });
+    if (!sameJson(retained.identity, identity(current))) fail();
+    return {
+      ...retained,
+      handle,
+    };
+  } catch (error) {
+    await handle?.close().catch(() => {});
+    throw error;
+  }
+}
+
+async function createRetainedBuildOutput(filePath) {
+  let handle;
+  try {
+    handle = await open(
+      filePath,
+      constants.O_RDWR | constants.O_CREAT | constants.O_EXCL
+        | (constants.O_NOFOLLOW ?? 0),
+      0o700,
+    );
+    const stats = await handle.stat({ bigint: true });
+    if (!stats.isFile()
+      || stats.nlink !== 1n
+      || stats.size !== 0n
+      || stats.uid !== BigInt(process.getuid?.() ?? -1)) fail();
+    return handle;
+  } catch (error) {
+    await handle?.close().catch(() => {});
+    throw error;
+  }
+}
+
+async function finalizeRetainedBuildOutput(handle) {
+  await handle.chmod(0o700);
+  await handle.sync();
+  const output = await inspectRetainedFile(handle);
+  if (output.bytes.length === 0
+    || output.identity.links !== "1"
+    || output.identity.mode !== "448"
+    || output.identity.owner !== String(process.getuid?.() ?? -1)) fail();
+  return output;
+}
+
+async function inspectRetainedFile(handle, expectedIdentity = null) {
+  const before = await handle.stat({ bigint: true });
+  if (!before.isFile()
+    || before.nlink !== 1n
+    || before.size < 0n
+    || before.size > BigInt(MAX_FILE_BYTES)) fail();
+  const bytes = await readRetainedBytes(handle, Number(before.size));
+  const after = await handle.stat({ bigint: true });
+  const observedIdentity = identity(after);
+  if (!sameStableStats(before, after)
+    || bytes.length !== Number(after.size)
+    || (expectedIdentity !== null
+      && !sameJson(observedIdentity, expectedIdentity))) fail();
+  return {
+    bytes,
+    digest: digestBytes(bytes),
+    identity: observedIdentity,
+  };
+}
+
+async function readRetainedBytes(handle, size) {
+  const bytes = Buffer.alloc(size);
+  let offset = 0;
+  while (offset < size) {
+    const result = await handle.read(bytes, offset, size - offset, offset);
+    if (result.bytesRead === 0) fail();
+    offset += result.bytesRead;
+  }
+  return bytes;
 }
 
 async function inspectCompiler(environment) {
@@ -426,21 +572,26 @@ async function inspectStableFile(filePath, options = {}) {
   }
 }
 
-async function syncFile(filePath) {
-  const handle = await open(filePath, constants.O_RDONLY);
-  try {
-    await handle.sync();
-  } finally {
-    await handle.close();
-  }
-}
-
-function runBounded(executable, argv, environment, timeoutMs) {
+function runBounded(
+  executable,
+  argv,
+  environment,
+  timeoutMs,
+  retainedFds = null,
+) {
   return new Promise((resolve, reject) => {
     const child = spawn(executable, argv, {
       env: environment,
       shell: false,
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: retainedFds === null
+        ? ["ignore", "pipe", "pipe"]
+        : [
+            "ignore",
+            "pipe",
+            "pipe",
+            retainedFds.source.fd,
+            retainedFds.output.fd,
+          ],
       windowsHide: true,
     });
     const stdout = [];
@@ -490,9 +641,27 @@ function boundedFileAuthority(filePath, observed) {
   };
 }
 
+function retainedFdAuthority(descriptor, procPath, observed) {
+  return {
+    descriptor,
+    path: procPath,
+    digest: observed.digest,
+    identity: observed.identity,
+  };
+}
+
 function validFileAuthority(value) {
   return sameKeys(value, ["path", "digest", "identity"])
     && path.isAbsolute(value.path ?? "")
+    && DIGEST_PATTERN.test(value.digest ?? "")
+    && validIdentity(value.identity);
+}
+
+function validRetainedFdAuthority(value) {
+  return sameKeys(value, ["descriptor", "path", "digest", "identity"])
+    && Number.isInteger(value.descriptor)
+    && value.descriptor >= COMPILER_SOURCE_DESCRIPTOR
+    && value.path === `/proc/self/fd/${value.descriptor}`
     && DIGEST_PATTERN.test(value.digest ?? "")
     && validIdentity(value.identity);
 }
@@ -513,6 +682,10 @@ function validIdentity(value) {
 function sameFileAuthority(authority, observed) {
   return authority.digest === observed.digest
     && sameJson(authority.identity, observed.identity);
+}
+
+function sameUnderlyingFile(left, right) {
+  return left.device === right.device && left.inode === right.inode;
 }
 
 function identity(stats) {

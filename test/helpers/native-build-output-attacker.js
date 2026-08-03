@@ -12,12 +12,14 @@ const SELF_PATH = fileURLToPath(import.meta.url);
 const ATTACK_TIMEOUT_MS = 15_000;
 
 export function startNativeBuildOutputAttacker(options) {
+  const outputNames = options.outputNames ?? [options.outputName];
   const child = spawn(process.execPath, [
     SELF_PATH,
     "--attack",
     options.root,
     options.buildDirectoryPrefix,
-    options.outputName,
+    outputNames.join(","),
+    String(options.replacementCount ?? 1),
   ], {
     shell: false,
     stdio: "ignore",
@@ -43,33 +45,43 @@ if (process.argv[2] === "--attack") {
   runAttacker({
     root: process.argv[3],
     buildDirectoryPrefix: process.argv[4],
-    outputName: process.argv[5],
+    outputNames: process.argv[5].split(","),
+    replacementCount: Number.parseInt(process.argv[6], 10),
   });
 }
 
 function runAttacker(options) {
   const deadline = Date.now() + ATTACK_TIMEOUT_MS;
+  let replacementIndex = 0;
   const attempt = () => {
     try {
       for (const entry of readdirSync(options.root, { withFileTypes: true })) {
         if (!entry.isDirectory()
           || !entry.name.startsWith(options.buildDirectoryPrefix)) continue;
-        const outputPath = path.join(options.root, entry.name, options.outputName);
-        let stats;
-        try {
-          stats = lstatSync(outputPath);
-        } catch (error) {
-          if (error?.code === "ENOENT") continue;
-          throw error;
+        for (const outputName of options.outputNames) {
+          const outputPath = path.join(options.root, entry.name, outputName);
+          let stats;
+          try {
+            stats = lstatSync(outputPath);
+          } catch (error) {
+            if (error?.code === "ENOENT") continue;
+            throw error;
+          }
+          if (!stats.isFile() || stats.size === 0) continue;
+          replacementIndex += 1;
+          renameSync(
+            outputPath,
+            `${outputPath}.compiler-retained-${replacementIndex}`,
+          );
+          writeFileSync(outputPath, "substituted-native-build-output\n", {
+            flag: "wx",
+            mode: 0o700,
+          });
+          if (replacementIndex >= options.replacementCount) {
+            process.exitCode = 0;
+            return;
+          }
         }
-        if (!stats.isFile() || stats.size === 0) continue;
-        renameSync(outputPath, `${outputPath}.compiler-retained`);
-        writeFileSync(outputPath, "substituted-native-build-output\n", {
-          flag: "wx",
-          mode: 0o700,
-        });
-        process.exitCode = 0;
-        return;
       }
     } catch {
       // Compiler output may be between create/replace transitions; retry.

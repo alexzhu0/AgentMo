@@ -4,6 +4,7 @@ import { spawn } from "node:child_process";
 import {
   access,
   chmod,
+  copyFile,
   link,
   lstat,
   mkdir,
@@ -16,7 +17,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { before, describe, it } from "node:test";
 import {
   OPENCLAW_FS_BUILD_RECEIPT_SCHEMA_VERSION,
@@ -47,6 +48,7 @@ let receiptDigest;
 let buildResult;
 
 before(async () => {
+  if (process.platform !== "linux") return;
   buildRoot = await mkdtemp(path.join(tmpdir(), "agentmo-safe-fs-build-"));
   await chmod(buildRoot, 0o700);
   helperPath = path.join(buildRoot, "openclaw-fs-kernel");
@@ -236,7 +238,31 @@ function assertClosedRecoveryEvidence(recovery, forbidden = []) {
   for (const value of forbidden) assert.equal(durable.includes(value), false);
 }
 
-describe("OpenClaw safe fs retained-dirfd kernel", () => {
+it("fails closed before native build or admission outside Linux", {
+  skip: process.platform === "linux",
+}, async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "agentmo-safe-fs-unsupported-"));
+  await chmod(root, 0o700);
+  await assert.rejects(
+    () => buildOpenClawFsKernel({
+      binaryOut: path.join(root, "openclaw-fs-kernel"),
+      receiptOut: path.join(root, "openclaw-fs-kernel.receipt.json"),
+    }),
+    (error) => error?.code === "AGENTMO_OPENCLAW_FS_PLATFORM_UNSUPPORTED",
+  );
+  await assert.rejects(
+    () => admitOpenClawFsKernel({
+      helperPath: path.join(root, "openclaw-fs-kernel"),
+      receiptPath: path.join(root, "openclaw-fs-kernel.receipt.json"),
+      receiptDigest: `sha256:${"0".repeat(64)}`,
+    }),
+    (error) => error?.code === "AGENTMO_OPENCLAW_FS_PLATFORM_UNSUPPORTED",
+  );
+});
+
+describe("OpenClaw safe fs retained-dirfd kernel", {
+  skip: process.platform !== "linux",
+}, () => {
   it("builds a durable closed receipt with fixed compiler, argv and environment", async () => {
     const receiptBytes = await readFile(receiptPath);
     assert.equal(receiptDigest, sha256(receiptBytes));
@@ -256,28 +282,43 @@ describe("OpenClaw safe fs retained-dirfd kernel", () => {
       TMPDIR: receipt.environment.TMPDIR,
     });
     assert.equal(receipt.argv[0], "/usr/bin/cc");
-    assert.equal(path.basename(receipt.argv[1]), "kernel-source.c");
+    assert.deepEqual(receipt.argv.slice(1, 4), ["-x", "c", "/proc/self/fd/3"]);
+    assert.equal(receipt.argv.at(-1), "/proc/self/fd/4");
     assert.equal(
       receipt.reproducibility.strategy,
-      "independent-double-build-from-retained-source",
+      "independent-double-build-from-retained-fd-source-and-outputs",
     );
+    assert.equal(receipt.reproducibility.source.descriptor, 3);
+    assert.equal(receipt.reproducibility.source.path, "/proc/self/fd/3");
     assert.equal(
-      receipt.reproducibility.retainedSource.digest,
+      receipt.reproducibility.source.digest,
       receipt.source.digest,
     );
+    assert.equal(receipt.reproducibility.primaryOutput.descriptor, 4);
+    assert.equal(receipt.reproducibility.primaryOutput.path, "/proc/self/fd/4");
+    assert.equal(receipt.reproducibility.verificationOutput.descriptor, 4);
     assert.equal(
-      receipt.reproducibility.verificationBinary.digest,
+      receipt.reproducibility.verificationOutput.path,
+      "/proc/self/fd/4",
+    );
+    assert.equal(
+      receipt.reproducibility.primaryOutput.digest,
       receipt.binary.digest,
     );
+    assert.equal(
+      receipt.reproducibility.verificationOutput.digest,
+      receipt.binary.digest,
+    );
+    assert.notEqual(
+      receipt.reproducibility.primaryOutput.identity.inode,
+      receipt.reproducibility.verificationOutput.identity.inode,
+    );
+    assert.deepEqual(receipt.reproducibility.primaryArgv, receipt.argv);
     assert.deepEqual(
       receipt.reproducibility.verificationArgv,
       receipt.argv,
     );
     assert.equal(receipt.argv.includes("-o"), true);
-    assert.equal(
-      path.basename(receipt.argv.at(-1)),
-      "openclaw-fs-kernel.stage",
-    );
     assert.notEqual(receipt.argv.at(-1), helperPath);
     assert.equal(receipt.binary.path, helperPath);
     assert.equal(
@@ -311,7 +352,7 @@ describe("OpenClaw safe fs retained-dirfd kernel", () => {
     })), true);
   });
 
-  it("rejects deterministic compiler-output substitution before fs-kernel admission", async () => {
+  it("publishes only retained compiler bytes during repeated output-path replacement", async () => {
     const root = await mkdtemp(
       path.join(tmpdir(), "agentmo-safe-fs-output-substitution-"),
     );
@@ -319,20 +360,121 @@ describe("OpenClaw safe fs retained-dirfd kernel", () => {
     const attacker = startNativeBuildOutputAttacker({
       root,
       buildDirectoryPrefix: ".agentmo-openclaw-fs-build-",
-      outputName: "openclaw-fs-kernel.stage",
+      outputNames: [
+        "openclaw-fs-kernel.primary",
+        "openclaw-fs-kernel.stage",
+      ],
+      replacementCount: 4,
     });
     try {
-      await assert.rejects(
-        () => buildOpenClawFsKernel({
-          binaryOut: path.join(root, "openclaw-fs-kernel"),
-          receiptOut: path.join(root, "openclaw-fs-kernel.receipt.json"),
-        }),
-        (error) => error?.code === "AGENTMO_OPENCLAW_FS_BUILD_REJECTED",
-      );
+      const built = await buildOpenClawFsKernel({
+        binaryOut: path.join(root, "openclaw-fs-kernel"),
+        receiptOut: path.join(root, "openclaw-fs-kernel.receipt.json"),
+      });
       assert.equal(await attacker.exited, 0);
+      const receipt = JSON.parse(await readFile(built.receiptPath, "utf8"));
+      assert.equal(
+        sha256(await readFile(built.binaryPath)),
+        receipt.reproducibility.primaryOutput.digest,
+      );
+      assert.equal(
+        receipt.reproducibility.primaryOutput.digest,
+        receipt.reproducibility.verificationOutput.digest,
+      );
     } finally {
       attacker.stop();
     }
+  });
+
+  it("keeps the retained compiler input when the source pathname changes", async () => {
+    const isolatedRoot = await mkdtemp(
+      path.join(tmpdir(), "agentmo-safe-fs-source-replacement-"),
+    );
+    const isolatedSourceRoot = path.join(isolatedRoot, "src");
+    const isolatedNativeRoot = path.join(isolatedRoot, "native");
+    const isolatedBuildRoot = path.join(isolatedRoot, "build");
+    await Promise.all([
+      mkdir(isolatedSourceRoot),
+      mkdir(isolatedNativeRoot),
+      mkdir(isolatedBuildRoot),
+    ]);
+    await chmod(isolatedBuildRoot, 0o700);
+    const isolatedModulePath = path.join(
+      isolatedSourceRoot,
+      "openclaw-safe-fs.mjs",
+    );
+    const isolatedSourcePath = path.join(
+      isolatedNativeRoot,
+      "openclaw-fs-kernel.c",
+    );
+    await Promise.all([
+      copyFile(
+        fileURLToPath(new URL("../src/openclaw-safe-fs.js", import.meta.url)),
+        isolatedModulePath,
+      ),
+      copyFile(SOURCE_PATH, isolatedSourcePath),
+    ]);
+    const isolated = await import(pathToFileURL(isolatedModulePath).href);
+    const binaryOut = path.join(isolatedBuildRoot, "openclaw-fs-kernel");
+    const receiptOut = path.join(
+      isolatedBuildRoot,
+      "openclaw-fs-kernel.receipt.json",
+    );
+    const buildPromise = isolated.buildOpenClawFsKernel({
+      binaryOut,
+      receiptOut,
+    });
+    let privateRoot;
+    const started = Date.now();
+    while (Date.now() - started < 5_000) {
+      const names = await readdir(isolatedBuildRoot);
+      const name = names.find((entry) => (
+        entry.startsWith(".agentmo-openclaw-fs-build-")
+      ));
+      if (name) {
+        const primaryPath = path.join(
+          isolatedBuildRoot,
+          name,
+          "openclaw-fs-kernel.primary",
+        );
+        try {
+          await lstat(primaryPath);
+          privateRoot = path.join(isolatedBuildRoot, name);
+          break;
+        } catch (error) {
+          if (error?.code !== "ENOENT") throw error;
+        }
+      }
+      await new Promise((resolve) => setImmediate(resolve));
+    }
+    assert.equal(typeof privateRoot, "string");
+    const retainedSourcePath = `${isolatedSourcePath}.retained`;
+    const replacementSourcePath = `${isolatedSourcePath}.replacement`;
+    await rename(isolatedSourcePath, retainedSourcePath);
+    await writeFile(
+      isolatedSourcePath,
+      "int main(void) { return 86; }\n",
+      { flag: "wx", mode: 0o600 },
+    );
+    try {
+      const primaryPath = path.join(
+        privateRoot,
+        "openclaw-fs-kernel.primary",
+      );
+      const compiledStarted = Date.now();
+      while (Date.now() - compiledStarted < 5_000) {
+        if ((await lstat(primaryPath)).size > 0) break;
+        await new Promise((resolve) => setImmediate(resolve));
+      }
+    } finally {
+      await rename(isolatedSourcePath, replacementSourcePath);
+      await rename(retainedSourcePath, isolatedSourcePath);
+    }
+    const built = await buildPromise;
+    assert.equal(
+      sha256(await readFile(built.binaryPath)),
+      sha256(await readFile(helperPath)),
+    );
   });
 
   it("reports private build and execution objects preserved instead of pathname cleanup", async () => {
