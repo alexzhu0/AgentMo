@@ -195,7 +195,13 @@ static void abort_bootstrap(pid_t direct, int ready_fd, int go_fd) {
   if (go_fd >= 0) close(go_fd);
   (void)kill(-direct, SIGKILL);
   (void)kill(direct, SIGKILL);
-  while (waitpid(direct, NULL, 0) < 0 && errno == EINTR) {
+  for (unsigned int attempt = 0; attempt < 250U; attempt += 1U) {
+    pid_t waited = waitpid(direct, NULL, WNOHANG);
+    if (waited == direct || (waited < 0 && errno == ECHILD)) return;
+    if (waited < 0 && errno != EINTR) return;
+    struct timespec interval = { .tv_sec = 0, .tv_nsec = POLL_NS };
+    while (nanosleep(&interval, &interval) != 0 && errno == EINTR) {
+    }
   }
 }
 

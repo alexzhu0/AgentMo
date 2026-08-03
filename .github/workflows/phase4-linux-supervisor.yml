@@ -56,7 +56,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node --test \
+          timeout --signal=KILL 90s node --test \
             test/openclaw-process-supervisor.test.js \
             test/openclaw-credential-handoff.test.js
 

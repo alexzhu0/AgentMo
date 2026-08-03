@@ -476,11 +476,27 @@ it("official config runner executes one exact dry-run/actual pair and preserves 
             entry.isDirectory()
               && entry.name.startsWith("agentmo-config-candidate-")
           ));
-          assert.equal(candidateRoots.length > 0, true);
-          const candidateRoot = path.join(
-            executableRoot,
-            candidateRoots.at(-1).name,
-          );
+          const { fstatSync } = await import("node:fs");
+          const retained = fstatSync(invocation.retainedConfigFd, {
+            bigint: true,
+          });
+          let candidateRoot;
+          for (const entry of candidateRoots) {
+            const proposedRoot = path.join(executableRoot, entry.name);
+            try {
+              const proposed = await stat(
+                path.join(proposedRoot, "candidate.json"),
+                { bigint: true },
+              );
+              if (proposed.dev === retained.dev && proposed.ino === retained.ino) {
+                candidateRoot = proposedRoot;
+                break;
+              }
+            } catch (error) {
+              if (error?.code !== "ENOENT") throw error;
+            }
+          }
+          assert.notEqual(candidateRoot, undefined);
           replacementPath = path.join(candidateRoot, "candidate.json");
           retainedCandidatePath = path.join(
             candidateRoot,
