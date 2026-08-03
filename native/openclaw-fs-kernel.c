@@ -1301,7 +1301,7 @@ int main(void) {
   if (line == NULL) return 1;
   while (fgets(line, (int)MAX_LINE_BYTES + 2, stdin) != NULL) {
     size_t length = strlen(line);
-    field_t fields[MAX_FIELDS] = {{0}};
+    field_t fields[MAX_FIELDS] = {0};
     size_t count = 0;
     int result;
     if (length == 0 || line[length - 1] != '\n') {
