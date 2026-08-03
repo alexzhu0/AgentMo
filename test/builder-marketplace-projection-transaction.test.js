@@ -39,7 +39,9 @@ import {
   assertCodexMarketplaceProjectionFinalAuthority,
 } from ${JSON.stringify(hostModuleUrl)};
 
-const input = JSON.parse(process.argv[1]);
+const inputChunks = [];
+for await (const chunk of process.stdin) inputChunks.push(chunk);
+const input = JSON.parse(Buffer.concat(inputChunks).toString("utf8"));
 if (typeof input.stopAtEffectName === "string") {
   const childProcess = await import("node:child_process");
   const { syncBuiltinESMExports } = await import("node:module");
@@ -366,23 +368,24 @@ function customFixtureInput(label, rawFiles) {
 }
 
 function startPublisher(home, input, options = {}) {
+  const payload = JSON.stringify({
+    ...input,
+    stopAtEffectName: options.stopAtEffectName ?? null,
+  });
   const child = spawn(
     process.execPath,
     [
       "--input-type=module",
       "--eval",
       childSource,
-      JSON.stringify({
-        ...input,
-        stopAtEffectName: options.stopAtEffectName ?? null,
-      }),
     ],
     {
       cwd: repoRoot,
       env: { ...process.env, HOME: home },
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: ["pipe", "pipe", "pipe"],
     },
   );
+  child.stdin.end(payload);
   let stdout = "";
   let stderr = "";
   child.stdout.setEncoding("utf8");

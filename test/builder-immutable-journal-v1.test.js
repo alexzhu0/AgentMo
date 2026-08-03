@@ -24,21 +24,27 @@ const BOUNDARIES = Object.freeze([
 function startWriter(journalPath, canonicalBytes) {
   const script = `
 import { appendImmutableJournalEntry, loadImmutableJournal } from ${JSON.stringify(JOURNAL_MODULE_URL)};
-const [journalPath, encoded] = process.argv.slice(1);
+const [journalPath] = process.argv.slice(1);
+const chunks = [];
+for await (const chunk of process.stdin) chunks.push(chunk);
 const current = await loadImmutableJournal({ journalPath });
 await appendImmutableJournalEntry({
   journalPath,
-  canonicalBytes: Buffer.from(encoded, "base64"),
+  canonicalBytes: Buffer.concat(chunks),
   expectedPredecessorAdmission: current.head,
 });
 `;
-  return spawn(process.execPath, [
+  const child = spawn(process.execPath, [
     "--input-type=module",
     "--eval",
     script,
     journalPath,
-    canonicalBytes.toString("base64"),
-  ], { stdio: ["ignore", "ignore", "pipe"] });
+  ], { stdio: ["pipe", "ignore", "pipe"] });
+  child.stdin.on("error", (error) => {
+    if (error?.code !== "EPIPE") child.emit("error", error);
+  });
+  child.stdin.end(canonicalBytes);
+  return child;
 }
 
 function waitForExit(child) {
