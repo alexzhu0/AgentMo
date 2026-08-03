@@ -717,7 +717,7 @@ it("official process runner blocks setsid ignored-stdio escape before returning"
   assert.equal(result.processStarted, true);
   assert.equal(result.processGroupClosed, true);
   assert.equal(result.quiescenceVerified, true);
-  assert.equal(result.failureCode, "command-failed");
+  assert.equal(result.failureCode, "descendant-outlived-parent");
   assert.equal(
     result.containment,
     "linux-subreaper-pidfd-proc-children",

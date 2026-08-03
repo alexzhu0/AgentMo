@@ -30,13 +30,21 @@ jobs:
         with:
           node-version: 20
 
-      - name: Prove Linux host and compile native supervisor
+      - name: Prove Linux host and compile native kernels
         shell: bash
         run: |
           set -euo pipefail
           test "$(node -p 'process.platform')" = "linux"
           cc \
             native/openclaw-process-supervisor.c \
+            -std=c11 \
+            -O2 \
+            -Wall \
+            -Wextra \
+            -Werror \
+            -fsyntax-only
+          cc \
+            native/openclaw-fs-kernel.c \
             -std=c11 \
             -O2 \
             -Wall \

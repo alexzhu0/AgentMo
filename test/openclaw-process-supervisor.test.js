@@ -149,7 +149,8 @@ it("Linux supervisor recycles terminal pidfds before the bounded capacity is reu
     "});",
     "(async () => {",
     "  for (let index = 0; index < 12; index += 1) await run('setTimeout(() => {}, 40)');",
-    "  spawn(process.execPath, ['-e', \"setTimeout(() => require('node:fs').writeFileSync(process.argv[1], 'late'), 400); setInterval(() => {}, 1000)\", marker], { stdio: 'ignore' });",
+    "  const descendant = spawn(process.execPath, ['-e', \"setTimeout(() => require('node:fs').writeFileSync(process.argv[1], 'late'), 400); setInterval(() => {}, 1000)\", marker], { stdio: 'ignore' });",
+    "  descendant.unref();",
     "})().catch(() => process.exit(91));",
   ].join("\n"));
 
