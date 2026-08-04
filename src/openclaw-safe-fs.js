@@ -11,9 +11,14 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  NATIVE_BUILD_CAPTURE_PRELOAD_DIGEST,
+  NATIVE_BUILD_CAPTURE_TRANSPORT,
+  captureIndependentNativeBuilds,
+} from "./native-build-capture.js";
 
 export const OPENCLAW_FS_BUILD_RECEIPT_SCHEMA_VERSION =
-  "agentmo.openclaw-fs-build-receipt.v3";
+  "agentmo.openclaw-fs-build-receipt.v4";
 export const OPENCLAW_FS_BUILD_PAIR_SCHEMA_VERSION =
   "agentmo.openclaw-fs-build-pair.v1";
 export const OPENCLAW_FS_BUILD_RECOVERY_SCHEMA_VERSION =
@@ -31,6 +36,7 @@ const EXECUTION_HELPER_DESCRIPTOR = 3;
 const EXECUTION_HELPER_PATH = `/proc/self/fd/${EXECUTION_HELPER_DESCRIPTOR}`;
 const DIGEST_PATTERN = /^sha256:[a-f0-9]{64}$/u;
 const SUPPORTED_PLATFORMS = new Set(["linux"]);
+const SUPPORTED_ARCHITECTURES = new Set(["x64"]);
 const MAX_FILE_BYTES = 2 * 1024 * 1024;
 const MAX_TOOL_OUTPUT_BYTES = 64 * 1024;
 const MAX_PROTOCOL_LINE_BYTES = 64 * 1024;
@@ -62,12 +68,14 @@ const COMPILER_KEYS = [
 const BINARY_KEYS = ["path", "digest", "identity"];
 const REPRODUCIBILITY_KEYS = [
   "strategy",
+  "isolation",
   "source",
   "primaryArgv",
   "primaryOutput",
   "verificationArgv",
   "verificationOutput",
 ];
+const ISOLATION_KEYS = ["transport", "preloadDigest", "preloadIdentity"];
 const RETAINED_FD_AUTHORITY_KEYS = [
   "descriptor",
   "path",
@@ -114,7 +122,7 @@ export async function buildOpenClawFsKernel(options = {}) {
   assertAbsoluteAbsentOutput(options.binaryOut);
   assertAbsoluteAbsentOutput(options.receiptOut);
   if (!SUPPORTED_PLATFORMS.has(process.platform)
-    || !["arm64", "x64"].includes(process.arch)) {
+    || !SUPPORTED_ARCHITECTURES.has(process.arch)) {
     fail("AGENTMO_OPENCLAW_FS_PLATFORM_UNSUPPORTED");
   }
   const binaryOut = path.resolve(options.binaryOut);
@@ -166,29 +174,15 @@ export async function buildOpenClawFsKernel(options = {}) {
   const created = { binary: false, receipt: false };
   let failurePoint = "private-build-root";
   let retainedSourceHandle;
-  let primaryOutputHandle;
-  let verificationOutputHandle;
   try {
     const buildPrivateRoot = await mkdtemp(
       path.join(outputParent, ".agentmo-openclaw-fs-build-"),
     );
     await chmod(buildPrivateRoot, 0o700);
     const environment = materializeClosedEnvironment(buildPrivateRoot);
-    const primaryOutputPath = path.join(
-      buildPrivateRoot,
-      "openclaw-fs-kernel.primary",
-    );
-    const verificationOutputPath = path.join(
-      buildPrivateRoot,
-      "openclaw-fs-kernel.verification",
-    );
     const source = await retainStableFile(SOURCE_PATH);
     retainedSourceHandle = source.handle;
     const compiler = await inspectCompiler(environment);
-    primaryOutputHandle = await createRetainedBuildOutput(primaryOutputPath);
-    verificationOutputHandle = await createRetainedBuildOutput(
-      verificationOutputPath,
-    );
     const argv = Object.freeze([
       COMPILER_PATH,
       "-x",
@@ -203,40 +197,18 @@ export async function buildOpenClawFsKernel(options = {}) {
       COMPILER_OUTPUT_PATH,
     ]);
     failurePoint = "compilation";
-    const compilation = await runBoundedProcess(
-      COMPILER_PATH,
-      argv.slice(1),
-      environment,
-      BUILD_TIMEOUT_MS,
-      {
-        sourceBytes: source.bytes,
-        output: primaryOutputHandle,
-      },
-    );
-    if (compilation.code !== 0 || compilation.signal !== null) {
-      fail("AGENTMO_OPENCLAW_FS_BUILD_REJECTED");
-    }
-    const primaryOutput = await finalizeRetainedBuildOutput(
-      primaryOutputHandle,
-    );
     const verificationArgv = Object.freeze([...argv]);
-    const verificationCompilation = await runBoundedProcess(
-      COMPILER_PATH,
-      verificationArgv.slice(1),
+    const capturedBuild = await captureIndependentNativeBuilds({
+      buildRoot: buildPrivateRoot,
+      compilerArgs: argv.slice(1),
+      compilerPath: COMPILER_PATH,
       environment,
-      BUILD_TIMEOUT_MS,
-      {
-        sourceBytes: source.bytes,
-        output: verificationOutputHandle,
-      },
-    );
-    if (verificationCompilation.code !== 0
-      || verificationCompilation.signal !== null) {
-      fail("AGENTMO_OPENCLAW_FS_BUILD_REJECTED");
-    }
-    const verificationOutput = await finalizeRetainedBuildOutput(
-      verificationOutputHandle,
-    );
+      maxOutputBytes: MAX_TOOL_OUTPUT_BYTES,
+      sourceBytes: source.bytes,
+      timeoutMs: BUILD_TIMEOUT_MS,
+    });
+    const primaryOutput = capturedBuild.primary;
+    const verificationOutput = capturedBuild.verification;
     const retainedSource = await inspectRetainedFile(
       retainedSourceHandle,
       source.identity,
@@ -292,7 +264,12 @@ export async function buildOpenClawFsKernel(options = {}) {
         environmentDigest: digestCanonical(CLOSED_ENVIRONMENT_DESCRIPTOR),
         reproducibility: {
           strategy:
-            "independent-double-build-from-captured-source-bytes-and-retained-outputs",
+            "preloaded-nondumpable-double-build-to-sealed-memfd",
+          isolation: {
+            transport: capturedBuild.transport,
+            preloadDigest: capturedBuild.preload.digest,
+            preloadIdentity: capturedBuild.preload.identity,
+          },
           source: compilerSourceAuthority(source),
           primaryArgv: [...argv],
           primaryOutput: retainedFdAuthority(
@@ -363,15 +340,13 @@ export async function buildOpenClawFsKernel(options = {}) {
   } finally {
     await Promise.all([
       retainedSourceHandle?.close().catch(() => {}),
-      primaryOutputHandle?.close().catch(() => {}),
-      verificationOutputHandle?.close().catch(() => {}),
     ]);
   }
 }
 
 export async function admitOpenClawFsKernel(options = {}) {
   if (!SUPPORTED_PLATFORMS.has(process.platform)
-    || !["arm64", "x64"].includes(process.arch)) {
+    || !SUPPORTED_ARCHITECTURES.has(process.arch)) {
     fail("AGENTMO_OPENCLAW_FS_PLATFORM_UNSUPPORTED");
   }
   try {
@@ -417,7 +392,11 @@ export async function admitOpenClawFsKernel(options = {}) {
     ];
     if (!same(receipt.argv, expectedArgv)
       || receipt.reproducibility.strategy
-        !== "independent-double-build-from-captured-source-bytes-and-retained-outputs"
+        !== "preloaded-nondumpable-double-build-to-sealed-memfd"
+      || receipt.reproducibility.isolation.transport
+        !== NATIVE_BUILD_CAPTURE_TRANSPORT
+      || receipt.reproducibility.isolation.preloadDigest
+        !== NATIVE_BUILD_CAPTURE_PRELOAD_DIGEST
       || !same(receipt.reproducibility.primaryArgv, expectedArgv)
       || !same(
         receipt.reproducibility.verificationArgv,
@@ -968,42 +947,6 @@ async function retainStableFile(filePath) {
   }
 }
 
-async function createRetainedBuildOutput(filePath) {
-  let handle;
-  try {
-    handle = await open(
-      filePath,
-      constants.O_RDWR | constants.O_CREAT | constants.O_EXCL
-        | (constants.O_NOFOLLOW ?? 0),
-      0o700,
-    );
-    const stats = await handle.stat({ bigint: true });
-    if (!stats.isFile()
-      || stats.nlink !== 1n
-      || stats.size !== 0n
-      || stats.uid !== BigInt(process.getuid?.() ?? -1)) {
-      fail("AGENTMO_OPENCLAW_FS_BUILD_REJECTED");
-    }
-    return handle;
-  } catch (error) {
-    await handle?.close().catch(() => {});
-    throw error;
-  }
-}
-
-async function finalizeRetainedBuildOutput(handle) {
-  await handle.chmod(0o700);
-  await handle.sync();
-  const output = await inspectRetainedFile(handle);
-  if (output.bytes.length === 0
-    || output.identity.links !== "1"
-    || output.identity.mode !== "700"
-    || output.identity.owner !== String(process.getuid?.() ?? -1)) {
-    fail("AGENTMO_OPENCLAW_FS_BUILD_REJECTED");
-  }
-  return output;
-}
-
 async function inspectRetainedFile(handle, expectedIdentity = null) {
   const before = await handle.stat({ bigint: true });
   if (!before.isFile()
@@ -1289,6 +1232,12 @@ function parseClosedReceipt(bytes) {
     || !sameKeys(receipt.source, SOURCE_KEYS)
     || !sameKeys(receipt.compiler, COMPILER_KEYS)
     || !sameKeys(receipt.reproducibility, REPRODUCIBILITY_KEYS)
+    || !sameKeys(receipt.reproducibility.isolation, ISOLATION_KEYS)
+    || receipt.reproducibility.isolation.transport
+      !== NATIVE_BUILD_CAPTURE_TRANSPORT
+    || receipt.reproducibility.isolation.preloadDigest
+      !== NATIVE_BUILD_CAPTURE_PRELOAD_DIGEST
+    || !validIdentity(receipt.reproducibility.isolation.preloadIdentity)
     || !validCompilerSourceAuthority(receipt.reproducibility.source)
     || !validRetainedFdAuthority(receipt.reproducibility.primaryOutput)
     || !validRetainedFdAuthority(receipt.reproducibility.verificationOutput)

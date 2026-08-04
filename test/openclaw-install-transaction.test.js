@@ -23,6 +23,8 @@ import { before, describe, it } from "node:test";
 import {
   admitOpenClawInstallReceiptWithCompanions,
   applyOpenClawInstallPlan,
+  buildOpenClawJournalDurabilityRecovery,
+  classifyOpenClawCreateOnlyPublication,
   recoverOpenClawInstallAttempt,
 } from "../src/openclaw-install-transaction.js";
 import { buildOpenClawFsKernel } from "../src/openclaw-safe-fs.js";
@@ -481,6 +483,63 @@ function authorityFixture({
 }
 
 describe("OpenClaw install receipt-last transaction", () => {
+  it("retains exact ownership when create-only publication durability is unknown", () => {
+    const digest = sha256(Buffer.from("created-but-uncertain"));
+    const created = {
+      disposition: "created-uncertain",
+      linked: true,
+      digest,
+      device: "17",
+      inode: "29",
+      reason: "post-publication-unknown",
+    };
+    const operation = {
+      path: "workspace/AGENTS.md",
+      operation: "create",
+      desiredDigest: digest,
+    };
+    assert.deepEqual(
+      classifyOpenClawCreateOnlyPublication(created, operation),
+      {
+        path: operation.path,
+        operation: operation.operation,
+        createdByAttempt: true,
+        outcome: "preserved",
+        observedDigest: digest,
+        observedFileIdentity: { device: "17", inode: "29" },
+        desiredDigest: digest,
+        reason: "post-publication-unknown",
+      },
+    );
+    assert.equal(
+      classifyOpenClawCreateOnlyPublication(
+        { ...created, linked: false },
+        operation,
+      ),
+      null,
+    );
+  });
+
+  it("itemizes an uncertain journal as AgentMo-owned recovery evidence", () => {
+    const digest = sha256(Buffer.from("journal"));
+    assert.deepEqual(
+      buildOpenClawJournalDurabilityRecovery({
+        disposition: "created-uncertain",
+        linked: true,
+        digest,
+        device: "31",
+        inode: "41",
+      }, ".agentmo-install.journal.json"),
+      {
+        path: ".agentmo-install.journal.json",
+        createdByAttempt: true,
+        disposition: "created-uncertain",
+        reason: "post-publication-unknown",
+        observedDigest: digest,
+        observedFileIdentity: { device: "31", inode: "41" },
+      },
+    );
+  });
   it("rejects false complete receipts with preserved assets", () => {
     const falseComplete = receipt({
       preservedAssets: [{

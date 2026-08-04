@@ -13,6 +13,7 @@
 #include <unistd.h>
 
 #if defined(__linux__)
+#include <sys/prctl.h>
 #include <sys/syscall.h>
 #ifndef RENAME_NOREPLACE
 #define RENAME_NOREPLACE (1U << 0)
@@ -174,6 +175,58 @@ static void protocol_failure(void) {
 static void preserved(const char *reason) {
   printf("{\"ok\":true,\"disposition\":\"preserved\",\"reason\":\"%s\"}\n", reason);
   fflush(stdout);
+}
+
+static int retained_digest(
+  int descriptor,
+  size_t expected_length,
+  char output[72],
+  struct stat *observed
+) {
+  uint8_t *first = NULL;
+  uint8_t *second = NULL;
+  struct stat before, middle, after;
+  size_t offset;
+  int result = -1;
+  first = malloc(expected_length == 0 ? 1U : expected_length);
+  second = malloc(expected_length == 0 ? 1U : expected_length);
+  if (first == NULL || second == NULL) goto done;
+  if (fstat(descriptor, &before) != 0
+    || !S_ISREG(before.st_mode)
+    || before.st_uid != getuid()
+    || before.st_size != (off_t)expected_length) goto done;
+  offset = 0;
+  while (offset < expected_length) {
+    ssize_t count = pread(descriptor, first + offset, expected_length - offset, (off_t)offset);
+    if (count <= 0) goto done;
+    offset += (size_t)count;
+  }
+  if (fstat(descriptor, &middle) != 0
+    || before.st_dev != middle.st_dev
+    || before.st_ino != middle.st_ino
+    || before.st_size != middle.st_size
+    || before.st_mtime != middle.st_mtime
+    || before.st_ctime != middle.st_ctime) goto done;
+  offset = 0;
+  while (offset < expected_length) {
+    ssize_t count = pread(descriptor, second + offset, expected_length - offset, (off_t)offset);
+    if (count <= 0) goto done;
+    offset += (size_t)count;
+  }
+  if (fstat(descriptor, &after) != 0
+    || middle.st_dev != after.st_dev
+    || middle.st_ino != after.st_ino
+    || middle.st_size != after.st_size
+    || middle.st_mtime != after.st_mtime
+    || middle.st_ctime != after.st_ctime
+    || memcmp(first, second, expected_length) != 0) goto done;
+  digest_hex(second, expected_length, output);
+  *observed = after;
+  result = 0;
+done:
+  free(first);
+  free(second);
+  return result;
 }
 
 static void free_fields(field_t fields[MAX_FIELDS], size_t count) {
@@ -790,11 +843,11 @@ static int handle_create(field_t fields[MAX_FIELDS], size_t count) {
   const char *encoded;
   const char *mode_text;
   char base[MAX_COMPONENT_BYTES + 1];
-  char digest[72], device[32], inode[32];
+  char requested_digest[72], observed_digest[72], device[32], inode[32], size[32], mode_value[16];
   uint8_t *bytes = NULL;
   size_t length = 0;
   mode_t mode;
-  struct stat created, published;
+  struct stat created, verified, published;
   int parent;
   int descriptor;
   if (!exact_keys(fields, count, keys, 4)
@@ -817,7 +870,7 @@ static int handle_create(field_t fields[MAX_FIELDS], size_t count) {
   descriptor = openat(
     parent,
     ".",
-    O_WRONLY | O_TMPFILE | O_CLOEXEC,
+    O_RDWR | O_TMPFILE | O_CLOEXEC,
     mode
   );
   if (descriptor < 0
@@ -828,11 +881,32 @@ static int handle_create(field_t fields[MAX_FIELDS], size_t count) {
     || !S_ISREG(created.st_mode)
     || created.st_uid != getuid()
     || created.st_nlink != 0
+    || created.st_size != (off_t)length
     || (created.st_mode & 0777) != mode) {
     if (descriptor >= 0) close(descriptor);
     free(bytes);
     close(parent);
     return -1;
+  }
+#if defined(AGENTMO_TEST_CREATE_VERIFY_BARRIER)
+  if (dprintf(4, "%d\n", descriptor) < 0) {
+    close(descriptor); free(bytes); close(parent); return -1;
+  }
+  {
+    uint8_t release;
+    if (read(5, &release, 1U) != 1 || release != (uint8_t)'G') {
+      close(descriptor); free(bytes); close(parent); return -1;
+    }
+  }
+#endif
+  digest_hex(bytes, length, requested_digest);
+  if (retained_digest(descriptor, length, observed_digest, &verified) != 0
+    || strcmp(requested_digest, observed_digest) != 0
+    || created.st_dev != verified.st_dev
+    || created.st_ino != verified.st_ino
+    || verified.st_nlink != 0
+    || (verified.st_mode & 0777) != mode) {
+    close(descriptor); free(bytes); close(parent); return -1;
   }
   if (linkat(descriptor, "", parent, base, AT_EMPTY_PATH) != 0) {
     int saved = errno;
@@ -846,27 +920,50 @@ static int handle_create(field_t fields[MAX_FIELDS], size_t count) {
     preserved("publication-refused");
     return 0;
   }
-  if (fsync(parent) != 0
+  if (
+#if defined(AGENTMO_TEST_FAIL_CREATE_PARENT_FSYNC)
+    1
+#else
+    fsync(parent) != 0
+#endif
     || fstatat(parent, base, &published, AT_SYMLINK_NOFOLLOW) != 0
     || created.st_dev != published.st_dev
     || created.st_ino != published.st_ino
     || !S_ISREG(published.st_mode)
     || published.st_nlink != 1
     || (published.st_mode & 0777) != mode) {
+    int retained_ok = retained_digest(descriptor, length, observed_digest, &verified) == 0;
+    snprintf(device, sizeof(device), "%llu", (unsigned long long)created.st_dev);
+    snprintf(inode, sizeof(inode), "%llu", (unsigned long long)created.st_ino);
+    snprintf(size, sizeof(size), "%llu", (unsigned long long)created.st_size);
+    snprintf(mode_value, sizeof(mode_value), "%o", created.st_mode & 0777);
     close(descriptor);
     free(bytes);
     close(parent);
-    preserved("post-publication-unknown");
+    if (!retained_ok) return -1;
+    printf("{\"ok\":true,\"disposition\":\"created-uncertain\","
+      "\"reason\":\"post-publication-unknown\",\"linked\":true,"
+      "\"digest\":\"%s\",\"device\":\"%s\",\"inode\":\"%s\","
+      "\"mode\":\"%s\",\"size\":\"%s\"}\n",
+      observed_digest, device, inode, mode_value, size);
+    fflush(stdout);
     return 0;
   }
-  digest_hex(bytes, length, digest);
+  if (retained_digest(descriptor, length, observed_digest, &verified) != 0
+    || strcmp(requested_digest, observed_digest) != 0
+    || verified.st_dev != published.st_dev
+    || verified.st_ino != published.st_ino
+    || verified.st_nlink != 1
+    || (verified.st_mode & 0777) != mode) {
+    close(descriptor); free(bytes); close(parent); return -1;
+  }
   free(bytes);
   snprintf(device, sizeof(device), "%llu", (unsigned long long)published.st_dev);
   snprintf(inode, sizeof(inode), "%llu", (unsigned long long)published.st_ino);
   close(descriptor);
   close(parent);
   printf("{\"ok\":true,\"disposition\":\"created\",\"digest\":\"%s\","
-    "\"device\":\"%s\",\"inode\":\"%s\"}\n", digest, device, inode);
+    "\"device\":\"%s\",\"inode\":\"%s\"}\n", observed_digest, device, inode);
   fflush(stdout);
   return 0;
 }
@@ -1288,6 +1385,9 @@ static int dispatch(field_t fields[MAX_FIELDS], size_t count) {
 int main(void) {
   char *line = malloc(MAX_LINE_BYTES + 2U);
   int status = 0;
+#if defined(__linux__)
+  if (prctl(PR_SET_DUMPABLE, 0, 0, 0, 0) != 0) return 1;
+#endif
   if (line == NULL) return 1;
   while (fgets(line, (int)MAX_LINE_BYTES + 2, stdin) != NULL) {
     size_t length = strlen(line);

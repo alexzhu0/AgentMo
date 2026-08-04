@@ -36,13 +36,17 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..
 const SUPPORT_BLUEPRINT = new URL("../examples/support-triage.agentmo.json", import.meta.url);
 const SYNTHETIC_DIGEST = `sha256:${"a".repeat(64)}`;
 const PHASE_4_PACKED_SECURITY_CLOSURE = Object.freeze([
+  "native/agentmo-nondumpable-preload.c",
   "native/openclaw-fs-kernel.c",
   "native/openclaw-process-supervisor.c",
+  "native/prebuilt/linux-x64/agentmo-nondumpable-preload.so",
+  "native/prebuilt/linux-x64/README.md",
   "src/artifact-admission.js",
   "src/artifact-contract.js",
   "src/artifact-registry.js",
   "src/cli.js",
   "src/javascript-static-analysis.js",
+  "src/native-build-capture.js",
   "src/openclaw-authority-consumption.js",
   "src/openclaw-authority-root-binding.js",
   "src/openclaw-credential-handoff.js",
@@ -379,7 +383,7 @@ describe("artifact/output surface inventory", () => {
     assert.match(authorityModule, /diagnoseBuilderInstall/u);
   });
 
-  it("publishes the exact Phase 4 source-only security closure with no install authority or lifecycle hook", async () => {
+  it("publishes the exact Phase 4 security closure with no install authority or lifecycle hook", async () => {
     const packageJson = JSON.parse(await readFile(
       path.join(REPO_ROOT, "package.json"),
       "utf8",
@@ -421,25 +425,16 @@ describe("artifact/output surface inventory", () => {
       );
       assert.equal(releaseSources.some((entry) => entry.includes(forbidden)), false, forbidden);
     }
-    assert.equal(
-      packageJson.files.some((entry) => (
-        entry.startsWith("native/")
-        && ![
-          "native/openclaw-fs-kernel.c",
-          "native/openclaw-process-supervisor.c",
-        ].includes(entry)
-      )),
-      false,
+    const nativeClosure = PHASE_4_PACKED_SECURITY_CLOSURE.filter((entry) => (
+      entry.startsWith("native/")
+    ));
+    assert.deepEqual(
+      packageJson.files.filter((entry) => entry.startsWith("native/")),
+      nativeClosure,
     );
-    assert.equal(
-      releaseSources.some((entry) => (
-        entry.startsWith("native/")
-        && ![
-          "native/openclaw-fs-kernel.c",
-          "native/openclaw-process-supervisor.c",
-        ].includes(entry)
-      )),
-      false,
+    assert.deepEqual(
+      releaseSources.filter((entry) => entry.startsWith("native/")),
+      nativeClosure,
     );
   });
 

@@ -3259,26 +3259,26 @@ reconcileExactModuleSurfaces(IO_SURFACE_ALLOWLIST, [
     775:filesystem-read:fs.lstat
     776:filesystem-read:fs.lstat
     955:file-handle-read:FileHandle.read
-    1298:filesystem-read:fs.readdir
-    1311:filesystem-read:fs.lstat
-    1312:filesystem-read:fs.realpath
-    2036:filesystem-read:fs.lstat
-    2040:filesystem-read:fs.realpath
-    2051:filesystem-read:fs.lstat
-    2061:filesystem-read:fs.lstat
-    2087:filesystem-read:fs.realpath
-    2146:filesystem-read:fs.lstat
-    2147:filesystem-read:fs.realpath
-    2399:filesystem-read:fs.lstat
-    2485:filesystem-read:fs.lstat
-    2489:filesystem-read:fs.realpath
-    2492:filesystem-open:fs.open
-    2493:file-handle-read:FileHandle.stat
-    2498:file-handle-read:FileHandle.stat
-    2499:filesystem-read:fs.lstat
-    2619:filesystem-read:fs.realpath
-    2648:filesystem-read:fs.lstat
-    2649:filesystem-read:fs.realpath
+    1302:filesystem-read:fs.readdir
+    1315:filesystem-read:fs.lstat
+    1316:filesystem-read:fs.realpath
+    2040:filesystem-read:fs.lstat
+    2044:filesystem-read:fs.realpath
+    2055:filesystem-read:fs.lstat
+    2065:filesystem-read:fs.lstat
+    2091:filesystem-read:fs.realpath
+    2150:filesystem-read:fs.lstat
+    2151:filesystem-read:fs.realpath
+    2403:filesystem-read:fs.lstat
+    2489:filesystem-read:fs.lstat
+    2493:filesystem-read:fs.realpath
+    2496:filesystem-open:fs.open
+    2497:file-handle-read:FileHandle.stat
+    2502:file-handle-read:FileHandle.stat
+    2503:filesystem-read:fs.lstat
+    2623:filesystem-read:fs.realpath
+    2652:filesystem-read:fs.lstat
+    2653:filesystem-read:fs.realpath
   `),
   exactModuleSurfaceGroup("src/cli.js", "phase-03-plan-05", "gated", `
     616:durable-loader:loadAdmittedBlueprint
@@ -3413,21 +3413,21 @@ reconcileExactModuleSurfaces(IO_SURFACE_ALLOWLIST, [
     272:filesystem-read:fs.readFile
   `),
   exactModuleSurfaceGroup("src/openclaw-install-transaction.js", "phase-04-plan-15", "gated", `
-    156:durable-loader:loadAdmittedArtifact
-    681:durable-loader:loadAdmittedArtifact
-    797:filesystem-open:fs.open
-    801:file-handle-read:FileHandle.stat
-    805:file-handle-read:FileHandle.readFile
-    806:file-handle-read:FileHandle.stat
-    807:filesystem-read:fs.lstat
-    1797:filesystem-read:fs.realpath
-    1798:filesystem-read:fs.lstat
-    1977:filesystem-read:fs.access
-    1987:filesystem-read:fs.access
+    201:durable-loader:loadAdmittedArtifact
+    726:durable-loader:loadAdmittedArtifact
+    842:filesystem-open:fs.open
+    846:file-handle-read:FileHandle.stat
+    850:file-handle-read:FileHandle.readFile
+    851:file-handle-read:FileHandle.stat
+    852:filesystem-read:fs.lstat
+    1857:filesystem-read:fs.realpath
+    1858:filesystem-read:fs.lstat
+    2037:filesystem-read:fs.access
+    2047:filesystem-read:fs.access
   `),
   exactModuleSurfaceGroup("src/openclaw-install-transaction.js", "phase-04-plan-16", "gated", `
-    963:durable-loader:loadAdmittedArtifact
-    974:durable-loader:loadAdmittedArtifact
+    1008:durable-loader:loadAdmittedArtifact
+    1019:durable-loader:loadAdmittedArtifact
   `),
   exactModuleSurfaceGroup("src/openclaw-official-action-runner.js", "phase-04-plan-15", "gated", `
     84:filesystem-lifecycle:fs.mkdtemp
@@ -3477,82 +3477,83 @@ reconcileExactModuleSurfaces(IO_SURFACE_ALLOWLIST, [
     1049:filesystem-read:fs.lstat
   `),
   exactModuleSurfaceGroup("src/openclaw-process-supervisor.js", "phase-04-plan-19", "gated", `
-    47:filesystem-lifecycle:fs.mkdtemp
-    50:filesystem-lifecycle:fs.chmod
-    180:filesystem-open:fs.open
-    187:file-handle:FileHandle.writeFile
-    188:file-handle-lifecycle:FileHandle.sync
-    386:filesystem-open:fs.open
-    390:file-handle-read:FileHandle.stat
-    391:file-handle-read:FileHandle.readFile
-    392:file-handle-read:FileHandle.stat
-    393:filesystem-read:fs.lstat
-    413:filesystem-open:fs.open
-    419:file-handle:FileHandle.writeFile
-    420:file-handle-lifecycle:FileHandle.sync
-    430:filesystem-open:fs.open
-    435:filesystem-read:fs.lstat
-    450:filesystem-open:fs.open
-    456:file-handle-read:FileHandle.stat
-    469:managed-filesystem:handle.chmod
-    470:file-handle-lifecycle:FileHandle.sync
-    480:file-handle-read:FileHandle.stat
-    486:file-handle-read:FileHandle.stat
-    503:file-handle-read:FileHandle.read
-    511:filesystem-read:fs.realpath
-    535:filesystem-read:fs.lstat
-    547:filesystem-open:fs.open
-    551:file-handle-read:FileHandle.stat
-    552:file-handle-read:FileHandle.readFile
-    553:file-handle-read:FileHandle.stat
-    554:filesystem-read:fs.lstat
+    51:filesystem-lifecycle:fs.mkdtemp
+    54:filesystem-lifecycle:fs.chmod
+    160:filesystem-open:fs.open
+    167:file-handle:FileHandle.writeFile
+    168:file-handle-lifecycle:FileHandle.sync
+    375:filesystem-open:fs.open
+    379:file-handle-read:FileHandle.stat
+    380:file-handle-read:FileHandle.readFile
+    381:file-handle-read:FileHandle.stat
+    382:filesystem-read:fs.lstat
+    402:filesystem-open:fs.open
+    408:file-handle:FileHandle.writeFile
+    409:file-handle-lifecycle:FileHandle.sync
+    419:filesystem-open:fs.open
+    424:filesystem-read:fs.lstat
+    437:file-handle-read:FileHandle.stat
+    443:file-handle-read:FileHandle.stat
+    460:file-handle-read:FileHandle.read
+    468:filesystem-read:fs.realpath
+    492:filesystem-read:fs.lstat
+    504:filesystem-open:fs.open
+    508:file-handle-read:FileHandle.stat
+    509:file-handle-read:FileHandle.readFile
+    510:file-handle-read:FileHandle.stat
+    511:filesystem-read:fs.lstat
   `),
   exactModuleSurfaceGroup("src/openclaw-safe-fs.js", "phase-04-plan-13", "gated", `
-    172:filesystem-lifecycle:fs.mkdtemp
-    175:filesystem-lifecycle:fs.chmod
-    266:filesystem-open:fs.open
-    277:file-handle-read:FileHandle.stat
-    278:filesystem-read:fs.lstat
-    328:file-handle:FileHandle.writeFile
-    330:file-handle-lifecycle:FileHandle.sync
-    521:filesystem-read:fs.lstat
-    528:filesystem-lifecycle:fs.mkdtemp
-    531:filesystem-lifecycle:fs.chmod
-    533:filesystem-open:fs.open
-    540:file-handle:FileHandle.writeFile
-    541:file-handle-lifecycle:FileHandle.sync
-    756:managed-writer:stdin.write
-    812:stream-write:stdin.end
-    820:filesystem-read:fs.realpath
-    854:filesystem-lifecycle:fs.mkdtemp
-    857:filesystem-lifecycle:fs.chmod
-    1047:filesystem-open:fs.open
-    1051:file-handle-read:FileHandle.stat
-    1060:file-handle-read:FileHandle.readFile
-    1061:file-handle-read:FileHandle.stat
-    1062:filesystem-read:fs.lstat
-    1081:filesystem-open:fs.open
-    1086:file-handle-read:FileHandle.stat
-    1087:filesystem-read:fs.lstat
-    1205:filesystem-read:fs.lstat
-    1339:filesystem-open:fs.open
-    1345:file-handle-lifecycle:FileHandle.sync
-    1355:filesystem-open:fs.open
-    1362:file-handle:FileHandle.writeFile
-    1363:file-handle-lifecycle:FileHandle.sync
-    1364:file-handle-read:FileHandle.stat
+    178:filesystem-lifecycle:fs.mkdtemp
+    181:filesystem-lifecycle:fs.chmod
+    238:filesystem-open:fs.open
+    249:file-handle-read:FileHandle.stat
+    250:filesystem-read:fs.lstat
+    305:file-handle:FileHandle.writeFile
+    307:file-handle-lifecycle:FileHandle.sync
+    500:filesystem-read:fs.lstat
+    507:filesystem-lifecycle:fs.mkdtemp
+    510:filesystem-lifecycle:fs.chmod
+    512:filesystem-open:fs.open
+    519:file-handle:FileHandle.writeFile
+    520:file-handle-lifecycle:FileHandle.sync
+    735:managed-writer:stdin.write
+    791:stream-write:stdin.end
+    799:filesystem-read:fs.realpath
+    833:filesystem-lifecycle:fs.mkdtemp
+    836:filesystem-lifecycle:fs.chmod
+    990:filesystem-open:fs.open
+    994:file-handle-read:FileHandle.stat
+    1003:file-handle-read:FileHandle.readFile
+    1004:file-handle-read:FileHandle.stat
+    1005:filesystem-read:fs.lstat
+    1024:filesystem-open:fs.open
+    1029:file-handle-read:FileHandle.stat
+    1030:filesystem-read:fs.lstat
+    1148:filesystem-read:fs.lstat
+    1288:filesystem-open:fs.open
+    1294:file-handle-lifecycle:FileHandle.sync
+    1304:filesystem-open:fs.open
+    1311:file-handle:FileHandle.writeFile
+    1312:file-handle-lifecycle:FileHandle.sync
+    1313:file-handle-read:FileHandle.stat
   `),
   exactModuleSurfaceGroup("src/openclaw-safe-fs.js", "phase-04-plan-19", "gated", `
-    919:stream-write:stdin.end
-    952:filesystem-open:fs.open
-    957:filesystem-read:fs.lstat
-    974:filesystem-open:fs.open
-    980:file-handle-read:FileHandle.stat
-    995:managed-filesystem:handle.chmod
-    996:file-handle-lifecycle:FileHandle.sync
-    1008:file-handle-read:FileHandle.stat
-    1016:file-handle-read:FileHandle.stat
-    1035:file-handle-read:FileHandle.read
+    898:stream-write:stdin.end
+    931:filesystem-open:fs.open
+    936:filesystem-read:fs.lstat
+    951:file-handle-read:FileHandle.stat
+    959:file-handle-read:FileHandle.stat
+    978:file-handle-read:FileHandle.read
+  `),
+  exactModuleSurfaceGroup("src/native-build-capture.js", "phase-04-plan-19", "gated", `
+    174:stream-write:stdin.end
+    175:stream-write:null.end
+    182:filesystem-open:fs.open
+    183:file-handle-read:FileHandle.stat
+    185:file-handle-read:FileHandle.readFile
+    186:file-handle-read:FileHandle.stat
+    187:filesystem-read:fs.lstat
   `),
   exactModuleSurfaceGroup("src/openclaw-probe.js", "phase-04-plan-12", "gated", `
     94:durable-loader:loadAdmittedArtifact

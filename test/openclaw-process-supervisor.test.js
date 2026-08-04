@@ -6,6 +6,7 @@ import {
   mkdtemp,
   open,
   readFile,
+  readdir,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -17,9 +18,6 @@ import { promisify } from "node:util";
 import {
   prepareOpenClawProcessSupervisor,
 } from "../src/openclaw-process-supervisor.js";
-import {
-  startNativeBuildOutputAttacker,
-} from "./helpers/native-build-output-attacker.js";
 
 const ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -167,7 +165,7 @@ it("Linux x86_64 supervisor filter rejects x32-numbered syscalls while allowing 
   assert.equal(result.stderr, "");
 });
 
-it("Linux supervisor publishes retained compiler bytes after both output paths are replaced", {
+it("Linux supervisor publishes sealed compiler bytes without named outputs", {
   skip: process.platform !== "linux",
   timeout: 20_000,
 }, async () => {
@@ -175,22 +173,24 @@ it("Linux supervisor publishes retained compiler bytes after both output paths a
     path.join(tmpdir(), "agentmo-supervisor-output-substitution-"),
   );
   await chmod(root, 0o700);
-  const attacker = startNativeBuildOutputAttacker({
-    root,
-    buildDirectoryPrefix: "agentmo-process-supervisor-",
-    outputNames: ["supervisor.primary", "supervisor.verification"],
-  });
+  const built = await prepareOpenClawProcessSupervisor({ privateRoot: root });
   try {
-    const built = await prepareOpenClawProcessSupervisor({ privateRoot: root });
-    assert.equal(await attacker.exited, 0);
     const receipt = JSON.parse(await readFile(built.receiptPath, "utf8"));
     assert.equal(
       receipt.reproducibility.strategy,
-      "independent-double-build-from-retained-fd-source-and-outputs",
+      "preloaded-nondumpable-double-build-to-sealed-memfd",
     );
-    assert.deepEqual(receipt.argv.slice(1, 4), ["-x", "c", "/proc/self/fd/3"]);
+    assert.equal(
+      receipt.reproducibility.isolation.transport,
+      "preloaded-nondumpable-sealed-memfd",
+    );
+    assert.match(
+      receipt.reproducibility.isolation.preloadDigest,
+      /^sha256:[a-f0-9]{64}$/u,
+    );
+    assert.deepEqual(receipt.argv.slice(1, 4), ["-x", "c", "-"]);
     assert.equal(receipt.argv.at(-1), "/proc/self/fd/4");
-    assert.equal(receipt.reproducibility.source.descriptor, 3);
+    assert.equal(receipt.reproducibility.source.descriptor, 0);
     assert.equal(receipt.reproducibility.primaryOutput.descriptor, 4);
     assert.equal(receipt.reproducibility.verificationOutput.descriptor, 4);
     assert.notEqual(
@@ -205,9 +205,15 @@ it("Linux supervisor publishes retained compiler bytes after both output paths a
       receipt.reproducibility.verificationOutput.digest,
       receipt.binary.digest,
     );
+    assert.deepEqual(
+      (await readdir(path.dirname(built.binaryPath))).filter((name) => (
+        name.endsWith(".primary") || name.endsWith(".verification")
+      )),
+      [],
+    );
     await built.retainedBinary.close();
   } finally {
-    attacker.stop();
+    await built.retainedBinary.close().catch(() => {});
   }
 });
 

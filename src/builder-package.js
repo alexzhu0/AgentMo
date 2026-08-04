@@ -989,8 +989,11 @@ function fail(code) {
 function buildBuilderReleaseAssetInventory() {
   const runtimeSourceFiles = [
     "bin/agentmo.js",
+    "native/agentmo-nondumpable-preload.c",
     "native/openclaw-fs-kernel.c",
     "native/openclaw-process-supervisor.c",
+    "native/prebuilt/linux-x64/agentmo-nondumpable-preload.so",
+    "native/prebuilt/linux-x64/README.md",
     "package.json",
     "scripts/verify-codex-uat-candidate.js",
     "src/artifact-admission.js",
@@ -1044,6 +1047,7 @@ function buildBuilderReleaseAssetInventory() {
     "src/handoff.js",
     "src/javascript-static-analysis.js",
     "src/migration-filesystem.js",
+    "src/native-build-capture.js",
     "src/observation.js",
     "src/openclaw-authority-consumption.js",
     "src/openclaw-authority-root-binding.js",

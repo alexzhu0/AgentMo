@@ -111,11 +111,56 @@ const PUBLIC_KEYS = [
 ];
 
 export class OpenClawInstallTransactionError extends Error {
-  constructor(code) {
+  constructor(code, recovery = null) {
     super("OpenClaw lifecycle transaction was rejected.");
     this.name = "OpenClawInstallTransactionError";
     this.code = code;
+    if (recovery !== null) this.recovery = freeze(recovery);
   }
+}
+
+export function classifyOpenClawCreateOnlyPublication(created, operation) {
+  if (created?.disposition !== "created-uncertain"
+    || created.linked !== true
+    || !DIGEST_PATTERN.test(created.digest ?? "")
+    || typeof created.device !== "string"
+    || typeof created.inode !== "string") {
+    return null;
+  }
+  return freeze({
+    path: operation.path,
+    operation: operation.operation,
+    createdByAttempt: true,
+    outcome: "preserved",
+    observedDigest: created.digest,
+    observedFileIdentity: {
+      device: created.device,
+      inode: created.inode,
+    },
+    desiredDigest: operation.desiredDigest,
+    reason: created.reason ?? "post-publication-unknown",
+  });
+}
+
+export function buildOpenClawJournalDurabilityRecovery(result, relativePath) {
+  if (result?.disposition !== "created-uncertain"
+    || result.linked !== true
+    || !DIGEST_PATTERN.test(result.digest ?? "")
+    || typeof result.device !== "string"
+    || typeof result.inode !== "string") {
+    return null;
+  }
+  return freeze({
+    path: relativePath,
+    createdByAttempt: true,
+    disposition: "created-uncertain",
+    reason: result.reason ?? "post-publication-unknown",
+    observedDigest: result.digest,
+    observedFileIdentity: {
+      device: result.device,
+      inode: result.inode,
+    },
+  });
 }
 
 export async function applyOpenClawInstallTransaction(options = {}) {
@@ -1270,6 +1315,11 @@ async function applyOperation({ safeFs, operation, before, archive }) {
       ({ relativePath }) => relativePath === operation.sourcePath,
     ).mode,
   );
+  const uncertain = classifyOpenClawCreateOnlyPublication(
+    created,
+    operation,
+  );
+  if (uncertain !== null) return uncertain;
   if (created.disposition !== "created") {
     return {
       path: operation.path,
@@ -1376,6 +1426,16 @@ async function writePrivateJournal(safeFs, relativePath, journal, status) {
     return digest;
   }
   const result = await safeFs.createOnly(relativePath, bytes, 0o600);
+  const recovery = buildOpenClawJournalDurabilityRecovery(
+    result,
+    relativePath,
+  );
+  if (recovery !== null) {
+    throw new OpenClawInstallTransactionError(
+      "AGENTMO_OPENCLAW_INSTALL_JOURNAL_DURABILITY_UNKNOWN",
+      recovery,
+    );
+  }
   if (result.disposition !== "created") {
     fail("AGENTMO_OPENCLAW_INSTALL_JOURNAL_EXISTS");
   }

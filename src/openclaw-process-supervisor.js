@@ -10,17 +10,22 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  NATIVE_BUILD_CAPTURE_PRELOAD_DIGEST,
+  NATIVE_BUILD_CAPTURE_TRANSPORT,
+  captureIndependentNativeBuilds,
+} from "./native-build-capture.js";
 
 const SOURCE_PATH = fileURLToPath(
   new URL("../native/openclaw-process-supervisor.c", import.meta.url),
 );
 const COMPILER_PATH = "/usr/bin/cc";
-const COMPILER_SOURCE_DESCRIPTOR = 3;
+const COMPILER_SOURCE_DESCRIPTOR = 0;
 const COMPILER_OUTPUT_DESCRIPTOR = 4;
-const COMPILER_SOURCE_PATH = `/proc/self/fd/${COMPILER_SOURCE_DESCRIPTOR}`;
+const COMPILER_SOURCE_PATH = "-";
 const COMPILER_OUTPUT_PATH = `/proc/self/fd/${COMPILER_OUTPUT_DESCRIPTOR}`;
 const RECEIPT_SCHEMA_VERSION =
-  "agentmo.openclaw-process-supervisor-receipt.v2";
+  "agentmo.openclaw-process-supervisor-receipt.v3";
 const MAX_FILE_BYTES = 2 * 1024 * 1024;
 const MAX_TOOL_OUTPUT_BYTES = 64 * 1024;
 const BUILD_TIMEOUT_MS = 30_000;
@@ -39,8 +44,7 @@ export async function prepareOpenClawProcessSupervisor(options = {}) {
     || !path.isAbsolute(options.privateRoot ?? "")) {
     fail();
   }
-  if (process.platform !== "linux"
-    || !["arm64", "x64"].includes(process.arch)) {
+  if (process.platform !== "linux" || process.arch !== "x64") {
     fail("AGENTMO_OPENCLAW_PROCESS_SUPERVISOR_UNSUPPORTED");
   }
   await inspectPrivateRoot(options.privateRoot);
@@ -49,11 +53,6 @@ export async function prepareOpenClawProcessSupervisor(options = {}) {
   );
   await chmod(buildRoot, 0o700);
   const binaryPath = path.join(buildRoot, "supervisor");
-  const primaryOutputPath = path.join(buildRoot, "supervisor.primary");
-  const verificationOutputPath = path.join(
-    buildRoot,
-    "supervisor.verification",
-  );
   const receiptPath = path.join(buildRoot, "supervisor.receipt.json");
   const environment = Object.freeze({
     HOME: buildRoot,
@@ -63,16 +62,10 @@ export async function prepareOpenClawProcessSupervisor(options = {}) {
     TMPDIR: buildRoot,
   });
   let retainedSourceHandle;
-  let primaryOutputHandle;
-  let verificationOutputHandle;
   try {
     const source = await retainStableFile(SOURCE_PATH);
     retainedSourceHandle = source.handle;
     const compiler = await inspectCompiler(environment);
-    primaryOutputHandle = await createRetainedBuildOutput(primaryOutputPath);
-    verificationOutputHandle = await createRetainedBuildOutput(
-      verificationOutputPath,
-    );
     const argv = [
       "-x",
       "c",
@@ -85,36 +78,18 @@ export async function prepareOpenClawProcessSupervisor(options = {}) {
       "-o",
       COMPILER_OUTPUT_PATH,
     ];
-    const compilation = await runBounded(
-      COMPILER_PATH,
-      argv,
-      environment,
-      BUILD_TIMEOUT_MS,
-      {
-        source: retainedSourceHandle,
-        output: primaryOutputHandle,
-      },
-    );
-    if (compilation.code !== 0 || compilation.signal !== null) fail();
-    const primaryOutput = await finalizeRetainedBuildOutput(
-      primaryOutputHandle,
-    );
     const verificationArgv = [...argv];
-    const verificationCompilation = await runBounded(
-      COMPILER_PATH,
-      verificationArgv,
+    const capturedBuild = await captureIndependentNativeBuilds({
+      buildRoot,
+      compilerArgs: argv,
+      compilerPath: COMPILER_PATH,
       environment,
-      BUILD_TIMEOUT_MS,
-      {
-        source: retainedSourceHandle,
-        output: verificationOutputHandle,
-      },
-    );
-    if (verificationCompilation.code !== 0
-      || verificationCompilation.signal !== null) fail();
-    const verificationOutput = await finalizeRetainedBuildOutput(
-      verificationOutputHandle,
-    );
+      maxOutputBytes: MAX_TOOL_OUTPUT_BYTES,
+      sourceBytes: source.bytes,
+      timeoutMs: BUILD_TIMEOUT_MS,
+    });
+    const primaryOutput = capturedBuild.primary;
+    const verificationOutput = capturedBuild.verification;
     const retainedSource = await inspectRetainedFile(
       retainedSourceHandle,
       source.identity,
@@ -155,7 +130,12 @@ export async function prepareOpenClawProcessSupervisor(options = {}) {
       },
       reproducibility: {
         strategy:
-          "independent-double-build-from-retained-fd-source-and-outputs",
+          "preloaded-nondumpable-double-build-to-sealed-memfd",
+        isolation: {
+          transport: capturedBuild.transport,
+          preloadDigest: capturedBuild.preload.digest,
+          preloadIdentity: capturedBuild.preload.identity,
+        },
         source: retainedFdAuthority(
           COMPILER_SOURCE_DESCRIPTOR,
           COMPILER_SOURCE_PATH,
@@ -210,8 +190,6 @@ export async function prepareOpenClawProcessSupervisor(options = {}) {
   } finally {
     await Promise.all([
       retainedSourceHandle?.close().catch(() => {}),
-      primaryOutputHandle?.close().catch(() => {}),
-      verificationOutputHandle?.close().catch(() => {}),
     ]);
   }
 }
@@ -265,6 +243,7 @@ export async function admitOpenClawProcessSupervisor(options = {}) {
       || !validFileAuthority(receipt.binary)
       || !sameKeys(receipt.reproducibility, [
         "strategy",
+        "isolation",
         "source",
         "primaryArgv",
         "primaryOutput",
@@ -272,8 +251,18 @@ export async function admitOpenClawProcessSupervisor(options = {}) {
         "verificationOutput",
       ])
       || receipt.reproducibility.strategy
-        !== "independent-double-build-from-retained-fd-source-and-outputs"
-      || !validRetainedFdAuthority(receipt.reproducibility.source)
+        !== "preloaded-nondumpable-double-build-to-sealed-memfd"
+      || !sameKeys(receipt.reproducibility.isolation, [
+        "transport",
+        "preloadDigest",
+        "preloadIdentity",
+      ])
+      || receipt.reproducibility.isolation.transport
+        !== NATIVE_BUILD_CAPTURE_TRANSPORT
+      || receipt.reproducibility.isolation.preloadDigest
+        !== NATIVE_BUILD_CAPTURE_PRELOAD_DIGEST
+      || !validIdentity(receipt.reproducibility.isolation.preloadIdentity)
+      || !validCompilerSourceAuthority(receipt.reproducibility.source)
       || !Array.isArray(receipt.reproducibility.primaryArgv)
       || !receipt.reproducibility.primaryArgv.every(
         (value) => typeof value === "string",
@@ -442,38 +431,6 @@ async function retainStableFile(filePath) {
     await handle?.close().catch(() => {});
     throw error;
   }
-}
-
-async function createRetainedBuildOutput(filePath) {
-  let handle;
-  try {
-    handle = await open(
-      filePath,
-      constants.O_RDWR | constants.O_CREAT | constants.O_EXCL
-        | (constants.O_NOFOLLOW ?? 0),
-      0o700,
-    );
-    const stats = await handle.stat({ bigint: true });
-    if (!stats.isFile()
-      || stats.nlink !== 1n
-      || stats.size !== 0n
-      || stats.uid !== BigInt(process.getuid?.() ?? -1)) fail();
-    return handle;
-  } catch (error) {
-    await handle?.close().catch(() => {});
-    throw error;
-  }
-}
-
-async function finalizeRetainedBuildOutput(handle) {
-  await handle.chmod(0o700);
-  await handle.sync();
-  const output = await inspectRetainedFile(handle);
-  if (output.bytes.length === 0
-    || output.identity.links !== "1"
-    || output.identity.mode !== "448"
-    || output.identity.owner !== String(process.getuid?.() ?? -1)) fail();
-  return output;
 }
 
 async function inspectRetainedFile(handle, expectedIdentity = null) {
@@ -662,6 +619,14 @@ function validRetainedFdAuthority(value) {
     && Number.isInteger(value.descriptor)
     && value.descriptor >= COMPILER_SOURCE_DESCRIPTOR
     && value.path === `/proc/self/fd/${value.descriptor}`
+    && DIGEST_PATTERN.test(value.digest ?? "")
+    && validIdentity(value.identity);
+}
+
+function validCompilerSourceAuthority(value) {
+  return sameKeys(value, ["descriptor", "path", "digest", "identity"])
+    && value.descriptor === COMPILER_SOURCE_DESCRIPTOR
+    && value.path === COMPILER_SOURCE_PATH
     && DIGEST_PATTERN.test(value.digest ?? "")
     && validIdentity(value.identity);
 }

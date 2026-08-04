@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
+import { constants } from "node:fs";
 import {
   access,
   chmod,
@@ -9,6 +10,7 @@ import {
   lstat,
   mkdir,
   mkdtemp,
+  open,
   readFile,
   readdir,
   rename,
@@ -26,15 +28,21 @@ import {
   buildOpenClawFsKernel,
   openOpenClawSafeFsSession,
 } from "../src/openclaw-safe-fs.js";
-import {
-  startNativeBuildOutputAttacker,
-} from "./helpers/native-build-output-attacker.js";
 
 const sha256 = (bytes) => (
   `sha256:${createHash("sha256").update(bytes).digest("hex")}`
 );
 const SOURCE_PATH = fileURLToPath(
   new URL("../native/openclaw-fs-kernel.c", import.meta.url),
+);
+const NATIVE_BUILD_CAPTURE_PATH = fileURLToPath(
+  new URL("../src/native-build-capture.js", import.meta.url),
+);
+const NONDUMPABLE_PRELOAD_PATH = fileURLToPath(
+  new URL(
+    "../native/prebuilt/linux-x64/agentmo-nondumpable-preload.so",
+    import.meta.url,
+  ),
 );
 const OPENCLAW_FS_BUILD_PAIR_SCHEMA_VERSION =
   "agentmo.openclaw-fs-build-pair.v1";
@@ -62,9 +70,9 @@ before(async () => {
   receiptDigest = built.receiptDigest;
 });
 
-function runProtocol(lines) {
+function runProtocol(lines, executable = helperPath) {
   return new Promise((resolve) => {
-    const child = spawn(helperPath, [], {
+    const child = spawn(executable, [], {
       env: {
         PATH: "/usr/bin:/bin",
         LC_ALL: "C",
@@ -301,7 +309,15 @@ describe("OpenClaw safe fs retained-dirfd kernel", {
     assert.equal(receipt.argv.at(-1), "/proc/self/fd/4");
     assert.equal(
       receipt.reproducibility.strategy,
-      "independent-double-build-from-captured-source-bytes-and-retained-outputs",
+      "preloaded-nondumpable-double-build-to-sealed-memfd",
+    );
+    assert.equal(
+      receipt.reproducibility.isolation.transport,
+      "preloaded-nondumpable-sealed-memfd",
+    );
+    assert.equal(
+      receipt.reproducibility.isolation.preloadDigest,
+      sha256(await readFile(NONDUMPABLE_PRELOAD_PATH)),
     );
     assert.equal(receipt.reproducibility.source.descriptor, 0);
     assert.equal(receipt.reproducibility.source.path, "-");
@@ -367,37 +383,28 @@ describe("OpenClaw safe fs retained-dirfd kernel", {
     })), true);
   });
 
-  it("publishes only retained compiler bytes after both output paths are replaced", async () => {
+  it("publishes sealed compiler bytes without named primary or verification outputs", async () => {
     const root = await mkdtemp(
       path.join(tmpdir(), "agentmo-safe-fs-output-substitution-"),
     );
     await chmod(root, 0o700);
-    const attacker = startNativeBuildOutputAttacker({
-      root,
-      buildDirectoryPrefix: ".agentmo-openclaw-fs-build-",
-      outputNames: [
-        "openclaw-fs-kernel.primary",
-        "openclaw-fs-kernel.verification",
-      ],
+    const built = await buildOpenClawFsKernel({
+      binaryOut: path.join(root, "openclaw-fs-kernel"),
+      receiptOut: path.join(root, "openclaw-fs-kernel.receipt.json"),
     });
-    try {
-      const built = await buildOpenClawFsKernel({
-        binaryOut: path.join(root, "openclaw-fs-kernel"),
-        receiptOut: path.join(root, "openclaw-fs-kernel.receipt.json"),
-      });
-      assert.equal(await attacker.exited, 0);
-      const receipt = JSON.parse(await readFile(built.receiptPath, "utf8"));
-      assert.equal(
-        sha256(await readFile(built.binaryPath)),
-        receipt.reproducibility.primaryOutput.digest,
-      );
-      assert.equal(
-        receipt.reproducibility.primaryOutput.digest,
-        receipt.reproducibility.verificationOutput.digest,
-      );
-    } finally {
-      attacker.stop();
-    }
+    const receipt = JSON.parse(await readFile(built.receiptPath, "utf8"));
+    assert.equal(sha256(await readFile(built.binaryPath)), receipt.reproducibility.primaryOutput.digest);
+    assert.equal(receipt.reproducibility.primaryOutput.digest, receipt.reproducibility.verificationOutput.digest);
+    const privateName = (await readdir(root)).find((name) => (
+      name.startsWith(".agentmo-openclaw-fs-build-")
+    ));
+    assert.equal(typeof privateName, "string");
+    assert.deepEqual(
+      (await readdir(path.join(root, privateName))).filter((name) => (
+        name.endsWith(".primary") || name.endsWith(".verification")
+      )),
+      [],
+    );
   });
 
   it("compiles captured bytes but rejects restored same-inode source mutation", async () => {
@@ -425,10 +432,10 @@ describe("OpenClaw safe fs retained-dirfd kernel", {
     const retainedReleasePath = path.join(isolatedRoot, "retained-release");
     const proofReadyPath = path.join(isolatedRoot, "proof-ready");
     const proofReleasePath = path.join(isolatedRoot, "proof-release");
-    const productionSource = await readFile(
+    const productionSource = (await readFile(
       fileURLToPath(new URL("../src/openclaw-safe-fs.js", import.meta.url)),
       "utf8",
-    );
+    )).replace("./native-build-capture.js", "./native-build-capture.mjs");
     const retainNeedle = [
       "    retainedSourceHandle = source.handle;",
       "    const compiler = await inspectCompiler(environment);",
@@ -474,9 +481,23 @@ describe("OpenClaw safe fs retained-dirfd kernel", {
       proofNeedle,
     ].join("\n"));
     const originalSourceBytes = await readFile(SOURCE_PATH);
+    const isolatedPreloadRoot = path.join(
+      isolatedNativeRoot,
+      "prebuilt",
+      "linux-x64",
+    );
+    await mkdir(isolatedPreloadRoot, { recursive: true });
     await Promise.all([
       writeFile(isolatedModulePath, isolatedSource),
+      copyFile(
+        NATIVE_BUILD_CAPTURE_PATH,
+        path.join(isolatedSourceRoot, "native-build-capture.mjs"),
+      ),
       writeFile(isolatedSourcePath, originalSourceBytes),
+      copyFile(
+        NONDUMPABLE_PRELOAD_PATH,
+        path.join(isolatedPreloadRoot, "agentmo-nondumpable-preload.so"),
+      ),
     ]);
     const fixedSourceTime = 1_700_000_000;
     await utimes(isolatedSourcePath, fixedSourceTime, fixedSourceTime);
@@ -611,10 +632,10 @@ describe("OpenClaw safe fs retained-dirfd kernel", {
     const releasePath = path.join(isolatedRoot, "retained-release");
     const replacementMarker = path.join(isolatedRoot, "replacement-executed");
     const modulePath = path.join(isolatedSourceRoot, "openclaw-safe-fs.mjs");
-    const productionSource = await readFile(
+    const productionSource = (await readFile(
       fileURLToPath(new URL("../src/openclaw-safe-fs.js", import.meta.url)),
       "utf8",
-    );
+    )).replace("./native-build-capture.js", "./native-build-capture.mjs");
     const spawnNeedle = "    child = spawn(EXECUTION_HELPER_PATH, [], {";
     assert.equal(productionSource.split(spawnNeedle).length, 2);
     const isolatedSource = productionSource.replace(spawnNeedle, [
@@ -633,9 +654,23 @@ describe("OpenClaw safe fs retained-dirfd kernel", {
       "    }",
       spawnNeedle,
     ].join("\n"));
+    const isolatedPreloadRoot = path.join(
+      isolatedNativeRoot,
+      "prebuilt",
+      "linux-x64",
+    );
+    await mkdir(isolatedPreloadRoot, { recursive: true });
     await Promise.all([
       writeFile(modulePath, isolatedSource),
+      copyFile(
+        NATIVE_BUILD_CAPTURE_PATH,
+        path.join(isolatedSourceRoot, "native-build-capture.mjs"),
+      ),
       copyFile(SOURCE_PATH, path.join(isolatedNativeRoot, "openclaw-fs-kernel.c")),
+      copyFile(
+        NONDUMPABLE_PRELOAD_PATH,
+        path.join(isolatedPreloadRoot, "agentmo-nondumpable-preload.so"),
+      ),
     ]);
     const isolated = await import(pathToFileURL(modulePath).href);
     const isolatedHelperPath = path.join(
@@ -1112,6 +1147,124 @@ describe("OpenClaw safe fs retained-dirfd kernel", {
     assert.deepEqual(preservedTemps, []);
     await session.close();
     await access(path.join(root, "published"));
+  });
+
+  it("denies same-UID proc writes to the retained anonymous create-only inode", {
+    skip: process.getuid?.() === 0,
+    timeout: 20_000,
+  }, async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agentmo-safe-fs-create-proc-"));
+    await chmod(root, 0o700);
+    const instrumented = path.join(root, "openclaw-fs-kernel-create-barrier");
+    const compilation = await runProcess("/usr/bin/cc", [
+      SOURCE_PATH,
+      "-std=c11",
+      "-O0",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-DAGENTMO_TEST_CREATE_VERIFY_BARRIER=1",
+      "-o",
+      instrumented,
+    ], root);
+    assert.equal(compilation.code, 0, compilation.stderr);
+    const parent = await lstat(root, { bigint: true });
+    const child = spawn(instrumented, [], {
+      env: { PATH: "/usr/bin:/bin", LC_ALL: "C", LANG: "C" },
+      shell: false,
+      stdio: ["pipe", "pipe", "pipe", "ignore", "pipe", "pipe"],
+    });
+    const protocol = trackProtocolResponses(child);
+    const closed = new Promise((resolve) => child.once("close", resolve));
+    try {
+      child.stdin.write(`${JSON.stringify({
+        operation: "open",
+        rootPath: root,
+        device: parent.dev.toString(),
+        inode: parent.ino.toString(),
+      })}\n`);
+      await protocol.waitForCount(1, "create attack root admission");
+      const ready = new Promise((resolve, reject) => {
+        child.stdio[4].once("data", resolve);
+        child.stdio[4].once("error", reject);
+      });
+      child.stdin.write(`${JSON.stringify({
+        operation: "create-only",
+        path: "published",
+        contentBase64: Buffer.from("approved-bytes").toString("base64"),
+        mode: "600",
+      })}\n`);
+      const descriptor = Number.parseInt(String(await ready).trim(), 10);
+      assert.equal(Number.isSafeInteger(descriptor), true);
+      await assert.rejects(
+        async () => {
+          const attacker = await open(
+            `/proc/${child.pid}/fd/${descriptor}`,
+            constants.O_WRONLY,
+          );
+          await attacker.close();
+        },
+        (error) => ["EACCES", "EPERM", "ENOENT"].includes(error?.code),
+      );
+      child.stdio[5].write("G");
+      await protocol.waitForCount(2, "verified create response");
+      assert.equal(protocol.responses[1].disposition, "created");
+      assert.equal(
+        protocol.responses[1].digest,
+        sha256(Buffer.from("approved-bytes")),
+      );
+      assert.equal(await readFile(path.join(root, "published"), "utf8"), "approved-bytes");
+      child.stdin.end(`${JSON.stringify({ operation: "close" })}\n`);
+      await closed;
+    } finally {
+      child.stdio[5]?.write("G");
+      if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+    }
+  });
+
+  it("itemizes an AgentMo-owned create when post-link durability is unknown", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agentmo-safe-fs-create-uncertain-"));
+    await chmod(root, 0o700);
+    const instrumented = path.join(root, "openclaw-fs-kernel-create-uncertain");
+    const compilation = await runProcess("/usr/bin/cc", [
+      SOURCE_PATH,
+      "-std=c11",
+      "-O0",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-DAGENTMO_TEST_FAIL_CREATE_PARENT_FSYNC=1",
+      "-o",
+      instrumented,
+    ], root);
+    assert.equal(compilation.code, 0, compilation.stderr);
+    const parent = await lstat(root, { bigint: true });
+    const desired = Buffer.from("uncertain-but-itemized");
+    const result = await runProtocol([
+      JSON.stringify({
+        operation: "open",
+        rootPath: root,
+        device: parent.dev.toString(),
+        inode: parent.ino.toString(),
+      }),
+      JSON.stringify({
+        operation: "create-only",
+        path: "published",
+        contentBase64: desired.toString("base64"),
+        mode: "600",
+      }),
+      JSON.stringify({ operation: "close" }),
+    ], instrumented);
+    assert.equal(result.code, 0, result.stderr);
+    const responses = result.stdout.trim().split("\n").map(JSON.parse);
+    assert.equal(responses[1].disposition, "created-uncertain");
+    assert.equal(responses[1].linked, true);
+    assert.equal(responses[1].digest, sha256(desired));
+    assert.equal(typeof responses[1].device, "string");
+    assert.equal(typeof responses[1].inode, "string");
+    assert.equal(responses[1].mode, "600");
+    assert.equal(responses[1].size, String(desired.length));
+    assert.equal(await readFile(path.join(root, "published"), "utf8"), desired.toString());
   });
 
   it("publishes every requested create-only mode under a restrictive umask", async () => {

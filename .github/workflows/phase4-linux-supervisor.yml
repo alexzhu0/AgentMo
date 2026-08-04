@@ -35,6 +35,23 @@ jobs:
         run: |
           set -euo pipefail
           test "$(node -p 'process.platform')" = "linux"
+          for output in preload-a.so preload-b.so; do
+            cc \
+              native/agentmo-nondumpable-preload.c \
+              -std=c11 \
+              -O2 \
+              -Wall \
+              -Wextra \
+              -Werror \
+              -fPIC \
+              -shared \
+              -Wl,-z,now,--build-id=none \
+              -ffile-prefix-map="${GITHUB_WORKSPACE}"=. \
+              -o "${RUNNER_TEMP}/${output}"
+          done
+          cmp "${RUNNER_TEMP}/preload-a.so" "${RUNNER_TEMP}/preload-b.so"
+          test "$(sha256sum native/prebuilt/linux-x64/agentmo-nondumpable-preload.so | cut -d ' ' -f 1)" = \
+            "e15ec88738f5127c2c80d5ed7ba74f29397fff81b7f1f675ed9096dad89a8d77"
           cc \
             native/openclaw-process-supervisor.c \
             -std=c11 \
@@ -56,6 +73,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          timeout --signal=KILL 60s node --test \
+            test/native-build-capture.test.js
           timeout --signal=KILL 60s node --test \
             test/openclaw-credential-handoff.test.js
           timeout --signal=KILL 60s node --test \
