@@ -3577,20 +3577,21 @@ reconcileExactModuleSurfaces(IO_SURFACE_ALLOWLIST, [
     499:file-handle-read:FileHandle.stat
     505:filesystem-read:fs.lstat
     506:file-handle-read:FileHandle.stat
-    537:filesystem-open:fs.open
-    541:filesystem-open:fs.open
-    542:file-handle-read:FileHandle.stat
+    538:filesystem-open:fs.open
+    542:filesystem-open:fs.open
     543:file-handle-read:FileHandle.stat
-    544:filesystem-read:fs.lstat
-    571:filesystem-read:fs.lstat
-    578:file-handle-read:FileHandle.stat
-    579:filesystem-read:fs.lstat
-    590:filesystem-read:fs.lstat
-    599:filesystem-open:fs.open
-    601:file-handle-read:FileHandle.stat
+    544:file-handle-read:FileHandle.stat
+    545:filesystem-read:fs.lstat
+    572:filesystem-read:fs.lstat
+    579:file-handle-read:FileHandle.stat
+    580:filesystem-read:fs.lstat
+    591:filesystem-read:fs.lstat
+    600:filesystem-open:fs.open
     602:file-handle-read:FileHandle.stat
-    608:filesystem-read:fs.lstat
-    609:file-handle-read:FileHandle.stat
+    603:file-handle-read:FileHandle.stat
+    609:filesystem-read:fs.lstat
+    610:file-handle-read:FileHandle.stat
+    716:stream-write:stdin.end
   `),
   exactModuleSurfaceGroup("src/package-archive.js", "phase-04-plan-03", "gated", `
     34:filesystem-read:fs.lstat

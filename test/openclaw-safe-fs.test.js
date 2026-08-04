@@ -1109,13 +1109,38 @@ describe("OpenClaw safe fs retained-dirfd kernel", {
     const preservedTemps = (await readdir(root)).filter((name) => (
       name.startsWith(".agentmo-openclaw-fs-")
     ));
-    assert.equal(preservedTemps.length, 1);
-    assert.equal(
-      await readFile(path.join(root, preservedTemps[0]), "utf8"),
-      "second",
-    );
+    assert.deepEqual(preservedTemps, []);
     await session.close();
     await access(path.join(root, "published"));
+  });
+
+  it("publishes every requested create-only mode under a restrictive umask", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agentmo-safe-fs-mode-"));
+    await chmod(root, 0o700);
+    const previousUmask = process.umask(0o077);
+    let session;
+    try {
+      session = await openOpenClawSafeFsSession({
+        rootPath: root,
+        helperPath,
+        receiptPath,
+        receiptDigest,
+      });
+      for (const mode of [0o600, 0o644, 0o700, 0o755]) {
+        const relative = `mode-${mode.toString(8)}`;
+        const created = await session.createOnly(
+          relative,
+          Buffer.from(relative),
+          mode,
+        );
+        assert.equal(created.disposition, "created");
+        const stats = await lstat(path.join(root, relative), { bigint: true });
+        assert.equal(Number(stats.mode & 0o777n), mode);
+      }
+    } finally {
+      process.umask(previousUmask);
+      await session?.close().catch(() => {});
+    }
   });
 
   it("atomically consumes a complete private file through retained source and destination dirfds", async () => {

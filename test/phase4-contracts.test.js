@@ -498,7 +498,7 @@ it("Phase 4 Wave 10 composes the declared support-triage package through offline
   assert.equal(probe.archive.archiveDigest, produced.archiveDigest);
   assert.equal(probe.archive.manifestDigest, produced.manifestDigest);
   assert.equal(probe.target.exactTargetMatch, true);
-  assert.equal(probe.isolation.syntheticHomeDiscarded, true);
+  assert.equal(probe.isolation.syntheticHomeDiscarded, false);
   assert.deepEqual(probe.certificationBoundary, {
     readOnlyCapabilityObservation: true,
     installed: false,

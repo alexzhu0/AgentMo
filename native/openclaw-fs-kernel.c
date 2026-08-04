@@ -40,7 +40,6 @@ typedef struct {
 
 static int root_fd = -1;
 static dev_t root_device = 0;
-static unsigned long temp_counter = 0;
 static int reservation_fd = -1;
 static int reservation_parent_fd = -1;
 static char reservation_path[MAX_LINE_BYTES + 1];
@@ -791,7 +790,6 @@ static int handle_create(field_t fields[MAX_FIELDS], size_t count) {
   const char *encoded;
   const char *mode_text;
   char base[MAX_COMPONENT_BYTES + 1];
-  char temp[MAX_COMPONENT_BYTES + 1];
   char digest[72], device[32], inode[32];
   uint8_t *bytes = NULL;
   size_t length = 0;
@@ -816,39 +814,29 @@ static int handle_create(field_t fields[MAX_FIELDS], size_t count) {
     preserved("unsafe-ancestor");
     return 0;
   }
-  temp_counter += 1;
-  snprintf(temp, sizeof(temp), ".agentmo-openclaw-fs-%ld-%lu",
-    (long)getpid(), temp_counter);
   descriptor = openat(
     parent,
-    temp,
-    O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC,
+    ".",
+    O_WRONLY | O_TMPFILE | O_CLOEXEC,
     mode
   );
   if (descriptor < 0
     || write_all(descriptor, bytes, length) != 0
+    || fchmod(descriptor, mode) != 0
     || fsync(descriptor) != 0
     || fstat(descriptor, &created) != 0
     || !S_ISREG(created.st_mode)
     || created.st_uid != getuid()
-    || created.st_nlink != 1) {
+    || created.st_nlink != 0
+    || (created.st_mode & 0777) != mode) {
     if (descriptor >= 0) close(descriptor);
     free(bytes);
     close(parent);
     return -1;
   }
-  close(descriptor);
-  if (publish_no_replace(parent, temp, parent, base) != 0) {
+  if (linkat(descriptor, "", parent, base, AT_EMPTY_PATH) != 0) {
     int saved = errno;
-    /*
-     * Preserve the private temporary pathname on every failed publication.
-     * A same-UID peer can exchange a directory entry between any pathname
-     * inspection and unlinkat(2); deleting here could therefore remove an
-     * object we never created. The retained parent dirfd bounds the orphan,
-     * and disposition=preserved tells the caller that operator recovery is
-     * required without exposing the randomized private name.
-     */
-    fsync(parent);
+    close(descriptor);
     free(bytes);
     close(parent);
     if (saved == EEXIST || saved == ENOTEMPTY || saved == ELOOP) {
@@ -862,7 +850,10 @@ static int handle_create(field_t fields[MAX_FIELDS], size_t count) {
     || fstatat(parent, base, &published, AT_SYMLINK_NOFOLLOW) != 0
     || created.st_dev != published.st_dev
     || created.st_ino != published.st_ino
-    || !S_ISREG(published.st_mode)) {
+    || !S_ISREG(published.st_mode)
+    || published.st_nlink != 1
+    || (published.st_mode & 0777) != mode) {
+    close(descriptor);
     free(bytes);
     close(parent);
     preserved("post-publication-unknown");
@@ -872,6 +863,7 @@ static int handle_create(field_t fields[MAX_FIELDS], size_t count) {
   free(bytes);
   snprintf(device, sizeof(device), "%llu", (unsigned long long)published.st_dev);
   snprintf(inode, sizeof(inode), "%llu", (unsigned long long)published.st_ino);
+  close(descriptor);
   close(parent);
   printf("{\"ok\":true,\"disposition\":\"created\",\"digest\":\"%s\","
     "\"device\":\"%s\",\"inode\":\"%s\"}\n", digest, device, inode);

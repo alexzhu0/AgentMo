@@ -6,7 +6,6 @@ import {
   lstat,
   mkdtemp,
   readFile,
-  rename,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -81,7 +80,7 @@ describe("read-only OpenClaw capability probe", () => {
     assert.equal(probe.target.exactTargetMatch, true);
     assert.equal(probe.isolation.shell, false);
     assert.equal(probe.isolation.inheritedEnvironment, false);
-    assert.equal(probe.isolation.syntheticHomeDiscarded, true);
+    assert.equal(probe.isolation.syntheticHomeDiscarded, false);
     assert.equal(probe.certificationBoundary.runtime, false);
     assert.equal(probe.certificationBoundary.domain, false);
     assert.equal(probe.certificationBoundary.production, false);
@@ -350,7 +349,7 @@ describe("read-only OpenClaw capability probe", () => {
     );
   });
 
-  it("preserves a replacement raced into the private script pathname", {
+  it("executes captured script bytes and rejects a post-validation inode rewrite", {
     skip: process.platform !== "linux",
   }, async () => {
     const isolatedRoot = await mkdtemp(
@@ -363,30 +362,30 @@ describe("read-only OpenClaw capability probe", () => {
       fileURLToPath(new URL("../src/openclaw-probe.js", import.meta.url)),
       "utf8",
     );
-    const pathRevalidationNeedle =
-      "    const namedStats = await lstat(filePath, { bigint: true });";
-    assert.equal(productionSource.split(pathRevalidationNeedle).length, 2);
+    const executionNeedle =
+      "      cliObservations.push(await runIsolatedObservation(";
+    assert.equal(productionSource.split(executionNeedle).length, 2);
     const withAbsoluteImports = productionSource.replace(
       /from "(\.\/[^"]+)";/gu,
       (_match, specifier) => (
         `from ${JSON.stringify(new URL(specifier, new URL("../src/openclaw-probe.js", import.meta.url)).href)};`
       ),
     );
-    const isolatedSource = withAbsoluteImports.replace(pathRevalidationNeedle, [
-      "    {",
-      "      const barrierFs = await import(\"node:fs/promises\");",
-      `      await barrierFs.writeFile(${JSON.stringify(readyPath)}, filePath, { flag: \"wx\", mode: 0o600 });`,
-      "      for (;;) {",
-      "        try {",
-      `          await barrierFs.access(${JSON.stringify(releasePath)});`,
-      "          break;",
-      "        } catch (error) {",
-      "          if (error?.code !== \"ENOENT\") throw error;",
-      "          await new Promise((resolve) => setTimeout(resolve, 5));",
+    const isolatedSource = withAbsoluteImports.replace(executionNeedle, [
+      "      {",
+      "        const barrierFs = await import(\"node:fs/promises\");",
+      `        await barrierFs.writeFile(${JSON.stringify(readyPath)}, retainedExecution.script.path, { flag: \"wx\", mode: 0o600 });`,
+      "        for (;;) {",
+      "          try {",
+      `            await barrierFs.access(${JSON.stringify(releasePath)});`,
+      "            break;",
+      "          } catch (error) {",
+      "            if (error?.code !== \"ENOENT\") throw error;",
+      "            await new Promise((resolve) => setTimeout(resolve, 5));",
+      "          }",
       "        }",
       "      }",
-      "    }",
-      pathRevalidationNeedle,
+      executionNeedle,
     ].join("\n"));
     await writeFile(isolatedModulePath, isolatedSource);
     const isolated = await import(pathToFileURL(isolatedModulePath).href);
@@ -417,23 +416,34 @@ describe("read-only OpenClaw capability probe", () => {
       } catch (error) {
         if (error?.code !== "ENOENT") throw error;
       }
-      if (outcome !== undefined) assert.fail("probe completed before unlink barrier");
+      if (outcome !== undefined) assert.fail("probe completed before execution barrier");
       await new Promise((resolve) => setImmediate(resolve));
     }
     assert.equal(typeof privateExecutable, "string");
-    const retainedPath = `${privateExecutable}.retained`;
-    const replacementBytes = Buffer.from("replacement-must-remain\n", "utf8");
-    await rename(privateExecutable, retainedPath);
-    await writeFile(privateExecutable, replacementBytes, {
-      flag: "wx",
-      mode: 0o600,
-    });
+    const replacementBytes = Buffer.from([
+      "import { writeFileSync } from 'node:fs';",
+      `writeFileSync(${JSON.stringify(fixture.markerPath)}, 'replacement-executed');`,
+      "",
+    ].join("\n"), "utf8");
+    const privateBefore = await lstat(privateExecutable, { bigint: true });
+    await writeFile(privateExecutable, replacementBytes);
     const replacementBefore = await lstat(privateExecutable, { bigint: true });
     await writeFile(releasePath, "release\n", { flag: "wx", mode: 0o600 });
-    await outcomePromise;
+    const finalOutcome = await outcomePromise;
 
+    assert.equal(finalOutcome.probe, null);
+    assert.match(
+      finalOutcome.error?.code ?? "",
+      /^AGENTMO_OPENCLAW_PROBE_[A-Z0-9_]+$/u,
+    );
+    await assert.rejects(
+      () => access(fixture.markerPath),
+      (error) => error?.code === "ENOENT",
+    );
     assert.deepEqual(await readFile(privateExecutable), replacementBytes);
     const replacementAfter = await lstat(privateExecutable, { bigint: true });
+    assert.equal(replacementAfter.dev, privateBefore.dev);
+    assert.equal(replacementAfter.ino, privateBefore.ino);
     assert.equal(replacementAfter.dev, replacementBefore.dev);
     assert.equal(replacementAfter.ino, replacementBefore.ino);
   });

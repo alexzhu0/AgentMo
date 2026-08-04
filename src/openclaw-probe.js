@@ -268,7 +268,7 @@ export async function probeOpenClawTarget(options = {}) {
       sourceRevalidatedBetweenObservations: true,
       inheritedEnvironment: false,
       shell: false,
-      syntheticHomeDiscarded: true,
+      syntheticHomeDiscarded: false,
       operatorHomeObserved: false,
       operatorStateMutated: false,
     };
@@ -519,6 +519,7 @@ async function retainPrivateExecutable(filePath, bytes, expectedDigest) {
     writableHandle = null;
     return {
       path: filePath,
+      bytes: Buffer.from(bytes),
       digest: expectedDigest,
       identity: statIdentity(retainedFinalStats),
       handle: retainedHandle,
@@ -680,9 +681,8 @@ async function runIsolatedObservation(execution, command, environment, cwd) {
 
 function spawnBounded(executable, args, env, cwd, execution) {
   return new Promise((resolve, reject) => {
-    const stdio = ["ignore", "pipe", "pipe", "ignore"];
+    const stdio = ["pipe", "pipe", "pipe", "ignore"];
     stdio[execution.transport.runtimeFd] = execution.runtime.handle.fd;
-    stdio[execution.transport.scriptFd] = execution.script.handle.fd;
     const child = spawn(executable, args, {
       cwd,
       env,
@@ -695,6 +695,7 @@ function spawnBounded(executable, args, env, cwd, execution) {
     let stderrBytes = 0;
     let rejected = false;
     let timedOut = false;
+    let stdinError = null;
     const consume = (chunks, key) => (chunk) => {
       const bytes = Buffer.from(chunk);
       if (key === "stdout") stdoutBytes += bytes.byteLength;
@@ -708,6 +709,11 @@ function spawnBounded(executable, args, env, cwd, execution) {
     };
     child.stdout.on("data", consume(stdout, "stdout"));
     child.stderr.on("data", consume(stderr, "stderr"));
+    child.stdin.on("error", (error) => {
+      stdinError = error;
+      child.kill("SIGKILL");
+    });
+    child.stdin.end(execution.script.bytes);
     child.on("error", reject);
     const timer = setTimeout(() => {
       timedOut = true;
@@ -715,6 +721,10 @@ function spawnBounded(executable, args, env, cwd, execution) {
     }, CHILD_TIMEOUT_MS);
     child.on("close", (exitCode, signal) => {
       clearTimeout(timer);
+      if (stdinError !== null) {
+        reject(stdinError);
+        return;
+      }
       if (rejected) {
         reject(new OpenClawProbeError("AGENTMO_OPENCLAW_PROBE_OUTPUT_REJECTED"));
         return;

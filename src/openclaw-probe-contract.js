@@ -292,7 +292,7 @@ function validateIsolation(value, errors) {
     sourceRevalidatedBetweenObservations: true,
     inheritedEnvironment: false,
     shell: false,
-    syntheticHomeDiscarded: true,
+    syntheticHomeDiscarded: false,
     operatorHomeObserved: false,
     operatorStateMutated: false,
   };
