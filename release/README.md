@@ -32,6 +32,7 @@ Release 记录按日期倒序维护（最新在前），不要按版本号排序
 
 | 日期 | 阶段 | 状态 | 记录 | GitHub Release |
 | --- | --- | --- | --- | --- |
+| 2026.08.04 | Phase 4：native authority race closure 与 POC 前最终 Linux gate | `975b89a` 已关闭第三轮 3 Critical 竞态；原生 supervisor gate 通过，完整 8/8 CI 与 fresh re-audit 待完成；未发布 release | [`2026.08.04.md`](./2026.08.04.md) | 待发布 |
 | 2026.08.03 | Phase 4：exact-candidate Linux/full gate 与 gap-closure pre-audit 证据 | `d943bc0` run `30799041760` 8/8 jobs green；fresh noncanonical audit 3 Critical / 1 Warning，Phase 4 blocked；未发布 release | [`2026.08.03.md`](./2026.08.03.md) | 待发布 |
 | 2026.08.02 | Phase 4：authority-root、named candidate 与 Linux supervisor 多轮对抗加固 | remediation 已进入 `codex/phase2-poc-baseline` Linux CI 候选；Darwin 聚焦 gate 6 pass / 0 fail / 11 Linux skip；精确 commit 的 Linux gate 后再复审，未发布 release | [`2026.08.02.md`](./2026.08.02.md) | 待发布 |
 | 2026.07.31 | Phase 4：8 Critical / 2 Warning post-audit remediation，canonical ledger、producer-auth evidence、Linux retained-candidate config、bounded process group、nested closure 与 recoverable evidence | current-source full/pack/diff 已绿；fresh re-audit Critical 3 / Warning 0，Phase 4 blocked；未提交或发布 | [`2026.07.31.md`](./2026.07.31.md) | 待发布 |
