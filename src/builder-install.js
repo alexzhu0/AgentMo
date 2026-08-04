@@ -1626,7 +1626,7 @@ export async function applyBuilderInstall(options = {}) {
         (candidate) => candidate.desired.relativePath === BUILDER_INSTALL_RECEIPT_PATH,
       );
       if (finalizedReceiptStage) {
-        publishedReceipt = await publishStagedFile(
+        publishedReceipt = await publishFinalizedReceipt(
           prepared.projectRoot,
           finalizedReceiptStage,
           mutationLedger,
@@ -3479,6 +3479,53 @@ async function publishStagedFile(projectRoot, staged, ledger) {
     ledger,
   );
   if (JSON.stringify(published.identity) !== JSON.stringify(staged.stageIdentity)) {
+    fail("AGENTMO_BUILDER_INSTALL_VERIFICATION_FAILED");
+  }
+  staged.publishedState = published;
+  return published;
+}
+
+// The finalized receipt is subsequently consumed as independent authority.
+// Publish a byte-identical copy instead of a second hard link to the recovery
+// stage so no retained staging name can mutate the admitted receipt inode.
+async function publishFinalizedReceipt(projectRoot, staged, ledger) {
+  const destination = resolveProjectPath(projectRoot, staged.desired.relativePath);
+  if (destination !== staged.destination) fail("AGENTMO_BUILDER_INSTALL_PATH_UNSAFE");
+  await assertAuthorizedParentChain(projectRoot, staged.desired.relativePath, ledger);
+  await assertStagedFileExact(staged);
+  let parentAuthority;
+  let effect;
+  try {
+    parentAuthority = await retainEffectDirectory(path.dirname(destination));
+    effect = await runBuilderPosixEffect({
+      action: "write-file",
+      name: path.basename(destination),
+      payload: staged.desired.bytes.toString("base64"),
+    }, {
+      directoryAuthority: parentAuthority,
+    });
+    if (effect.created !== true) fail("AGENTMO_BUILDER_INSTALL_PLAN_CHANGED");
+  } catch (error) {
+    if (error instanceof BuilderInstallError) throw error;
+    fail("AGENTMO_BUILDER_INSTALL_WRITE_FAILED");
+  } finally {
+    await parentAuthority?.handle.close().catch(() => {});
+  }
+  await assertStagedFileExact(staged);
+  const publishedIdentity = await lstat(destination, { bigint: true });
+  if (!publishedIdentity.isFile() || publishedIdentity.isSymbolicLink()
+    || publishedIdentity.nlink !== 1n
+    || JSON.stringify(fileIdentity(publishedIdentity)) !== JSON.stringify(effect.identity)) {
+    fail("AGENTMO_BUILDER_INSTALL_VERIFICATION_FAILED");
+  }
+  staged.published = true;
+  const published = await assertInstalledDigest(
+    projectRoot,
+    staged.desired.relativePath,
+    staged.desired.destinationDigest,
+    ledger,
+  );
+  if (JSON.stringify(published.identity) !== JSON.stringify(effect.identity)) {
     fail("AGENTMO_BUILDER_INSTALL_VERIFICATION_FAILED");
   }
   staged.publishedState = published;

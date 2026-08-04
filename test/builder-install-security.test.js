@@ -1956,9 +1956,19 @@ describe("Builder v1 hostile non-destructive boundaries", () => {
     }));
     assert.equal(retry.status, "activated");
     const receiptBytes = await readFile(absolute(project, BUILDER_INSTALL_RECEIPT_PATH));
+    const receiptStat = await lstat(absolute(project, BUILDER_INSTALL_RECEIPT_PATH), {
+      bigint: true,
+    });
+    assert.equal(receiptStat.nlink, 1n);
     const receipt = JSON.parse(receiptBytes);
     assert.equal(retry.receipt.digest, digestRawBytes(receiptBytes));
     assert.equal(receipt.schemaVersion, "agentmo.builder-install-receipt.v4");
+    const lifecycle = await readBuilderLifecycleState({ projectRoot: project });
+    assert.equal(lifecycle.activeReceiptDigest, retry.receipt.digest);
+    assert.equal(
+      lifecycle.activeReceipt.value.schemaVersion,
+      "agentmo.builder-install-receipt.v4",
+    );
     assert.equal(
       receipt.hostActivation.schemaVersion,
       "agentmo.builder-codex-activation-binding.v3",

@@ -1005,7 +1005,7 @@ function admitV1ReleaseReceipt(bytes, event, observedFiles) {
         || !DIGEST_PATTERN.test(file.digest ?? "")
         || !Number.isSafeInteger(file.byteLength)
         || file.byteLength < 0
-        || (previous !== null && previous >= file.relativePath)) {
+        || (previous !== null && previous.localeCompare(file.relativePath) >= 0)) {
         throw new Error("release file");
       }
       const observed = observedFiles.find(({ file: candidate }) => (
@@ -1831,7 +1831,8 @@ function validateLifecycleFinalProjectionBinding(value, expected) {
   const files = members.slice(fileIndex);
   if (directories.some((member, index) => member !== expectedDirectories[index])
     || files.some((member, index) => (
-      index > 0 && files[index - 1].relativePath >= member.relativePath
+      index > 0
+      && files[index - 1].relativePath.localeCompare(member.relativePath) >= 0
     ))) {
     throw new Error("projection order");
   }
@@ -2441,6 +2442,14 @@ async function inspectRegisteredInstallStageLinks(projectRoot, relativePath, des
     relativeRoot: BUILDER_INSTALL_ATTEMPT_AUTHORITY_PATH,
     namespace: "builder-install",
   });
+  const terminal = authority.records.at(-1)?.payload;
+  const independentReceiptStage = relativePath === BUILDER_INSTALL_RECEIPT_PATH
+    && [
+      "agentmo.builder-install-attempt.v1",
+      "agentmo.builder-install-attempt.v2",
+    ].includes(terminal?.schemaVersion)
+    && terminal.disposition === "committed"
+    && DIGEST_PATTERN.test(terminal.receiptDigest ?? "");
   const registered = new Set();
   for (const record of authority.records) {
     const payload = record.payload;
@@ -2451,8 +2460,6 @@ async function inspectRegisteredInstallStageLinks(projectRoot, relativePath, des
       if (stage?.destinationPath !== relativePath) continue;
       if (!portableRelativePath(stage.relativePath)
         || stage.relativePath === relativePath
-        || stage.identity?.device !== destinationStats.dev.toString(10)
-        || stage.identity?.inode !== destinationStats.ino.toString(10)
         || stage.identity?.links !== "1"
         || stage.identity?.size !== destinationStats.size.toString(10)) {
         throw new Error("install-stage-authority");
@@ -2463,11 +2470,25 @@ async function inspectRegisteredInstallStageLinks(projectRoot, relativePath, des
       const stageStats = await lstat(stagePath, { bigint: true });
       if (stageStats.isSymbolicLink()
         || !stageStats.isFile()
-        || !sameIdentity(destinationStats, stageStats)
+        || stageStats.dev.toString(10) !== stage.identity.device
+        || stageStats.ino.toString(10) !== stage.identity.inode
         || stageStats.size !== destinationStats.size) {
         throw new Error("install-stage-changed");
       }
-      registered.add(stagePath);
+      if (stageStats.dev === destinationStats.dev && stageStats.ino === destinationStats.ino) {
+        if (!sameIdentity(destinationStats, stageStats)) throw new Error("install-stage-changed");
+        registered.add(stagePath);
+      } else {
+        if (!independentReceiptStage
+          || stage.digest !== terminal.receiptDigest
+          || stageStats.nlink !== 1n) {
+          throw new Error("install-stage-changed");
+        }
+        const retained = await readRegisteredInstallFile(stagePath, stageStats, 1n);
+        if (digestRawBytes(retained.bytes) !== stage.digest) {
+          throw new Error("install-stage-changed");
+        }
+      }
     }
   }
   return [...registered].toSorted();
