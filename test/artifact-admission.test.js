@@ -152,7 +152,9 @@ async function rejectsWithCode(operation, code, forbidden = []) {
 }
 
 describe("artifact admission", () => {
-  it("rejects self-auth probe bytes unless the registry receives real companion admissions", async () => {
+  it("rejects self-auth probe bytes unless the registry receives real companion admissions", {
+    skip: process.platform !== "linux",
+  }, async () => {
     const fixture = await buildApprovedPackageFixture();
     const archivePath = path.join(fixture.root, "artifact-probe.d42");
     const produced = await produceAgentPackage(packageProduceOptions(

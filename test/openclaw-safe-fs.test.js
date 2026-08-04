@@ -13,6 +13,7 @@ import {
   readdir,
   rename,
   symlink,
+  utimes,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -296,14 +297,14 @@ describe("OpenClaw safe fs retained-dirfd kernel", {
       TMPDIR: receipt.environment.TMPDIR,
     });
     assert.equal(receipt.argv[0], "/usr/bin/cc");
-    assert.deepEqual(receipt.argv.slice(1, 4), ["-x", "c", "/proc/self/fd/3"]);
+    assert.deepEqual(receipt.argv.slice(1, 4), ["-x", "c", "-"]);
     assert.equal(receipt.argv.at(-1), "/proc/self/fd/4");
     assert.equal(
       receipt.reproducibility.strategy,
-      "independent-double-build-from-retained-fd-source-and-outputs",
+      "independent-double-build-from-captured-source-bytes-and-retained-outputs",
     );
-    assert.equal(receipt.reproducibility.source.descriptor, 3);
-    assert.equal(receipt.reproducibility.source.path, "/proc/self/fd/3");
+    assert.equal(receipt.reproducibility.source.descriptor, 0);
+    assert.equal(receipt.reproducibility.source.path, "-");
     assert.equal(
       receipt.reproducibility.source.digest,
       receipt.source.digest,
@@ -366,7 +367,7 @@ describe("OpenClaw safe fs retained-dirfd kernel", {
     })), true);
   });
 
-  it("publishes only retained compiler bytes during repeated output-path replacement", async () => {
+  it("publishes only retained compiler bytes after both output paths are replaced", async () => {
     const root = await mkdtemp(
       path.join(tmpdir(), "agentmo-safe-fs-output-substitution-"),
     );
@@ -376,9 +377,8 @@ describe("OpenClaw safe fs retained-dirfd kernel", {
       buildDirectoryPrefix: ".agentmo-openclaw-fs-build-",
       outputNames: [
         "openclaw-fs-kernel.primary",
-        "openclaw-fs-kernel.stage",
+        "openclaw-fs-kernel.verification",
       ],
-      replacementCount: 4,
     });
     try {
       const built = await buildOpenClawFsKernel({
@@ -400,7 +400,7 @@ describe("OpenClaw safe fs retained-dirfd kernel", {
     }
   });
 
-  it("keeps the retained compiler input when the source pathname changes", async () => {
+  it("compiles captured bytes but rejects restored same-inode source mutation", async () => {
     const isolatedRoot = await mkdtemp(
       path.join(tmpdir(), "agentmo-safe-fs-source-replacement-"),
     );
@@ -451,7 +451,7 @@ describe("OpenClaw safe fs retained-dirfd kernel", {
       "    }",
       "    const compiler = await inspectCompiler(environment);",
     ].join("\n");
-    const proofNeedle = "    const executable = await publishExclusiveFile(";
+    const proofNeedle = "    const retainedSource = await inspectRetainedFile(";
     const retainedBarrierSource = productionSource.replace(
       retainNeedle,
       retainedBarrier,
@@ -478,6 +478,9 @@ describe("OpenClaw safe fs retained-dirfd kernel", {
       writeFile(isolatedModulePath, isolatedSource),
       writeFile(isolatedSourcePath, originalSourceBytes),
     ]);
+    const fixedSourceTime = 1_700_000_000;
+    await utimes(isolatedSourcePath, fixedSourceTime, fixedSourceTime);
+    const sourceBefore = await lstat(isolatedSourcePath, { bigint: true });
     const isolated = await import(pathToFileURL(isolatedModulePath).href);
     const binaryOut = path.join(isolatedBuildRoot, "openclaw-fs-kernel");
     const receiptOut = path.join(
@@ -523,48 +526,46 @@ describe("OpenClaw safe fs retained-dirfd kernel", {
         if (error?.code !== "EEXIST") throw error;
       });
     };
-    const retainedSourcePath = `${isolatedSourcePath}.retained`;
-    const replacementSourcePath = `${isolatedSourcePath}.replacement`;
-    const replacementSourceBytes = Buffer.from("int main(void) { return 86; }\n");
-    let sourceMoved = false;
+    const hostileSourceBytes = Buffer.alloc(originalSourceBytes.length, 0x21);
     try {
       await waitForBarrier(
         retainedReadyPath,
-        "retained-source compiler barrier",
+        "captured-source compiler barrier",
       );
-      await rename(isolatedSourcePath, retainedSourcePath);
-      sourceMoved = true;
-      await writeFile(isolatedSourcePath, replacementSourceBytes, {
-        flag: "wx",
-        mode: 0o600,
-      });
+      await writeFile(isolatedSourcePath, hostileSourceBytes);
       await releaseBarrier(retainedReleasePath);
       await waitForBarrier(
         proofReadyPath,
-        "double-build retained-source proof",
+        "double-build captured-source proof",
       );
+      await writeFile(isolatedSourcePath, originalSourceBytes);
+      await utimes(isolatedSourcePath, fixedSourceTime, fixedSourceTime);
     } finally {
-      if (sourceMoved) {
-        await rename(isolatedSourcePath, replacementSourcePath)
-          .catch((error) => {
-            if (error?.code !== "ENOENT") throw error;
-          });
-        await rename(retainedSourcePath, isolatedSourcePath);
-      }
       await releaseBarrier(retainedReleasePath);
       await releaseBarrier(proofReleasePath);
     }
     const outcome = await buildOutcomePromise;
-    if (outcome.error !== null) throw outcome.error;
-    const built = outcome.built;
+    assert.equal(outcome.built, null);
     assert.equal(
-      sha256(await readFile(built.binaryPath)),
-      sha256(await readFile(helperPath)),
+      outcome.error?.code,
+      "AGENTMO_OPENCLAW_FS_BUILD_REJECTED",
     );
     assert.deepEqual(await readFile(isolatedSourcePath), originalSourceBytes);
-    assert.deepEqual(
-      await readFile(replacementSourcePath),
-      replacementSourceBytes,
+    const sourceAfter = await lstat(isolatedSourcePath, { bigint: true });
+    assert.equal(sourceAfter.dev, sourceBefore.dev);
+    assert.equal(sourceAfter.ino, sourceBefore.ino);
+    assert.equal(sourceAfter.size, sourceBefore.size);
+    assert.equal(sourceAfter.mode, sourceBefore.mode);
+    assert.equal(sourceAfter.uid, sourceBefore.uid);
+    assert.equal(sourceAfter.mtimeNs, sourceBefore.mtimeNs);
+    assert.notEqual(sourceAfter.ctimeNs, sourceBefore.ctimeNs);
+    await assert.rejects(
+      () => access(binaryOut),
+      (error) => error?.code === "ENOENT",
+    );
+    await assert.rejects(
+      () => access(receiptOut),
+      (error) => error?.code === "ENOENT",
     );
   });
 
@@ -1105,6 +1106,14 @@ describe("OpenClaw safe fs retained-dirfd kernel", {
     const after = await lstat(path.join(root, "published"), { bigint: true });
     assert.equal(after.dev, identity.dev);
     assert.equal(after.ino, identity.ino);
+    const preservedTemps = (await readdir(root)).filter((name) => (
+      name.startsWith(".agentmo-openclaw-fs-")
+    ));
+    assert.equal(preservedTemps.length, 1);
+    assert.equal(
+      await readFile(path.join(root, preservedTemps[0]), "utf8"),
+      "second",
+    );
     await session.close();
     await access(path.join(root, "published"));
   });

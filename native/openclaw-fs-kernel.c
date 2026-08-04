@@ -662,15 +662,6 @@ static int handle_publish_no_replace(field_t fields[MAX_FIELDS], size_t count) {
   return 0;
 }
 
-static int remove_owned_temp(int parent, const char *name, const struct stat *expected) {
-  struct stat current;
-  if (fstatat(parent, name, &current, AT_SYMLINK_NOFOLLOW) != 0
-    || current.st_dev != expected->st_dev
-    || current.st_ino != expected->st_ino
-    || !S_ISREG(current.st_mode)) return -1;
-  return unlinkat(parent, name, 0);
-}
-
 static int handle_open(field_t fields[MAX_FIELDS], size_t count) {
   static const char *keys[] = {"operation", "rootPath", "device", "inode"};
   const char *root_path;
@@ -849,7 +840,14 @@ static int handle_create(field_t fields[MAX_FIELDS], size_t count) {
   close(descriptor);
   if (publish_no_replace(parent, temp, parent, base) != 0) {
     int saved = errno;
-    remove_owned_temp(parent, temp, &created);
+    /*
+     * Preserve the private temporary pathname on every failed publication.
+     * A same-UID peer can exchange a directory entry between any pathname
+     * inspection and unlinkat(2); deleting here could therefore remove an
+     * object we never created. The retained parent dirfd bounds the orphan,
+     * and disposition=preserved tells the caller that operator recovery is
+     * required without exposing the randomized private name.
+     */
     fsync(parent);
     free(bytes);
     close(parent);

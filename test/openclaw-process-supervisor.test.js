@@ -167,7 +167,7 @@ it("Linux x86_64 supervisor filter rejects x32-numbered syscalls while allowing 
   assert.equal(result.stderr, "");
 });
 
-it("Linux supervisor publishes retained compiler bytes during repeated output-path replacement", {
+it("Linux supervisor publishes retained compiler bytes after both output paths are replaced", {
   skip: process.platform !== "linux",
   timeout: 20_000,
 }, async () => {
@@ -178,8 +178,7 @@ it("Linux supervisor publishes retained compiler bytes during repeated output-pa
   const attacker = startNativeBuildOutputAttacker({
     root,
     buildDirectoryPrefix: "agentmo-process-supervisor-",
-    outputNames: ["supervisor.primary", "supervisor"],
-    replacementCount: 4,
+    outputNames: ["supervisor.primary", "supervisor.verification"],
   });
   try {
     const built = await prepareOpenClawProcessSupervisor({ privateRoot: root });

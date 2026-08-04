@@ -13,7 +13,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const OPENCLAW_FS_BUILD_RECEIPT_SCHEMA_VERSION =
-  "agentmo.openclaw-fs-build-receipt.v2";
+  "agentmo.openclaw-fs-build-receipt.v3";
 export const OPENCLAW_FS_BUILD_PAIR_SCHEMA_VERSION =
   "agentmo.openclaw-fs-build-pair.v1";
 export const OPENCLAW_FS_BUILD_RECOVERY_SCHEMA_VERSION =
@@ -23,9 +23,9 @@ const SOURCE_PATH = fileURLToPath(
   new URL("../native/openclaw-fs-kernel.c", import.meta.url),
 );
 const COMPILER_PATH = "/usr/bin/cc";
-const COMPILER_SOURCE_DESCRIPTOR = 3;
+const COMPILER_SOURCE_DESCRIPTOR = 0;
 const COMPILER_OUTPUT_DESCRIPTOR = 4;
-const COMPILER_SOURCE_PATH = `/proc/self/fd/${COMPILER_SOURCE_DESCRIPTOR}`;
+const COMPILER_SOURCE_PATH = "-";
 const COMPILER_OUTPUT_PATH = `/proc/self/fd/${COMPILER_OUTPUT_DESCRIPTOR}`;
 const EXECUTION_HELPER_DESCRIPTOR = 3;
 const EXECUTION_HELPER_PATH = `/proc/self/fd/${EXECUTION_HELPER_DESCRIPTOR}`;
@@ -209,7 +209,7 @@ export async function buildOpenClawFsKernel(options = {}) {
       environment,
       BUILD_TIMEOUT_MS,
       {
-        source: retainedSourceHandle,
+        sourceBytes: source.bytes,
         output: primaryOutputHandle,
       },
     );
@@ -226,7 +226,7 @@ export async function buildOpenClawFsKernel(options = {}) {
       environment,
       BUILD_TIMEOUT_MS,
       {
-        source: retainedSourceHandle,
+        sourceBytes: source.bytes,
         output: verificationOutputHandle,
       },
     );
@@ -243,7 +243,7 @@ export async function buildOpenClawFsKernel(options = {}) {
     );
     if (!primaryOutput.bytes.equals(verificationOutput.bytes)
       || retainedSource.digest !== source.digest
-      || !sameRetainedFileObject(retainedSource.identity, source.identity)
+      || !sameFileObject(retainedSource.identity, source.identity)
       || sameUnderlyingFile(
         primaryOutput.identity,
         verificationOutput.identity,
@@ -292,12 +292,8 @@ export async function buildOpenClawFsKernel(options = {}) {
         environmentDigest: digestCanonical(CLOSED_ENVIRONMENT_DESCRIPTOR),
         reproducibility: {
           strategy:
-            "independent-double-build-from-retained-fd-source-and-outputs",
-          source: retainedFdAuthority(
-            COMPILER_SOURCE_DESCRIPTOR,
-            COMPILER_SOURCE_PATH,
-            retainedSource,
-          ),
+            "independent-double-build-from-captured-source-bytes-and-retained-outputs",
+          source: compilerSourceAuthority(source),
           primaryArgv: [...argv],
           primaryOutput: retainedFdAuthority(
             COMPILER_OUTPUT_DESCRIPTOR,
@@ -421,7 +417,7 @@ export async function admitOpenClawFsKernel(options = {}) {
     ];
     if (!same(receipt.argv, expectedArgv)
       || receipt.reproducibility.strategy
-        !== "independent-double-build-from-retained-fd-source-and-outputs"
+        !== "independent-double-build-from-captured-source-bytes-and-retained-outputs"
       || !same(receipt.reproducibility.primaryArgv, expectedArgv)
       || !same(
         receipt.reproducibility.verificationArgv,
@@ -457,7 +453,7 @@ export async function admitOpenClawFsKernel(options = {}) {
       inspectStableDirectory(path.dirname(options.receiptPath)),
     ]);
     if (source.digest !== receipt.source.digest
-      || !sameRetainedFileObject(source.identity, receipt.source.identity)
+      || !sameFileObject(source.identity, receipt.source.identity)
       || compiler.digest !== receipt.compiler.digest
       || !sameFileObject(compiler.identity, receipt.compiler.identity)
       || compiler.versionDigest !== receipt.compiler.versionDigest
@@ -465,7 +461,7 @@ export async function admitOpenClawFsKernel(options = {}) {
       || binary.digest !== receipt.binary.digest
       || !sameFileObject(binary.identity, receipt.binary.identity)
       || receipt.reproducibility.source.digest !== receipt.source.digest
-      || !sameRetainedFileObject(
+      || !sameFileObject(
         receipt.reproducibility.source.identity,
         receipt.source.identity,
       )
@@ -886,10 +882,10 @@ async function runBoundedProcess(
       stdio: retainedFds === null
         ? ["ignore", "pipe", "pipe"]
         : [
+            "pipe",
+            "pipe",
+            "pipe",
             "ignore",
-            "pipe",
-            "pipe",
-            retainedFds.source.fd,
             retainedFds.output.fd,
           ],
     });
@@ -897,6 +893,7 @@ async function runBoundedProcess(
     const stderr = [];
     let stdoutBytes = 0;
     let stderrBytes = 0;
+    let stdinError = null;
     let settled = false;
     const timer = setTimeout(() => {
       child.kill("SIGKILL");
@@ -914,6 +911,13 @@ async function runBoundedProcess(
     };
     child.stdout.on("data", (chunk) => collect(stdout, chunk, "stdout"));
     child.stderr.on("data", (chunk) => collect(stderr, chunk, "stderr"));
+    if (retainedFds !== null) {
+      child.stdin.on("error", (error) => {
+        stdinError = error;
+        child.kill("SIGKILL");
+      });
+      child.stdin.end(retainedFds.sourceBytes);
+    }
     child.on("error", (error) => {
       settled = true;
       clearTimeout(timer);
@@ -923,6 +927,10 @@ async function runBoundedProcess(
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      if (stdinError !== null) {
+        reject(stdinError);
+        return;
+      }
       if (stdoutBytes > MAX_TOOL_OUTPUT_BYTES
         || stderrBytes > MAX_TOOL_OUTPUT_BYTES) {
         reject(new Error("bounded output exceeded"));
@@ -1010,7 +1018,7 @@ async function inspectRetainedFile(handle, expectedIdentity = null) {
   if (!sameStableStats(before, after)
     || bytes.length !== Number(after.size)
     || (expectedIdentity !== null
-      && !sameRetainedFileObject(observedIdentity, expectedIdentity))) {
+      && !sameFileObject(observedIdentity, expectedIdentity))) {
     fail("AGENTMO_OPENCLAW_FS_ADMISSION_REJECTED");
   }
   return {
@@ -1281,7 +1289,7 @@ function parseClosedReceipt(bytes) {
     || !sameKeys(receipt.source, SOURCE_KEYS)
     || !sameKeys(receipt.compiler, COMPILER_KEYS)
     || !sameKeys(receipt.reproducibility, REPRODUCIBILITY_KEYS)
-    || !validRetainedFdAuthority(receipt.reproducibility.source)
+    || !validCompilerSourceAuthority(receipt.reproducibility.source)
     || !validRetainedFdAuthority(receipt.reproducibility.primaryOutput)
     || !validRetainedFdAuthority(receipt.reproducibility.verificationOutput)
     || !sameKeys(receipt.binary, BINARY_KEYS)
@@ -1378,6 +1386,15 @@ function retainedFdAuthority(descriptor, procPath, observed) {
   };
 }
 
+function compilerSourceAuthority(observed) {
+  return {
+    descriptor: COMPILER_SOURCE_DESCRIPTOR,
+    path: COMPILER_SOURCE_PATH,
+    digest: observed.digest,
+    identity: observed.identity,
+  };
+}
+
 function assertAbsoluteAbsentOutput(value) {
   if (typeof value !== "string"
     || !path.isAbsolute(value)
@@ -1453,10 +1470,17 @@ function validIdentity(value) {
 
 function validRetainedFdAuthority(value) {
   return sameKeys(value, RETAINED_FD_AUTHORITY_KEYS)
-    && Number.isInteger(value.descriptor)
-    && value.descriptor >= COMPILER_SOURCE_DESCRIPTOR
+    && value.descriptor === COMPILER_OUTPUT_DESCRIPTOR
     && typeof value.path === "string"
     && value.path === `/proc/self/fd/${value.descriptor}`
+    && DIGEST_PATTERN.test(value.digest ?? "")
+    && validIdentity(value.identity);
+}
+
+function validCompilerSourceAuthority(value) {
+  return sameKeys(value, RETAINED_FD_AUTHORITY_KEYS)
+    && value.descriptor === COMPILER_SOURCE_DESCRIPTOR
+    && value.path === COMPILER_SOURCE_PATH
     && DIGEST_PATTERN.test(value.digest ?? "")
     && validIdentity(value.identity);
 }
@@ -1523,16 +1547,6 @@ function sameFileObject(left, right) {
     && left.owner === right.owner
     && left.modifiedNs === right.modifiedNs
     && left.changedNs === right.changedNs;
-}
-
-function sameRetainedFileObject(left, right) {
-  return left.device === right.device
-    && left.inode === right.inode
-    && left.links === right.links
-    && left.size === right.size
-    && left.mode === right.mode
-    && left.owner === right.owner
-    && left.modifiedNs === right.modifiedNs;
 }
 
 function sameUnderlyingFile(left, right) {

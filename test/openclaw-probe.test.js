@@ -6,11 +6,13 @@ import {
   lstat,
   mkdtemp,
   readFile,
+  rename,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   OPENCLAW_PROBE_SCHEMA_VERSION,
   OpenClawProbeError,
@@ -314,7 +316,7 @@ describe("read-only OpenClaw capability probe", () => {
     );
   });
 
-  it("executes the retained private script after its pathname is replaced", {
+  it("rejects a private script pathname replacement without executing it", {
     skip: process.platform !== "linux",
   }, async () => {
     const fixture = await buildExecutableProbeFixture(({ markerPath }) => [
@@ -332,23 +334,108 @@ describe("read-only OpenClaw capability probe", () => {
       "",
     ].join("\n"));
 
-    const probe = await probeOpenClawTarget(
-      probeOptions(
-        fixture,
-        fixture.archivePath,
-        fixture.produced.archiveDigest,
+    await assert.rejects(
+      probeOpenClawTarget(
+        probeOptions(
+          fixture,
+          fixture.archivePath,
+          fixture.produced.archiveDigest,
+        ),
       ),
-    );
-
-    assert.equal(probe.status, "compatible");
-    assert.deepEqual(
-      probe.cli.observations.map(({ exitCode }) => exitCode),
-      [0, 0, 0],
+      boundedProbeError,
     );
     await assert.rejects(
       () => access(fixture.markerPath),
       (error) => error?.code === "ENOENT",
     );
+  });
+
+  it("preserves a replacement raced into the private script pathname", {
+    skip: process.platform !== "linux",
+  }, async () => {
+    const isolatedRoot = await mkdtemp(
+      path.join(tmpdir(), "agentmo-probe-pre-unlink-race-"),
+    );
+    const readyPath = path.join(isolatedRoot, "pre-unlink-ready");
+    const releasePath = path.join(isolatedRoot, "pre-unlink-release");
+    const isolatedModulePath = path.join(isolatedRoot, "openclaw-probe.mjs");
+    const productionSource = await readFile(
+      fileURLToPath(new URL("../src/openclaw-probe.js", import.meta.url)),
+      "utf8",
+    );
+    const pathRevalidationNeedle =
+      "    const namedStats = await lstat(filePath, { bigint: true });";
+    assert.equal(productionSource.split(pathRevalidationNeedle).length, 2);
+    const withAbsoluteImports = productionSource.replace(
+      /from "(\.\/[^"]+)";/gu,
+      (_match, specifier) => (
+        `from ${JSON.stringify(new URL(specifier, new URL("../src/openclaw-probe.js", import.meta.url)).href)};`
+      ),
+    );
+    const isolatedSource = withAbsoluteImports.replace(pathRevalidationNeedle, [
+      "    {",
+      "      const barrierFs = await import(\"node:fs/promises\");",
+      `      await barrierFs.writeFile(${JSON.stringify(readyPath)}, filePath, { flag: \"wx\", mode: 0o600 });`,
+      "      for (;;) {",
+      "        try {",
+      `          await barrierFs.access(${JSON.stringify(releasePath)});`,
+      "          break;",
+      "        } catch (error) {",
+      "          if (error?.code !== \"ENOENT\") throw error;",
+      "          await new Promise((resolve) => setTimeout(resolve, 5));",
+      "        }",
+      "      }",
+      "    }",
+      pathRevalidationNeedle,
+    ].join("\n"));
+    await writeFile(isolatedModulePath, isolatedSource);
+    const isolated = await import(pathToFileURL(isolatedModulePath).href);
+    const fixture = await buildExecutableProbeFixture(() => "\n");
+    let outcome;
+    const outcomePromise = isolated.probeOpenClawTarget(
+      probeOptions(
+        fixture,
+        fixture.archivePath,
+        fixture.produced.archiveDigest,
+      ),
+    ).then(
+      (probe) => {
+        outcome = { probe, error: null };
+        return outcome;
+      },
+      (error) => {
+        outcome = { probe: null, error };
+        return outcome;
+      },
+    );
+    let privateExecutable;
+    const deadline = Date.now() + 10_000;
+    while (Date.now() < deadline) {
+      try {
+        privateExecutable = await readFile(readyPath, "utf8");
+        break;
+      } catch (error) {
+        if (error?.code !== "ENOENT") throw error;
+      }
+      if (outcome !== undefined) assert.fail("probe completed before unlink barrier");
+      await new Promise((resolve) => setImmediate(resolve));
+    }
+    assert.equal(typeof privateExecutable, "string");
+    const retainedPath = `${privateExecutable}.retained`;
+    const replacementBytes = Buffer.from("replacement-must-remain\n", "utf8");
+    await rename(privateExecutable, retainedPath);
+    await writeFile(privateExecutable, replacementBytes, {
+      flag: "wx",
+      mode: 0o600,
+    });
+    const replacementBefore = await lstat(privateExecutable, { bigint: true });
+    await writeFile(releasePath, "release\n", { flag: "wx", mode: 0o600 });
+    await outcomePromise;
+
+    assert.deepEqual(await readFile(privateExecutable), replacementBytes);
+    const replacementAfter = await lstat(privateExecutable, { bigint: true });
+    assert.equal(replacementAfter.dev, replacementBefore.dev);
+    assert.equal(replacementAfter.ino, replacementBefore.ino);
   });
 
   it("rejects a target swap between observations instead of certifying stale members", {

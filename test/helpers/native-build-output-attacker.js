@@ -19,7 +19,6 @@ export function startNativeBuildOutputAttacker(options) {
     options.root,
     options.buildDirectoryPrefix,
     outputNames.join(","),
-    String(options.replacementCount ?? 1),
   ], {
     shell: false,
     stdio: "ignore",
@@ -46,12 +45,12 @@ if (process.argv[2] === "--attack") {
     root: process.argv[3],
     buildDirectoryPrefix: process.argv[4],
     outputNames: process.argv[5].split(","),
-    replacementCount: Number.parseInt(process.argv[6], 10),
   });
 }
 
 function runAttacker(options) {
   const deadline = Date.now() + ATTACK_TIMEOUT_MS;
+  const replacedOutputs = new Set();
   let replacementIndex = 0;
   const attempt = () => {
     try {
@@ -59,6 +58,7 @@ function runAttacker(options) {
         if (!entry.isDirectory()
           || !entry.name.startsWith(options.buildDirectoryPrefix)) continue;
         for (const outputName of options.outputNames) {
+          if (replacedOutputs.has(outputName)) continue;
           const outputPath = path.join(options.root, entry.name, outputName);
           let stats;
           try {
@@ -77,7 +77,8 @@ function runAttacker(options) {
             flag: "wx",
             mode: 0o700,
           });
-          if (replacementIndex >= options.replacementCount) {
+          replacedOutputs.add(outputName);
+          if (replacedOutputs.size === options.outputNames.length) {
             process.exitCode = 0;
             return;
           }

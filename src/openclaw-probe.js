@@ -8,7 +8,6 @@ import {
   mkdtemp,
   open,
   realpath,
-  unlink,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -503,20 +502,25 @@ async function retainPrivateExecutable(filePath, bytes, expectedDigest) {
       || digestRawBytes(observed) !== expectedDigest) {
       fail("AGENTMO_OPENCLAW_PROBE_PRIVATE_COPY_DRIFT");
     }
-    await unlink(filePath);
-    const anonymousStats = await retainedHandle.stat({ bigint: true });
-    if (!anonymousStats.isFile()
-      || anonymousStats.nlink !== 0n
+    const namedStats = await lstat(filePath, { bigint: true });
+    const retainedFinalStats = await retainedHandle.stat({ bigint: true });
+    if (!namedStats.isFile()
+      || namedStats.isSymbolicLink()
+      || namedStats.nlink !== 1n
+      || !retainedFinalStats.isFile()
+      || retainedFinalStats.nlink !== 1n
+      || !sameIdentity(statIdentity(namedStats), statIdentity(retainedFinalStats))
       || digestRawBytes(
-        await readRetainedBytes(retainedHandle, anonymousStats),
+        await readRetainedBytes(retainedHandle, retainedFinalStats),
       ) !== expectedDigest) {
       fail("AGENTMO_OPENCLAW_PROBE_PRIVATE_COPY_DRIFT");
     }
     await writableHandle.close();
     writableHandle = null;
     return {
+      path: filePath,
       digest: expectedDigest,
-      identity: statIdentity(anonymousStats),
+      identity: statIdentity(retainedFinalStats),
       handle: retainedHandle,
     };
   } catch (error) {
@@ -601,10 +605,25 @@ async function revalidateExecutionAuthority(
       || !sameIdentity(statIdentity(runtimeStats), statIdentity(loadedRuntimeStats))) {
       fail("AGENTMO_OPENCLAW_PROBE_RUNTIME_DRIFT");
     }
-    const scriptStats = await execution.script.handle.stat({ bigint: true });
-    const bytes = await readRetainedBytes(execution.script.handle, scriptStats);
-    if (!scriptStats.isFile()
-      || !sameIdentity(statIdentity(scriptStats), execution.script.identity)
+    const scriptPathStats = await lstat(execution.script.path, { bigint: true });
+    const scriptHandleStats = await execution.script.handle.stat({ bigint: true });
+    const bytes = await readRetainedBytes(
+      execution.script.handle,
+      scriptHandleStats,
+    );
+    if (!scriptPathStats.isFile()
+      || scriptPathStats.isSymbolicLink()
+      || scriptPathStats.nlink !== 1n
+      || !scriptHandleStats.isFile()
+      || scriptHandleStats.nlink !== 1n
+      || !sameIdentity(
+        statIdentity(scriptPathStats),
+        execution.script.identity,
+      )
+      || !sameIdentity(
+        statIdentity(scriptHandleStats),
+        execution.script.identity,
+      )
       || digestRawBytes(bytes) !== execution.script.digest) {
       fail("AGENTMO_OPENCLAW_PROBE_PRIVATE_COPY_DRIFT");
     }
