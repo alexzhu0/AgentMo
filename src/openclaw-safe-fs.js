@@ -243,7 +243,7 @@ export async function buildOpenClawFsKernel(options = {}) {
     );
     if (!primaryOutput.bytes.equals(verificationOutput.bytes)
       || retainedSource.digest !== source.digest
-      || !sameFileObject(retainedSource.identity, source.identity)
+      || !sameRetainedFileObject(retainedSource.identity, source.identity)
       || sameUnderlyingFile(
         primaryOutput.identity,
         verificationOutput.identity,
@@ -457,7 +457,7 @@ export async function admitOpenClawFsKernel(options = {}) {
       inspectStableDirectory(path.dirname(options.receiptPath)),
     ]);
     if (source.digest !== receipt.source.digest
-      || !sameFileObject(source.identity, receipt.source.identity)
+      || !sameRetainedFileObject(source.identity, receipt.source.identity)
       || compiler.digest !== receipt.compiler.digest
       || !sameFileObject(compiler.identity, receipt.compiler.identity)
       || compiler.versionDigest !== receipt.compiler.versionDigest
@@ -465,7 +465,7 @@ export async function admitOpenClawFsKernel(options = {}) {
       || binary.digest !== receipt.binary.digest
       || !sameFileObject(binary.identity, receipt.binary.identity)
       || receipt.reproducibility.source.digest !== receipt.source.digest
-      || !sameFileObject(
+      || !sameRetainedFileObject(
         receipt.reproducibility.source.identity,
         receipt.source.identity,
       )
@@ -1010,7 +1010,7 @@ async function inspectRetainedFile(handle, expectedIdentity = null) {
   if (!sameStableStats(before, after)
     || bytes.length !== Number(after.size)
     || (expectedIdentity !== null
-      && !sameFileObject(observedIdentity, expectedIdentity))) {
+      && !sameRetainedFileObject(observedIdentity, expectedIdentity))) {
     fail("AGENTMO_OPENCLAW_FS_ADMISSION_REJECTED");
   }
   return {
@@ -1523,6 +1523,16 @@ function sameFileObject(left, right) {
     && left.owner === right.owner
     && left.modifiedNs === right.modifiedNs
     && left.changedNs === right.changedNs;
+}
+
+function sameRetainedFileObject(left, right) {
+  return left.device === right.device
+    && left.inode === right.inode
+    && left.links === right.links
+    && left.size === right.size
+    && left.mode === right.mode
+    && left.owner === right.owner
+    && left.modifiedNs === right.modifiedNs;
 }
 
 function sameUnderlyingFile(left, right) {
