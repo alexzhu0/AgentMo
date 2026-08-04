@@ -421,12 +421,62 @@ describe("OpenClaw safe fs retained-dirfd kernel", {
       isolatedNativeRoot,
       "openclaw-fs-kernel.c",
     );
+    const retainedReadyPath = path.join(isolatedRoot, "retained-ready");
+    const retainedReleasePath = path.join(isolatedRoot, "retained-release");
+    const proofReadyPath = path.join(isolatedRoot, "proof-ready");
+    const proofReleasePath = path.join(isolatedRoot, "proof-release");
+    const productionSource = await readFile(
+      fileURLToPath(new URL("../src/openclaw-safe-fs.js", import.meta.url)),
+      "utf8",
+    );
+    const retainNeedle = [
+      "    retainedSourceHandle = source.handle;",
+      "    const compiler = await inspectCompiler(environment);",
+    ].join("\n");
+    assert.equal(productionSource.split(retainNeedle).length, 2);
+    const retainedBarrier = [
+      "    retainedSourceHandle = source.handle;",
+      "    {",
+      "      const barrierFs = await import(\"node:fs/promises\");",
+      `      await barrierFs.writeFile(${JSON.stringify(retainedReadyPath)}, \"ready\\n\", { flag: \"wx\", mode: 0o600 });`,
+      "      for (;;) {",
+      "        try {",
+      `          await barrierFs.access(${JSON.stringify(retainedReleasePath)});`,
+      "          break;",
+      "        } catch (error) {",
+      "          if (error?.code !== \"ENOENT\") throw error;",
+      "          await new Promise((resolve) => setTimeout(resolve, 5));",
+      "        }",
+      "      }",
+      "    }",
+      "    const compiler = await inspectCompiler(environment);",
+    ].join("\n");
+    const proofNeedle = "    const executable = await publishExclusiveFile(";
+    const retainedBarrierSource = productionSource.replace(
+      retainNeedle,
+      retainedBarrier,
+    );
+    assert.equal(retainedBarrierSource.split(proofNeedle).length, 2);
+    const isolatedSource = retainedBarrierSource.replace(proofNeedle, [
+      "    {",
+      "      const barrierFs = await import(\"node:fs/promises\");",
+      `      await barrierFs.writeFile(${JSON.stringify(proofReadyPath)}, \"ready\\n\", { flag: \"wx\", mode: 0o600 });`,
+      "      for (;;) {",
+      "        try {",
+      `          await barrierFs.access(${JSON.stringify(proofReleasePath)});`,
+      "          break;",
+      "        } catch (error) {",
+      "          if (error?.code !== \"ENOENT\") throw error;",
+      "          await new Promise((resolve) => setTimeout(resolve, 5));",
+      "        }",
+      "      }",
+      "    }",
+      proofNeedle,
+    ].join("\n"));
+    const originalSourceBytes = await readFile(SOURCE_PATH);
     await Promise.all([
-      copyFile(
-        fileURLToPath(new URL("../src/openclaw-safe-fs.js", import.meta.url)),
-        isolatedModulePath,
-      ),
-      copyFile(SOURCE_PATH, isolatedSourcePath),
+      writeFile(isolatedModulePath, isolatedSource),
+      writeFile(isolatedSourcePath, originalSourceBytes),
     ]);
     const isolated = await import(pathToFileURL(isolatedModulePath).href);
     const binaryOut = path.join(isolatedBuildRoot, "openclaw-fs-kernel");
@@ -434,60 +484,87 @@ describe("OpenClaw safe fs retained-dirfd kernel", {
       isolatedBuildRoot,
       "openclaw-fs-kernel.receipt.json",
     );
-    const buildPromise = isolated.buildOpenClawFsKernel({
+    let buildOutcome;
+    const buildOutcomePromise = isolated.buildOpenClawFsKernel({
       binaryOut,
       receiptOut,
-    });
-    let privateRoot;
-    const started = Date.now();
-    while (Date.now() - started < 5_000) {
-      const names = await readdir(isolatedBuildRoot);
-      const name = names.find((entry) => (
-        entry.startsWith(".agentmo-openclaw-fs-build-")
-      ));
-      if (name) {
-        const primaryPath = path.join(
-          isolatedBuildRoot,
-          name,
-          "openclaw-fs-kernel.primary",
-        );
+    }).then(
+      (built) => {
+        buildOutcome = { built, error: null };
+        return buildOutcome;
+      },
+      (error) => {
+        buildOutcome = { built: null, error };
+        return buildOutcome;
+      },
+    );
+    const waitForBarrier = async (barrierPath, description) => {
+      const deadline = Date.now() + 10_000;
+      while (Date.now() < deadline) {
         try {
-          await lstat(primaryPath);
-          privateRoot = path.join(isolatedBuildRoot, name);
-          break;
+          assert.equal(await readFile(barrierPath, "utf8"), "ready\n");
+          return;
         } catch (error) {
           if (error?.code !== "ENOENT") throw error;
         }
-      }
-      await new Promise((resolve) => setImmediate(resolve));
-    }
-    assert.equal(typeof privateRoot, "string");
-    const retainedSourcePath = `${isolatedSourcePath}.retained`;
-    const replacementSourcePath = `${isolatedSourcePath}.replacement`;
-    await rename(isolatedSourcePath, retainedSourcePath);
-    await writeFile(
-      isolatedSourcePath,
-      "int main(void) { return 86; }\n",
-      { flag: "wx", mode: 0o600 },
-    );
-    try {
-      const primaryPath = path.join(
-        privateRoot,
-        "openclaw-fs-kernel.primary",
-      );
-      const compiledStarted = Date.now();
-      while (Date.now() - compiledStarted < 5_000) {
-        if ((await lstat(primaryPath)).size > 0) break;
+        if (buildOutcome !== undefined) {
+          if (buildOutcome.error !== null) throw buildOutcome.error;
+          assert.fail(`build completed before ${description}`);
+        }
         await new Promise((resolve) => setImmediate(resolve));
       }
+      assert.fail(`timed out waiting for ${description}`);
+    };
+    const releaseBarrier = async (barrierPath) => {
+      await writeFile(barrierPath, "release\n", {
+        flag: "wx",
+        mode: 0o600,
+      }).catch((error) => {
+        if (error?.code !== "EEXIST") throw error;
+      });
+    };
+    const retainedSourcePath = `${isolatedSourcePath}.retained`;
+    const replacementSourcePath = `${isolatedSourcePath}.replacement`;
+    const replacementSourceBytes = Buffer.from("int main(void) { return 86; }\n");
+    let sourceMoved = false;
+    try {
+      await waitForBarrier(
+        retainedReadyPath,
+        "retained-source compiler barrier",
+      );
+      await rename(isolatedSourcePath, retainedSourcePath);
+      sourceMoved = true;
+      await writeFile(isolatedSourcePath, replacementSourceBytes, {
+        flag: "wx",
+        mode: 0o600,
+      });
+      await releaseBarrier(retainedReleasePath);
+      await waitForBarrier(
+        proofReadyPath,
+        "double-build retained-source proof",
+      );
     } finally {
-      await rename(isolatedSourcePath, replacementSourcePath);
-      await rename(retainedSourcePath, isolatedSourcePath);
+      if (sourceMoved) {
+        await rename(isolatedSourcePath, replacementSourcePath)
+          .catch((error) => {
+            if (error?.code !== "ENOENT") throw error;
+          });
+        await rename(retainedSourcePath, isolatedSourcePath);
+      }
+      await releaseBarrier(retainedReleasePath);
+      await releaseBarrier(proofReleasePath);
     }
-    const built = await buildPromise;
+    const outcome = await buildOutcomePromise;
+    if (outcome.error !== null) throw outcome.error;
+    const built = outcome.built;
     assert.equal(
       sha256(await readFile(built.binaryPath)),
       sha256(await readFile(helperPath)),
+    );
+    assert.deepEqual(await readFile(isolatedSourcePath), originalSourceBytes);
+    assert.deepEqual(
+      await readFile(replacementSourcePath),
+      replacementSourceBytes,
     );
   });
 
