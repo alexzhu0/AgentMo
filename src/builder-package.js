@@ -1101,11 +1101,15 @@ function buildBuilderReleaseAssetInventory() {
       relativePath: `runtime/agentmo/${sourcePath}`,
       destinationPath: `plugins/agentmo/runtime/agentmo/${sourcePath}`,
     })),
-  ].sort((left, right) => (
-    left.destinationPath < right.destinationPath ? -1
-      : left.destinationPath > right.destinationPath ? 1
-        : 0
-  ));
+  ].sort((left, right) => {
+    const leftPath = left.destinationPath.toLowerCase();
+    const rightPath = right.destinationPath.toLowerCase();
+    return leftPath < rightPath ? -1
+      : leftPath > rightPath ? 1
+        : left.destinationPath < right.destinationPath ? -1
+          : left.destinationPath > right.destinationPath ? 1
+            : 0;
+  });
   return Object.freeze(descriptors.map((descriptor) => Object.freeze(descriptor)));
 }
 

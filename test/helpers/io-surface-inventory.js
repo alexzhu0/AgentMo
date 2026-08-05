@@ -3260,26 +3260,26 @@ reconcileExactModuleSurfaces(IO_SURFACE_ALLOWLIST, [
     775:filesystem-read:fs.lstat
     776:filesystem-read:fs.lstat
     955:file-handle-read:FileHandle.read
-    1306:filesystem-read:fs.readdir
-    1319:filesystem-read:fs.lstat
-    1320:filesystem-read:fs.realpath
-    2044:filesystem-read:fs.lstat
-    2048:filesystem-read:fs.realpath
-    2059:filesystem-read:fs.lstat
-    2069:filesystem-read:fs.lstat
-    2095:filesystem-read:fs.realpath
-    2154:filesystem-read:fs.lstat
-    2155:filesystem-read:fs.realpath
-    2407:filesystem-read:fs.lstat
-    2493:filesystem-read:fs.lstat
-    2497:filesystem-read:fs.realpath
-    2500:filesystem-open:fs.open
-    2501:file-handle-read:FileHandle.stat
-    2506:file-handle-read:FileHandle.stat
-    2507:filesystem-read:fs.lstat
-    2627:filesystem-read:fs.realpath
-    2656:filesystem-read:fs.lstat
-    2657:filesystem-read:fs.realpath
+    1310:filesystem-read:fs.readdir
+    1323:filesystem-read:fs.lstat
+    1324:filesystem-read:fs.realpath
+    2048:filesystem-read:fs.lstat
+    2052:filesystem-read:fs.realpath
+    2063:filesystem-read:fs.lstat
+    2073:filesystem-read:fs.lstat
+    2099:filesystem-read:fs.realpath
+    2158:filesystem-read:fs.lstat
+    2159:filesystem-read:fs.realpath
+    2411:filesystem-read:fs.lstat
+    2497:filesystem-read:fs.lstat
+    2501:filesystem-read:fs.realpath
+    2504:filesystem-open:fs.open
+    2505:file-handle-read:FileHandle.stat
+    2510:file-handle-read:FileHandle.stat
+    2511:filesystem-read:fs.lstat
+    2631:filesystem-read:fs.realpath
+    2660:filesystem-read:fs.lstat
+    2661:filesystem-read:fs.realpath
   `),
   exactModuleSurfaceGroup("src/cli.js", "phase-03-plan-05", "gated", `
     616:durable-loader:loadAdmittedBlueprint

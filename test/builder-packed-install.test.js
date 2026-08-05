@@ -2671,7 +2671,15 @@ describe("packed Codex Builder setup", { concurrency: false }, () => {
     assert.equal(first.assets.filter((asset) => asset.kind === "runtime").length, 101);
     assert.deepEqual(
       first.assets.map((asset) => asset.destinationPath),
-      first.assets.map((asset) => asset.destinationPath).toSorted(),
+      first.assets.map((asset) => asset.destinationPath).toSorted((left, right) => {
+        const leftPath = left.toLowerCase();
+        const rightPath = right.toLowerCase();
+        return leftPath < rightPath ? -1
+          : leftPath > rightPath ? 1
+            : left < right ? -1
+              : left > right ? 1
+                : 0;
+      }),
     );
     assert.equal(new Set(first.assets.map((asset) => asset.sourcePath)).size, first.assets.length);
     assert.equal(new Set(first.assets.map((asset) => asset.destinationPath)).size, first.assets.length);
