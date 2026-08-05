@@ -2667,8 +2667,8 @@ describe("packed Codex Builder setup", { concurrency: false }, () => {
         kind, sourcePath, relativePath, destinationPath, digest, byteLength,
       })),
     );
-    assert.equal(first.assets.length, 102);
-    assert.equal(first.assets.filter((asset) => asset.kind === "runtime").length, 97);
+    assert.equal(first.assets.length, 106);
+    assert.equal(first.assets.filter((asset) => asset.kind === "runtime").length, 101);
     assert.deepEqual(
       first.assets.map((asset) => asset.destinationPath),
       first.assets.map((asset) => asset.destinationPath).toSorted(),
@@ -2695,7 +2695,14 @@ describe("packed Codex Builder setup", { concurrency: false }, () => {
     assert.equal(first.assets.some((asset) => asset.sourcePath === "src/openclaw-target-admission.js"), true);
     assert.equal(first.assets.some((asset) => asset.sourcePath === "src/openclaw-target-descriptor.js"), true);
     assert.equal(first.assets.some((asset) => asset.sourcePath === "native/openclaw-fs-kernel.c"), true);
+    assert.equal(first.assets.some((asset) => asset.sourcePath === "native/agentmo-nondumpable-preload.c"), true);
     assert.equal(first.assets.some((asset) => asset.sourcePath === "native/openclaw-process-supervisor.c"), true);
+    assert.equal(first.assets.some((asset) => (
+      asset.sourcePath === "native/prebuilt/linux-x64/agentmo-nondumpable-preload.so"
+    )), true);
+    assert.equal(first.assets.some((asset) => (
+      asset.sourcePath === "native/prebuilt/linux-x64/README.md"
+    )), true);
     assert.equal(first.assets.some((asset) => asset.sourcePath === "src/openclaw-process-supervisor.js"), true);
     assert.equal(first.assets.some((asset) => asset.sourcePath === "src/openclaw-safe-fs.js"), true);
     assert.equal(first.assets.some((asset) => asset.sourcePath === "src/package-carriers.js"), true);

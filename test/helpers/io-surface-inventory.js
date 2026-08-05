@@ -2720,17 +2720,18 @@ exactModuleSurfaceGroup("src/builder-checkpoint.js", "phase-02-plan-15", "gated"
     3416:file-handle-read:FileHandle.stat
     3470:filesystem-read:fs.lstat
     3471:file-handle-read:FileHandle.stat
-    3491:filesystem-open:fs.open
-    3495:file-handle-read:FileHandle.stat
-    3496:filesystem-read:fs.lstat
-    3527:file-handle-read:FileHandle.stat
-    3528:filesystem-read:fs.lstat
-    3538:file-handle-read:FileHandle.stat
-    3539:filesystem-read:fs.lstat
-    3556:file-handle-read:FileHandle.stat
-    3557:filesystem-read:fs.lstat
-    3558:filesystem-read:fs.lstat
-    3670:file-handle-read:FileHandle.read
+    3515:filesystem-read:fs.lstat
+    3538:filesystem-open:fs.open
+    3542:file-handle-read:FileHandle.stat
+    3543:filesystem-read:fs.lstat
+    3574:file-handle-read:FileHandle.stat
+    3575:filesystem-read:fs.lstat
+    3585:file-handle-read:FileHandle.stat
+    3586:filesystem-read:fs.lstat
+    3603:file-handle-read:FileHandle.stat
+    3604:filesystem-read:fs.lstat
+    3605:filesystem-read:fs.lstat
+    3717:file-handle-read:FileHandle.read
   `),
 exactModuleSurfaceGroup("src/builder-lifecycle.js", "phase-02-plan-13", "gated", `
     800:filesystem-open:fs.open
@@ -3029,30 +3030,30 @@ reconcileExactModuleSurfaces(IO_SURFACE_ALLOWLIST, [
     1299:filesystem-open:fs.open
     1303:file-handle-read:FileHandle.stat
     1304:filesystem-read:fs.lstat
-    2272:filesystem-read:fs.lstat
-    2295:filesystem-read:fs.lstat
-    2296:filesystem-read:fs.realpath
-    2299:filesystem-read:fs.readdir
-    2319:filesystem-read:fs.lstat
-    2320:filesystem-read:fs.realpath
-    2321:filesystem-read:fs.readdir
-    2327:filesystem-read:fs.lstat
-    2339:filesystem-read:fs.lstat
-    2340:filesystem-read:fs.realpath
-    2360:filesystem-read:fs.readdir
-    2386:filesystem-read:fs.lstat
-    2418:filesystem-open:fs.open
-    2419:file-handle-read:FileHandle.stat
-    2426:file-handle-read:FileHandle.stat
-    2427:filesystem-read:fs.lstat
-    2463:filesystem-read:fs.lstat
-    2575:filesystem-read:fs.lstat
-    2577:filesystem-read:fs.realpath
-    2605:filesystem-read:fs.lstat
-    2611:filesystem-read:fs.realpath
-    2767:file-handle-read:FileHandle.read
-    2785:filesystem-read:fs.realpath
-    2786:filesystem-read:fs.lstat
+    2273:filesystem-read:fs.lstat
+    2296:filesystem-read:fs.lstat
+    2297:filesystem-read:fs.realpath
+    2300:filesystem-read:fs.readdir
+    2320:filesystem-read:fs.lstat
+    2321:filesystem-read:fs.realpath
+    2322:filesystem-read:fs.readdir
+    2328:filesystem-read:fs.lstat
+    2340:filesystem-read:fs.lstat
+    2341:filesystem-read:fs.realpath
+    2361:filesystem-read:fs.readdir
+    2387:filesystem-read:fs.lstat
+    2419:filesystem-open:fs.open
+    2420:file-handle-read:FileHandle.stat
+    2427:file-handle-read:FileHandle.stat
+    2428:filesystem-read:fs.lstat
+    2470:filesystem-read:fs.lstat
+    2596:filesystem-read:fs.lstat
+    2598:filesystem-read:fs.realpath
+    2626:filesystem-read:fs.lstat
+    2632:filesystem-read:fs.realpath
+    2788:file-handle-read:FileHandle.read
+    2806:filesystem-read:fs.realpath
+    2807:filesystem-read:fs.lstat
   `),
 exactModuleSurfaceGroup("src/builder-package.js", "phase-02-plan-17", "gated", `
     342:filesystem-read:fs.lstat
@@ -3259,26 +3260,26 @@ reconcileExactModuleSurfaces(IO_SURFACE_ALLOWLIST, [
     775:filesystem-read:fs.lstat
     776:filesystem-read:fs.lstat
     955:file-handle-read:FileHandle.read
-    1302:filesystem-read:fs.readdir
-    1315:filesystem-read:fs.lstat
-    1316:filesystem-read:fs.realpath
-    2040:filesystem-read:fs.lstat
-    2044:filesystem-read:fs.realpath
-    2055:filesystem-read:fs.lstat
-    2065:filesystem-read:fs.lstat
-    2091:filesystem-read:fs.realpath
-    2150:filesystem-read:fs.lstat
-    2151:filesystem-read:fs.realpath
-    2403:filesystem-read:fs.lstat
-    2489:filesystem-read:fs.lstat
-    2493:filesystem-read:fs.realpath
-    2496:filesystem-open:fs.open
-    2497:file-handle-read:FileHandle.stat
-    2502:file-handle-read:FileHandle.stat
-    2503:filesystem-read:fs.lstat
-    2623:filesystem-read:fs.realpath
-    2652:filesystem-read:fs.lstat
-    2653:filesystem-read:fs.realpath
+    1306:filesystem-read:fs.readdir
+    1319:filesystem-read:fs.lstat
+    1320:filesystem-read:fs.realpath
+    2044:filesystem-read:fs.lstat
+    2048:filesystem-read:fs.realpath
+    2059:filesystem-read:fs.lstat
+    2069:filesystem-read:fs.lstat
+    2095:filesystem-read:fs.realpath
+    2154:filesystem-read:fs.lstat
+    2155:filesystem-read:fs.realpath
+    2407:filesystem-read:fs.lstat
+    2493:filesystem-read:fs.lstat
+    2497:filesystem-read:fs.realpath
+    2500:filesystem-open:fs.open
+    2501:file-handle-read:FileHandle.stat
+    2506:file-handle-read:FileHandle.stat
+    2507:filesystem-read:fs.lstat
+    2627:filesystem-read:fs.realpath
+    2656:filesystem-read:fs.lstat
+    2657:filesystem-read:fs.realpath
   `),
   exactModuleSurfaceGroup("src/cli.js", "phase-03-plan-05", "gated", `
     616:durable-loader:loadAdmittedBlueprint

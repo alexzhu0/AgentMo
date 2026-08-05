@@ -1101,7 +1101,11 @@ function buildBuilderReleaseAssetInventory() {
       relativePath: `runtime/agentmo/${sourcePath}`,
       destinationPath: `plugins/agentmo/runtime/agentmo/${sourcePath}`,
     })),
-  ].sort((left, right) => left.destinationPath.localeCompare(right.destinationPath));
+  ].sort((left, right) => (
+    left.destinationPath < right.destinationPath ? -1
+      : left.destinationPath > right.destinationPath ? 1
+        : 0
+  ));
   return Object.freeze(descriptors.map((descriptor) => Object.freeze(descriptor)));
 }
 

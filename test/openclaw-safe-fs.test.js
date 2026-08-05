@@ -526,8 +526,9 @@ describe("OpenClaw safe fs retained-dirfd kernel", {
       const deadline = Date.now() + 10_000;
       while (Date.now() < deadline) {
         try {
-          assert.equal(await readFile(barrierPath, "utf8"), "ready\n");
-          return;
+          const marker = await readFile(barrierPath, "utf8");
+          if (marker === "ready\n") return;
+          if (marker !== "") assert.fail(`invalid ${description} marker`);
         } catch (error) {
           if (error?.code !== "ENOENT") throw error;
         }
@@ -535,7 +536,7 @@ describe("OpenClaw safe fs retained-dirfd kernel", {
           if (buildOutcome.error !== null) throw buildOutcome.error;
           assert.fail(`build completed before ${description}`);
         }
-        await new Promise((resolve) => setImmediate(resolve));
+        await new Promise((resolve) => setTimeout(resolve, 5));
       }
       assert.fail(`timed out waiting for ${description}`);
     };
