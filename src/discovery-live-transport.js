@@ -31,9 +31,25 @@ const REQUEST_PROFILES = Object.freeze({
   }),
 });
 
-export const DEFAULT_DISCOVERY_LIVE_TRANSPORT = Object.freeze({
-  request: requestHttps,
-});
+const DISCOVERY_NETWORK_MODES = new Set(["public-only", "synthetic-dns-proxy"]);
+const SYNTHETIC_DNS_PROXY_HOSTS = new Set([
+  "aihot.virxact.com",
+  "api.github.com",
+  "export.arxiv.org",
+  "blogs.windows.com",
+]);
+
+export const DEFAULT_DISCOVERY_LIVE_TRANSPORT = createDiscoveryLiveTransport();
+
+export function createDiscoveryLiveTransport({ networkMode = "public-only" } = {}) {
+  if (!DISCOVERY_NETWORK_MODES.has(networkMode)) {
+    throw transportError("AGENTMO_DISCOVERY_LIVE_TRANSPORT_CONTRACT");
+  }
+  return Object.freeze({
+    networkMode,
+    request: (request) => requestHttps(request, networkMode),
+  });
+}
 
 export function normalizeDiscoveryLiveTransport(value) {
   const transport = value ?? DEFAULT_DISCOVERY_LIVE_TRANSPORT;
@@ -46,6 +62,16 @@ export function normalizeDiscoveryLiveTransport(value) {
     throw new TypeError("Discovery live transport is invalid.");
   }
   return transport;
+}
+
+export function boundedDiscoveryLiveRequestHeaders(profile, value) {
+  const preset = REQUEST_PROFILES[profile];
+  if (preset === undefined) throw transportError("AGENTMO_DISCOVERY_LIVE_TRANSPORT_CONTRACT");
+  const etag = value?.["if-none-match"];
+  if (etag !== undefined && (typeof etag !== "string" || etag.length === 0 || etag.length > 1024)) {
+    throw transportError("AGENTMO_DISCOVERY_LIVE_TRANSPORT_CONTRACT");
+  }
+  return Object.freeze({ ...preset, ...(etag ? { "if-none-match": etag } : {}) });
 }
 
 export function isPublicNetworkAddress(value) {
@@ -64,15 +90,21 @@ export function isPublicNetworkAddress(value) {
   return true;
 }
 
-async function requestHttps(request) {
+export function isDiscoveryNetworkAddressAllowed(value, networkMode = "public-only", hostname = "") {
+  if (isPublicNetworkAddress(value)) return true;
+  return networkMode === "synthetic-dns-proxy"
+    && SYNTHETIC_DNS_PROXY_HOSTS.has(hostname)
+    && isSyntheticDnsProxyIpv4(value);
+}
+
+async function requestHttps(request, networkMode = "public-only") {
   const url = new URL(request?.url);
   if (url.protocol !== "https:") throw transportError("AGENTMO_DISCOVERY_LIVE_HTTPS_REQUIRED");
   if (request?.redirectMode !== "manual") {
     throw transportError("AGENTMO_DISCOVERY_LIVE_TRANSPORT_CONTRACT");
   }
-  const headers = REQUEST_PROFILES[request?.profile];
-  if (headers === undefined) throw transportError("AGENTMO_DISCOVERY_LIVE_TRANSPORT_CONTRACT");
-  const addresses = await resolvePublicAddresses(url.hostname);
+  const headers = boundedDiscoveryLiveRequestHeaders(request?.profile, request?.headers);
+  const addresses = await resolveAllowedAddresses(url.hostname, networkMode);
   const selected = addresses[0];
 
   return new Promise((resolve, reject) => {
@@ -80,16 +112,16 @@ async function requestHttps(request) {
       method: "GET",
       signal: request.signal,
       maxHeaderSize: 16_384,
+      rejectUnauthorized: true,
       headers,
-      lookup(_hostname, _options, callback) {
-        callback(null, selected.address, selected.family);
-      },
+      lookup: createPinnedDiscoveryLookup(selected),
     }, (response) => {
       resolve({
         status: response.statusCode,
         url: url.href,
         remoteAddress: response.socket?.remoteAddress ?? selected.address,
         resolvedAddresses: addresses.map((item) => item.address),
+        tlsAuthorized: response.socket?.authorized === true,
         headers: boundedHeaders(response.headers),
         body: response,
       });
@@ -99,7 +131,14 @@ async function requestHttps(request) {
   });
 }
 
-async function resolvePublicAddresses(hostname) {
+export function createPinnedDiscoveryLookup(selected) {
+  return function pinnedDiscoveryLookup(_hostname, options, callback) {
+    if (options?.all === true) callback(null, [{ address: selected.address, family: selected.family }]);
+    else callback(null, selected.address, selected.family);
+  };
+}
+
+async function resolveAllowedAddresses(hostname, networkMode) {
   if (isIP(hostname) !== 0) {
     if (!isPublicNetworkAddress(hostname)) {
       throw transportError("AGENTMO_DISCOVERY_LIVE_PRIVATE_DESTINATION");
@@ -114,11 +153,17 @@ async function resolvePublicAddresses(hostname) {
   }
   if (
     addresses.length === 0
-    || addresses.some((item) => !isPublicNetworkAddress(item.address))
+    || addresses.some((item) => !isDiscoveryNetworkAddressAllowed(item.address, networkMode, hostname))
   ) {
     throw transportError("AGENTMO_DISCOVERY_LIVE_PRIVATE_DESTINATION");
   }
   return addresses;
+}
+
+function isSyntheticDnsProxyIpv4(address) {
+  if (typeof address !== "string" || isIP(address) !== 4) return false;
+  const [a, b] = address.split(".").map(Number);
+  return a === 198 && (b === 18 || b === 19);
 }
 
 function boundedHeaders(headers) {

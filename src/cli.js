@@ -105,6 +105,7 @@ import { buildDomainEval, formatDomainEval } from "./domain-eval.js";
 import { buildHandoffPackage, formatHandoffPackage, writeHandoffPackage } from "./handoff.js";
 import { buildAgentMoReport, formatAgentMoReport } from "./report.js";
 import { buildPlan } from "./build-plan.js";
+import { runPocCommand } from "./poc-cli.js";
 import { buildRuntimePlan } from "./runtime-plan.js";
 import { assertCurrentOpenClawTargetRuntime } from "./runtime-compatibility.js";
 import {
@@ -1816,7 +1817,9 @@ async function runCommand(args) {
     return;
   }
 
-  throw new Error(`Unknown command: ${command}\n\n${helpText()}`);
+  return command === "poc"
+    ? runPocCommand(rest, { resolve, readFile, emitNonArtifactOutput, cliError })
+    : Promise.reject(new Error(`Unknown command: ${command}\n\n${helpText()}`));
 }
 
 async function readInternalBuilderHookInput() {
@@ -2820,7 +2823,7 @@ function cliErrorEnvelope(error) {
       ? cliErrorGuidance(category, code)
       : `Correct the listed fields using \`agentmo artifact-contract ${validationDetails.subject} --json\`, then recompute the exact digest.`,
     ...(validationDetails ?? {}),
-    ...(recovery === null ? {} : { recovery }),
+    ...(recovery === null ? {} : { recovery }), ...(boundedPocCliDiagnostic(error)),
   };
 }
 
@@ -6195,6 +6198,12 @@ Usage:
   agentmo migrate <input-0.json> [input-N.json ...] --digest migration-input-0=sha256:<64hex> [--digest migration-input-N=sha256:<64hex> ...] [--out <new-dir>] [--json]
   agentmo runtime-check --target openclaw [--json]
   agentmo artifact-contract decision-entry|discovery-manifest|openclaw-probe|openclaw-target-carrier-admission|openclaw-target-descriptor|package-manifest|user-need [--json]
+  agentmo poc build --seed <poc-seed.json> --out <absent-dir> [--json]
+  agentmo poc check <workspace-dir> [--json]
+  agentmo poc collect <workspace-dir> --sources <research-sources.json> [--network-mode public-only|synthetic-dns-proxy] [--json]
+  agentmo poc brief <workspace-dir> --date YYYY-MM-DD [--json]
+  agentmo poc schedule-preview <workspace-dir> [--json]
+  agentmo poc run <workspace-dir> --profile <isolated-profile> --model deepseek/<model> --runtime-env-file <path> --message <text> [--json]
   agentmo validate <blueprint.json> --digest blueprint=sha256:<64hex>
   agentmo report <blueprint.json> --digest blueprint=sha256:<64hex> [--discovery-manifest <discovery.json> --digest discovery-manifest=sha256:<64hex>] [--json]
   agentmo discover-report <discovery.json> --digest discovery-manifest=sha256:<64hex> [--json]
@@ -6240,6 +6249,7 @@ Concepts:
   migrate          Preview or explicitly apply a value-blind legacy artifact migration.
   runtime-check    Inspect the current process against the OpenClaw target runtime contract.
   artifact-contract  Export a field-level JSON Schema and valid minimal template for an operator-authored artifact.
+  poc              Build, explicitly collect into, or brief an isolated local OpenClaw POC workspace. Schedule activation is not included.
   validate         Check an AgentMo blueprint and its quality gates.
   report           Build a human or JSON AgentMo readiness report.
   discover-report  Validate and summarize a discovery/input manifest.
@@ -6315,6 +6325,16 @@ function commandHelpText(command) {
     "artifact-contract": `AgentMo artifact-contract
 Usage: agentmo artifact-contract decision-entry|discovery-manifest|openclaw-probe|openclaw-target-carrier-admission|openclaw-target-descriptor|package-manifest|user-need [--json]
 Exports the complete field-level JSON Schema and a valid minimal template.
+`,
+    poc: `AgentMo POC
+Usage:
+  agentmo poc build --seed <poc-seed.json> --out <absent-dir> [--json]
+  agentmo poc check <workspace-dir> [--json]
+  agentmo poc collect <workspace-dir> --sources <research-sources.json> [--network-mode public-only|synthetic-dns-proxy] [--json]
+  agentmo poc brief <workspace-dir> --date YYYY-MM-DD [--json]
+  agentmo poc schedule-preview <workspace-dir> [--json]
+  agentmo poc run <workspace-dir> --profile <isolated-profile> --model deepseek/<model> --runtime-env-file <path> --message <text> [--json]
+Build writes an isolated local OpenClaw workspace from externally curated seed records. Collect only requests closed research sources and persists bounded metadata. The default network mode remains public-only; synthetic-dns-proxy is an explicit opt-in for the fixed source hostnames and still requires hostname-authenticated TLS with no redirects. Brief writes local evidence projection only. Schedule preview is inert. Run creates a profile HOME inside that workspace, uses the named profile, and invokes only one local agent turn. None of these commands delivers a reply or activates a schedule.
 `,
     "discover-report": `AgentMo discover-report
 Usage: agentmo discover-report <discovery.json> --digest discovery-manifest=sha256:<64hex> [--json]
@@ -6415,4 +6435,32 @@ Every authority is re-read from exact published bytes with its caller-supplied S
 `,
   };
   return Object.hasOwn(entries, command) ? entries[command] : null;
+}
+
+function boundedPocCliDiagnostic(error) {
+  const value = error?.pocDiagnostic;
+  if (![
+    "AGENTMO_POC_OPENCLAW_PLUGIN_INSTALL_FAILED",
+    "AGENTMO_POC_OPENCLAW_PLUGIN_TRUST_FAILED",
+    "AGENTMO_POC_OPENCLAW_PROVIDER_CONFIG_FAILED",
+    "AGENTMO_POC_OPENCLAW_REGISTER_FAILED",
+    "AGENTMO_POC_OPENCLAW_INVOKE_FAILED",
+    "AGENTMO_POC_OPENCLAW_EMPTY_REPLY",
+    "AGENTMO_POC_OPENCLAW_OUTPUT_INVALID",
+    "AGENTMO_POC_RESEARCH_INPUT_INVALID",
+  ].includes(error?.code)
+    || value === null
+    || typeof value !== "object"
+    || Array.isArray(value)
+    || !exactObjectKeys(value, ["operation", "exitCode", "summary"])
+    || !["plugin-trust", "provider-config", "plugin-install", "register", "invoke", "collect"].includes(value.operation)
+    || !Number.isInteger(value.exitCode)
+    || (["AGENTMO_POC_OPENCLAW_EMPTY_REPLY", "AGENTMO_POC_OPENCLAW_OUTPUT_INVALID"].includes(error?.code) ? value.exitCode !== 0 : value.exitCode < 1)
+    || value.exitCode > 255
+    || typeof value.summary !== "string"
+    || value.summary.length > 800
+    || redactHostAbsolutePaths(value.summary) !== value.summary) {
+    return {};
+  }
+  return { pocDiagnostic: value };
 }

@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "agentmo.poc-seed.v1",
+  "agentId": "white-collar-research-poc",
+  "records": [
+    {
+      "id": "agent-memory-retrieval-paper",
+      "title": "Storage Is Not Memory: A Retrieval-Centered Architecture for Agent Recall",
+      "url": "https://arxiv.org/abs/2605.04897",
+      "publishedAt": "2026-05-06T13:27:41.000Z",
+      "collectedAt": "2026-08-05T00:00:00.000Z",
+      "category": "agent-memory",
+      "sourceType": "paper",
+      "trustTier": "primary",
+      "summary": "Technical report proposing a retrieval-centered agent-memory architecture; this seed preserves only a bounded citation and summary."
+    },
+    {
+      "id": "openai-memory-dreaming-release",
+      "title": "Dreaming: Better memory for a more helpful ChatGPT",
+      "url": "https://openai.com/index/chatgpt-memory-dreaming/",
+      "publishedAt": "2026-06-04T00:00:00.000Z",
+      "collectedAt": "2026-08-05T00:00:00.000Z",
+      "category": "company-memory-update",
+      "sourceType": "company-statement",
+      "trustTier": "first-party",
+      "summary": "OpenAI product and research release about memory synthesis, freshness, continuity, and relevance."
+    },
+    {
+      "id": "openclaw-2026-7-1-2-release",
+      "title": "OpenClaw 2026.7.1-2",
+      "url": "https://github.com/openclaw/openclaw/releases/tag/v2026.7.1-2",
+      "publishedAt": "2026-08-04T00:41:00.000Z",
+      "collectedAt": "2026-08-05T00:00:00.000Z",
+      "category": "openclaw-release",
+      "sourceType": "official-release",
+      "trustTier": "first-party",
+      "summary": "Official OpenClaw correction release; consult the cited release for exact scope and compatibility details."
+    }
+  ]
+}

@@ -32,6 +32,46 @@ Discover what to build
 
 AgentMo currently provides a dependency-free Node CLI:
 
+### White-collar research OpenClaw POC
+
+The current POC lane builds a local OpenClaw workspace for white-collar AI
+research, collects bounded metadata into a persistent Research DB, deduplicates
+successful repeated collections, writes an Asia/Shanghai daily evidence brief,
+and invokes an isolated DeepSeek-backed OpenClaw agent against local evidence.
+
+```text
+node ./bin/agentmo.js poc build \
+  --seed examples/ai-frontier-poc.seed.json \
+  --out /private/tmp/agentmo-white-collar-poc --json
+
+node ./bin/agentmo.js poc collect \
+  /private/tmp/agentmo-white-collar-poc \
+  --sources examples/white-collar-research.sources.json \
+  --network-mode public-only --json
+
+node ./bin/agentmo.js poc brief \
+  /private/tmp/agentmo-white-collar-poc \
+  --date YYYY-MM-DD --json
+
+node ./bin/agentmo.js poc schedule-preview \
+  /private/tmp/agentmo-white-collar-poc --json
+```
+
+`public-only` remains the default network policy. Hosts whose trusted local
+proxy maps the four fixed POC source names into `198.18.0.0/15` may explicitly
+select `--network-mode synthetic-dns-proxy`. That mode does not admit IP-literal
+targets, redirects, other private/reserved ranges, or unauthenticated TLS.
+Per-source failures are counted without erasing records from successful
+sources; a collection with no successful source still fails closed.
+
+The 2026-08-06 independent acceptance run admitted 20 dynamic records on its
+first qualifying collection, admitted zero duplicates on its second, restored
+the same DB after restart, produced an 8-evidence/0-gap brief, and completed
+short evidence-bound OpenClaw/DeepSeek questions. This is POC mechanism and
+acceptance evidence only: schedule activation, delivery, complete source
+health, domain certification, and production readiness remain unproved. See
+`release/2026.08.06.md`.
+
 ### Agent Package and OpenClaw lifecycle
 
 Phase 4 turns one exact-approved build contract into a target-neutral canonical

@@ -201,6 +201,7 @@ describe("OpenClaw runtime compatibility seams", () => {
       { file: "src/openclaw-probe.js", count: 1 },
       { file: "src/openclaw-process-supervisor.js", count: 1 },
       { file: "src/openclaw-safe-fs.js", count: 2 },
+      { file: "src/poc-openclaw-runtime.js", count: 1 },
       { file: "src/runtime-execution.js", count: 1 },
     ]);
   });

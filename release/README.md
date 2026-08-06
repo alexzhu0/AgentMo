@@ -32,6 +32,8 @@ Release 记录按日期倒序维护（最新在前），不要按版本号排序
 
 | 日期 | 阶段 | 状态 | 记录 | GitHub Release |
 | --- | --- | --- | --- | --- |
+| 2026.08.06 | 白领 Research DB / OpenClaw 独立黑盒 POC | 验收运行 PASS：首次 20 条、二次 0 重复、重启恢复、8 证据/0 缺口 brief 与证据约束问答通过；schedule、完整来源健康与生产认证仍未完成；未发布 release | [`2026.08.06.md`](./2026.08.06.md) | 待发布 |
+| 2026.08.05 | 白领 Research DB / OpenClaw POC 与全量检查单飞门禁 | POC 专项、Builder 生命周期与 tarball 安全验证通过；真实采集、scheduler activation 与完整无竞争全量 gate 仍待完成；未发布 release | [`2026.08.05.md`](./2026.08.05.md) | 待发布 |
 | 2026.08.04 | Phase 4：native authority race closure 与 POC 前最终 Linux gate | fresh review 的最终 2 Critical / 1 Warning 已完成源码与聚焦 Linux 修复；精确 commit、完整 8/8 CI 与零缺陷 re-audit 待完成；未发布 release | [`2026.08.04.md`](./2026.08.04.md) | 待发布 |
 | 2026.08.03 | Phase 4：exact-candidate Linux/full gate 与 gap-closure pre-audit 证据 | `d943bc0` run `30799041760` 8/8 jobs green；fresh noncanonical audit 3 Critical / 1 Warning，Phase 4 blocked；未发布 release | [`2026.08.03.md`](./2026.08.03.md) | 待发布 |
 | 2026.08.02 | Phase 4：authority-root、named candidate 与 Linux supervisor 多轮对抗加固 | remediation 已进入 `codex/phase2-poc-baseline` Linux CI 候选；Darwin 聚焦 gate 6 pass / 0 fail / 11 Linux skip；精确 commit 的 Linux gate 后再复审，未发布 release | [`2026.08.02.md`](./2026.08.02.md) | 待发布 |

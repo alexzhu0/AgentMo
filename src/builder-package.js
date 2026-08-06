@@ -35,7 +35,11 @@ const BUILDER_UAT_RELEASE_MANIFEST_DESCRIPTOR = Object.freeze({
 });
 export const BUILDER_RELEASE_ASSET_INVENTORY = buildBuilderReleaseAssetInventory();
 export const BUILDER_PLUGIN_FILES = Object.freeze(BUILDER_RELEASE_ASSET_INVENTORY.map((asset) => asset.relativePath));
-export const BUILDER_NPM_METADATA_FILES = Object.freeze(["README.md"]);
+export const BUILDER_NPM_METADATA_FILES = Object.freeze([
+  "README.md",
+  "examples/ai-frontier-poc.seed.json",
+  "examples/white-collar-research.sources.json",
+]);
 export const BUILDER_NPM_FILES_ALLOWLIST = Object.freeze([
   ...BUILDER_NPM_METADATA_FILES,
   ...BUILDER_RELEASE_ASSET_INVENTORY.map((asset) => asset.sourcePath),
@@ -104,7 +108,9 @@ const BUILDER_POSIX_EFFECT_CHILD_FUNCTION_DIGEST =
 const BUILDER_POSIX_EFFECT_RUN_FUNCTION_DIGEST =
   "sha256:feed5d9126c94da1db06e687aa9d1a38b86f6db0f9801104b7d769bf063054ab";
 const MODULE_PACKAGE_ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
-const MAX_PACKAGE_FILE_BYTES = 256 * 1024;
+// CLI aggregation is a legitimate executable source member; keep a bounded
+// headroom above the historic 256 KiB ceiling without accepting arbitrary blobs.
+const MAX_PACKAGE_FILE_BYTES = 320 * 1024;
 const VERSION_PATTERN = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/u;
 const DIGEST_PATTERN = /^sha256:[a-f0-9]{64}$/u;
 const BUILDER_UAT_RELEASE_SET_COMMIT_NAME = "agentmo-builder-uat-release-set.json";
@@ -527,13 +533,17 @@ function sameBuilderUatReleaseIdentity(left, right) {
 }
 
 async function assertExactBuilderNpmTarballExtraction(tarballBytes, release, packageRoot) {
-  const readmeBytes = await readBoundedNoFollowFile(
-    path.join(path.resolve(packageRoot), "README.md"),
-    MAX_PACKAGE_FILE_BYTES,
-  );
+  const resolvedPackageRoot = path.resolve(packageRoot);
+  const metadataEntries = await Promise.all(BUILDER_NPM_METADATA_FILES.map(async (relativePath) => [
+    relativePath,
+    await readBoundedNoFollowFile(
+      path.join(resolvedPackageRoot, ...relativePath.split("/")),
+      MAX_PACKAGE_FILE_BYTES,
+    ),
+  ]));
   const expectedFiles = new Map([
     ...release.assets.map((asset) => [asset.sourcePath, asset.bytes]),
-    ["README.md", readmeBytes],
+    ...metadataEntries,
   ]);
   const expectedPaths = [...expectedFiles.keys()].sort((left, right) => left.localeCompare(right));
   const requiredPaths = buildBuilderNpmTarballInventory({ includeUatReleaseManifest: true });
@@ -1068,6 +1078,14 @@ function buildBuilderReleaseAssetInventory() {
     "src/package-contract.js",
     "src/package-inspect.js",
     "src/package-produce.js",
+    "src/poc-agent.js",
+    "src/poc-cli.js",
+    "src/poc-openclaw-runtime.js",
+    "src/poc-research-brief.js",
+    "src/poc-research-collector.js",
+    "src/poc-research-contract.js",
+    "src/poc-research-store.js",
+    "src/poc-research-workspace.js",
     "src/plan-approval.js",
     "src/persistability.js",
     "src/report.js",

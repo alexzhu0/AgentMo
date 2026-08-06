@@ -342,6 +342,7 @@ describe("artifact/output surface inventory", () => {
             "phase-04-plan-08",
             "phase-04-plan-12",
             "phase-04-plan-16",
+            "phase-04-plan-19",
           ].includes(row.owner))
     )), true);
   });

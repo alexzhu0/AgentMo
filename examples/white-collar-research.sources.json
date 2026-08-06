@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "agentmo.poc-research-sources.v1",
+  "agentId": "white-collar-research-poc",
+  "sources": [
+    {
+      "id": "aihot-selected",
+      "adapter": "aihot-v1",
+      "origin": "https://aihot.virxact.com",
+      "pathPrefix": "/api/v1/items",
+      "requestPath": "/api/v1/items?mode=selected&window=24h&limit=10",
+      "sourceRole": "curated",
+      "trustTier": "community",
+      "domains": ["ai-capability", "white-collar-needs"],
+      "scenarios": ["knowledge-documents", "meetings-collaboration"]
+    },
+    {
+      "id": "arxiv-ai-agents",
+      "adapter": "arxiv-atom",
+      "origin": "https://export.arxiv.org",
+      "pathPrefix": "/api/query",
+      "requestPath": "/api/query?search_query=cat%3Acs.AI+OR+cat%3Acs.CL&sortBy=submittedDate&sortOrder=descending&max_results=10",
+      "sourceRole": "first-party",
+      "trustTier": "primary",
+      "domains": ["ai-capability"],
+      "scenarios": ["knowledge-documents", "data-analysis-decision"]
+    },
+    {
+      "id": "github-openclaw-releases",
+      "adapter": "github-release",
+      "origin": "https://api.github.com",
+      "pathPrefix": "/repos/openclaw/openclaw/releases",
+      "requestPath": "/repos/openclaw/openclaw/releases?per_page=10",
+      "sourceRole": "first-party",
+      "trustTier": "first-party",
+      "domains": ["ai-capability", "device-software"],
+      "scenarios": ["knowledge-documents", "meetings-collaboration", "data-analysis-decision"]
+    },
+    {
+      "id": "windows-insider-blog",
+      "adapter": "official-feed",
+      "origin": "https://blogs.windows.com",
+      "pathPrefix": "/windows-insider/",
+      "requestPath": "/windows-insider/feed/",
+      "sourceRole": "first-party",
+      "trustTier": "first-party",
+      "domains": ["device-software"],
+      "scenarios": ["knowledge-documents", "meetings-collaboration"]
+    }
+  ],
+  "skillCandidates": [
+    {
+      "id": "last30days-skill",
+      "origin": "https://github.com/mvanhorn/last30days-skill",
+      "admission": "review-required"
+    }
+  ]
+}
