@@ -2,6 +2,10 @@
 
 本目录记录 AgentMo 每个阶段性大版本的设计动机、实际能力、验证证据和剩余风险。
 
+产品目标、项目演进和当前/未来方向的总览见
+[`PROJECT_HISTORY.md`](./PROJECT_HISTORY.md)。各日期记录仍是精确实现与验证事实的
+权威来源。
+
 命名规则：
 
 ```text
@@ -61,10 +65,11 @@ Release 记录按日期倒序维护（最新在前），不要按版本号排序
 ## 当前恢复锚点
 
 - 当前项目：`$AGENTMO_REPO`
-- 当前 Phase 4 maintained records：`release/2026.07.29.md` 记录 exact target/carrier 与初始 package/lifecycle closure；`release/2026.07.30.md`、`release/2026.07.31.md` 保留各自历史 source/gate；`release/2026.08.02.md` 记录 fresh Critical 3 remediation 与当前 pending gates。后续记录不倒写历史证据，也不替代 Phase 3 `release/2026.07.28.md`。
+- 当前短期恢复入口：先读 `docs/CURRENT_STATUS.md`，再读本索引与 `release/2026.08.06.md`。该页区分已验收的隔离白领 Research DB / OpenClaw POC、尚未提交的 Dashboard worktree，以及仍需独立证明的 Linux native / 生产化边界。
+- Phase 4 maintained records：`release/2026.07.29.md` 至 `release/2026.08.04.md` 保留 deterministic package、Linux gate 与审计历史；它们不被 2026-08 POC 结果覆盖。`release/2026.08.05.md` 与 `release/2026.08.06.md` 记录独立 POC lane 与其边界。
 - 历史已记录的 published baseline：`v0.1.0`；当前日期记录不推断新的 tag、GitHub Release、npm publication 或 deployment。
-- 当前重点：三轮 fresh re-audit 均保留为历史证据；第三轮 Critical 3 / Warning 1 已有 signal/bootstrap/x32 targeted remediation，但 Linux native supervisor 的六项对抗用例尚未执行。先过 Linux runtime gate，再进行下一轮 independent re-audit。Phase 4 保持 blocked，不得标为 passed，也不得进入 Phase 5 completion claim。
+- 当前重点：隔离 POC 已能通过 Dashboard 与 DeepSeek 对本地 Research DB 对话；schedule、投递、默认 OpenClaw 安装、完整来源健康、领域质量与生产认证均未获授权或证明。Linux native evidence 仍是 Phase 4 的独立 future gate；Mac POC 不需要迁移到 Linux。
 - 当前迁移规则：projected-v2 canonical receipt 不允许原位替换为 activated-v4；保留 genesis，并使用 immutable version-qualified lifecycle successor。`deactivate` 追加 tombstone，`reactivate` 追加 successor；不提供 purge、selector removal 或 physical delete。
 - 当前 UAT authority：`preview` 只读；`decide approve|reject` 仅 caller-reported 且 nonterminal。独立 external human decision authority 尚未实现，不得声称 11/11、domain 或 production certification。
 - 当前主线：继续只在 AgentMo 内维护，不把 sibling projects 的工作混入本仓库 commit。
-- 当前恢复入口：`release/2026.07.31.md`、`.planning/phases/04-package/04-PRE-VERIFICATION-AUDIT.md`、`release/2026.07.30.md`、`release/2026.07.29.md`、历史 `release/2026.07.28.md`、`docs/OMX_SESSION_MIGRATION.md`、仓库根目录 `AGENTS.md`、`README.md`、`docs/MVP_RUNBOOK.md`。
+- 当前恢复入口：`docs/CURRENT_STATUS.md`、`release/2026.08.06.md`、`docs/OMX_SESSION_MIGRATION.md`、仓库根目录 `AGENTS.md`、`README.md`、`docs/MVP_RUNBOOK.md`；需要追溯 Phase 4 时再读相应 `.planning/phases/04-package/` 与 2026.07.29–2026.08.04 release records。

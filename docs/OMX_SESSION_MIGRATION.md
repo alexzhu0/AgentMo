@@ -1,10 +1,22 @@
 # AgentMo OMX Session Migration Handoff
 
+## Current recovery anchor — 2026-08-06
+
+Read `docs/CURRENT_STATUS.md` first. It is the current concise state for the
+white-collar Research DB / OpenClaw POC, the isolated Dashboard entry, current
+dirty worktree, verification result, and remaining human decisions.
+
+The 2026-07-28 material below is retained as historical Phase 3 recovery
+evidence. It must not override `docs/CURRENT_STATUS.md`, the newest release
+record, or live `git` state. In particular, do not infer from it that Phase 3
+planning is the current active task, that the Phase 4 Linux gate is complete,
+or that POC state is a durable production installation.
+
 Date: 2026-07-28
 Purpose: recover AgentMo after the Phase 02 local release gate and Phase 03 approved research-to-build-contract implementation without mixing in `pi`, Win9, OpenClaw, or AgentHarness implementation work.
 Mode: current durable recovery anchor. Sections explicitly marked historical are context only and do not override this header or Sections 1–3.
 
-## Current Phase 3 recovery contract
+## Historical 2026-07-28 Phase 3 recovery contract
 
 Phase 3 now composes in fresh processes from exact artifacts, including `agentmo.discovery-approval.v1`:
 

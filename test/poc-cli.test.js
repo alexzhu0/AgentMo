@@ -109,6 +109,50 @@ describe("poc CLI", () => {
     assert.equal(JSON.parse(run.stdout).code, "AGENTMO_POC_RUNTIME_ENV_UNAVAILABLE");
   });
 
+  it("accepts the bounded Dashboard surface before requiring runtime secrets", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agentmo-poc-cli-dashboard-"));
+    const seedPath = path.join(root, "seed.json");
+    const workspace = path.join(root, "workspace");
+    await writeFile(seedPath, `${JSON.stringify(seed())}\n`, "utf8");
+    assert.equal((await runCli(["poc", "build", "--seed", seedPath, "--out", workspace, "--json"])).code, 0);
+
+    const dashboard = await runCli([
+      "poc", "dashboard", workspace,
+      "--profile", "agentmo-poc-ai-frontier",
+      "--model", "deepseek/deepseek-v4-flash",
+      "--runtime-env-file", path.join(root, "missing.env"),
+      "--port", "18889",
+      "--json",
+    ]);
+    assert.equal(dashboard.code, 1);
+    assert.equal(JSON.parse(dashboard.stdout).code, "AGENTMO_POC_RUNTIME_ENV_UNAVAILABLE");
+
+    const invalidPort = await runCli([
+      "poc", "dashboard", workspace,
+      "--profile", "agentmo-poc-ai-frontier",
+      "--model", "deepseek/deepseek-v4-flash",
+      "--runtime-env-file", path.join(root, "missing.env"),
+      "--port", "18789x",
+      "--json",
+    ]);
+    assert.equal(invalidPort.code, 1);
+    assert.equal(JSON.parse(invalidPort.stdout).code, "AGENTMO_CLI_REQUEST_REJECTED");
+
+    for (const [flag, value] of [["--profile", "main"], ["--model", "openai/gpt-5"]]) {
+      const args = [
+        "poc", "dashboard", workspace,
+        "--profile", "agentmo-poc-ai-frontier",
+        "--model", "deepseek/deepseek-v4-flash",
+        "--runtime-env-file", path.join(root, "missing.env"),
+        "--json",
+      ];
+      args[args.indexOf(flag) + 1] = value;
+      const rejected = await runCli(args);
+      assert.equal(rejected.code, 1);
+      assert.equal(JSON.parse(rejected.stdout).code, "AGENTMO_CLI_REQUEST_REJECTED");
+    }
+  });
+
   it("diagnoses a research source registry bound to a different agent", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agentmo-poc-cli-collect-identity-"));
     const seedPath = path.join(root, "seed.json");
@@ -143,6 +187,8 @@ describe("poc CLI", () => {
     const help = await runCli(["poc", "--help"]);
     assert.equal(help.code, 0, help.stderr);
     assert.match(help.stdout, /poc collect .*--network-mode public-only\|synthetic-dns-proxy/u);
+    assert.match(help.stdout, /poc dashboard .*--runtime-env-file <path>.*--port <port>/u);
+    assert.match(help.stdout, /isolated OpenClaw Dashboard/u);
   });
 
   it("reports bounded success and failure counts for a partial collection", () => {

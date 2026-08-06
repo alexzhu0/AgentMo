@@ -13,6 +13,19 @@ export async function runPocCommand(args, dependencies) {
     await emitNonArtifactOutput(result, { json: options.json, subject: "poc-run-output", format: formatPocRun });
     return;
   }
+  if (options.action === "dashboard") {
+    const { openPocDashboardUrl, runPocOpenClawDashboard } = await import("./poc-openclaw-runtime.js");
+    await runPocOpenClawDashboard({
+      ...options,
+      openDashboard: openPocDashboardUrl,
+      onReady: async (result) => emitNonArtifactOutput(result, {
+        json: options.json,
+        subject: "poc-dashboard-output",
+        format: formatPocDashboard,
+      }),
+    });
+    return;
+  }
   if (options.action === "collect") {
     const workspaceCheck = await checkPocWorkspace(options.workspace);
     const [registry, workspaceModule, collector, transportModule] = await Promise.all([
@@ -89,6 +102,7 @@ function parsePocArgs(args, { resolve, cliError }) {
     return { action, workspace: resolve(workspace), json: rest.includes("--json") };
   }
   if (action === "collect") return parseCollect(rest, resolve, cliError);
+  if (action === "dashboard") return parseDashboard(rest, resolve, cliError);
   if (action === "brief") return parseWorkspaceOption(rest, action, "--date", "date", resolve, cliError, (value) => /^\d{4}-\d{2}-\d{2}$/u.test(value));
   if (action === "schedule-preview") {
     const workspace = rest[0];
@@ -100,6 +114,30 @@ function parsePocArgs(args, { resolve, cliError }) {
   if ([options.profile, options.model, options.runtimeEnvFile, options.message].some((value) => typeof value !== "string" || value.startsWith("--"))) throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
   options.runtimeEnvFile = resolve(options.runtimeEnvFile);
   return options;
+}
+
+function parseDashboard(rest, resolve, cliError) {
+  const workspace = rest[0];
+  if (typeof workspace !== "string" || workspace.startsWith("--")) throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+  const options = parseNamed(rest.slice(1), {
+    action: "dashboard",
+    workspace: resolve(workspace),
+    profile: null,
+    model: null,
+    runtimeEnvFile: null,
+    port: "18889",
+    json: false,
+  }, ["--profile", "--model", "--runtime-env-file", "--port"], cliError);
+  if (typeof options.profile !== "string" || !/^[a-z0-9][a-z0-9-]{0,63}$/u.test(options.profile)
+    || ["default", "main"].includes(options.profile)
+    || typeof options.model !== "string" || !/^deepseek\/[a-z0-9][a-z0-9._-]{0,127}$/u.test(options.model)
+    || typeof options.runtimeEnvFile !== "string" || options.runtimeEnvFile.startsWith("--")
+    || typeof options.port !== "string" || !/^\d{4,5}$/u.test(options.port)) {
+    throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+  }
+  const port = Number(options.port);
+  if (!Number.isInteger(port) || port < 1024 || port > 65_535) throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
+  return { ...options, runtimeEnvFile: resolve(options.runtimeEnvFile), port };
 }
 
 function parseBuild(rest, resolve, cliError) {
@@ -164,3 +202,4 @@ function formatPocCollection(result) { return `AgentMo POC collection: ${result.
 function formatPocBrief(result) { return `AgentMo POC daily brief: ${result.date}\nNew evidence: ${result.newEvidenceCount}\nEvidence gaps: ${result.gapCount}\nDelivery: not executed\n`; }
 function formatPocSchedulePreview(result) { return `AgentMo POC schedule proposal: ${result.id}\nCron: ${result.expression}\nTimezone: ${result.timezone}\nActivation: not authorized\nDelivery: none\n`; }
 function formatPocRun(result) { return `AgentMo POC run: ${result.agentId}\nRecords: ${result.recordCount}\nRuntime: isolated local OpenClaw\nSchedule: not executed\nDelivery: not executed\nReply:\n${result.reply}\n`; }
+function formatPocDashboard(result) { return `AgentMo POC Dashboard ready\nAgent: ${result.agentId}\nProfile: ${result.profile}\nModel: ${result.model}\nPort: ${result.port}\nURL: ${result.dashboardUrl}\nRuntime: isolated OpenClaw Gateway\nSchedule: not executed\nDelivery: not executed\nPress Ctrl-C to stop.\n`; }

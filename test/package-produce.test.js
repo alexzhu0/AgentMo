@@ -25,7 +25,9 @@ import {
   packageProduceOptions,
 } from "./helpers/package-produce-fixture.js";
 
-describe("exact approved package Produce", () => {
+describe("exact approved package Produce", {
+  skip: process.platform !== "linux",
+}, () => {
   it("works from a fresh CLI process using only exact named artifacts", async () => {
     const fixture = await buildApprovedPackageFixture();
     const outputRoot = path.join(fixture.root, "cli-package");

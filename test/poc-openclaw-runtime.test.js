@@ -1,11 +1,16 @@
 import assert from "node:assert/strict";
+import { EventEmitter } from "node:events";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { writePocWorkspace } from "../src/poc-agent.js";
 import {
+  buildPocDashboardCommands,
+  buildPocDashboardUrl,
   buildPocOpenClawCommands,
+  openPocDashboardUrl,
+  runPocOpenClawDashboard,
   runPocOpenClaw,
 } from "../src/poc-openclaw-runtime.js";
 
@@ -28,6 +33,152 @@ function seed() {
 }
 
 describe("POC OpenClaw runtime", () => {
+  it("builds a loopback token-authenticated Dashboard for the exact generated Agent", () => {
+    const commands = buildPocDashboardCommands({
+      workspace: "/private/poc/workspace",
+      profileHome: "/private/poc/workspace/.agentmo-poc-home",
+      profile: "agentmo-poc-white-collar",
+      agentId: "white-collar-research-poc",
+      model: "deepseek/deepseek-v4-flash",
+      port: 18889,
+      gatewayToken: "test-only-gateway-token",
+      runtimeEnvValues: { DEEPSEEK_API_KEY: "test-only-provider-secret" },
+    });
+
+    assert.deepEqual(commands.configureModels.args, [
+      "--profile", "agentmo-poc-white-collar", "config", "set",
+      "models.providers.deepseek.models",
+      "[{\"id\":\"deepseek-v4-flash\",\"name\":\"deepseek-v4-flash\"}]",
+      "--strict-json",
+    ]);
+    assert.deepEqual(commands.gateway.args, [
+      "--profile", "agentmo-poc-white-collar", "gateway", "run",
+      "--port", "18889", "--bind", "loopback", "--auth", "token",
+      "--allow-unconfigured",
+    ]);
+    assert.equal(commands.gateway.args.includes("--force"), false);
+    assert.equal(commands.gateway.env.HOME, "/private/poc/workspace/.agentmo-poc-home");
+    assert.equal(commands.gateway.env.OPENCLAW_GATEWAY_TOKEN, "test-only-gateway-token");
+    assert.equal(commands.gateway.env.DEEPSEEK_API_KEY, "test-only-provider-secret");
+    assert.deepEqual(commands.register.args, [
+      "--profile", "agentmo-poc-white-collar", "agents", "add",
+      "white-collar-research-poc", "--agent-dir",
+      "/private/poc/workspace/.agentmo-agent", "--workspace",
+      "/private/poc/workspace", "--model", "deepseek/deepseek-v4-flash",
+      "--non-interactive", "--json",
+    ]);
+    assert.equal(buildPocDashboardUrl({
+      agentId: "white-collar-research-poc",
+      port: 18889,
+    }), "http://127.0.0.1:18889/chat?session=agent%3Awhite-collar-research-poc%3Amain");
+  });
+
+  it("starts the isolated Dashboard after bounded setup without exposing runtime secrets", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agentmo-poc-dashboard-"));
+    const workspace = path.join(root, "workspace");
+    const envFile = path.join(root, "runtime.env");
+    await writePocWorkspace(seed(), workspace);
+    await writeFile(envFile, "DEEPSEEK_API_KEY=provider-secret-canary\n", "utf8");
+    const setup = [];
+    const readiness = [];
+    let gatewayCommand;
+
+    const result = await runPocOpenClawDashboard({
+      workspace,
+      profile: "agentmo-poc-ai-frontier",
+      model: "deepseek/deepseek-v4-flash",
+      runtimeEnvFile: envFile,
+      port: 18889,
+      gatewayTokenFactory: () => "gateway-token-canary-0123456789",
+      checkPort: async () => true,
+      runCommand: async (command) => {
+        setup.push(command);
+        return { exitCode: 0, stdout: "{}", stderr: "" };
+      },
+      runGateway: async (command, { onListening }) => {
+        gatewayCommand = command;
+        await onListening();
+        return 0;
+      },
+      onReady: async (value) => { readiness.push(value); },
+    });
+
+    assert.deepEqual(setup.map((command) => command.args[3]), [
+      "set", "set", "set", "install", "add",
+    ]);
+    assert.equal(gatewayCommand.env.DEEPSEEK_API_KEY, "provider-secret-canary");
+    assert.equal(gatewayCommand.env.OPENCLAW_GATEWAY_TOKEN, "gateway-token-canary-0123456789");
+    assert.deepEqual(readiness, [{
+      ok: true,
+      agentId: "ai-frontier-poc",
+      profile: "agentmo-poc-ai-frontier",
+      model: "deepseek/deepseek-v4-flash",
+      port: 18889,
+      dashboardUrl: "http://127.0.0.1:18889/chat?session=agent%3Aai-frontier-poc%3Amain",
+      runtime: "isolated-openclaw-dashboard",
+      scheduleExecuted: false,
+      deliveryExecuted: false,
+    }]);
+    assert.equal(JSON.stringify({ result, readiness }).includes("provider-secret-canary"), false);
+    assert.equal(JSON.stringify({ result, readiness }).includes("gateway-token-canary"), false);
+    assert.deepEqual(result, { ok: true, exitCode: 0, agentId: "ai-frontier-poc" });
+  });
+
+  it("rejects an occupied Dashboard port before mutating the isolated profile", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agentmo-poc-dashboard-port-"));
+    const workspace = path.join(root, "workspace");
+    const envFile = path.join(root, "runtime.env");
+    await writePocWorkspace(seed(), workspace);
+    await writeFile(envFile, "DEEPSEEK_API_KEY=provider-secret-canary\n", "utf8");
+    let setupCalls = 0;
+
+    await assert.rejects(() => runPocOpenClawDashboard({
+      workspace,
+      profile: "agentmo-poc-ai-frontier",
+      model: "deepseek/deepseek-v4-flash",
+      runtimeEnvFile: envFile,
+      port: 18889,
+      checkPort: async () => false,
+      runCommand: async () => { setupCalls += 1; return { exitCode: 0, stdout: "", stderr: "" }; },
+    }), (error) => {
+      assert.equal(error?.code, "AGENTMO_POC_DASHBOARD_PORT_OCCUPIED");
+      assert.deepEqual(error?.pocDiagnostic, {
+        operation: "port-check",
+        exitCode: 1,
+        summary: "The requested loopback port is already in use.",
+      });
+      return true;
+    });
+    assert.equal(setupCalls, 0);
+  });
+
+  it("opens only an authenticated loopback Agent URL without a shell", async () => {
+    const launched = [];
+    const child = new EventEmitter();
+    child.unref = () => { child.unrefCalled = true; };
+    const url = "http://127.0.0.1:18889/chat?session=agent%3Aai-frontier-poc%3Amain#token=test-only-token";
+    const opening = openPocDashboardUrl(url, {
+      platform: "darwin",
+      spawnProcess: (command, args, options) => {
+        launched.push({ command, args, options });
+        queueMicrotask(() => child.emit("spawn"));
+        return child;
+      },
+    });
+    await opening;
+
+    assert.deepEqual(launched, [{
+      command: "open",
+      args: [url],
+      options: { shell: false, detached: true, stdio: "ignore" },
+    }]);
+    assert.equal(child.unrefCalled, true);
+    assert.throws(
+      () => openPocDashboardUrl("https://example.com/#token=bad"),
+      (error) => error?.code === "AGENTMO_POC_DASHBOARD_URL_INVALID",
+    );
+  });
+
   it("builds isolated profile commands with no delivery or schedule action", () => {
     const commands = buildPocOpenClawCommands({
       workspace: "/private/poc/workspace",

@@ -6204,6 +6204,7 @@ Usage:
   agentmo poc brief <workspace-dir> --date YYYY-MM-DD [--json]
   agentmo poc schedule-preview <workspace-dir> [--json]
   agentmo poc run <workspace-dir> --profile <isolated-profile> --model deepseek/<model> --runtime-env-file <path> --message <text> [--json]
+  agentmo poc dashboard <workspace-dir> --profile <isolated-profile> --model deepseek/<model> --runtime-env-file <path> [--port <port>] [--json]
   agentmo validate <blueprint.json> --digest blueprint=sha256:<64hex>
   agentmo report <blueprint.json> --digest blueprint=sha256:<64hex> [--discovery-manifest <discovery.json> --digest discovery-manifest=sha256:<64hex>] [--json]
   agentmo discover-report <discovery.json> --digest discovery-manifest=sha256:<64hex> [--json]
@@ -6334,7 +6335,8 @@ Usage:
   agentmo poc brief <workspace-dir> --date YYYY-MM-DD [--json]
   agentmo poc schedule-preview <workspace-dir> [--json]
   agentmo poc run <workspace-dir> --profile <isolated-profile> --model deepseek/<model> --runtime-env-file <path> --message <text> [--json]
-Build writes an isolated local OpenClaw workspace from externally curated seed records. Collect only requests closed research sources and persists bounded metadata. The default network mode remains public-only; synthetic-dns-proxy is an explicit opt-in for the fixed source hostnames and still requires hostname-authenticated TLS with no redirects. Brief writes local evidence projection only. Schedule preview is inert. Run creates a profile HOME inside that workspace, uses the named profile, and invokes only one local agent turn. None of these commands delivers a reply or activates a schedule.
+  agentmo poc dashboard <workspace-dir> --profile <isolated-profile> --model deepseek/<model> --runtime-env-file <path> [--port <port>] [--json]
+Build writes an isolated local OpenClaw workspace from externally curated seed records. Collect only requests closed research sources and persists bounded metadata. The default network mode remains public-only; synthetic-dns-proxy is an explicit opt-in for the fixed source hostnames and still requires hostname-authenticated TLS with no redirects. Brief writes local evidence projection only. Schedule preview is inert. Run creates a profile HOME inside that workspace, uses the named profile, and invokes only one local agent turn. Dashboard starts a loopback-only isolated OpenClaw Dashboard, safely loads the runtime allowlist, and opens the exact generated Agent; it does not install into the default profile. None of these commands delivers a reply or activates a schedule.
 `,
     "discover-report": `AgentMo discover-report
 Usage: agentmo discover-report <discovery.json> --digest discovery-manifest=sha256:<64hex> [--json]
@@ -6447,13 +6449,16 @@ function boundedPocCliDiagnostic(error) {
     "AGENTMO_POC_OPENCLAW_INVOKE_FAILED",
     "AGENTMO_POC_OPENCLAW_EMPTY_REPLY",
     "AGENTMO_POC_OPENCLAW_OUTPUT_INVALID",
+    "AGENTMO_POC_DASHBOARD_PORT_OCCUPIED",
+    "AGENTMO_POC_DASHBOARD_SETUP_FAILED",
+    "AGENTMO_POC_DASHBOARD_GATEWAY_FAILED",
     "AGENTMO_POC_RESEARCH_INPUT_INVALID",
   ].includes(error?.code)
     || value === null
     || typeof value !== "object"
     || Array.isArray(value)
     || !exactObjectKeys(value, ["operation", "exitCode", "summary"])
-    || !["plugin-trust", "provider-config", "plugin-install", "register", "invoke", "collect"].includes(value.operation)
+    || !["plugin-trust", "provider-config", "model-catalog", "plugin-install", "register", "invoke", "collect", "port-check", "gateway"].includes(value.operation)
     || !Number.isInteger(value.exitCode)
     || (["AGENTMO_POC_OPENCLAW_EMPTY_REPLY", "AGENTMO_POC_OPENCLAW_OUTPUT_INVALID"].includes(error?.code) ? value.exitCode !== 0 : value.exitCode < 1)
     || value.exitCode > 255

@@ -55,7 +55,23 @@ node ./bin/agentmo.js poc brief \
 
 node ./bin/agentmo.js poc schedule-preview \
   /private/tmp/agentmo-white-collar-poc --json
+
+node ./bin/agentmo.js poc dashboard \
+  /private/tmp/agentmo-white-collar-poc \
+  --profile agentmo-poc-white-collar \
+  --model deepseek/deepseek-v4-flash \
+  --runtime-env-file /absolute/path/to/runtime.env \
+  --port 18889
 ```
+
+`poc dashboard` loads only the existing runtime-environment allowlist, prepares
+the pinned DeepSeek provider and model catalog inside the workspace-owned
+profile HOME, starts a token-authenticated loopback Gateway in the foreground,
+and opens the exact generated Agent session. It does not source the environment
+file into the parent shell, use `--force`, stop an existing Gateway, or mutate
+the default `~/.openclaw`. Port `18889` is the default and an occupied port is
+rejected before profile setup. Press Ctrl-C in the launching terminal to stop
+the isolated Dashboard.
 
 `public-only` remains the default network policy. Hosts whose trusted local
 proxy maps the four fixed POC source names into `198.18.0.0/15` may explicitly
@@ -404,9 +420,11 @@ as a domain scaffold operation.
 
 ## Session recovery and current handoff
 
-AgentMo carries a repo-local handoff for restarting Codex/OMX without relying on old chat context:
+AgentMo carries a repo-local current-status page and handoff for restarting
+Codex/OMX without relying on old chat context:
 
 ```text
+docs/CURRENT_STATUS.md
 docs/OMX_SESSION_MIGRATION.md
 ```
 
@@ -418,7 +436,11 @@ cd "$AGENTMO_REPO"
 omx --madmax --xhigh
 ```
 
-Then tell the new session to read `docs/OMX_SESSION_MIGRATION.md` first. The handoff records the current AgentMo objective, dirty-tree expectations, verification commands, secret-handling rules, and the boundary that AgentMo work must not touch `pi`, `AgentHarness`, or `openclaw` unless explicitly requested.
+Then tell the new session to read `docs/CURRENT_STATUS.md` first, followed by
+`docs/OMX_SESSION_MIGRATION.md`. Together they record the active objective,
+dirty-tree expectations, verification commands, secret-handling rules, and the
+boundary that AgentMo work must not touch `pi`, `AgentHarness`, or `openclaw`
+unless explicitly requested.
 
 Local agent instructions live in:
 

@@ -3650,10 +3650,11 @@ reconcileExactModuleSurfaces(IO_SURFACE_ALLOWLIST, [
     54:filesystem-read:fs.readFile
   `),
   exactModuleSurfaceGroup("src/poc-openclaw-runtime.js", "phase-04-plan-19", "transient-runtime", `
-    96:filesystem-lifecycle:fs.mkdir
+    191:filesystem-lifecycle:fs.mkdir
+    269:filesystem-lifecycle:fs.mkdir
   `),
   exactModuleSurfaceGroup("src/poc-openclaw-runtime.js", "phase-04-plan-19", "ephemeral-secret", `
-    176:filesystem-read:fs.readFile
+    374:filesystem-read:fs.readFile
   `),
 ]);
 
