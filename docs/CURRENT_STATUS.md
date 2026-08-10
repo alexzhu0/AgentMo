@@ -1,9 +1,9 @@
 # AgentMo 当前状态与恢复入口
 
-更新日期：2026-08-06
+更新日期：2026-08-10
 
 本页是短期恢复锚点。它只描述当前工作状态；历史决策、审计和发布证据保留在
-`release/` 与 `.planning/`，不应被本页改写。
+`release/`，不应被本页改写。旧规划工作区已移除，不是恢复权威。
 
 ## 当前结论
 
@@ -94,12 +94,16 @@ fault-injection 测试后被人为中止；中止前 256 项通过、没有真�
 
 ## 新 session 最小恢复步骤
 
-1. 先读 `AGENTS.md`、本页、`release/README.md`、`README.md`、
+1. 先读 `AGENTS.md`、`docs/SUPERPOWERS_WORKFLOW.md`、本页、
+   `release/README.md`、`release/2026.08.06.md`、`README.md`、
    `docs/MVP_RUNBOOK.md` 和 `docs/AGENT_BIRTH_GATE.md`。
 2. 在实际工作目录运行 `pwd`、`git status --short`、`git branch --show-current`、
    `git rev-parse --short HEAD`；以实时结果为准。
 3. 不读取 `.env` 内容、不记录密钥、不操作 sibling projects，除非用户明确授权。
 4. 不把 POC 证据升级为 OpenClaw 安装、runtime 认证、领域质量或生产认证。
+
+历史追溯从 `release/PROJECT_HISTORY.md` 和对应日期 release 开始；不要恢复或执行
+旧规划工作流的待办、命令或流程。
 
 相关证据：`release/2026.08.06.md`、
 `docs/superpowers/specs/2026-08-05-white-collar-research-db-poc-design.md`、

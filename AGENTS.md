@@ -1,10 +1,8 @@
 # AgentMo Agent Instructions
 
-AgentMo is the active project in this repository. Treat this file as the local operating contract for Codex/OMX sessions started from:
-
-```text
-/home/alex/DTAlex/learningGitHub/AgentMo
-```
+AgentMo is the active project in this repository. Treat this file as the local
+operating contract for Codex/OMX sessions started from the AgentMo repository
+root.
 
 ## Project intent
 
@@ -65,13 +63,22 @@ Forbidden in committed docs or evidence:
 For a new or confused session, read these first:
 
 ```text
-docs/OMX_SESSION_MIGRATION.md
+docs/SUPERPOWERS_WORKFLOW.md
+docs/CURRENT_STATUS.md
 release/README.md
+release/2026.08.06.md
 docs/MVP_RUNBOOK.md
 docs/AGENT_BIRTH_GATE.md
-docs/AGENTMO_MVP_LEDGER.md
 README.md
 ```
+
+AgentMo uses Superpowers for its project workflow. Every new AgentMo Codex
+development session must invoke `superpowers:using-superpowers` first, then
+select and use the Superpowers skills applicable to the task. Do not invoke GSD
+commands, restore a GSD workflow, or treat the removed legacy planning
+workspace as a recovery authority. Use `docs/superpowers/` for Superpowers
+design and plan documents; use the maintained docs and `release/` for project
+facts and historical evidence.
 
 Then confirm:
 

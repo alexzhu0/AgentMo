@@ -410,6 +410,7 @@ describe("artifact/output surface inventory", () => {
     for (const forbidden of [
       ".env",
       ".planning/",
+      ".agentmo/",
       "openclaw-fs-kernel.receipt.json",
       "openclaw-authority-marker",
       "authority-state",

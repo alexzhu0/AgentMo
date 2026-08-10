@@ -19,8 +19,10 @@ Scope:
 
 Exact bounded evidence:
 
-- Canonical directory:
-  `.planning/phases/04-package/04-03-agent-package/`.
+- Preserved test fixture directory:
+  `test/fixtures/phase4-agent-package/`. It is byte-identical to the historic
+  Phase 4 package fixture and remains available after the legacy planning
+  workspace is removed.
 - D-42 archive:
   `sha256:7726d7b635a972403c598bf53eeb9c44a75c57ffd5c4a573470a066a798b955f`.
 - Manifest:
@@ -262,7 +264,8 @@ Observed verification:
 - `node --test test/artifact-surface-coverage.test.js`: 17/17 passed.
 - `npm run check`: 760 pass, 0 fail, 1 skip.
 - `git diff --check`: passed.
-- Fresh final release review: Critical 0, Warning 0 in `.planning/phases/02-codex-builder/02-FINAL-RELEASE-REVIEW.md`.
+- Fresh final release review: Critical 0, Warning 0; see the bounded evidence
+  summary in `release/2026.07.23.md`.
 
 Evidence boundary:
 

@@ -267,14 +267,14 @@ describe("bounded live discovery", () => {
         trust_level: "trusted",
         evidence_class: "community",
         description: "Approved GitHub repository metadata.",
-        location: "https://api.github.com/repos/open-gsd/gsd-core/issues?per_page=2",
+        location: "https://api.github.com/repos/example-org/fixture-repository/issues?per_page=2",
         extraction_fields: ["title", "updated_at"],
       }],
       collector: {
         adapter: "github",
         allowlist: [
-          "https://api.github.com/repos/open-gsd/gsd-core/issues?per_page=2",
-          "https://api.github.com/repos/open-gsd/gsd-core/issues?page=2&per_page=2",
+          "https://api.github.com/repos/example-org/fixture-repository/issues?per_page=2",
+          "https://api.github.com/repos/example-org/fixture-repository/issues?page=2&per_page=2",
         ],
         allowedContentTypes: ["application/json"],
       },
@@ -282,7 +282,7 @@ describe("bounded live discovery", () => {
     const pageOne = response('[{"title":"bounded one"}]', {
       headers: {
         "content-type": "application/json",
-        link: '<https://api.github.com/repos/open-gsd/gsd-core/issues?page=2&per_page=2>; rel="next"',
+        link: '<https://api.github.com/repos/example-org/fixture-repository/issues?page=2&per_page=2>; rel="next"',
         "x-ratelimit-remaining": "42",
         etag: "\"page-one\"",
       },

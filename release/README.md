@@ -36,6 +36,7 @@ Release 记录按日期倒序维护（最新在前），不要按版本号排序
 
 | 日期 | 阶段 | 状态 | 记录 | GitHub Release |
 | --- | --- | --- | --- | --- |
+| 2026.08.10 | 开发协作迁移：GSD → Superpowers | 当前事实已收敛到维护文档和 release；旧规划工作区与本机 GSD runtime 已按确认清理 | [`2026.08.10.md`](./2026.08.10.md) | 未发布 |
 | 2026.08.06 | 白领 Research DB / OpenClaw 独立黑盒 POC | 验收运行 PASS：首次 20 条、二次 0 重复、重启恢复、8 证据/0 缺口 brief 与证据约束问答通过；schedule、完整来源健康与生产认证仍未完成 | [`2026.08.06.md`](./2026.08.06.md) | [`release-2026.08.06`](https://github.com/alexzhu0/AgentMo/releases/tag/release-2026.08.06) |
 | 2026.08.05 | 白领 Research DB / OpenClaw POC 与全量检查单飞门禁 | POC 专项、Builder 生命周期与 tarball 安全验证通过；真实采集、scheduler activation 与完整无竞争全量 gate 仍待完成；未发布 release | [`2026.08.05.md`](./2026.08.05.md) | 待发布 |
 | 2026.08.04 | Phase 4：native authority race closure 与 POC 前最终 Linux gate | fresh review 的最终 2 Critical / 1 Warning 已完成源码与聚焦 Linux 修复；精确 commit、完整 8/8 CI 与零缺陷 re-audit 待完成；未发布 release | [`2026.08.04.md`](./2026.08.04.md) | 待发布 |
@@ -72,4 +73,4 @@ Release 记录按日期倒序维护（最新在前），不要按版本号排序
 - 当前迁移规则：projected-v2 canonical receipt 不允许原位替换为 activated-v4；保留 genesis，并使用 immutable version-qualified lifecycle successor。`deactivate` 追加 tombstone，`reactivate` 追加 successor；不提供 purge、selector removal 或 physical delete。
 - 当前 UAT authority：`preview` 只读；`decide approve|reject` 仅 caller-reported 且 nonterminal。独立 external human decision authority 尚未实现，不得声称 11/11、domain 或 production certification。
 - 当前主线：继续只在 AgentMo 内维护，不把 sibling projects 的工作混入本仓库 commit。
-- 当前恢复入口：`docs/CURRENT_STATUS.md`、`release/2026.08.06.md`、`docs/OMX_SESSION_MIGRATION.md`、仓库根目录 `AGENTS.md`、`README.md`、`docs/MVP_RUNBOOK.md`；需要追溯 Phase 4 时再读相应 `.planning/phases/04-package/` 与 2026.07.29–2026.08.04 release records。
+- 当前恢复入口：先读仓库根目录 `AGENTS.md` 与 `docs/SUPERPOWERS_WORKFLOW.md`，再读 `docs/CURRENT_STATUS.md`、本索引、`release/2026.08.06.md`、`README.md` 与 `docs/MVP_RUNBOOK.md`。Phase 4 历史从 `release/2026.07.29.md`–`2026.08.04.md` 追溯；不要把旧规划工作区当作当前指令来源。

@@ -43,7 +43,7 @@ const USER_NEED = fileURLToPath(new URL("../examples/support-triage.need.json", 
 const DECISION_ENTRY = fileURLToPath(new URL("../examples/support-triage.decision-entry.json", import.meta.url));
 const SUPPORT_BLUEPRINT = fileURLToPath(new URL("../examples/support-triage.agentmo.json", import.meta.url));
 const PACKAGE_MANIFEST = fileURLToPath(new URL(
-  "../.planning/phases/04-package/04-03-agent-package/agentmo.package.json",
+  "./fixtures/phase4-agent-package/agentmo.package.json",
   import.meta.url,
 ));
 
