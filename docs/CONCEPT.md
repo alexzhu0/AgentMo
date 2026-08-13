@@ -1,128 +1,221 @@
-# AgentMo Concept
+# AgentMo Concept and Canonical Architecture
 
-AgentMo is a meta-agent engineering mechanism. Its job is not only to manufacture agents. Its job is to decide **what should be built**, plan **how it should be built**, then use coding agents to **produce the specified agent**.
+AgentMo is an evidence-driven Agent production system. Its job is to discover
+**what is worth turning into an Agent**, work with humans to decide **what should
+be built and how success will be tested**, then direct a coding agent to
+**implement and validate the specified Agent Package**.
 
-## Definition
-
-AgentMo is a Codex-driven three-stage system:
-
-```text
-Discover -> Plan -> Produce
-```
-
-The stages are connected by artifact contracts, not mandatory command ancestry:
+AgentMo is not a one-off prompt generator, a single coding agent, or an
+OpenClaw-only wrapper. Its canonical loop is:
 
 ```text
-Stage 1 Discover -> Discovery Contract
-Stage 2 Plan     -> Agent Design / Blueprint Contract
-Stage 3 Produce  -> Delivery Evidence Contract
+Data and user signals
+        ↓
+Discover: evidence -> pain points/trends -> Agent Idea candidates
+        ↓ human confirms an Idea
+Plan: Agent design + evaluation contract + test dataset
+        ↓ human approves the plan and acceptance boundary
+Produce: coding agent implementation + runtime projection + test execution
+        ↓ human accepts bounded evidence
+Versioned Agent Package and runtime evidence
+        ↓
+Operational feedback returns to Discover / Plan
 ```
 
-It accepts or materializes bounded domain data and user needs, converts valid contracts into an executable `AgentGenome` and build plan, compiles that plan into one or more runtime harnesses, then records evals, evidence, governance gates, and release ledgers.
+The stages are connected by explicit artifact contracts and exact approval
+boundaries. Approval of one stage never implicitly approves a later stage.
 
-## The three stages
+This is a generic platform architecture. Domain Agents, vertical POCs, customer
+names, and scenario-specific implementations are deliberately excluded from the
+canonical architecture; they are instances produced by it, not components of it.
 
-### 1. Discover: form the Discovery Contract
+## 1. Data Connector Layer
 
-Discovery comes before AgentMo-generated design. Current AgentMo discovery commands materialize operator-provided manifests and approved source inputs; they do not claim live web search or crawling. AgentMo should first gather or accept:
+Discover must be able to accept evidence from heterogeneous, authorized sources:
 
-- source documents;
-- operational examples;
-- existing data tables or APIs;
-- user goals and target workflows;
-- failure modes and forbidden behavior;
-- target runtime/channel constraints.
+- public web search and approved HTTPS sources;
+- internal databases, data warehouses, knowledge bases, and business systems;
+- REST, GraphQL, or business-specific APIs;
+- MCP servers that expose approved data or tools;
+- local files and workspace artifacts;
+- interviews, operator input, and user feedback;
+- reviewed third-party datasets or services.
 
-The output is not yet an agent. The output is a bounded Discovery Contract: `agentmo.discovery-pack.v1`, `agentmo.discovery-db.v1`, `facts.jsonl`, and `coverage.json`.
+Source adapters normalize those inputs into a common evidence model while
+preserving provenance, authorization scope, publication and collection time,
+trust level, content identity, and redaction boundaries. An adapter does not
+make an untrusted source authoritative merely by importing it.
 
-### 2. Plan: form the Agent Design / Blueprint Contract
+## 2. Discover: evidence to Agent Ideas
 
-Planning combines a valid discovery database with user requirements. The discovery database may come from AgentMo Stage 1 or from another reviewed process; Stage 2 depends on the artifact contract, not the prior command path. AgentMo turns that into:
-
-- domain genome;
-- task classes;
-- routing strategy;
-- main/specialist agent architecture;
-- tool contracts;
-- evidence policy;
-- eval cases and rubric;
-- runtime target choice.
-
-The output is an executable blueprint/design contract with `agentmo_version: "0.1"`, inputs from `agentmo.user-need.v1`, eval requirements, and evidence policy. It can be reviewed before implementation.
-
-### 3. Produce: form the Delivery Evidence Contract
-
-Production uses Codex, Pi, OpenClaw scaffolds, or other coding-agent runtimes to implement a valid blueprint/design contract. Stage 3 may start from AgentMo Stage 2 output or from an externally reviewed/business-provided valid design contract with bounded provenance. It does not require Stage 1 or Stage 2 commands to have run in the same workspace. Production can:
-
-- generate prompts, skills, tools, configs, and runbooks;
-- run tests and evals;
-- repair failures;
-- record evidence and release history;
-- produce build, run, run-eval, birth, domain-eval, and delivery artifacts for review.
-
-Scaffold, run-state, birth-report, domain-eval, and delivery-report artifacts do not certify runtime behavior, domain-wide quality, production readiness, or deployment approval by themselves. Domain-eval evidence is bounded to the supplied case suite, and delivery-report only aggregates source artifacts.
-
-## Not a prompt generator
-
-AgentMo does not stop at prompt text. A real domain agent needs:
-
-- discovery data and database outputs;
-- user-need planning artifacts;
-- role architecture;
-- tool contracts;
-- routing rules;
-- bounded evidence packets;
-- audit artifacts;
-- eval cases and rubrics;
-- release history;
-- known-risk disclosure.
-
-## Core stack
+Discover is the opportunity-discovery stage, not only a data-ingestion stage.
+AI should search or query approved sources, materialize evidence, identify
+recurring pain points and trends, and propose tasks that may be suitable for an
+Agent Package.
 
 ```text
-Discovery Layer
-  materializes approved source truth, examples, user needs, and target workflow value
-
-Planning Layer
-  converts discovery into blueprint, architecture, tool contracts, evals, and gates
-
-Codex Builder
-  designs, codes, tests, verifies, documents
-
-Runtime Profiles
-  describe active, alternate, historical, and migration-source execution architectures
-
-Pi Runtime
-  hosts current local agents, extensions, tools, sessions, shared state
-
-OpenClaw Architecture
-  contributes Gateway/channel delivery, isolated agent workspaces, session trajectories, plugin hooks, runtime selection, and multi-agent routing concepts
-
-AgentHarness Governance
-  shapes policy, preflight, handoff, audit, manifest ideas
-
-AgentMo Blueprint
-  records the reusable AgentMo contract for one domain agent
+Search / query approved sources
+  -> retrieve and normalize evidence
+  -> cluster trends, pain points, and unmet workflows
+  -> identify agentizable tasks
+  -> produce evidence-bounded Agent Idea candidates
+  -> ask the user to confirm, reject, or refine an Idea
 ```
 
-## Primary output
+The stage produces:
 
-The primary output is not a model response. It is a contract-driven production path:
+- a Research / Discovery DB and source-evidence records;
+- trend, pain-point, and opportunity signals;
+- Agent Idea candidates with target user, proposed value, evidence, gaps, and
+  judgment boundaries;
+- the human decision that confirms, rejects, or refines each candidate.
+
+An Idea candidate is a proposal. It is not a proven user need, an approved
+design, or authorization to build.
+
+## 3. Plan: Agent design and its proof obligations
+
+Plan begins only after a human confirms an Agent Idea or supplies an externally
+reviewed need. It combines that decision with the Discovery evidence and turns
+them into both an implementation design and a pre-declared evaluation contract.
+
+The stage defines:
+
+- target users, workflows, tasks, and value hypotheses;
+- Agent identity, behavior, prompt, skills, tools, memory, RAG, database,
+  harness, loop, and schedule requirements;
+- input/output contracts, policy boundaries, forbidden behavior, and human
+  checkpoints;
+- supported, partial, missing, and conflicting evidence;
+- success criteria and hard failures;
+- normal, boundary, conflict, missing-evidence, refusal, safety, recovery, and
+  runtime test cases;
+- the test dataset, expected behavior, rubric, and acceptance threshold;
+- a target-neutral Agent blueprint and target-runtime requirements.
+
+Primary artifacts include the Design Plan, Blueprint, Build Contract,
+Evaluation Contract, Test Dataset, and Acceptance Criteria. Plan therefore
+defines not only **what to build**, but also **how the result must prove that it
+meets the agreed requirement**.
+
+Planning artifacts are reviewed proposals. They do not certify that the Agent
+has been implemented or that a capability exists at runtime.
+
+## 4. Coding Agent Layer
+
+Produce is executed through coding agents such as:
+
+- Codex;
+- Cursor;
+- Claude Code;
+- Kimi Code;
+- future coding agents that can implement the AgentMo contracts.
+
+AgentMo provides a stable builder protocol and adapters for these coding-agent
+surfaces. A coding agent reads the approved Blueprint, Build Contract,
+Evaluation Contract, and Test Dataset; writes the implementation; runs the
+declared tests; repairs bounded failures; and records build and verification
+evidence.
+
+External development-workflow plugins and planning frameworks are not AgentMo
+architecture components. They may be used privately by a contributor, but
+AgentMo's CLI, contracts, builder protocol, Agent Package, evaluation flow, and
+runtime operation must not require them to be installed or available.
+
+## 5. Produce: implementation, projection, and validation
+
+Produce turns the approved Plan artifacts into real software:
 
 ```text
-Discovery Contract + Blueprint Contract -> Delivery Evidence Contract -> reviewed release decision
+Approved Blueprint + Build Contract + Evaluation Contract + Test Dataset
+  -> coding agent implementation
+  -> prompts / skills / tools / memory / RAG / database / harness / loop
+  -> target-neutral Agent Package manifest
+  -> target-runtime projection
+  -> isolated runtime execution
+  -> planned test-dataset execution and bounded repair
+  -> build, runtime, evaluation, and delivery evidence
+  -> human acceptance decision
 ```
 
-The support-triage MVP demonstrates the full vertical composition. Other valid paths can start Stage 3 from a valid externally reviewed blueprint/design contract.
+A successful build is insufficient by itself. Produce is complete only within
+the explicitly approved scope when the package can be inspected, the selected
+runtime can load it, the pre-declared test dataset has been executed, failures
+are represented honestly, evidence is retained, and the human acceptance gate
+is satisfied.
 
-## Runtime profile rule
+## 6. Runtime Adapter Layer
 
-AgentMo must not collapse all runtimes into one abstraction. Each runtime profile should say:
+AgentMo owns a target-neutral Agent specification. Runtime adapters project that
+specification into the native structure of a selected runtime:
 
-- who owns the model loop;
-- who owns canonical thread/session history;
-- which tools and hooks are native versus bridged;
-- where evidence is stored and how it is bounded;
-- which concepts can transfer to another runtime and which APIs cannot.
+```text
+AgentMo target-neutral Agent Specification
+              ↓
+       Runtime Adapter Layer
+       ↙       ↓       ↓        ↘
+ OpenClaw     Pi     Hermes   business-provided Agent specification
+```
 
-For the current Win9 example, Pi is the certified execution authority, while latest OpenClaw source is an active alternate architecture reference.
+OpenClaw is the first implementation target, not the permanent definition of an
+AgentMo package. Future adapters may target Pi, Hermes, or an architecture
+contract supplied by a business team. Each adapter must declare:
+
+- who owns the model and execution loop;
+- native versus bridged prompts, skills, tools, hooks, memory, and plugins;
+- session and state authority;
+- packaging, installation, activation, and rollback semantics;
+- test-harness and runtime-evidence integration;
+- capabilities that cannot be transferred faithfully.
+
+The target-neutral contract prevents OpenClaw-specific directories, plugin
+formats, or lifecycle semantics from becoming universal AgentMo assumptions.
+
+## 7. Cross-cutting governance
+
+The complete pipeline is governed by:
+
+- exact SHA-256 binding between reviewed inputs, decisions, builds, and tests;
+- explicit human gates for Idea confirmation, Plan approval, target admission,
+  installation, activation, runtime, schedule, delivery, and production;
+- fail-closed admission when provenance, authority, schema, or prerequisites are
+  invalid;
+- append-only decision, run, evaluation, birth, delivery, and release evidence;
+- secret minimization and bounded, redacted evidence;
+- separation between mechanism evidence, runtime evidence, domain quality, user
+  value, and production certification.
+
+No stage may self-certify a later stage. A runtime success does not prove domain
+quality; passing a bounded test dataset does not prove universal capability;
+neither permits deployment, schedule activation, publication, or production use
+without the corresponding human authority.
+
+## Current implementation boundary
+
+This document defines the canonical architecture and direction. Current product
+evidence is narrower:
+
+- OpenClaw is the first implemented runtime adapter;
+- Codex is the primary current builder integration;
+- the POC demonstrates controlled collection, local Research DB persistence,
+  deduplication, restart recovery, evidence-bounded answers, and refusal;
+- broad internal-database, business-API, MCP, Cursor, Claude Code, Kimi Code,
+  Pi, Hermes, and business-specific adapters are architectural extension points,
+  not completed integrations;
+- automated Agent Idea discovery and the complete portable Evaluation Contract
+  / Test Dataset flow are canonical requirements that must be productized and
+  verified further;
+- schedule activation, delivery, domain certification, and production approval
+  remain separate human-authorized gates.
+
+The primary output is therefore not a model response. It is a reviewed,
+versioned, test-bound production path:
+
+```text
+Evidence + confirmed Agent Idea
+  -> approved design and test contract
+  -> coding-agent implementation
+  -> runtime-specific Agent Package
+  -> bounded evaluation evidence
+  -> human release decision
+```

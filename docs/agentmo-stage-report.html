@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0b1020" />
+    <title>AgentMo｜阶段性项目汇报</title>
+    <style>
+      :root {
+        --ink: #f4f7fb;
+        --muted: #9aa8bd;
+        --soft: #c8d2e1;
+        --bg: #0b1020;
+        --panel: #111a2f;
+        --line: rgba(207, 222, 242, .16);
+        --orange: #ff6a3d;
+        --cyan: #52d6ff;
+        --green: #73e0a2;
+        --yellow: #ffc667;
+        --max: 1180px;
+      }
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; background: var(--bg); }
+      body {
+        margin: 0;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at 79% 5%, rgba(82,214,255,.12), transparent 24rem),
+          radial-gradient(circle at 8% 32%, rgba(255,106,61,.10), transparent 22rem),
+          var(--bg);
+        font-family: Inter, "SF Pro Display", "PingFang SC", "Microsoft YaHei", sans-serif;
+        line-height: 1.6;
+      }
+      a { color: inherit; }
+      .topbar {
+        position: sticky; top: 0; z-index: 5;
+        backdrop-filter: blur(18px);
+        background: rgba(11,16,32,.78);
+        border-bottom: 1px solid var(--line);
+      }
+      .topbar > div { max-width: var(--max); margin: auto; padding: 14px 28px; display: flex; justify-content: space-between; align-items: center; }
+      .brand { display: flex; gap: 10px; align-items: center; font-weight: 720; letter-spacing: -.02em; }
+      .mark { width: 27px; height: 27px; border: 2px solid var(--orange); border-radius: 50% 50% 50% 8px; transform: rotate(-18deg); position: relative; }
+      .mark::after { content: ""; position: absolute; inset: 6px; border-radius: 50%; background: var(--orange); }
+      .topbar small { color: var(--muted); }
+      .nav { display: flex; gap: 18px; font-size: 13px; color: var(--muted); }
+      .nav a { text-decoration: none; }
+      .nav a:hover { color: var(--ink); }
+      main { overflow: hidden; }
+      section { max-width: var(--max); margin: auto; padding: 108px 28px; }
+      .hero { min-height: min(780px, calc(100vh - 56px)); display: grid; grid-template-columns: 1.05fr .95fr; align-items: center; gap: 54px; padding-top: 72px; }
+      h1,h2,h3,p { margin-top: 0; }
+      h1 { font-size: clamp(48px, 7.2vw, 96px); letter-spacing: -.075em; line-height: .98; margin-bottom: 30px; }
+      h1 em { color: var(--orange); font-style: normal; }
+      h2 { font-size: clamp(34px, 4.4vw, 58px); letter-spacing: -.055em; line-height: 1.06; max-width: 850px; }
+      h3 { font-size: 21px; line-height: 1.2; letter-spacing: -.025em; }
+      .lead { color: var(--soft); font-size: clamp(18px, 2.1vw, 25px); max-width: 660px; }
+      .eyeline { width: 56px; height: 3px; background: var(--orange); margin-bottom: 22px; }
+      .hero-note { color: var(--muted); font-size: 13px; margin-top: 42px; }
+      .flow { position: relative; min-height: 430px; display: grid; place-items: center; }
+      .flow::before { content:""; position:absolute; width: 330px; height: 330px; border: 1px solid rgba(82,214,255,.28); border-radius: 50%; box-shadow: 0 0 90px rgba(82,214,255,.09), inset 0 0 90px rgba(82,214,255,.04); }
+      .flow::after { content:""; position:absolute; width: 208px; height: 208px; border: 1px dashed rgba(255,106,61,.6); border-radius: 50%; animation: spin 22s linear infinite; }
+      .core { z-index: 1; width: 154px; height: 154px; display:grid; place-items:center; border-radius: 50%; background: linear-gradient(145deg,#172644,#0e1528); border: 1px solid rgba(244,247,251,.22); text-align:center; font-weight: 700; font-size: 22px; line-height: 1.05; box-shadow: 0 18px 50px rgba(0,0,0,.3); }
+      .orbit { position:absolute; z-index:2; padding: 9px 12px; border:1px solid var(--line); background:#121b31; font-size:13px; border-radius: 4px; }
+      .orbit b { display:block; color:var(--cyan); font-size: 15px; }
+      .one { transform: translate(-158px,-125px); }.two { transform: translate(146px,-22px); }.three { transform: translate(-100px,148px); }
+      .section-intro { display: flex; align-items: end; justify-content: space-between; gap: 32px; margin-bottom: 55px; }
+      .section-intro p { max-width: 420px; color: var(--muted); }
+      .number { color: var(--orange); font: 600 13px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .08em; }
+      .statement { background: linear-gradient(110deg, rgba(255,106,61,.14), rgba(82,214,255,.05)); border-top:1px solid var(--line); border-bottom:1px solid var(--line); }
+      .statement .quote { font-size: clamp(30px,4.5vw,60px); line-height:1.18; letter-spacing:-.055em; max-width:1020px; }
+      .statement strong { color:var(--orange); }
+      .deliverables { display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--line); border:1px solid var(--line); }
+      .deliverable { min-height: 340px; padding: 40px; background: #0d1528; position:relative; }
+      .deliverable::after { content:""; position:absolute; width:130px;height:130px;right:20px;bottom:20px;border:1px solid rgba(82,214,255,.25);border-radius:50%; }
+      .deliverable:nth-child(2)::after { border-color:rgba(255,106,61,.34); border-radius: 14px; transform: rotate(14deg); }
+      .deliverable p { color:var(--muted); max-width:460px; }
+      .deliverable ul { padding-left:18px; color:var(--soft); font-size:14px; }
+      .stage { border-top: 1px solid var(--line); display:grid; grid-template-columns: 120px 1fr; gap: 34px; padding: 62px 0; }
+      .stage:last-child { border-bottom: 1px solid var(--line); }
+      .stage-label { font: 600 15px/1.2 ui-monospace, monospace; color:var(--cyan); }
+      .stage-label span { display:block; font: 400 12px/1.5 ui-monospace, monospace; margin-top: 8px; color:var(--muted); }
+      .stage-main { display:grid; grid-template-columns: .88fr 1.12fr; gap: 36px; }
+      .stage-main p { color:var(--soft); font-size:19px; margin-bottom:0; }
+      .capabilities { display:grid; grid-template-columns:repeat(2,1fr); gap:14px 26px; list-style:none; padding:0; margin:0; }
+      .capabilities li { border-left:2px solid var(--orange); padding-left:13px; color:var(--muted); font-size:14px; }
+      .capabilities b { display:block; color:var(--ink); font-size:15px; margin-bottom:3px; }
+      .produce .stage-label { color:var(--orange); }
+      .poc { background: #eaf2fa; color:#10182a; max-width:none; padding-left:max(28px, calc((100vw - var(--max))/2 + 28px)); padding-right:max(28px, calc((100vw - var(--max))/2 + 28px)); }
+      .poc .section-wrap { max-width:var(--max); margin:auto; padding:100px 0; }
+      .poc h2 { color:#10182a; }
+      .poc .section-intro p { color:#506075; }
+      .evidence { display:grid; grid-template-columns: .9fr 1.1fr; gap:48px; align-items:center; }
+      .metric { font-size:clamp(76px, 11vw, 154px); font-weight:750; line-height:.8; letter-spacing:-.1em; color:var(--orange); }
+      .metric span { font-size:.27em; letter-spacing:-.04em; color:#10182a; display:inline-block; margin-left:14px; }
+      .evidence p { color:#3b4b61; font-size:18px; }
+      .checks { border-top:1px solid #bfcedd; }
+      .check { padding:15px 0; border-bottom:1px solid #bfcedd; display:flex; gap:12px; align-items:center; color:#25344b; }
+      .dot { width:9px;height:9px;border-radius:50%;background:#159d65; flex: 0 0 auto; }
+      .boundary-grid { display:grid; grid-template-columns: 1fr 1fr; gap:55px; }
+      .status-list { list-style:none; padding:0; margin:0; }
+      .status-list li { padding:15px 0; border-bottom:1px solid var(--line); color:var(--muted); }
+      .status-list b { color:var(--ink); display:inline-block; min-width:112px; }
+      .tag { display:inline-block; min-width:56px; padding:2px 7px; border:1px solid currentColor; font:600 10px/1.35 ui-monospace,monospace; text-align:center; margin-right:9px; vertical-align:1px; }
+      .done { color:var(--green); }.poc-tag { color:var(--yellow); }.future { color:var(--muted); }
+      .next { text-align:center; padding-bottom:132px; }
+      .next h2 { margin: auto auto 36px; }
+      .road { display:flex; max-width:870px; margin:50px auto 0; text-align:left; border-top:1px solid var(--line); }
+      .road > div { flex:1; padding:20px 19px; border-left:1px solid var(--line); color:var(--muted); font-size:14px; }
+      .road > div:last-child { border-right:1px solid var(--line); }
+      .road b { display:block; color:var(--ink); font-size:16px; margin-bottom:9px; }
+      footer { padding:28px; border-top:1px solid var(--line); color:var(--muted); font-size:12px; text-align:center; }
+      .reveal { opacity:0; transform:translateY(16px); transition: opacity .65s ease, transform .65s ease; }
+      .reveal.visible { opacity:1; transform:none; }
+      @keyframes spin { to { transform:rotate(360deg); } }
+      @media (max-width: 720px) {
+        .topbar small,.nav { display:none; }.topbar > div { padding:13px 20px; }
+        section { padding:72px 20px; }.hero { grid-template-columns:1fr; padding-top:50px; gap:10px; min-height:auto; }
+        .flow { transform:scale(.88); margin:-10px 0; }.section-intro,.stage-main,.evidence,.boundary-grid { display:block; }.section-intro p { margin-top:18px; }
+        .deliverables { grid-template-columns:1fr; }.deliverable { min-height:270px; padding:30px; }.stage { grid-template-columns:1fr; gap:16px; padding:42px 0; }.capabilities { margin-top:28px; grid-template-columns:1fr; }.poc { padding-left:20px; padding-right:20px; }.poc .section-wrap { padding:72px 0; }.evidence > *+* { margin-top:42px; }.boundary-grid > *+* { margin-top:42px; }.road { display:block; margin-top:30px; }.road > div { border-right:1px solid var(--line); }.next { padding-bottom:80px; }
+      }
+      @media print { .topbar { position:static; }.reveal { opacity:1; transform:none; } section { break-inside:avoid; } }
+      @media (prefers-reduced-motion: reduce) { html{scroll-behavior:auto}.reveal{opacity:1;transform:none}.flow::after{animation:none} }
+    </style>
+  </head>
+  <body>
+    <header class="topbar"><div><div class="brand"><i class="mark"></i>AgentMo</div><nav class="nav"><a href="#outputs">产出</a><a href="#capabilities">能力地图</a><a href="#poc">POC</a><a href="#next">下一阶段</a></nav><small>阶段性项目汇报 · 2026.08</small></div></header>
+    <main>
+      <section class="hero">
+        <div class="reveal">
+          <div class="eyeline"></div>
+          <h1>让 Agent<br>从想法走向<em>软件</em></h1>
+          <p class="lead">AgentMo 是一套将数据、规划与工程交付串成闭环的 Agent 生产体系。</p>
+          <p class="hero-note">数据与用户信号 → Agent Idea → 设计与测试 → Coding Agent 实现 → Agent Package</p>
+        </div>
+        <div class="flow reveal" aria-label="Discover 到 Plan 到 Produce 的三阶段流程">
+          <div class="core">Agent<br>Mo</div>
+          <div class="orbit one"><b>01 Discover</b>证据与 Idea</div>
+          <div class="orbit two"><b>02 Plan</b>设计与测试</div>
+          <div class="orbit three"><b>03 Produce</b>编码与验收</div>
+        </div>
+      </section>
+
+      <section class="statement"><div class="quote reveal">我们交付的不是一次性提示词，<br>而是可追溯、可批准、可运行的 <strong>Agent Package</strong>。</div></section>
+
+      <section id="outputs">
+        <div class="section-intro reveal"><div><p class="number">01 / 核心产出</p><h2>一套方法论，<br>两类长期产出。</h2></div><p>首版以 Codex 为构建端、OpenClaw 为 Runtime；未来适配更多 Coding Agent 与 Runtime，而不改写核心协议。</p></div>
+        <div class="deliverables reveal">
+          <article class="deliverable"><p class="number">OUTPUT A</p><h3>AgentMo 方法论与协议层</h3><p>面向各类 Coding Agent 与运行时的“造 Agent”标准：明确每个阶段的输入、边界、人工批准与验证证据。</p><ul><li>Discover → Plan → Produce 合同</li><li>提示词、Skills、Tools、Memory 工程规范</li><li>版本、证据、审批与失败即停止机制</li></ul></article>
+          <article class="deliverable"><p class="number">OUTPUT B</p><h3>可编译的 Agent Package</h3><p>把规划确定性地投影为目标运行时可用的包。当前首个运行时目标是 OpenClaw。</p><ul><li>通用 Blueprint 与 Build Contract</li><li>OpenClaw 原生资源与 D-42 运输归档</li><li>安装、激活、运行、评估生命周期证据</li></ul></article>
+        </div>
+      </section>
+
+      <section id="capabilities">
+        <div class="section-intro reveal"><div><p class="number">02 / 能力地图</p><h2>从资料到 Agent，<br>每一段都有明确职责。</h2></div><p>三阶段分离事实、规划与交付，避免把愿望、声明和运行结果混为一谈。</p></div>
+        <article class="stage reveal"><div class="stage-label">DISCOVER<span>找证据 · 提炼 Idea</span></div><div class="stage-main"><p>AI 连接已授权的公开搜索、内部数据库/API、MCP、本地文件和用户反馈，形成 Research DB，并提炼值得被 Agent 化的机会。</p><ul class="capabilities"><li><b>数据连接器</b>Web、内部数据库、业务 API、MCP、本地与人工信号</li><li><b>证据留存</b>来源、发布时间、采集时间、信任等级与去重</li><li><b>机会发现</b>识别趋势、痛点、未满足流程和可 Agent 化任务</li><li><b>Idea Gate</b>将有证据边界的候选 Idea 交给用户确认</li></ul></div></article>
+        <article class="stage reveal"><div class="stage-label">PLAN<span>设计 Agent · 定义测试</span></div><div class="stage-main"><p>把确认后的 Idea 转化为可批准的 Agent 设计，同时提前定义它必须通过的测试数据集和失败边界。</p><ul class="capabilities"><li><b>系统设计</b>Prompt、Skills、Tools、Memory、RAG、DB 与 Loop</li><li><b>规划合同</b>Design Plan、Blueprint、Build Contract</li><li><b>验证合同</b>Evaluation Contract、Test Dataset、Acceptance Criteria</li><li><b>Plan Gate</b>人工批准设计、测试标准与精确授权范围</li></ul></div></article>
+        <article class="stage produce reveal"><div class="stage-label">PRODUCE<span>Coding · Runtime · 验收</span></div><div class="stage-main"><p>Codex 等 Coding Agent 按批准合同编写真实实现，经 Runtime Adapter 生成目标包，并执行 Plan 阶段预声明的测试数据集。</p><ul class="capabilities"><li><b>Coding Agent</b>Codex 先行，未来适配 Cursor、Claude Code、Kimi Code</li><li><b>Runtime Adapter</b>OpenClaw 先行，未来支持 Pi、Hermes 与业务方规范</li><li><b>测试执行</b>正常、边界、拒答、安全、恢复和 Runtime 测试</li><li><b>交付证据</b>Package、Run、Replay、Eval、Birth 与 Delivery Report</li></ul></div></article>
+      </section>
+
+      <section class="poc" id="poc"><div class="section-wrap">
+        <div class="section-intro reveal"><div><p class="number">03 / 首个真实 POC</p><h2>白领产品经理<br>研究 Agent</h2></div><p>聚焦知识工作与文档、会议与协作、数据分析与决策，为未来电脑智能体的需求判断提供本地证据库。</p></div>
+        <div class="evidence reveal"><div><div class="metric">20 → 0<span>新增记录</span></div><p>两次合格采集：第一次纳入 20 条证据；第二次新增 0 条，验证了最小去重路径。</p></div><div class="checks"><div class="check"><i class="dot"></i>受控来源采集并写入本地 Research DB</div><div class="check"><i class="dot"></i>记录来源、时间、可信等级与事实边界</div><div class="check"><i class="dot"></i>重启后仍可读取 DB、知识文档与 Daily Brief</div><div class="check"><i class="dot"></i>OpenClaw / DeepSeek 仅基于本地证据回答</div><div class="check"><i class="dot"></i>缺少事实类证据时明确拒答，不编造</div></div></div>
+      </div></section>
+
+      <section>
+        <div class="section-intro reveal"><div><p class="number">04 / 成熟度与边界</p><h2>机制闭环已验证，<br>生产授权仍需逐步取得。</h2></div><p>阶段性成果的价值，是准确知道已经证明了什么，也准确知道尚未证明什么。</p></div>
+        <div class="boundary-grid reveal"><div><h3>当前已具备</h3><ul class="status-list"><li><span class="tag done">已验证</span><b>方法论闭环</b>Discover、Plan、Produce 的核心合同与证据链</li><li><span class="tag done">已验证</span><b>OpenClaw POC</b>隔离 Profile、DeepSeek 问答与本地知识使用</li><li><span class="tag done">已验证</span><b>基础可信性</b>两次采集去重、恢复、拒答与来源边界</li><li><span class="tag poc-tag">POC</span><b>Dashboard</b>可进入隔离环境体验首个研究 Agent</li></ul></div><div><h3>尚未自动启用</h3><ul class="status-list"><li><span class="tag future">未授权</span><b>定时任务</b>08:00 Asia/Shanghai 仅为 Schedule Preview</li><li><span class="tag future">未授权</span><b>自动投递</b>不自动发布、不自动发送外部内容</li><li><span class="tag future">待验证</span><b>生产认证</b>不等于领域质量、用户价值或通用兼容性</li><li><span class="tag future">待验证</span><b>Linux CI</b>原生 Package 与隔离能力仍需独立证明</li></ul></div></div>
+      </section>
+
+      <section class="next" id="next"><p class="number reveal">05 / 下一阶段</p><h2 class="reveal">从一个验证过的研究 Agent，<br>走向可持续交付的 Agent 工厂。</h2><div class="road reveal"><div><b>01 Idea Discovery</b>扩展授权数据连接器，从证据中持续发现可 Agent 化机会。</div><div><b>02 Plan + Test</b>让每个 Agent 规划天然携带测试数据集、验收标准与失败边界。</div><div><b>03 Coding Agent</b>从 Codex 扩展到 Cursor、Claude Code、Kimi Code 等构建端。</div><div><b>04 Runtime Adapter</b>OpenClaw 先行，逐步支持 Pi、Hermes 与业务方架构规范。</div></div></section>
+    </main>
+    <footer>AgentMo · 阶段性项目汇报 · 机制证据不等同于生产认证</footer>
+    <script>
+      const observer = new IntersectionObserver((entries) => entries.forEach(({isIntersecting,target}) => { if (isIntersecting) { target.classList.add('visible'); observer.unobserve(target); } }), { threshold: .12 });
+      document.querySelectorAll('.reveal').forEach((el) => observer.observe(el));
+    </script>
+  </body>
+</html>

@@ -9,8 +9,8 @@
 AgentMo 要解决的不是“写一段 Prompt”，而是把领域 Agent 做成可复现的软件产物：
 
 ```text
-数据与证据 -> 与人的规划 -> 可运行 Agent Package
-Discover      Plan             Produce
+数据与用户信号 -> Agent Idea -> 设计与测试合同 -> Coding Agent 实现 -> Agent Package
+Data Connect     Discover      Plan             Produce             Runtime
 ```
 
 项目有两层长期产物：
@@ -19,6 +19,14 @@ Discover      Plan             Produce
    plugins、tools、memory/evidence 边界和人工批准点。
 2. 由该方法论构建出的 domain Agent Package。首个运行时重点是 OpenClaw；Codex
    是当前的主要构建工具，但协议不能锁死在单一 coding tool 或单一 runtime。
+
+长期权威架构进一步明确为：Discover 要从公开搜索、内部数据库/API、MCP、本地
+文件和用户反馈等已授权来源形成证据，并提炼 Agent Idea 交由用户确认；Plan 必须
+同时设计 Agent 和它要通过的 Evaluation Contract / Test Dataset；Produce 由
+Codex、Cursor、Claude Code、Kimi Code 等 Coding Agent 进行实现并执行预声明测试。
+AgentMo 通过 Runtime Adapter 将通用 Agent 规范投影到 OpenClaw、Pi、Hermes 或
+业务方提供的架构规范。外部开发工作流、规划框架和插件不属于 AgentMo 产品架构，
+也不得成为 CLI、合同、Agent Package、测试或 Runtime 的运行依赖。
 
 首个 POC 把这条主线缩小为“白领产品经理研究 Agent”：持续收集 AI、知识工作、
 文档、会议协作、数据分析及设备/软件趋势的受限证据，形成可查询的 Research DB，
@@ -34,6 +42,7 @@ Discover      Plan             Produce
 | 2026.07.27–28 | allowlist Discover、Discovery approval、decision ledger、build contract / plan approval | 将资料、规划、OpenClaw 资源家族和批准精确绑定 | `2026.07.27.md`、`2026.07.28.md` |
 | 2026.07.29–08.04 | deterministic Package、D-42 archive、生命周期与 Linux native containment | Package/安装机制得到严格建模；Linux native gate 仍独立存在 | `2026.07.29.md`–`2026.08.04.md` |
 | 2026.08.05–06 | 白领 Research DB、受限真实采集、DeepSeek/OpenClaw 问答、Dashboard 入口 | 首次端到端 POC 验收；仍不是默认安装、自动日程或生产服务 | `2026.08.05.md`、`2026.08.06.md` |
+| 2026.08.12 | 收敛 Data Connector、Agent Idea、Evaluation/Test Dataset、Coding Agent 与 Runtime Adapter 权威架构 | 明确长期产品边界；新增适配器与自动 Idea 发现尚未宣称已实现 | `2026.08.12.md` |
 
 ## 当前已具备的能力
 
@@ -65,15 +74,14 @@ Discover      Plan             Produce
 
 1. **固化当前成果。** 审阅并分组提交 Dashboard、POC、测试和 release 文档；随后
    才决定是否 push 与触发 Linux CI。
-2. **把 Discover 做成长期产品能力。** 由人明确来源白名单、证据层级、持久化位置、
-   更新频率、人工复核和失败告警；在单独授权后才启用 schedule 或投递。
-3. **走完人机共创的 Plan。** 基于 Research DB 与产品经理反馈，形成优先级、用户
-   痛点、能力假设、验收指标和可批准的 Agent design plan。
-4. **把计划编译成可交付 Package。** 继续保持 target-neutral manifest + OpenClaw
-   native projection 的策略；Package 的 install、activation、runtime 与 production
-   仍应逐项人工授权、独立验证。
-5. **保持多工具可移植性。** Codex/OpenClaw 是第一实现，不应把核心 contracts、
-   skills 或 evidence semantics 绑定为不可迁移的私有格式。
+2. **把 Discover 做成机会发现能力。** 增加经过授权的数据连接器，在 Research DB
+   上识别趋势、痛点与可 Agent 化任务，生成有证据和判断边界的 Agent Idea 供人确认。
+3. **走完人机共创的 Plan。** 为确认后的 Idea 同时形成 Agent 设计、Evaluation
+   Contract、Test Dataset、Acceptance Criteria 和 hard failures。
+4. **让 Coding Agent 完成真实实现与验收。** Codex 先行，随后适配 Cursor、Claude
+   Code、Kimi Code；Produce 必须执行 Plan 阶段预声明的数据集并记录有界证据。
+5. **建立多 Runtime Adapter。** 保持 target-neutral specification + runtime-native
+   projection；OpenClaw 先行，未来可面向 Pi、Hermes 或业务方 Agent 架构规范。
 
 ## 如何使用本目录
 

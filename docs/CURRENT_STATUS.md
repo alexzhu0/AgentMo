@@ -1,6 +1,6 @@
 # AgentMo 当前状态与恢复入口
 
-更新日期：2026-08-10
+更新日期：2026-08-12
 
 本页是短期恢复锚点。它只描述当前工作状态；历史决策、审计和发布证据保留在
 `release/`，不应被本页改写。旧规划工作区已移除，不是恢复权威。
@@ -12,6 +12,25 @@ AgentMo 的三阶段主线仍是：
 ```text
 Discover -> Plan -> Produce
 ```
+
+当前权威架构口径已经收敛到 `docs/CONCEPT.md`：
+
+- Discover 连接公开搜索、内部数据库/API、MCP、本地文件和用户反馈等已授权
+  数据源，形成 Research DB，并从证据中提炼可能被做成 Agent Package 的
+  Agent Idea，交由用户确认；
+- Plan 为确认后的 Idea 同时生成 Agent 设计与验证义务，包括 Evaluation
+  Contract、Test Dataset、Acceptance Criteria 和失败边界；
+- Produce 由 Codex、Cursor、Claude Code、Kimi Code 等 Coding Agent 按批准的
+  规划进行编码，并以 Plan 阶段预先定义的测试数据集验证交付物；
+- OpenClaw 是首个 Runtime Adapter，不是 AgentMo 的永久边界；未来目标可包括
+  Pi、Hermes 或业务方提供的 Agent 架构规范；
+- 外部开发工作流、规划框架和插件不属于 AgentMo 产品架构；AgentMo CLI、合同、
+  Builder Protocol、Agent Package、测试与 Runtime 运行不得依赖它们。
+
+上述内容同时包含目标架构与扩展边界，不得把尚未完成的数据连接器、Coding Agent
+适配器、Runtime Adapter 或自动 Idea 发现能力描述为当前已交付能力。
+通用架构图和权威架构定义不放入任何具体领域 Agent、POC 或客户场景；这些内容只在
+对应的实现、验收和历史记录中描述。
 
 白领研究型 OpenClaw POC 已完成一次独立、受限的验收运行：两次采集分别新增
 20 条与 0 条记录；重启后 Research DB 与每日 brief 可读；短问题可由
