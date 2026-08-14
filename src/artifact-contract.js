@@ -100,6 +100,8 @@ const AGENT_IDEA_CANDIDATE_CONTRACT = deepFreeze({
       evidenceIds: {
         ...boundedStringArray(1, 256, 256),
         uniqueItems: true,
+        description: "Fact IDs must be strictly ascending by UTF-8 byte order as well as unique.",
+        "x-agentmo-byte-sorted-unique": true,
       },
       evidenceGaps: boundedStringArray(0, 64, 2048),
       judgmentBoundaries: boundedStringArray(1, 64, 2048),

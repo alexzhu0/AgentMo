@@ -219,14 +219,40 @@ describe("design plan", () => {
         filePath: candidatePath,
         subject: "discovery-approval",
         expectedDigest: candidateDigest,
+        companions: {
+          "discovery-manifest": inputs.admissions.discoveryManifest,
+          "discovery-db": inputs.admissions.discoveryDb,
+        },
       }),
-      /exact admitted source set/i,
+      (error) => error?.code === "AGENTMO_UNSUPPORTED_ARTIFACT",
     );
     assert.throws(
       () => buildDesignPlan(inputs.discoveryDb, candidate, planOptions(inputs)),
       /user-need/i,
     );
     assert.equal(subjectsForCommand("design-plan").includes("agent-idea-candidate"), false);
+
+    const outPath = path.join(root, "must-remain-absent.json");
+    const cli = await runCli([
+      "design-plan",
+      DISCOVERY_DB_FILE,
+      "--manifest", DISCOVERY_MANIFEST_FILE,
+      "--discovery-approval", candidatePath,
+      "--need", USER_NEED_FILE,
+      "--decision-ledger", candidatePath,
+      "--out", outPath,
+      "--target", "openclaw",
+      "--digest", `discovery-manifest=${inputs.admissions.discoveryManifest.digest}`,
+      "--digest", `discovery-db=${inputs.admissions.discoveryDb.digest}`,
+      "--digest", `discovery-approval=${candidateDigest}`,
+      "--digest", `user-need=${inputs.admissions.userNeed.digest}`,
+      "--digest", `decision-ledger=${candidateDigest}`,
+      "--digest", `agent-idea-candidate=${candidateDigest}`,
+      "--json",
+    ]);
+    assert.equal(cli.code, 1);
+    assert.equal(JSON.parse(cli.stdout).code, "AGENTMO_ARTIFACT_DIGEST_UNKNOWN_SUBJECT");
+    await assert.rejects(() => access(outPath));
   });
 
   it("builds and validates a first-class Stage 2 design plan from DB plus need", async () => {

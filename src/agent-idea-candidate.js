@@ -32,6 +32,8 @@ const PROVENANCE_KEYS = Object.freeze(["identity", "subject", "digest"]);
 const SHA256_DIGEST_PATTERN = /^sha256:[a-f0-9]{64}$/u;
 const IDEA_ID_PATTERN = /^[a-z0-9][a-z0-9._:-]{0,127}$/u;
 const EXTRACTION_FIELD_WARNING = "evidenceIds cite extraction_field planning leads; they do not prove user need, value, capability, domain quality, or Plan readiness.";
+const REPORTED_EVIDENCE_KINDS = new Set(["extraction_field", "source_chunk"]);
+const REPORTED_TRUST_LEVELS = new Set(["verified", "trusted", "derived", "unverified", "unknown"]);
 
 export function validateAgentIdeaCandidate(candidate, context) {
   const errors = [];
@@ -88,21 +90,28 @@ export function summarizeAgentIdeaCandidate(candidate, context) {
     evidenceCount: countStrings(candidate?.evidenceIds),
     evidenceGapCount: countStrings(candidate?.evidenceGaps),
     judgmentBoundaryCount: countStrings(candidate?.judgmentBoundaries),
-    evidenceKinds: countValues(facts.map((fact) => fact.kind)),
-    trustLevels: countValues(facts.map((fact) => fact.trustLevel)),
+    evidenceKinds: countValues(facts.map((fact) => (
+      REPORTED_EVIDENCE_KINDS.has(fact.kind) ? fact.kind : "other"
+    ))),
+    trustLevels: countValues(facts.map((fact) => (
+      REPORTED_TRUST_LEVELS.has(fact.trustLevel) ? fact.trustLevel : "unknown"
+    ))),
     certificationBoundary: { ...AGENT_IDEA_CANDIDATE_CERTIFICATION_BOUNDARY },
   };
 }
 
 export function buildAgentIdeaCandidateReport(candidate, context) {
   const validation = validateAgentIdeaCandidate(candidate, context);
+  const errors = context === undefined
+    ? [...validation.errors, "Candidate reporting requires the exact admitted Discovery DB context."]
+    : validation.errors;
   return {
     kind: "agentmo_agent_idea_candidate_report",
     version: "0.1",
-    ok: validation.ok,
+    ok: errors.length === 0,
     summary: summarizeAgentIdeaCandidate(candidate, context),
     warnings: validation.warnings,
-    errors: validation.errors,
+    errors,
   };
 }
 
@@ -241,11 +250,11 @@ function countStrings(value) {
 }
 
 function countValues(values) {
-  const counts = {};
+  const counts = new Map();
   for (const value of values.filter((item) => typeof item === "string" && item.length > 0).sort()) {
-    counts[value] = (counts[value] ?? 0) + 1;
+    counts.set(value, (counts.get(value) ?? 0) + 1);
   }
-  return counts;
+  return Object.fromEntries(counts);
 }
 
 function formatCounts(value) {

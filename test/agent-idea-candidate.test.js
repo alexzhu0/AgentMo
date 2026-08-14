@@ -191,6 +191,26 @@ describe("Agent Idea Candidate", () => {
     assert.deepEqual(validation.warnings, []);
     assert.deepEqual(summarizeAgentIdeaCandidate(candidate).evidenceKinds, {});
     assert.deepEqual(summarizeAgentIdeaCandidate(candidate).trustLevels, {});
+    const report = buildAgentIdeaCandidateReport(candidate);
+    assert.equal(report.ok, false);
+    assert.match(report.errors.join("\n"), /exact admitted Discovery DB context/u);
+  });
+
+  it("normalizes untrusted fact classification metadata into bounded value-blind counts", () => {
+    const candidate = validCandidate();
+    const discoveryDb = validDiscoveryDb();
+    discoveryDb.facts[0].kind = "__proto__";
+    discoveryDb.facts[0].trustLevel = "constructor";
+    discoveryDb.facts[1].kind = "kind-canary-".repeat(1000);
+    discoveryDb.facts[1].trustLevel = "trust-canary-".repeat(1000);
+
+    const report = buildAgentIdeaCandidateReport(candidate, discoveryContext(discoveryDb));
+    assert.equal(report.ok, true);
+    assert.deepEqual(report.summary.evidenceKinds, { other: 2 });
+    assert.deepEqual(report.summary.trustLevels, { unknown: 2 });
+    assert.equal(JSON.stringify(report).includes("kind-canary"), false);
+    assert.equal(JSON.stringify(report).includes("trust-canary"), false);
+    assert.equal(JSON.stringify(report).includes("function Object"), false);
   });
 
   it("exact-admits Candidate bytes only with the authentic Discovery DB companion", async () => {

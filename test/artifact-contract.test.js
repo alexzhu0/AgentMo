@@ -85,6 +85,10 @@ describe("operator-authored artifact contracts", () => {
     assert.equal(need.schemaVersion, "agentmo.artifact-contract.v1");
     assert.equal(validateDecisionEntry(decision.minimalTemplate).ok, true);
     assert.equal(validateAgentIdeaCandidate(ideaCandidate.minimalTemplate).ok, true);
+    assert.equal(
+      ideaCandidate.jsonSchema.properties.evidenceIds["x-agentmo-byte-sorted-unique"],
+      true,
+    );
     assert.equal(validateDiscoveryManifest(discovery.minimalTemplate).ok, true);
     assert.equal(validateUserNeed(need.minimalTemplate).ok, true);
     assert.equal(
