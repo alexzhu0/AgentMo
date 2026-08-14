@@ -759,7 +759,7 @@ async function runCommand(args) {
     await emitArtifactOutput(report, {
       json: options.json,
       subject: "agent-idea-candidate-report",
-      format: formatAgentIdeaCandidateReport,
+      format: () => formatAgentIdeaCandidateReport(report),
     });
     if (!report.ok) process.exitCode = 1;
     return;

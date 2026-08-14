@@ -49,27 +49,34 @@ const IDEA_ID_PATTERN = new RegExp(AGENT_IDEA_CANDIDATE_ID_PATTERN_SOURCE, "u");
 const EXTRACTION_FIELD_WARNING = "evidenceIds cite extraction_field planning leads; they do not prove user need, value, capability, domain quality, or Plan readiness.";
 const REPORTED_EVIDENCE_KINDS = new Set(["extraction_field", "source_chunk"]);
 const REPORTED_TRUST_LEVELS = new Set(["verified", "trusted", "derived", "unverified", "unknown"]);
-const REPORT_KEYS = Object.freeze(["kind", "version", "ok", "summary", "warnings", "errors"]);
-const SUMMARY_KEYS = Object.freeze([
-  "schemaVersion",
-  "ideaId",
-  "targetUserCount",
-  "candidateTaskCount",
-  "evidenceCount",
-  "evidenceGapCount",
-  "judgmentBoundaryCount",
-  "evidenceKinds",
-  "trustLevels",
-  "certificationBoundary",
-]);
 const PUBLIC_SNAPSHOT_MAX_DEPTH = 64;
 const PUBLIC_SNAPSHOT_MAX_NODES = 20_000;
+const CANDIDATE_SCHEMA_MAX_STRING_CODE_UNITS = 16_384 + (2 * (
+  128
+  + AGENT_IDEA_CANDIDATE_LIMITS.title.maxLength
+  + (AGENT_IDEA_CANDIDATE_LIMITS.targetUsers.maxItems
+    * AGENT_IDEA_CANDIDATE_LIMITS.targetUsers.itemMaxLength)
+  + (AGENT_IDEA_CANDIDATE_LIMITS.candidateTasks.maxItems
+    * AGENT_IDEA_CANDIDATE_LIMITS.candidateTasks.itemMaxLength)
+  + AGENT_IDEA_CANDIDATE_LIMITS.valueHypothesis.maxLength
+  + (AGENT_IDEA_CANDIDATE_LIMITS.evidenceIds.maxItems
+    * AGENT_IDEA_CANDIDATE_LIMITS.evidenceIds.itemMaxLength)
+  + (AGENT_IDEA_CANDIDATE_LIMITS.evidenceGaps.maxItems
+    * AGENT_IDEA_CANDIDATE_LIMITS.evidenceGaps.itemMaxLength)
+  + (AGENT_IDEA_CANDIDATE_LIMITS.judgmentBoundaries.maxItems
+    * AGENT_IDEA_CANDIDATE_LIMITS.judgmentBoundaries.itemMaxLength)
+));
+const DISCOVERY_CONTEXT_MAX_STRING_CODE_UNITS = 1_100_000;
 const HOSTILE_INPUT_ERROR = "Agent Idea Candidate must contain only own JSON data properties.";
+const STRING_BUDGET_ERROR = "Agent Idea Candidate exceeds the bounded public string budget.";
 const UNRECOGNIZED_REPORT_ERROR = "Candidate report contained an unrecognized diagnostic.";
+const TRUSTED_REPORT_RENDER_STATES = new WeakMap();
+
+class CandidateStringBudgetError extends TypeError {}
 
 export function validateAgentIdeaCandidate(candidate, context) {
   const captured = captureCandidateInputs(candidate, context);
-  if (!captured.ok) return invalidCandidateValidation();
+  if (!captured.ok) return invalidCandidateValidation(captured.stringBudgetExceeded);
   return validateCandidateSnapshot(captured.candidate, captured.context, context !== undefined);
 }
 
@@ -89,7 +96,9 @@ function validateCandidateSnapshot(candidate, context, contextProvided) {
   if (candidate.schemaVersion !== AGENT_IDEA_CANDIDATE_SCHEMA_VERSION) {
     addError(errors, `schemaVersion must be ${AGENT_IDEA_CANDIDATE_SCHEMA_VERSION}.`);
   }
-  if (typeof candidate.ideaId !== "string" || !IDEA_ID_PATTERN.test(candidate.ideaId)) {
+  if (typeof candidate.ideaId !== "string"
+    || candidate.ideaId.length > 128
+    || !IDEA_ID_PATTERN.test(candidate.ideaId)) {
     addError(errors, "ideaId must be a lowercase bounded identifier.");
   }
   validateString(candidate.title, "title", AGENT_IDEA_CANDIDATE_LIMITS.title.maxLength, errors);
@@ -97,9 +106,13 @@ function validateCandidateSnapshot(candidate, context, contextProvided) {
   validateStringArray(candidate.candidateTasks, "candidateTasks", AGENT_IDEA_CANDIDATE_LIMITS.candidateTasks, errors);
   validateString(candidate.valueHypothesis, "valueHypothesis", AGENT_IDEA_CANDIDATE_LIMITS.valueHypothesis.maxLength, errors);
   validateSource(candidate.source, errors);
-  validateStringArray(candidate.evidenceIds, "evidenceIds", AGENT_IDEA_CANDIDATE_LIMITS.evidenceIds, errors);
-  if (Array.isArray(candidate.evidenceIds)
-    && candidate.evidenceIds.length <= AGENT_IDEA_CANDIDATE_LIMITS.evidenceIds.maxItems
+  const evidenceIdsValid = validateStringArray(
+    candidate.evidenceIds,
+    "evidenceIds",
+    AGENT_IDEA_CANDIDATE_LIMITS.evidenceIds,
+    errors,
+  );
+  if (evidenceIdsValid
     && !isByteSortedUnique(candidate.evidenceIds)) {
     addError(errors, "evidenceIds must be sorted and unique.");
   }
@@ -118,11 +131,11 @@ function validateCandidateSnapshot(candidate, context, contextProvided) {
       }
     }
     if (errors.length === beforeContextErrors && citesExtractionField) {
-      warnings.push(EXTRACTION_FIELD_WARNING);
+      appendArray(warnings, EXTRACTION_FIELD_WARNING);
     }
   }
 
-  return { ok: errors.length === 0, errors: errors.slice(0, AGENT_IDEA_CANDIDATE_MAX_ERRORS), warnings };
+  return { ok: errors.length === 0, errors: boundedErrors(errors), warnings };
 }
 
 export function summarizeAgentIdeaCandidate(candidate, context) {
@@ -165,11 +178,12 @@ export function buildAgentIdeaCandidateReport(candidate, context) {
   const captured = captureCandidateInputs(candidate, context);
   const validation = captured.ok
     ? validateCandidateSnapshot(captured.candidate, captured.context, context !== undefined)
-    : invalidCandidateValidation();
-  const errors = context === undefined
-    ? boundedErrors([...validation.errors, "Candidate reporting requires the exact admitted Discovery DB context."])
-    : validation.errors;
-  return {
+    : invalidCandidateValidation(captured.stringBudgetExceeded);
+  const errors = boundedErrors(validation.errors);
+  if (context === undefined) {
+    addError(errors, "Candidate reporting requires the exact admitted Discovery DB context.");
+  }
+  const report = {
     kind: "agentmo_agent_idea_candidate_report",
     version: "0.1",
     ok: errors.length === 0,
@@ -179,10 +193,12 @@ export function buildAgentIdeaCandidateReport(candidate, context) {
     warnings: validation.warnings,
     errors,
   };
+  TRUSTED_REPORT_RENDER_STATES.set(report, copyTrustedReportRenderState(report));
+  return report;
 }
 
 export function formatAgentIdeaCandidateReport(report) {
-  const normalized = normalizeAgentIdeaCandidateReport(report);
+  const normalized = TRUSTED_REPORT_RENDER_STATES.get(report) ?? invalidNormalizedReport();
   const summary = normalized.summary;
   const lines = [
     `AgentMo Agent Idea Candidate: ${summary.ideaId ?? "unknown"}`,
@@ -213,15 +229,30 @@ export function formatAgentIdeaCandidateReport(report) {
 
 function captureCandidateInputs(candidate, context) {
   try {
-    const state = { active: new WeakSet(), nodes: 0 };
+    const candidateState = snapshotState(CANDIDATE_SCHEMA_MAX_STRING_CODE_UNITS);
+    const contextState = snapshotState(DISCOVERY_CONTEXT_MAX_STRING_CODE_UNITS);
     return {
       ok: true,
-      candidate: snapshotOwnJsonData(candidate, 0, state),
-      context: context === undefined ? undefined : snapshotOwnJsonData(context, 0, state),
+      candidate: snapshotOwnJsonData(candidate, 0, candidateState),
+      context: context === undefined ? undefined : snapshotOwnJsonData(context, 0, contextState),
     };
-  } catch {
-    return { ok: false, candidate: null, context: undefined };
+  } catch (error) {
+    return {
+      ok: false,
+      candidate: null,
+      context: undefined,
+      stringBudgetExceeded: error instanceof CandidateStringBudgetError,
+    };
   }
+}
+
+function snapshotState(maxStringCodeUnits) {
+  return {
+    active: new WeakSet(),
+    nodes: 0,
+    stringCodeUnits: 0,
+    maxStringCodeUnits,
+  };
 }
 
 function snapshotOwnJsonData(value, depth, state) {
@@ -229,7 +260,11 @@ function snapshotOwnJsonData(value, depth, state) {
   if (depth > PUBLIC_SNAPSHOT_MAX_DEPTH || state.nodes > PUBLIC_SNAPSHOT_MAX_NODES) {
     throw new TypeError("bounded_candidate_snapshot_required");
   }
-  if (value === null || typeof value === "string" || typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    consumeStringBudget(value, state);
+    return value;
+  }
+  if (value === null || typeof value === "boolean") return value;
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value !== "object" || isProxy(value)) {
     throw new TypeError("own_candidate_data_required");
@@ -260,7 +295,7 @@ function snapshotArray(value, depth, state) {
   for (let index = 0; index < length; index += 1) {
     const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
     if (!enumerableDataDescriptor(descriptor)) throw new TypeError("own_candidate_data_required");
-    copy[index] = snapshotOwnJsonData(descriptor.value, depth + 1, state);
+    defineArrayIndex(copy, index, snapshotOwnJsonData(descriptor.value, depth + 1, state));
   }
   for (let index = 0; index < keys.length; index += 1) {
     const key = keys[index];
@@ -281,11 +316,28 @@ function snapshotObject(value, depth, state) {
   for (let index = 0; index < keys.length; index += 1) {
     const key = keys[index];
     if (typeof key !== "string") throw new TypeError("string_candidate_key_required");
+    consumeStringBudget(key, state);
     const descriptor = Object.getOwnPropertyDescriptor(value, key);
     if (!enumerableDataDescriptor(descriptor)) throw new TypeError("own_candidate_data_required");
     copy[key] = snapshotOwnJsonData(descriptor.value, depth + 1, state);
   }
   return copy;
+}
+
+function consumeStringBudget(value, state) {
+  state.stringCodeUnits += value.length;
+  if (state.stringCodeUnits > state.maxStringCodeUnits) {
+    throw new CandidateStringBudgetError("bounded_candidate_string_budget_required");
+  }
+}
+
+function defineArrayIndex(value, index, item) {
+  Object.defineProperty(value, String(index), {
+    configurable: true,
+    enumerable: true,
+    writable: true,
+    value: item,
+  });
 }
 
 function canonicalArrayIndex(key, length) {
@@ -300,8 +352,12 @@ function enumerableDataDescriptor(descriptor) {
     && Object.hasOwn(descriptor, "value");
 }
 
-function invalidCandidateValidation() {
-  return { ok: false, errors: [HOSTILE_INPUT_ERROR], warnings: [] };
+function invalidCandidateValidation(stringBudgetExceeded = false) {
+  return {
+    ok: false,
+    errors: [stringBudgetExceeded ? STRING_BUDGET_ERROR : HOSTILE_INPUT_ERROR],
+    warnings: [],
+  };
 }
 
 function emptyCandidateSummary() {
@@ -319,147 +375,34 @@ function emptyCandidateSummary() {
   };
 }
 
-function normalizeAgentIdeaCandidateReport(report) {
-  let captured;
-  try {
-    captured = snapshotOwnJsonData(report, 0, { active: new WeakSet(), nodes: 0 });
-  } catch {
-    return invalidNormalizedReport();
-  }
-  if (!plainObject(captured) || !hasExactKeys(captured, REPORT_KEYS)) {
-    return invalidNormalizedReport();
-  }
-  const normalizedSummary = normalizeReportSummary(captured.summary);
-  const diagnostics = normalizeReportDiagnostics(captured.errors, captured.warnings);
-  const shapeOk = captured.kind === "agentmo_agent_idea_candidate_report"
-    && captured.version === "0.1"
-    && typeof captured.ok === "boolean"
-    && normalizedSummary.ok
-    && diagnostics.ok
-    && (captured.ok ? diagnostics.errors.length === 0 : diagnostics.errors.length > 0);
-  if (!shapeOk) return invalidNormalizedReport();
+function copyTrustedReportRenderState(report) {
+  const summary = report.summary;
   return {
-    ok: captured.ok,
-    summary: normalizedSummary.value,
-    warnings: diagnostics.warnings,
-    errors: diagnostics.errors,
-  };
-}
-
-function normalizeReportSummary(summary) {
-  if (!plainObject(summary) || !hasExactKeys(summary, SUMMARY_KEYS)) return { ok: false };
-  const schemaVersion = summary.schemaVersion === AGENT_IDEA_CANDIDATE_SCHEMA_VERSION
-    ? summary.schemaVersion
-    : summary.schemaVersion === null ? null : undefined;
-  const ideaId = typeof summary.ideaId === "string" && IDEA_ID_PATTERN.test(summary.ideaId)
-    ? summary.ideaId
-    : summary.ideaId === null ? null : undefined;
-  const countLimits = [
-    ["targetUserCount", AGENT_IDEA_CANDIDATE_LIMITS.targetUsers.maxItems],
-    ["candidateTaskCount", AGENT_IDEA_CANDIDATE_LIMITS.candidateTasks.maxItems],
-    ["evidenceCount", AGENT_IDEA_CANDIDATE_LIMITS.evidenceIds.maxItems],
-    ["evidenceGapCount", AGENT_IDEA_CANDIDATE_LIMITS.evidenceGaps.maxItems],
-    ["judgmentBoundaryCount", AGENT_IDEA_CANDIDATE_LIMITS.judgmentBoundaries.maxItems],
-  ];
-  const counts = Object.create(null);
-  for (let index = 0; index < countLimits.length; index += 1) {
-    const [key, maximum] = countLimits[index];
-    if (!boundedCount(summary[key], maximum)) return { ok: false };
-    counts[key] = summary[key];
-  }
-  const evidenceKinds = normalizeCountMap(
-    summary.evidenceKinds,
-    new Set(["extraction_field", "source_chunk", "other"]),
-    counts.evidenceCount,
-  );
-  const trustLevels = normalizeCountMap(
-    summary.trustLevels,
-    new Set([...REPORTED_TRUST_LEVELS, "unknown"]),
-    counts.evidenceCount,
-  );
-  if (schemaVersion === undefined
-    || ideaId === undefined
-    || evidenceKinds === null
-    || trustLevels === null
-    || !exactCertificationBoundary(summary.certificationBoundary)) {
-    return { ok: false };
-  }
-  return {
-    ok: true,
-    value: {
-      schemaVersion,
-      ideaId,
-      ...counts,
-      evidenceKinds,
-      trustLevels,
+    ok: report.errors.length === 0,
+    summary: {
+      schemaVersion: summary.schemaVersion,
+      ideaId: summary.ideaId,
+      targetUserCount: summary.targetUserCount,
+      candidateTaskCount: summary.candidateTaskCount,
+      evidenceCount: summary.evidenceCount,
+      evidenceGapCount: summary.evidenceGapCount,
+      judgmentBoundaryCount: summary.judgmentBoundaryCount,
+      evidenceKinds: copyCountMap(summary.evidenceKinds),
+      trustLevels: copyCountMap(summary.trustLevels),
       certificationBoundary: { ...AGENT_IDEA_CANDIDATE_CERTIFICATION_BOUNDARY },
     },
+    warnings: boundedErrors(report.warnings),
+    errors: boundedErrors(report.errors),
   };
 }
 
-function normalizeCountMap(value, allowedKeys, maximumTotal) {
-  if (!plainObject(value)) return null;
+function copyCountMap(value) {
+  const copy = Object.create(null);
   const keys = Object.keys(value);
-  const normalized = {};
-  let total = 0;
   for (let index = 0; index < keys.length; index += 1) {
-    const key = keys[index];
-    const count = value[key];
-    if (!allowedKeys.has(key) || !Number.isSafeInteger(count) || count <= 0) return null;
-    total += count;
-    if (total > maximumTotal) return null;
-    normalized[key] = count;
+    copy[keys[index]] = value[keys[index]];
   }
-  return normalized;
-}
-
-function normalizeReportDiagnostics(errorValues, warningValues) {
-  if (!Array.isArray(errorValues) || !Array.isArray(warningValues)) {
-    return { ok: false, errors: [UNRECOGNIZED_REPORT_ERROR], warnings: [] };
-  }
-  if (errorValues.length + warningValues.length > AGENT_IDEA_CANDIDATE_MAX_ERRORS) {
-    return { ok: false, errors: [UNRECOGNIZED_REPORT_ERROR], warnings: [] };
-  }
-  const errors = [];
-  const warnings = [];
-  for (let index = 0; index < errorValues.length; index += 1) {
-    if (!knownCandidateDiagnostic(errorValues[index], false)) {
-      return { ok: false, errors: [UNRECOGNIZED_REPORT_ERROR], warnings: [] };
-    }
-    errors[index] = errorValues[index];
-  }
-  for (let index = 0; index < warningValues.length; index += 1) {
-    if (!knownCandidateDiagnostic(warningValues[index], true)) {
-      return { ok: false, errors: [UNRECOGNIZED_REPORT_ERROR], warnings: [] };
-    }
-    warnings[index] = warningValues[index];
-  }
-  return { ok: true, errors, warnings };
-}
-
-function knownCandidateDiagnostic(value, warning) {
-  if (warning) return value === EXTRACTION_FIELD_WARNING;
-  if (typeof value !== "string" || value.length > 256) return false;
-  if (new Set([
-    HOSTILE_INPUT_ERROR,
-    "Agent Idea Candidate must be a JSON object.",
-    "Agent Idea Candidate must contain only the canonical Candidate fields.",
-    `schemaVersion must be ${AGENT_IDEA_CANDIDATE_SCHEMA_VERSION}.`,
-    "ideaId must be a lowercase bounded identifier.",
-    "evidenceIds must be sorted and unique.",
-    "source must contain only discoveryDb provenance.",
-    "source.discoveryDb must contain exact identity, subject, and digest provenance.",
-    "source.discoveryDb.identity must be agentmo.discovery-db.v1.",
-    "source.discoveryDb.subject must be discovery-db.",
-    "source.discoveryDb.digest must be an exact sha256 digest.",
-    "certificationBoundary must contain only the canonical proposal boundary fields.",
-    "Candidate validation requires the exact admitted Discovery DB context.",
-    "source.discoveryDb does not match the exact admitted Discovery DB.",
-    "Candidate reporting requires the exact admitted Discovery DB context.",
-  ]).has(value)) return true;
-  return /^(?:title|targetUsers(?:\[[0-9]{1,3}\])?|candidateTasks(?:\[[0-9]{1,3}\])?|valueHypothesis|evidenceIds(?:\[[0-9]{1,3}\])?|evidenceGaps(?:\[[0-9]{1,3}\])?|judgmentBoundaries(?:\[[0-9]{1,3}\])?) must (?:be a non-empty string|not contain an invalid Unicode scalar value|be at most (?:256|512|1024|2048|4096) characters|be an array|contain at least [01] item|contain at most (?:64|256) items)\.$/u.test(value)
-    || /^certificationBoundary\.(?:proposalOnly|userNeedProven|valueProven|agentCapabilityProven|domainQualityProven|planReady|productionReady|enterPlanAuthorized|buildAuthorized|runtimeAuthorized) must be (?:true|false)\.$/u.test(value)
-    || /^evidenceIds\[[0-9]{1,3}\] must resolve to exactly one Discovery DB fact\.$/u.test(value);
+  return copy;
 }
 
 function invalidNormalizedReport() {
@@ -471,46 +414,51 @@ function invalidNormalizedReport() {
   };
 }
 
-function boundedCount(value, maximum) {
-  return Number.isSafeInteger(value) && value >= 0 && value <= maximum;
-}
-
-function exactCertificationBoundary(value) {
-  const keys = Object.keys(AGENT_IDEA_CANDIDATE_CERTIFICATION_BOUNDARY);
-  if (!plainObject(value) || !hasExactKeys(value, keys)) return false;
-  for (let index = 0; index < keys.length; index += 1) {
-    const key = keys[index];
-    if (value[key] !== AGENT_IDEA_CANDIDATE_CERTIFICATION_BOUNDARY[key]) return false;
+function validateString(value, field, maxLength, errors) {
+  if (typeof value !== "string") {
+    addError(errors, `${field} must be a non-empty string.`);
+    return false;
+  }
+  if (value.length > maxLength * 2) {
+    addError(errors, `${field} must be at most ${maxLength} characters.`);
+    return false;
+  }
+  if (value.trim().length === 0 || value.includes("\0")) {
+    addError(errors, `${field} must be a non-empty string.`);
+    return false;
+  }
+  const inspection = inspectBoundedCodePoints(value, maxLength);
+  if (inspection.invalidUnicodeScalar) {
+    addError(errors, `${field} must not contain an invalid Unicode scalar value.`);
+    return false;
+  }
+  if (inspection.tooLong) {
+    addError(errors, `${field} must be at most ${maxLength} characters.`);
+    return false;
   }
   return true;
-}
-
-function validateString(value, field, maxLength, errors) {
-  if (typeof value !== "string" || value.trim().length === 0 || value.includes("\0")) {
-    addError(errors, `${field} must be a non-empty string.`);
-    return;
-  }
-  if (hasUnpairedSurrogate(value)) {
-    addError(errors, `${field} must not contain an invalid Unicode scalar value.`);
-    return;
-  }
-  if ([...value].length > maxLength) addError(errors, `${field} must be at most ${maxLength} characters.`);
 }
 
 function validateStringArray(value, field, limits, errors) {
   if (!Array.isArray(value)) {
     addError(errors, `${field} must be an array.`);
-    return;
+    return false;
   }
-  if (value.length < limits.minItems) addError(errors, `${field} must contain at least ${limits.minItems} item.`);
+  let valid = true;
+  if (value.length < limits.minItems) {
+    addError(errors, `${field} must contain at least ${limits.minItems} item.`);
+    valid = false;
+  }
   if (value.length > limits.maxItems) {
     addError(errors, `${field} must contain at most ${limits.maxItems} items.`);
-    return;
+    return false;
   }
-  for (const [index, item] of value.entries()) {
-    if (errors.length >= AGENT_IDEA_CANDIDATE_MAX_ERRORS) break;
-    validateString(item, `${field}[${index}]`, limits.itemMaxLength, errors);
+  for (let index = 0; index < value.length; index += 1) {
+    if (!validateString(value[index], `${field}[${index}]`, limits.itemMaxLength, errors)) {
+      valid = false;
+    }
   }
+  return valid;
 }
 
 function validateSource(value, errors) {
@@ -540,7 +488,9 @@ function validateCertificationBoundary(value, errors) {
     addError(errors, "certificationBoundary must contain only the canonical proposal boundary fields.");
     return;
   }
-  for (const [key, expected] of Object.entries(AGENT_IDEA_CANDIDATE_CERTIFICATION_BOUNDARY)) {
+  for (let index = 0; index < keys.length; index += 1) {
+    const key = keys[index];
+    const expected = AGENT_IDEA_CANDIDATE_CERTIFICATION_BOUNDARY[key];
     if (value[key] !== expected) {
       addError(errors, `certificationBoundary.${key} must be ${String(expected)}.`);
     }
@@ -560,21 +510,23 @@ function resolveEvidence(candidate, context, errors) {
     addError(errors, "source.discoveryDb does not match the exact admitted Discovery DB.");
   }
   const factsById = new Map();
-  for (const fact of context.discoveryDb.facts) {
+  for (let index = 0; index < context.discoveryDb.facts.length; index += 1) {
+    const fact = context.discoveryDb.facts[index];
     if (!plainObject(fact) || typeof fact.id !== "string") continue;
     const existing = factsById.get(fact.id) ?? [];
-    existing.push(fact);
+    appendArray(existing, fact);
     factsById.set(fact.id, existing);
   }
   const resolved = [];
   if (!Array.isArray(candidate?.evidenceIds)) return resolved;
-  for (const [index, evidenceId] of candidate.evidenceIds.entries()) {
+  for (let index = 0; index < candidate.evidenceIds.length; index += 1) {
+    const evidenceId = candidate.evidenceIds[index];
     const matches = factsById.get(evidenceId) ?? [];
     if (matches.length !== 1) {
       addError(errors, `evidenceIds[${index}] must resolve to exactly one Discovery DB fact.`);
       continue;
     }
-    resolved.push(matches[0]);
+    appendArray(resolved, matches[0]);
   }
   return resolved;
 }
@@ -588,13 +540,35 @@ function sameProvenance(left, right) {
 }
 
 function isByteSortedUnique(value) {
-  if (value.some((item) => typeof item !== "string" || hasUnpairedSurrogate(item))) return false;
-  return value.every((item, index) => (
-    index === 0
-      || (typeof item === "string"
-        && typeof value[index - 1] === "string"
-        && Buffer.from(value[index - 1]).compare(Buffer.from(item)) < 0)
-  ));
+  for (let index = 0; index < value.length; index += 1) {
+    const item = value[index];
+    if (typeof item !== "string" || hasUnpairedSurrogate(item)) return false;
+    if (index > 0) {
+      const previous = value[index - 1];
+      if (typeof previous !== "string"
+        || Buffer.from(previous).compare(Buffer.from(item)) >= 0) return false;
+    }
+  }
+  return true;
+}
+
+function inspectBoundedCodePoints(value, maximum) {
+  let count = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code >= 0xd800 && code <= 0xdbff) {
+      const next = value.charCodeAt(index + 1);
+      if (!(next >= 0xdc00 && next <= 0xdfff)) {
+        return { invalidUnicodeScalar: true, tooLong: false };
+      }
+      index += 1;
+    } else if (code >= 0xdc00 && code <= 0xdfff) {
+      return { invalidUnicodeScalar: true, tooLong: false };
+    }
+    count += 1;
+    if (count > maximum) return { invalidUnicodeScalar: false, tooLong: true };
+  }
+  return { invalidUnicodeScalar: false, tooLong: false };
 }
 
 function hasUnpairedSurrogate(value) {
@@ -612,38 +586,74 @@ function hasUnpairedSurrogate(value) {
 }
 
 function countStrings(value) {
-  return Array.isArray(value)
-    ? value.filter((item) => typeof item === "string" && item.trim().length > 0).length
-    : 0;
+  if (!Array.isArray(value)) return 0;
+  let count = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    const item = value[index];
+    if (typeof item === "string" && item.trim().length > 0) count += 1;
+  }
+  return count;
 }
 
 function countValues(values) {
   const counts = new Map();
-  for (const value of values.filter((item) => typeof item === "string" && item.length > 0).sort()) {
-    counts.set(value, (counts.get(value) ?? 0) + 1);
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+    if (typeof value === "string" && value.length > 0) {
+      counts.set(value, (counts.get(value) ?? 0) + 1);
+    }
   }
-  return Object.fromEntries(counts);
+  const keys = [...counts.keys()];
+  for (let right = 1; right < keys.length; right += 1) {
+    let left = right;
+    while (left > 0 && keys[left - 1] > keys[left]) {
+      const previous = keys[left - 1];
+      keys[left - 1] = keys[left];
+      keys[left] = previous;
+      left -= 1;
+    }
+  }
+  const result = {};
+  for (let index = 0; index < keys.length; index += 1) {
+    result[keys[index]] = counts.get(keys[index]);
+  }
+  return result;
 }
 
 function formatCounts(value) {
   if (!plainObject(value)) return "none";
-  const entries = Object.entries(value);
-  return entries.length === 0
-    ? "none"
-    : entries.map(([key, count]) => `${key}=${count}`).join(", ");
+  const keys = Object.keys(value);
+  if (keys.length === 0) return "none";
+  let formatted = "";
+  for (let index = 0; index < keys.length; index += 1) {
+    if (index > 0) formatted += ", ";
+    formatted += `${keys[index]}=${value[keys[index]]}`;
+  }
+  return formatted;
 }
 
 function addError(errors, message) {
-  if (errors.length < AGENT_IDEA_CANDIDATE_MAX_ERRORS) errors.push(message);
+  if (errors.length < AGENT_IDEA_CANDIDATE_MAX_ERRORS) appendArray(errors, message);
 }
 
 function boundedErrors(errors) {
-  return errors.slice(0, AGENT_IDEA_CANDIDATE_MAX_ERRORS);
+  const copy = [];
+  const length = Math.min(errors.length, AGENT_IDEA_CANDIDATE_MAX_ERRORS);
+  for (let index = 0; index < length; index += 1) appendArray(copy, errors[index]);
+  return copy;
 }
 
 function hasExactKeys(value, expected) {
   const keys = Object.keys(value);
-  return keys.length === expected.length && expected.every((key) => keys.includes(key));
+  if (keys.length !== expected.length) return false;
+  for (let index = 0; index < expected.length; index += 1) {
+    if (!Object.hasOwn(value, expected[index])) return false;
+  }
+  return true;
+}
+
+function appendArray(value, item) {
+  defineArrayIndex(value, value.length, item);
 }
 
 function plainObject(value) {

@@ -388,6 +388,230 @@ describe("Agent Idea Candidate", () => {
     assert.equal(proxyOutput.includes(privateCanary), false);
   });
 
+  it("formats pass only for the exact report object built from a validated Candidate and DB", () => {
+    const privateCanary = "sk-forged-report-canary /Users/private/forged-report.txt";
+    const expectedFailure = [
+      "AgentMo Agent Idea Candidate: unknown",
+      "Status: fail",
+      "Target users: 0",
+      "Candidate tasks: 0",
+      "Evidence IDs: 0",
+      "Evidence gaps: 0",
+      "Judgment boundaries: 0",
+      "Evidence kinds: none",
+      "Trust levels: none",
+      "Plan authority: none",
+      "",
+      "Errors:",
+      "- Candidate report contained an unrecognized diagnostic.",
+      "",
+    ].join("\n");
+    const genuine = buildAgentIdeaCandidateReport(validCandidate(), discoveryContext());
+    assert.match(formatAgentIdeaCandidateReport(genuine), /Status: pass/u);
+
+    const zeroCountForgery = {
+      kind: "agentmo_agent_idea_candidate_report",
+      version: "0.1",
+      ok: true,
+      summary: {
+        schemaVersion: null,
+        ideaId: null,
+        targetUserCount: 0,
+        candidateTaskCount: 0,
+        evidenceCount: 0,
+        evidenceGapCount: 0,
+        judgmentBoundaryCount: 0,
+        evidenceKinds: {},
+        trustLevels: {},
+        certificationBoundary: AGENT_IDEA_CANDIDATE_CERTIFICATION_BOUNDARY,
+      },
+      warnings: [],
+      errors: [],
+    };
+    const synthetic = JSON.parse(JSON.stringify(genuine));
+    synthetic.summary.ideaId = "synthetic-idea";
+    const wrongComposition = JSON.parse(JSON.stringify(genuine));
+    wrongComposition.summary.evidenceKinds = { source_chunk: 2 };
+    const reparsed = JSON.parse(JSON.stringify(genuine));
+    const clone = { ...genuine };
+    const revocable = Proxy.revocable(genuine, {});
+    revocable.revoke();
+
+    for (const forged of [
+      zeroCountForgery,
+      synthetic,
+      wrongComposition,
+      reparsed,
+      clone,
+      revocable.proxy,
+    ]) {
+      let output;
+      assert.doesNotThrow(() => { output = formatAgentIdeaCandidateReport(forged); });
+      assert.equal(output, expectedFailure);
+      assert.equal(output.includes(privateCanary), false);
+      assert.doesNotMatch(output, /Status: pass/u);
+    }
+
+    const originalHuman = formatAgentIdeaCandidateReport(genuine);
+    genuine.ok = false;
+    genuine.summary.ideaId = privateCanary;
+    genuine.summary.evidenceKinds = { [privateCanary]: 999 };
+    genuine.warnings.push(privateCanary);
+    genuine.errors.push(privateCanary);
+    const mutatedHuman = formatAgentIdeaCandidateReport(genuine);
+    assert.equal(mutatedHuman, originalHuman);
+    assert.equal(mutatedHuman.includes(privateCanary), false);
+    assert.match(mutatedHuman, /Status: pass/u);
+  });
+
+  it("rejects unreasonable string resources before unbounded code-point expansion", () => {
+    const iteratorDescriptor = Object.getOwnPropertyDescriptor(String.prototype, Symbol.iterator);
+    let largeIteratorCalls = 0;
+    Object.defineProperty(String.prototype, Symbol.iterator, {
+      ...iteratorDescriptor,
+      value() {
+        if (this.length > 1024) {
+          largeIteratorCalls += 1;
+          throw new Error("large-string-iterator-must-not-run");
+        }
+        return iteratorDescriptor.value.call(this);
+      },
+    });
+
+    let codeUnitOverflow;
+    let unreasonableTitle;
+    let aggregateOverflow;
+    let thrown;
+    try {
+      const codeUnitCandidate = validCandidate();
+      codeUnitCandidate.title = "x".repeat(1025);
+      codeUnitOverflow = validateAgentIdeaCandidate(codeUnitCandidate);
+
+      const unreasonableCandidate = validCandidate();
+      unreasonableCandidate.title = "x".repeat(2_000_000);
+      unreasonableTitle = validateAgentIdeaCandidate(unreasonableCandidate);
+
+      const aggregateCandidate = validCandidate();
+      aggregateCandidate.title = "x".repeat(400_000);
+      aggregateCandidate.valueHypothesis = "y".repeat(400_000);
+      aggregateCandidate.targetUsers = ["z".repeat(400_000)];
+      aggregateCandidate.candidateTasks = ["w".repeat(400_000)];
+      aggregateOverflow = validateAgentIdeaCandidate(aggregateCandidate);
+    } catch (error) {
+      thrown = error;
+    } finally {
+      Object.defineProperty(String.prototype, Symbol.iterator, iteratorDescriptor);
+    }
+
+    assert.equal(thrown, undefined);
+    assert.equal(largeIteratorCalls, 0);
+    assert.equal(codeUnitOverflow.ok, false);
+    assert.match(codeUnitOverflow.errors.join("\n"), /title must be at most 512 characters/u);
+    for (const validation of [unreasonableTitle, aggregateOverflow]) {
+      assert.deepEqual(validation, {
+        ok: false,
+        errors: ["Agent Idea Candidate exceeds the bounded public string budget."],
+        warnings: [],
+      });
+    }
+
+    const originalBufferFrom = Buffer.from;
+    let oversizedEncodingCalls = 0;
+    let evidenceValidation;
+    let encodingThrow;
+    try {
+      Buffer.from = function boundedCandidateBufferFrom(value, ...args) {
+        if (typeof value === "string" && value.length > 512) {
+          oversizedEncodingCalls += 1;
+          throw new Error("oversized-evidence-id-must-not-be-encoded");
+        }
+        return Reflect.apply(originalBufferFrom, this, [value, ...args]);
+      };
+      const oversizedEvidence = validCandidate();
+      oversizedEvidence.evidenceIds = ["a".repeat(1000), "b".repeat(1000)];
+      evidenceValidation = validateAgentIdeaCandidate(oversizedEvidence);
+    } catch (error) {
+      encodingThrow = error;
+    } finally {
+      Buffer.from = originalBufferFrom;
+    }
+    assert.equal(encodingThrow, undefined);
+    assert.equal(oversizedEncodingCalls, 0);
+    assert.match(evidenceValidation.errors.join("\n"), /evidenceIds\[0\] must be at most 256/u);
+
+    const maximum = validCandidate();
+    maximum.title = "😀".repeat(512);
+    maximum.targetUsers = Array.from({ length: 64 }, () => "😀".repeat(1024));
+    maximum.candidateTasks = Array.from({ length: 64 }, () => "😀".repeat(2048));
+    maximum.valueHypothesis = "😀".repeat(4096);
+    maximum.evidenceIds = Array.from(
+      { length: 256 },
+      (_, index) => `id-${String(index).padStart(3, "0")}-${"😀".repeat(249)}`,
+    );
+    maximum.evidenceGaps = Array.from({ length: 64 }, () => "😀".repeat(2048));
+    maximum.judgmentBoundaries = Array.from({ length: 64 }, () => "😀".repeat(2048));
+    assert.equal(validateAgentIdeaCandidate(maximum).ok, true);
+  });
+
+  it("uses only dense own array data when inherited methods or indices are hostile", () => {
+    const methodNames = ["entries", "some", "every"];
+    const methodDescriptors = new Map(methodNames.map((name) => [
+      name,
+      Object.getOwnPropertyDescriptor(Array.prototype, name),
+    ]));
+    const polluted = validCandidate();
+    polluted.evidenceIds = ["\ud800"];
+    let pollutedValidation;
+    try {
+      Object.defineProperty(Array.prototype, "entries", {
+        ...methodDescriptors.get("entries"),
+        value() {
+          return {
+            next() { return { done: true }; },
+            [Symbol.iterator]() { return this; },
+          };
+        },
+      });
+      Object.defineProperty(Array.prototype, "some", {
+        ...methodDescriptors.get("some"),
+        value() { return false; },
+      });
+      Object.defineProperty(Array.prototype, "every", {
+        ...methodDescriptors.get("every"),
+        value() { return true; },
+      });
+      pollutedValidation = validateAgentIdeaCandidate(polluted, discoveryContext());
+    } finally {
+      for (const name of methodNames) {
+        Object.defineProperty(Array.prototype, name, methodDescriptors.get(name));
+      }
+    }
+    assert.equal(pollutedValidation.ok, false);
+    assert.match(pollutedValidation.errors.join("\n"), /invalid Unicode scalar value/u);
+
+    const sparse = validCandidate();
+    sparse.evidenceIds = Array.from({ length: 256 }, (_, index) => `fact:${index}`);
+    delete sparse.evidenceIds[255];
+    const inheritedDescriptor = Object.getOwnPropertyDescriptor(Array.prototype, "255");
+    let inheritedGetterCalls = 0;
+    let sparseValidation;
+    try {
+      Object.defineProperty(Array.prototype, "255", {
+        configurable: true,
+        get() {
+          inheritedGetterCalls += 1;
+          return "fact:inherited-canary";
+        },
+      });
+      sparseValidation = validateAgentIdeaCandidate(sparse, discoveryContext());
+    } finally {
+      if (inheritedDescriptor === undefined) delete Array.prototype[255];
+      else Object.defineProperty(Array.prototype, "255", inheritedDescriptor);
+    }
+    assert.equal(sparseValidation.ok, false);
+    assert.equal(inheritedGetterCalls, 0);
+  });
+
   it("keeps public Schema and production string boundaries aligned by Unicode code point", () => {
     const schema = getArtifactContract("agent-idea-candidate").jsonSchema;
     const cases = [
