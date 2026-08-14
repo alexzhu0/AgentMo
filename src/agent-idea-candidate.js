@@ -70,6 +70,20 @@ const DISCOVERY_CONTEXT_MAX_STRING_CODE_UNITS = 1_100_000;
 const HOSTILE_INPUT_ERROR = "Agent Idea Candidate must contain only own JSON data properties.";
 const STRING_BUDGET_ERROR = "Agent Idea Candidate exceeds the bounded public string budget.";
 const UNRECOGNIZED_REPORT_ERROR = "Candidate report contained an unrecognized diagnostic.";
+const UNRECOGNIZED_REPORT_OUTPUT = "AgentMo Agent Idea Candidate: unknown\n"
+  + "Status: fail\n"
+  + "Target users: 0\n"
+  + "Candidate tasks: 0\n"
+  + "Evidence IDs: 0\n"
+  + "Evidence gaps: 0\n"
+  + "Judgment boundaries: 0\n"
+  + "Evidence kinds: none\n"
+  + "Trust levels: none\n"
+  + "Plan authority: none\n\n"
+  + "Errors:\n"
+  + `- ${UNRECOGNIZED_REPORT_ERROR}\n`;
+const WEAK_MAP_GET = Function.prototype.call.bind(WeakMap.prototype.get);
+const WEAK_MAP_SET = Function.prototype.call.bind(WeakMap.prototype.set);
 const TRUSTED_REPORT_RENDER_STATES = new WeakMap();
 
 class CandidateStringBudgetError extends TypeError {}
@@ -157,8 +171,16 @@ function summarizeCandidateSnapshot(candidate, context, contextProvided) {
   const trustLevels = [];
   for (let index = 0; index < facts.length; index += 1) {
     const fact = facts[index];
-    evidenceKinds[index] = REPORTED_EVIDENCE_KINDS.has(fact.kind) ? fact.kind : "other";
-    trustLevels[index] = REPORTED_TRUST_LEVELS.has(fact.trustLevel) ? fact.trustLevel : "unknown";
+    defineArrayIndex(
+      evidenceKinds,
+      index,
+      REPORTED_EVIDENCE_KINDS.has(fact.kind) ? fact.kind : "other",
+    );
+    defineArrayIndex(
+      trustLevels,
+      index,
+      REPORTED_TRUST_LEVELS.has(fact.trustLevel) ? fact.trustLevel : "unknown",
+    );
   }
   return {
     schemaVersion: shapeValid ? candidate.schemaVersion : null,
@@ -193,38 +215,59 @@ export function buildAgentIdeaCandidateReport(candidate, context) {
     warnings: validation.warnings,
     errors,
   };
-  TRUSTED_REPORT_RENDER_STATES.set(report, copyTrustedReportRenderState(report));
+  if (!registerTrustedReportRenderState(report, copyTrustedReportRenderState(report))) {
+    report.ok = false;
+    report.summary = emptyCandidateSummary();
+    report.warnings = [];
+    report.errors = [UNRECOGNIZED_REPORT_ERROR];
+  }
   return report;
 }
 
 export function formatAgentIdeaCandidateReport(report) {
-  const normalized = TRUSTED_REPORT_RENDER_STATES.get(report) ?? invalidNormalizedReport();
+  try {
+    const normalized = WEAK_MAP_GET(TRUSTED_REPORT_RENDER_STATES, report);
+    if (normalized === undefined) return UNRECOGNIZED_REPORT_OUTPUT;
+    return formatTrustedAgentIdeaCandidateReport(normalized);
+  } catch {
+    return UNRECOGNIZED_REPORT_OUTPUT;
+  }
+}
+
+function formatTrustedAgentIdeaCandidateReport(normalized) {
   const summary = normalized.summary;
-  const lines = [
-    `AgentMo Agent Idea Candidate: ${summary.ideaId ?? "unknown"}`,
-    `Status: ${normalized.ok ? "pass" : "fail"}`,
-    `Target users: ${summary.targetUserCount}`,
-    `Candidate tasks: ${summary.candidateTaskCount}`,
-    `Evidence IDs: ${summary.evidenceCount}`,
-    `Evidence gaps: ${summary.evidenceGapCount}`,
-    `Judgment boundaries: ${summary.judgmentBoundaryCount}`,
-    `Evidence kinds: ${formatCounts(summary.evidenceKinds)}`,
-    `Trust levels: ${formatCounts(summary.trustLevels)}`,
-    "Plan authority: none",
-  ];
+  const lines = [];
+  appendArray(lines, `AgentMo Agent Idea Candidate: ${summary.ideaId ?? "unknown"}`);
+  appendArray(lines, `Status: ${normalized.ok ? "pass" : "fail"}`);
+  appendArray(lines, `Target users: ${summary.targetUserCount}`);
+  appendArray(lines, `Candidate tasks: ${summary.candidateTaskCount}`);
+  appendArray(lines, `Evidence IDs: ${summary.evidenceCount}`);
+  appendArray(lines, `Evidence gaps: ${summary.evidenceGapCount}`);
+  appendArray(lines, `Judgment boundaries: ${summary.judgmentBoundaryCount}`);
+  appendArray(lines, `Evidence kinds: ${formatCounts(summary.evidenceKinds)}`);
+  appendArray(lines, `Trust levels: ${formatCounts(summary.trustLevels)}`);
+  appendArray(lines, "Plan authority: none");
   if (normalized.warnings.length > 0) {
-    lines.push("", "Warnings:");
+    appendArray(lines, "");
+    appendArray(lines, "Warnings:");
     for (let index = 0; index < normalized.warnings.length; index += 1) {
-      lines.push(`- ${normalized.warnings[index]}`);
+      appendArray(lines, `- ${normalized.warnings[index]}`);
     }
   }
   if (normalized.errors.length > 0) {
-    lines.push("", "Errors:");
+    appendArray(lines, "");
+    appendArray(lines, "Errors:");
     for (let index = 0; index < normalized.errors.length; index += 1) {
-      lines.push(`- ${normalized.errors[index]}`);
+      appendArray(lines, `- ${normalized.errors[index]}`);
     }
   }
-  return `${lines.join("\n")}\n`;
+  let output = "";
+  for (let index = 0; index < lines.length; index += 1) {
+    if (index > 0) output += "\n";
+    output += lines[index];
+    if (output.length >= 8_000) return UNRECOGNIZED_REPORT_OUTPUT;
+  }
+  return `${output}\n`;
 }
 
 function captureCandidateInputs(candidate, context) {
@@ -396,6 +439,15 @@ function copyTrustedReportRenderState(report) {
   };
 }
 
+function registerTrustedReportRenderState(report, state) {
+  try {
+    WEAK_MAP_SET(TRUSTED_REPORT_RENDER_STATES, report, state);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function copyCountMap(value) {
   const copy = Object.create(null);
   const keys = Object.keys(value);
@@ -403,15 +455,6 @@ function copyCountMap(value) {
     copy[keys[index]] = value[keys[index]];
   }
   return copy;
-}
-
-function invalidNormalizedReport() {
-  return {
-    ok: false,
-    summary: emptyCandidateSummary(),
-    warnings: [],
-    errors: [UNRECOGNIZED_REPORT_ERROR],
-  };
 }
 
 function validateString(value, field, maxLength, errors) {

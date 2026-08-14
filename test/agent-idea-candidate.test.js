@@ -464,6 +464,179 @@ describe("Agent Idea Candidate", () => {
     assert.match(mutatedHuman, /Status: pass/u);
   });
 
+  it("uses module-captured WeakMap intrinsics for private report state", () => {
+    const privateCanary = "sk-weakmap-intrinsic-canary /Users/private/weakmap.txt";
+    const getDescriptor = Object.getOwnPropertyDescriptor(WeakMap.prototype, "get");
+    const setDescriptor = Object.getOwnPropertyDescriptor(WeakMap.prototype, "set");
+    const fakeState = {
+      ok: true,
+      summary: {
+        schemaVersion: "agentmo.agent-idea-candidate.v1",
+        ideaId: privateCanary,
+        targetUserCount: 1,
+        candidateTaskCount: 1,
+        evidenceCount: 1,
+        evidenceGapCount: 0,
+        judgmentBoundaryCount: 1,
+        evidenceKinds: { source_chunk: 1 },
+        trustLevels: { verified: 1 },
+        certificationBoundary: AGENT_IDEA_CANDIDATE_CERTIFICATION_BOUNDARY,
+      },
+      warnings: [],
+      errors: [],
+    };
+
+    let forgedOutput;
+    let forgedThrow;
+    try {
+      Object.defineProperty(WeakMap.prototype, "get", {
+        ...getDescriptor,
+        value() { return fakeState; },
+      });
+      forgedOutput = formatAgentIdeaCandidateReport({});
+    } catch (error) {
+      forgedThrow = error;
+    } finally {
+      Object.defineProperty(WeakMap.prototype, "get", getDescriptor);
+    }
+
+    let throwingGetOutput;
+    let throwingGetError;
+    try {
+      Object.defineProperty(WeakMap.prototype, "get", {
+        ...getDescriptor,
+        value() { throw new Error(privateCanary); },
+      });
+      throwingGetOutput = formatAgentIdeaCandidateReport({});
+    } catch (error) {
+      throwingGetError = error;
+    } finally {
+      Object.defineProperty(WeakMap.prototype, "get", getDescriptor);
+    }
+
+    let observedMap;
+    let observedSetCalls = 0;
+    let observedSetReport;
+    let observedSetError;
+    try {
+      Object.defineProperty(WeakMap.prototype, "set", {
+        ...setDescriptor,
+        value(key, value) {
+          observedSetCalls += 1;
+          observedMap = this;
+          return Reflect.apply(setDescriptor.value, this, [key, value]);
+        },
+      });
+      observedSetReport = buildAgentIdeaCandidateReport(validCandidate(), discoveryContext());
+    } catch (error) {
+      observedSetError = error;
+    } finally {
+      Object.defineProperty(WeakMap.prototype, "set", setDescriptor);
+    }
+
+    let throwingSetReport;
+    let throwingSetError;
+    try {
+      Object.defineProperty(WeakMap.prototype, "set", {
+        ...setDescriptor,
+        value() { throw new Error(privateCanary); },
+      });
+      throwingSetReport = buildAgentIdeaCandidateReport(validCandidate(), discoveryContext());
+    } catch (error) {
+      throwingSetError = error;
+    } finally {
+      Object.defineProperty(WeakMap.prototype, "set", setDescriptor);
+    }
+
+    assert.equal(forgedThrow, undefined);
+    assert.doesNotMatch(forgedOutput, /Status: pass/u);
+    assert.equal(forgedOutput.includes(privateCanary), false);
+    assert.equal(forgedOutput.length < 8_000, true);
+    assert.equal(throwingGetError, undefined);
+    assert.doesNotMatch(throwingGetOutput, /Status: pass/u);
+    assert.equal(throwingGetOutput.includes(privateCanary), false);
+    assert.equal(observedSetError, undefined);
+    assert.equal(observedSetCalls, 0);
+    assert.equal(observedMap, undefined);
+    assert.equal(observedSetReport.ok, true);
+    assert.match(formatAgentIdeaCandidateReport(observedSetReport), /Status: pass/u);
+    assert.equal(throwingSetError, undefined);
+    assert.equal(throwingSetReport.ok, true);
+    assert.match(formatAgentIdeaCandidateReport(throwingSetReport), /Status: pass/u);
+  });
+
+  it("keeps internal composition and formatting independent of Array prototype mutation", () => {
+    const privateCanary = "sk-array-intrinsic-canary /Users/private/array.txt";
+    const indexDescriptor = Object.getOwnPropertyDescriptor(Array.prototype, "0");
+    const pushDescriptor = Object.getOwnPropertyDescriptor(Array.prototype, "push");
+    const joinDescriptor = Object.getOwnPropertyDescriptor(Array.prototype, "join");
+    const candidate = validCandidate();
+    const context = discoveryContext();
+    let setterCalls = 0;
+    let compositionReport;
+    let compositionError;
+    try {
+      Object.defineProperty(Array.prototype, "0", {
+        configurable: true,
+        set() { setterCalls += 1; },
+      });
+      compositionReport = buildAgentIdeaCandidateReport(candidate, context);
+    } catch (error) {
+      compositionError = error;
+    } finally {
+      if (indexDescriptor === undefined) delete Array.prototype[0];
+      else Object.defineProperty(Array.prototype, "0", indexDescriptor);
+    }
+
+    const report = buildAgentIdeaCandidateReport(validCandidate(), discoveryContext());
+    let pushOutput;
+    let pushError;
+    try {
+      Object.defineProperty(Array.prototype, "push", {
+        ...pushDescriptor,
+        value() { throw new Error(privateCanary); },
+      });
+      pushOutput = formatAgentIdeaCandidateReport(report);
+    } catch (error) {
+      pushError = error;
+    } finally {
+      Object.defineProperty(Array.prototype, "push", pushDescriptor);
+    }
+
+    let joinOutput;
+    let joinError;
+    try {
+      Object.defineProperty(Array.prototype, "join", {
+        ...joinDescriptor,
+        value() { return privateCanary.repeat(10_000); },
+      });
+      joinOutput = formatAgentIdeaCandidateReport(report);
+    } catch (error) {
+      joinError = error;
+    } finally {
+      Object.defineProperty(Array.prototype, "join", joinDescriptor);
+    }
+
+    assert.equal(compositionError, undefined);
+    assert.equal(setterCalls, 0);
+    assert.equal(compositionReport.ok, true);
+    assert.deepEqual(compositionReport.summary.evidenceKinds, {
+      extraction_field: 1,
+      source_chunk: 1,
+    });
+    assert.deepEqual(compositionReport.summary.trustLevels, {
+      derived: 1,
+      verified: 1,
+    });
+    assert.equal(pushError, undefined);
+    assert.match(pushOutput, /Status: pass/u);
+    assert.equal(pushOutput.includes(privateCanary), false);
+    assert.equal(joinError, undefined);
+    assert.match(joinOutput, /Status: pass/u);
+    assert.equal(joinOutput.includes(privateCanary), false);
+    assert.equal(joinOutput.length < 8_000, true);
+  });
+
   it("rejects unreasonable string resources before unbounded code-point expansion", () => {
     const iteratorDescriptor = Object.getOwnPropertyDescriptor(String.prototype, Symbol.iterator);
     let largeIteratorCalls = 0;
