@@ -43,6 +43,13 @@ describe("Node 20 core runner fail-closed contract", () => {
     assert.doesNotMatch(helper, /\b(?:curl|wget|brew|apt|npx|npm install|npm add|npm exec)\b/iu);
   });
 
+  it("syntax-checks the Agent Idea Candidate production module in the owned Node 20 batch", async () => {
+    const { OWNED_COMMAND_MANIFEST } = await loadReceiptModule();
+    const syntax = OWNED_COMMAND_MANIFEST.find(({ id }) => id === "syntax");
+    assert.equal(syntax.files.includes("src/agent-idea-candidate.js"), true);
+    assert.deepEqual(syntax.expected, { pass: 41, skip: 0, fail: 0, total: 41 });
+  });
+
   it("requires every explicit provenance input and never searches PATH", async () => {
     const directory = await mkdtemp(path.join(tmpdir(), "agentmo-node20-missing-"));
     const marker = path.join(directory, "path-wrapper-ran");
@@ -266,7 +273,7 @@ describe("Node 20 core runner fail-closed contract", () => {
       },
       commandSetDigest: COMMAND_SET_DIGEST,
       batches: [
-        { id: "syntax", pass: 40, skip: 0, fail: 0, total: 40 },
+        { id: "syntax", pass: 41, skip: 0, fail: 0, total: 41 },
         { id: "core-contracts", pass: 45, skip: 0, fail: 0, total: 45 },
         { id: "stage-contracts", pass: 3, skip: 1, fail: 0, total: 4 },
       ],

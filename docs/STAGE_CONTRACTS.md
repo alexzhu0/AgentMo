@@ -14,7 +14,7 @@ The support-triage MVP remains the composed vertical demo of these contracts. It
 
 | Stage | Purpose | Accepted inputs | Produced outputs | Forbidden process dependency |
 | --- | --- | --- | --- | --- |
-| Stage 1 Discover | Materialize bounded source inventory, sanitized facts, and coverage. | `agentmo.discovery.v1` manifest. `discover-pack` is manifest-only; `discover-workspace` reads approved repo-local files; `discover-live` reads only exact allowlisted public HTTPS sources through closed adapters. | `agentmo.discovery-db.v1`, `facts.jsonl`, `coverage.json`; workspace/live intake also writes `source-cards.json` and `source-chunks.jsonl`; live intake adds `retrievals.jsonl`. | Stage 2 planner implementation, blueprint files, Stage 3 runtime target or run evidence. |
+| Stage 1 Discover | Materialize bounded source inventory, sanitized facts, and coverage; optionally express a proposal-only Agent Idea Candidate for human review. | `agentmo.discovery.v1` manifest. `discover-pack` is manifest-only; `discover-workspace` reads approved repo-local files; `discover-live` reads only exact allowlisted public HTTPS sources through closed adapters. | `agentmo.discovery-db.v1`, `facts.jsonl`, `coverage.json`; workspace/live intake also writes `source-cards.json` and `source-chunks.jsonl`; live intake adds `retrievals.jsonl`. A separately authored `agentmo.agent-idea-candidate.v1` may exact-bind the DB as a proposal. | Stage 2 planner implementation, human decision authority, blueprint files, Stage 3 runtime target or run evidence. |
 | Stage 2 Plan | Convert explicitly approved discovery facts plus user need and typed decisions into an auditable plan and complete build contract. | Exact `agentmo.discovery.v1`, `agentmo.discovery-db.v1`, `agentmo.discovery-approval.v1`, `agentmo.user-need.v1`, and current `agentmo.decision-ledger.v1` artifacts. | `agentmo.design-plan.v1`, draft blueprint, `agentmo.build-contract.v1`, and exact `agentmo.plan-approval.v1`. | Stage 1 command ancestry, raw sidecars, Phase 4 generation/install, Phase 5 runtime/recovery proof. |
 | Stage 3 Produce | Turn an exact-approved build contract or separately admitted externally reviewed design into package and delivery work. | Exact blueprint/build-contract approval for the AgentMo lane, or independently valid externally reviewed/business-provided design with bounded provenance. | Roadmap Phase 4 generates/installs; Phase 5 executes and produces runtime, recovery, eval, birth, and delivery evidence. | Discovery command ancestry, hidden session authority, or treating approval as quality/runtime certification. |
 
@@ -239,6 +239,8 @@ Source-derived evidence must be DB-visible as `kind:"source_chunk"` facts in bot
 ### Validators and commands
 
 - `agentmo artifact-contract discovery-manifest --json`
+- `agentmo artifact-contract agent-idea-candidate --json`
+- `agentmo agent-idea-candidate-report <candidate.json> --discovery-db <db.json> --digest agent-idea-candidate=<sha256:...> --digest discovery-db=<sha256:...> [--json]`
 - `agentmo discover-report <discovery.json> [--json]`
 - `agentmo discover-pack <discovery.json> --out <dir> [--json]`
 - `agentmo discover-workspace <discovery.json> --source-root <dir> --out <dir> [--json]`
@@ -246,6 +248,10 @@ Source-derived evidence must be DB-visible as `kind:"source_chunk"` facts in bot
 - Pure helpers: `validateDiscoveryManifest`, `buildDiscoveryPack`, `buildDiscoveryDb`.
 
 `artifact-contract` exports a field-level JSON Schema and a minimal template that passes the current production validator. The Discover subcommands also support bounded `--help`. When exact-digest admission reaches a registered `agentmo.discovery.v1` identity but field validation fails, JSON error output includes only the canonical subject and bounded field requirement messages; input values and host paths remain undisclosed.
+
+The target-neutral `agentmo.agent-idea-candidate.v1` contract is proposal-only. It records a candidate idea, target users/tasks, a value hypothesis, exact Discovery DB provenance, evidence IDs, evidence gaps, judgment boundaries, and a fixed non-certification boundary. Each evidence ID must resolve uniquely to one exact admitted DB fact; the schema does not require a domain-specific fact kind. `extraction_field` facts may be cited only as planning leads and produce a bounded insufficiency warning. The report is read-only and discloses only bounded composition metadata.
+
+The Candidate has no `humanDecision`, approval state, enter-Plan permission, build/runtime authority, or organization-authentication claim. It cannot certify user need, value, capability, domain quality, Plan readiness, production readiness, or any downstream authority. No Stage 2 command accepts it in this release. A future Decision Artifact, outside this contract, must exact-bind its digest before recording a human decision.
 
 ### Forbidden reads and dependencies
 
@@ -333,6 +339,7 @@ Stage 2 must not require:
 - the original `agentmo.discovery.v1` manifest when a valid `agentmo.discovery-db.v1` is supplied;
 - `discover-pack` or `discover-workspace` execution in the same command path;
 - workspace sidecars such as `source-cards.json` or `source-chunks.jsonl` when the discovery DB already contains valid `source_chunk` facts;
+- `agentmo.agent-idea-candidate.v1` as user need, discovery approval, decision-ledger authority, or implicit permission to enter Plan;
 - Stage 3 handoff/scaffold/run/birth/delivery artifacts.
 
 ### Guarantees and safety boundaries

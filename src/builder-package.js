@@ -1006,6 +1006,7 @@ function buildBuilderReleaseAssetInventory() {
     "native/prebuilt/linux-x64/README.md",
     "package.json",
     "scripts/verify-codex-uat-candidate.js",
+    "src/agent-idea-candidate.js",
     "src/artifact-admission.js",
     "src/artifact-contract.js",
     "src/artifact-migration.js",

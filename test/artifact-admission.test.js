@@ -194,6 +194,7 @@ describe("artifact admission", () => {
       [
         "discovery-manifest",
         "discovery-db",
+        "agent-idea-candidate",
         "discovery-approval",
         "user-need",
         "decision-entry",
@@ -260,6 +261,7 @@ describe("artifact admission", () => {
       [
         "agentmo.discovery.v1",
         "agentmo.discovery-db.v1",
+        "agentmo.agent-idea-candidate.v1",
         "agentmo.discovery-approval.v1",
         "agentmo.user-need.v1",
         "agentmo.decision-entry.v1",

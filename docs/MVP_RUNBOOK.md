@@ -596,6 +596,10 @@ Source-derived evidence enters `agentmo-discovery-db.json.facts` and `facts.json
 
 Manifest-only `kind:"extraction_field"` facts describe what a future collector should extract. They are planning declarations, not retrieved evidence, and can produce at most `partial` Stage 2 coverage. `supported` requires multiple matching `source_chunk` facts whose trust level is `derived`, `trusted`, or `verified`. Unverified chunks also remain at most `partial`.
 
+Discover may separately propose an `agentmo.agent-idea-candidate.v1` for human review. Inspect its public contract with `node ./bin/agentmo.js artifact-contract agent-idea-candidate --json`; validate an authored file read-only with `agentmo agent-idea-candidate-report <candidate.json> --discovery-db <db.json> --digest agent-idea-candidate=sha256:<64hex> --digest discovery-db=sha256:<64hex> [--json]`. Every evidence ID must uniquely resolve to one exact admitted DB fact. `extraction_field` citations remain planning leads and produce an insufficiency warning.
+
+The Candidate is not a human decision and is not a Stage 2 input. It cannot approve Plan, substitute for `agentmo.user-need.v1`, replace discovery approval or the decision-ledger head, authorize build/runtime work, authenticate an organization, or certify demand, value, capability, domain quality, Plan readiness, or production readiness. A future Decision Artifact must be designed separately and exact-bind the Candidate digest.
+
 Stop here when the goal is only a sanitized Discovery Contract. Do not infer blueprint, runtime, or domain certification from Stage 1 outputs. Stage 1 must not write blueprint, handoff, build, run, birth, domain-eval, or delivery artifacts. If workspace safety marks a DB unsafe, fail closed and do not pass that DB to Stage 2.
 
 ### Stage 2 only: plan and draft from contract artifacts

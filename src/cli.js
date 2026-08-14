@@ -1,11 +1,16 @@
 import { dirname, isAbsolute, relative, resolve, win32 } from "node:path";
 import { lstat, readFile, realpath, writeFile } from "node:fs/promises";
 import {
+  admittedArtifactProvenance,
   ArtifactAdmissionError,
   digestRawBytes,
   loadAdmittedArtifact,
   parseDigestBindings,
 } from "./artifact-admission.js";
+import {
+  buildAgentIdeaCandidateReport,
+  formatAgentIdeaCandidateReport,
+} from "./agent-idea-candidate.js";
 import {
   formatArtifactContract,
   getArtifactContract,
@@ -185,6 +190,7 @@ export const CLI_OUTPUT_OWNERS = Object.freeze({
   "discover-pack": "artifact",
   "discover-live": "artifact",
   "discover-workspace": "artifact",
+  "agent-idea-candidate-report": "artifact",
   "discovery-approve": "artifact",
   "need-report": "artifact",
   "decision-ledger": "artifact",
@@ -727,6 +733,35 @@ async function runCommand(args) {
       format: (value) => formatDiscoveryWorkspace(value, value.paths),
     });
     if (!workspace.ok) process.exitCode = 1;
+    return;
+  }
+
+  if (command === "agent-idea-candidate-report") {
+    const options = parseAgentIdeaCandidateReportArgs(rest);
+    const discoveryDbAdmission = await loadAdmittedArtifact({
+      filePath: options.discoveryDb,
+      subject: "discovery-db",
+      expectedDigest: options.digests["discovery-db"],
+    });
+    const candidateAdmission = await loadAdmittedArtifact({
+      filePath: options.file,
+      subject: "agent-idea-candidate",
+      expectedDigest: options.digests["agent-idea-candidate"],
+      companions: { "discovery-db": discoveryDbAdmission },
+    });
+    const report = buildAgentIdeaCandidateReport(candidateAdmission.value, {
+      discoveryDb: discoveryDbAdmission.value,
+      source: admittedArtifactProvenance(discoveryDbAdmission, {
+        subject: "discovery-db",
+        value: discoveryDbAdmission.value,
+      }),
+    });
+    await emitArtifactOutput(report, {
+      json: options.json,
+      subject: "agent-idea-candidate-report",
+      format: formatAgentIdeaCandidateReport,
+    });
+    if (!report.ok) process.exitCode = 1;
     return;
   }
 
@@ -3169,6 +3204,39 @@ function parseDiscoverReportArgs(args) {
   }
   const digests = parseDigestBindings(digestBindings, subjectsForCommand("discover-report"));
   return { file: resolve(file), json, digests };
+}
+
+function parseAgentIdeaCandidateReportArgs(args) {
+  const file = args[0];
+  if (!file) throw new Error("Missing Agent Idea Candidate file path.");
+  let discoveryDb = null;
+  let json = false;
+  const digestBindings = [];
+  for (let index = 1; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--discovery-db") {
+      discoveryDb = args[index + 1];
+      index += 1;
+    } else if (arg === "--json") {
+      json = true;
+    } else if (arg === "--digest") {
+      digestBindings.push(requireDigestBinding(args[index + 1]));
+      index += 1;
+    } else {
+      throw new Error(`Unknown agent-idea-candidate-report option: ${arg}`);
+    }
+  }
+  requireOptionValue(discoveryDb, "--discovery-db");
+  const digests = parseDigestBindings(
+    digestBindings,
+    subjectsForCommand("agent-idea-candidate-report"),
+  );
+  return {
+    file: resolve(file),
+    discoveryDb: resolve(discoveryDb),
+    json,
+    digests,
+  };
 }
 
 function requireDigestBinding(value) {
@@ -6197,7 +6265,7 @@ Usage:
   agentmo builder hook --checkpoint <checkpoint.json> --digest builder-checkpoint=sha256:<64hex> --event <event.json> --digest builder-event=sha256:<64hex> --out <checkpoint.json> [--json]
   agentmo migrate <input-0.json> [input-N.json ...] --digest migration-input-0=sha256:<64hex> [--digest migration-input-N=sha256:<64hex> ...] [--out <new-dir>] [--json]
   agentmo runtime-check --target openclaw [--json]
-  agentmo artifact-contract decision-entry|discovery-manifest|openclaw-probe|openclaw-target-carrier-admission|openclaw-target-descriptor|package-manifest|user-need [--json]
+  agentmo artifact-contract agent-idea-candidate|decision-entry|discovery-manifest|openclaw-probe|openclaw-target-carrier-admission|openclaw-target-descriptor|package-manifest|user-need [--json]
   agentmo poc build --seed <poc-seed.json> --out <absent-dir> [--json]
   agentmo poc check <workspace-dir> [--json]
   agentmo poc collect <workspace-dir> --sources <research-sources.json> [--network-mode public-only|synthetic-dns-proxy] [--json]
@@ -6211,6 +6279,7 @@ Usage:
   agentmo discover-pack <discovery.json> --digest discovery-manifest=sha256:<64hex> --out <dir> [--json]
   agentmo discover-live <discovery.json> --digest discovery-manifest=sha256:<64hex> --out <absent-dir> [--json]
   agentmo discover-workspace <discovery.json> --digest discovery-manifest=sha256:<64hex> --source-root <dir> --out <dir> [--json]
+  agentmo agent-idea-candidate-report <candidate.json> --discovery-db <db.json> --digest agent-idea-candidate=sha256:<64hex> --digest discovery-db=sha256:<64hex> [--json]
   agentmo discovery-approve <discovery.json> --discovery-db <agentmo-discovery-db.json> --digest discovery-manifest=sha256:<64hex> --digest discovery-db=sha256:<64hex> [--approve --preview-digest sha256:<64hex> --out <approval.json>] [--json]
   agentmo need-report <need.json> --digest user-need=sha256:<64hex> [--json]
   agentmo decision-ledger append --journal <ledger.json> --entry <decision-entry.json> --digest decision-entry=sha256:<64hex> [--expected-head-digest sha256:<64hex>] [--json]
@@ -6257,6 +6326,7 @@ Concepts:
   discover-pack    Materialize a sanitized discovery database, facts JSONL, and coverage report.
   discover-live    Fetch exact allowlisted HTTPS sources into bounded, provenance-bearing Stage 1 artifacts.
   discover-workspace  Read approved repo-bound local sources into sanitized Stage 1 discovery artifacts.
+  agent-idea-candidate-report  Validate one proposal-only Candidate against exact Discovery DB facts; does not authorize Plan.
   discovery-approve  Preview or explicitly approve one exact manifest plus one exact discovery DB for Plan entry.
   need-report      Validate and summarize a concrete user-need brief.
   decision-ledger  Append or inspect typed predecessor-bound Plan decisions without transcript authority.
@@ -6324,7 +6394,7 @@ const OPENCLAW_RECEIPT_COMPANION_HELP = [
 function commandHelpText(command) {
   const entries = {
     "artifact-contract": `AgentMo artifact-contract
-Usage: agentmo artifact-contract decision-entry|discovery-manifest|openclaw-probe|openclaw-target-carrier-admission|openclaw-target-descriptor|package-manifest|user-need [--json]
+Usage: agentmo artifact-contract agent-idea-candidate|decision-entry|discovery-manifest|openclaw-probe|openclaw-target-carrier-admission|openclaw-target-descriptor|package-manifest|user-need [--json]
 Exports the complete field-level JSON Schema and a valid minimal template.
 `,
     poc: `AgentMo POC
@@ -6358,6 +6428,11 @@ The resulting provenance proves bounded retrieval mechanics only; it does not ce
 Usage: agentmo discover-workspace <discovery.json> --digest discovery-manifest=sha256:<64hex> --source-root <dir> --out <dir> [--json]
 Contract: agentmo artifact-contract discovery-manifest --json
 Only approved repo-bound local files are read.
+`,
+    "agent-idea-candidate-report": `AgentMo agent-idea-candidate-report
+Usage: agentmo agent-idea-candidate-report <candidate.json> --discovery-db <db.json> --digest agent-idea-candidate=sha256:<64hex> --digest discovery-db=sha256:<64hex> [--json]
+Contract: agentmo artifact-contract agent-idea-candidate --json
+Validates one proposal-only Candidate and exact Discovery DB fact references. It does not authorize Plan, build, runtime, or production use and does not record a human decision.
 `,
     "discovery-approve": `AgentMo discovery-approve
 Usage: agentmo discovery-approve <discovery.json> --discovery-db <agentmo-discovery-db.json> --digest discovery-manifest=sha256:<64hex> --digest discovery-db=sha256:<64hex> [--approve --preview-digest sha256:<64hex> --out <approval.json>] [--json]

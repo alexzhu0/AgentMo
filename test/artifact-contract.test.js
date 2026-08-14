@@ -10,6 +10,7 @@ import {
   getArtifactContract,
   listArtifactContractSubjects,
 } from "../src/artifact-contract.js";
+import { validateAgentIdeaCandidate } from "../src/agent-idea-candidate.js";
 import { validateDecisionEntry } from "../src/decision-ledger.js";
 import { validateDiscoveryManifest } from "../src/discovery.js";
 import { validateUserNeed } from "../src/user-need.js";
@@ -47,6 +48,7 @@ function runCli(args) {
 describe("operator-authored artifact contracts", () => {
   it("exports closed subjects whose minimal templates pass production validators", () => {
     assert.deepEqual(listArtifactContractSubjects(), [
+      "agent-idea-candidate",
       "decision-entry",
       "discovery-manifest",
       "openclaw-probe",
@@ -57,6 +59,7 @@ describe("operator-authored artifact contracts", () => {
     ]);
 
     const decision = getArtifactContract("decision-entry");
+    const ideaCandidate = getArtifactContract("agent-idea-candidate");
     const discovery = getArtifactContract("discovery-manifest");
     const need = getArtifactContract("user-need");
     const targetAdmission = getArtifactContract("openclaw-target-carrier-admission");
@@ -77,9 +80,11 @@ describe("operator-authored artifact contracts", () => {
       "openclaw-install-finalization",
     );
     assert.equal(decision.schemaVersion, "agentmo.artifact-contract.v1");
+    assert.equal(ideaCandidate.schemaVersion, "agentmo.artifact-contract.v1");
     assert.equal(discovery.schemaVersion, "agentmo.artifact-contract.v1");
     assert.equal(need.schemaVersion, "agentmo.artifact-contract.v1");
     assert.equal(validateDecisionEntry(decision.minimalTemplate).ok, true);
+    assert.equal(validateAgentIdeaCandidate(ideaCandidate.minimalTemplate).ok, true);
     assert.equal(validateDiscoveryManifest(discovery.minimalTemplate).ok, true);
     assert.equal(validateUserNeed(need.minimalTemplate).ok, true);
     assert.equal(

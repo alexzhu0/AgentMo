@@ -354,6 +354,7 @@ The fixed order is `session-start`, `skill-discovery`, `user-prompt-non-trigger`
 ```bash
 digest_file() { node -e 'const fs=require("node:fs");const crypto=require("node:crypto");fs.writeSync(1,"sha256:"+crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex"));' "$1"; }
 ./bin/agentmo.js artifact-contract discovery-manifest --json
+./bin/agentmo.js artifact-contract agent-idea-candidate --json
 ./bin/agentmo.js artifact-contract user-need --json
 ./bin/agentmo.js artifact-contract decision-entry --json
 ./bin/agentmo.js validate examples/win9.agentmo.json --digest "blueprint=$(digest_file "examples/win9.agentmo.json")"
@@ -387,9 +388,14 @@ Every durable file operand above carries one canonical `--digest` subject calcul
 Operator-authored Stage 1 and Stage 2 inputs are publicly discoverable without reading source code:
 
 - `agentmo artifact-contract discovery-manifest --json` exports the field-level JSON Schema and a validator-valid minimal `agentmo.discovery.v1` template.
+- `agentmo artifact-contract agent-idea-candidate --json` exports the closed, target-neutral `agentmo.agent-idea-candidate.v1` schema and a validator-valid minimal proposal template.
 - `agentmo artifact-contract user-need --json` exports the field-level JSON Schema and a validator-valid minimal `agentmo.user-need.v1` template.
 - `agentmo artifact-contract decision-entry --json` exports the five closed entry kinds and a validator-valid minimal `agentmo.decision-entry.v1` template.
 - `agentmo discover-report --help`, `discover-pack --help`, `discover-workspace --help`, `need-report --help`, and `decision-ledger --help` point to the relevant contract and example.
+
+`agentmo agent-idea-candidate-report <candidate.json> --discovery-db <db.json> --digest agent-idea-candidate=sha256:<64hex> --digest discovery-db=sha256:<64hex> [--json]` read-only validates one Candidate against the exact admitted Discovery DB. Every `evidenceIds` entry must resolve to exactly one DB fact; missing, duplicate, or ambiguous IDs fail closed. The report exposes only bounded counts, evidence-kind/trust composition, and warnings. An `extraction_field` citation is a planning lead only and never proves user need, value, capability, domain quality, or Plan readiness.
+
+The Candidate contains no human decision or approval state. Its fixed `certificationBoundary` keeps proposal-only true and user-need, value, capability, domain-quality, Plan-ready, production-ready, enter-Plan, build, and runtime claims false. No Plan command consumes it. A future separately designed Decision Artifact must exact-bind Candidate bytes before any human authorization can exist.
 - A digest-bound artifact with the correct registered identity but invalid fields still fails closed with `AGENTMO_UNSUPPORTED_ARTIFACT`; JSON mode additionally returns bounded `subject` and `issues` fields. These messages contain field requirements only, never submitted values, host paths, credentials, or raw payloads. Correct the artifact, recompute its exact-byte digest, and retry.
 
 Stage 1 has two explicit paths:
@@ -497,6 +503,7 @@ src/discovery-db.js         Sanitized discovery pack / facts / coverage material
 src/user-need.js            User-need brief validation and report builder
 src/source-refs.js          Shared bounded source_refs validation
 src/design-plan.js          Stage 2 design-plan contract builder and validator
+src/agent-idea-candidate.js Discover proposal validator and bounded read-only report
 src/decision-ledger.js      Typed predecessor-bound durable planning decisions
 src/discovery-approval.js   Exact manifest/database approval preview and apply boundary
 src/blueprint-draft.js      Blueprint drafting from discovery DB plus user need/design-plan

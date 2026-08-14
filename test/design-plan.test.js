@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { loadAdmittedArtifact } from "../src/artifact-admission.js";
+import { subjectsForCommand } from "../src/artifact-subjects.js";
 import { buildDesignPlan, loadDesignPlan, validateDesignPlan, writeDesignPlan } from "../src/design-plan.js";
 import { buildDiscoveryApproval, buildDiscoveryApprovalPreview } from "../src/discovery-approval.js";
 import { loadDiscoveryDb } from "../src/discovery-db.js";
@@ -170,6 +171,64 @@ function assertNoSensitiveOutput(value, label, tempRoot = null, pointer = "$") {
 }
 
 describe("design plan", () => {
+  it("does not accept an Agent Idea Candidate as user need, approval, or Plan authority", async () => {
+    const inputs = await supportInputs();
+    const factId = inputs.discoveryDb.facts[0].id;
+    const candidate = {
+      schemaVersion: "agentmo.agent-idea-candidate.v1",
+      ideaId: "candidate-stage-2-boundary",
+      title: "A bounded proposal for human review",
+      targetUsers: ["A prospective user group"],
+      candidateTasks: ["Review one bounded workflow opportunity"],
+      valueHypothesis: "The proposed workflow may reduce one measurable coordination burden.",
+      source: {
+        discoveryDb: {
+          identity: "agentmo.discovery-db.v1",
+          subject: "discovery-db",
+          digest: inputs.admissions.discoveryDb.digest,
+        },
+      },
+      evidenceIds: [factId],
+      evidenceGaps: ["Human confirmation of the target user's actual need remains missing."],
+      judgmentBoundaries: ["This proposal does not prove value or authorize planning."],
+      certificationBoundary: {
+        proposalOnly: true,
+        userNeedProven: false,
+        valueProven: false,
+        agentCapabilityProven: false,
+        domainQualityProven: false,
+        planReady: false,
+        productionReady: false,
+        enterPlanAuthorized: false,
+        buildAuthorized: false,
+        runtimeAuthorized: false,
+      },
+    };
+    const root = await mkdtemp(path.join(tmpdir(), "agentmo-candidate-stage2-boundary-"));
+    const candidatePath = path.join(root, "candidate.json");
+    const candidateBytes = Buffer.from(`${JSON.stringify(candidate, null, 2)}\n`, "utf8");
+    await writeFile(candidatePath, candidateBytes);
+    const candidateDigest = digest(candidateBytes);
+
+    await assert.rejects(
+      loadUserNeed(candidatePath, { subject: "user-need", expectedDigest: candidateDigest }),
+      (error) => error?.code === "AGENTMO_UNSUPPORTED_ARTIFACT",
+    );
+    await assert.rejects(
+      loadAdmittedArtifact({
+        filePath: candidatePath,
+        subject: "discovery-approval",
+        expectedDigest: candidateDigest,
+      }),
+      /exact admitted source set/i,
+    );
+    assert.throws(
+      () => buildDesignPlan(inputs.discoveryDb, candidate, planOptions(inputs)),
+      /user-need/i,
+    );
+    assert.equal(subjectsForCommand("design-plan").includes("agent-idea-candidate"), false);
+  });
+
   it("builds and validates a first-class Stage 2 design plan from DB plus need", async () => {
     const { discoveryDb, need, admissions } = await supportInputs();
     const plan = buildDesignPlan(discoveryDb, need, planOptions({ admissions }));

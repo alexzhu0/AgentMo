@@ -1,4 +1,8 @@
 import { createHash } from "node:crypto";
+import {
+  AGENT_IDEA_CANDIDATE_SCHEMA_VERSION,
+  validateAgentIdeaCandidate,
+} from "./agent-idea-candidate.js";
 import { auditMigrationCandidate } from "./evidence-audit.js";
 import { BLUEPRINT_SCHEMA_VERSION, validateBlueprint } from "./blueprint.js";
 import {
@@ -171,6 +175,11 @@ function validateContextBoundDiscoveryApproval(value, context) {
     && validateSafely(() => validateDiscoveryApproval(value, context).ok);
 }
 
+function validateContextBoundAgentIdeaCandidate(value, context) {
+  return context !== undefined
+    && validateSafely(() => validateAgentIdeaCandidate(value, context).ok);
+}
+
 export const LEGACY_ARTIFACT_REGISTRY = Object.freeze([
   Object.freeze({
     family: "blueprint",
@@ -230,6 +239,17 @@ export const DURABLE_ARTIFACT_REGISTRY = Object.freeze([
     identity: DISCOVERY_DB_SCHEMA_VERSION,
     legacy_inspector: "unsupported",
     validate_canonical_input: validateCanonicalDiscoveryDb,
+  }),
+  Object.freeze({
+    subject: "agent-idea-candidate",
+    identity_field: "schemaVersion",
+    identity: AGENT_IDEA_CANDIDATE_SCHEMA_VERSION,
+    legacy_inspector: "unsupported",
+    required_companion_subjects: Object.freeze(["discovery-db"]),
+    validate_canonical_input: validateContextBoundAgentIdeaCandidate,
+    diagnose_canonical_input: (value) => safeValidationIssues(() => (
+      validateAgentIdeaCandidate(value).errors
+    )),
   }),
   Object.freeze({
     subject: "discovery-approval",

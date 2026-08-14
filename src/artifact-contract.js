@@ -2,6 +2,10 @@ import {
   DECISION_ENTRY_KINDS,
   DECISION_ENTRY_SCHEMA_VERSION,
 } from "./decision-ledger.js";
+import {
+  AGENT_IDEA_CANDIDATE_CERTIFICATION_BOUNDARY,
+  AGENT_IDEA_CANDIDATE_SCHEMA_VERSION,
+} from "./agent-idea-candidate.js";
 import { createHash } from "node:crypto";
 import { AGENT_PACKAGE_SCHEMA_VERSION } from "./package-contract.js";
 import { OPENCLAW_PROBE_SCHEMA_VERSION } from "./openclaw-probe-contract.js";
@@ -45,6 +49,90 @@ const DECISION_REF_ARRAY = Object.freeze({
   maxItems: 128,
   uniqueItems: true,
   items: DECISION_REF,
+});
+
+const AGENT_IDEA_CANDIDATE_CONTRACT = deepFreeze({
+  schemaVersion: "agentmo.artifact-contract.v1",
+  subject: "agent-idea-candidate",
+  identity: AGENT_IDEA_CANDIDATE_SCHEMA_VERSION,
+  jsonSchema: {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    title: "AgentMo Agent Idea Candidate",
+    type: "object",
+    additionalProperties: false,
+    required: [
+      "schemaVersion",
+      "ideaId",
+      "title",
+      "targetUsers",
+      "candidateTasks",
+      "valueHypothesis",
+      "source",
+      "evidenceIds",
+      "evidenceGaps",
+      "judgmentBoundaries",
+      "certificationBoundary",
+    ],
+    properties: {
+      schemaVersion: { const: AGENT_IDEA_CANDIDATE_SCHEMA_VERSION },
+      ideaId: { type: "string", pattern: "^[a-z0-9][a-z0-9._:-]{0,127}$" },
+      title: { type: "string", minLength: 1, maxLength: 512 },
+      targetUsers: boundedStringArray(1, 64, 1024),
+      candidateTasks: boundedStringArray(1, 64, 2048),
+      valueHypothesis: { type: "string", minLength: 1, maxLength: 4096 },
+      source: {
+        type: "object",
+        additionalProperties: false,
+        required: ["discoveryDb"],
+        properties: {
+          discoveryDb: {
+            type: "object",
+            additionalProperties: false,
+            required: ["identity", "subject", "digest"],
+            properties: {
+              identity: { const: "agentmo.discovery-db.v1" },
+              subject: { const: "discovery-db" },
+              digest: { type: "string", pattern: "^sha256:[a-f0-9]{64}$" },
+            },
+          },
+        },
+      },
+      evidenceIds: {
+        ...boundedStringArray(1, 256, 256),
+        uniqueItems: true,
+      },
+      evidenceGaps: boundedStringArray(0, 64, 2048),
+      judgmentBoundaries: boundedStringArray(1, 64, 2048),
+      certificationBoundary: {
+        type: "object",
+        additionalProperties: false,
+        required: Object.keys(AGENT_IDEA_CANDIDATE_CERTIFICATION_BOUNDARY),
+        properties: Object.fromEntries(
+          Object.entries(AGENT_IDEA_CANDIDATE_CERTIFICATION_BOUNDARY)
+            .map(([key, value]) => [key, { const: value }]),
+        ),
+      },
+    },
+  },
+  minimalTemplate: {
+    schemaVersion: AGENT_IDEA_CANDIDATE_SCHEMA_VERSION,
+    ideaId: "replace-with-idea-id",
+    title: "Describe one bounded Agent Idea candidate.",
+    targetUsers: ["replace with one target user"],
+    candidateTasks: ["replace with one observable task"],
+    valueHypothesis: "Describe proposed value without claiming it is proven.",
+    source: {
+      discoveryDb: {
+        identity: "agentmo.discovery-db.v1",
+        subject: "discovery-db",
+        digest: `sha256:${"0".repeat(64)}`,
+      },
+    },
+    evidenceIds: ["replace-with-evidence-id"],
+    evidenceGaps: [],
+    judgmentBoundaries: ["State what the cited evidence cannot establish."],
+    certificationBoundary: { ...AGENT_IDEA_CANDIDATE_CERTIFICATION_BOUNDARY },
+  },
 });
 
 const DECISION_ENTRY_CONTRACT = deepFreeze({
@@ -738,6 +826,7 @@ const OPENCLAW_CONFLICT_APPROVAL_CONTRACT = lifecycleContract(
 );
 
 const CONTRACTS = new Map([
+  [AGENT_IDEA_CANDIDATE_CONTRACT.subject, AGENT_IDEA_CANDIDATE_CONTRACT],
   [DECISION_ENTRY_CONTRACT.subject, DECISION_ENTRY_CONTRACT],
   [DISCOVERY_MANIFEST_CONTRACT.subject, DISCOVERY_MANIFEST_CONTRACT],
   [USER_NEED_CONTRACT.subject, USER_NEED_CONTRACT],
@@ -806,6 +895,19 @@ function deepFreeze(value) {
   if (value === null || typeof value !== "object" || Object.isFrozen(value)) return value;
   for (const item of Object.values(value)) deepFreeze(item);
   return Object.freeze(value);
+}
+
+function boundedStringArray(minItems, maxItems, maxLength) {
+  return {
+    type: "array",
+    minItems,
+    maxItems,
+    items: {
+      type: "string",
+      minLength: 1,
+      maxLength,
+    },
+  };
 }
 
 function targetDescriptorMinimalTemplate() {

@@ -21,6 +21,7 @@ const PRODUCER_AUTHORITY_SUBJECTS = new Set([
   "openclaw-install-finalization",
 ]);
 const SOURCE_CONTEXT_SUBJECTS = new Set([
+  "agent-idea-candidate",
   "discovery-approval",
   "run-eval",
   "birth-report",
@@ -300,6 +301,12 @@ function buildSourceValidationContext(subject, value, companions, actualDigest) 
         discoveryManifest: provenanceFor("discovery-manifest"),
         discoveryDb: provenanceFor("discovery-db"),
       },
+    };
+  }
+  if (subject === "agent-idea-candidate") {
+    return {
+      discoveryDb: valueFor("discovery-db"),
+      source: provenanceFor("discovery-db"),
     };
   }
   if (subject === "run-eval") {

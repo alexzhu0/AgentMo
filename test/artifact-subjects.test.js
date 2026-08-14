@@ -28,6 +28,7 @@ describe("durable command subjects", () => {
       "discover-pack",
       "discover-live",
       "discover-workspace",
+      "agent-idea-candidate-report",
       "discovery-approve",
       "need-report",
       "decision-ledger",
@@ -63,6 +64,10 @@ describe("durable command subjects", () => {
       assert.equal(subjectsForCommand(command), DURABLE_COMMAND_SUBJECTS[command]);
     }
     assert.deepEqual(DURABLE_COMMAND_SUBJECTS["discovery-approve"], ["discovery-manifest", "discovery-db"]);
+    assert.deepEqual(DURABLE_COMMAND_SUBJECTS["agent-idea-candidate-report"], [
+      "agent-idea-candidate",
+      "discovery-db",
+    ]);
     assert.deepEqual(DURABLE_COMMAND_SUBJECTS["design-plan"], [
       "discovery-manifest",
       "discovery-db",

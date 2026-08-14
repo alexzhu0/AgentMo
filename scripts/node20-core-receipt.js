@@ -34,6 +34,7 @@ const DISTRIBUTION_TRUST_URL = new URL("./node20-distribution-trust.json", impor
 const SYNTAX_FILES = [
   "bin/agentmo.js",
   "scripts/node20-core-receipt.js",
+  "src/agent-idea-candidate.js",
   "src/artifact-admission.js",
   "src/artifact-migration.js",
   "src/artifact-registry.js",
@@ -87,7 +88,7 @@ export const OWNED_COMMAND_MANIFEST = deepFreeze([
     id: "syntax",
     kind: "syntax",
     files: SYNTAX_FILES,
-    expected: { pass: 40, skip: 0, fail: 0, total: 40 },
+    expected: { pass: 41, skip: 0, fail: 0, total: 41 },
   },
   {
     id: "core-contracts",

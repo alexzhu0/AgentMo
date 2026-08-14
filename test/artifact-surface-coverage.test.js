@@ -440,6 +440,21 @@ describe("artifact/output surface inventory", () => {
     );
   });
 
+  it("publishes the Agent Idea Candidate validator in npm and Builder inventories", async () => {
+    const sourcePath = "src/agent-idea-candidate.js";
+    const packageJson = JSON.parse(await readFile(
+      path.join(REPO_ROOT, "package.json"),
+      "utf8",
+    ));
+    assert.equal(packageJson.files.includes(sourcePath), true);
+    assert.equal(
+      BUILDER_RELEASE_ASSET_INVENTORY.some((entry) => entry.sourcePath === sourcePath),
+      true,
+    );
+    assert.equal(BUILDER_NPM_TARBALL_INVENTORY.includes(sourcePath), true);
+    assert.match(packageJson.scripts.check, /node --check src\/agent-idea-candidate\.js(?: |$)/u);
+  });
+
   it("proves durable reads use one exact retained capture instead of trusting a gated label", async () => {
     const bytes = await readFile(SUPPORT_BLUEPRINT);
     const expectedDigest = digestRawBytes(bytes);
@@ -547,6 +562,7 @@ describe("artifact/output surface inventory", () => {
       "discover-pack": "artifact",
       "discover-live": "artifact",
       "discover-workspace": "artifact",
+      "agent-idea-candidate-report": "artifact",
       "discovery-approve": "artifact",
       "need-report": "artifact",
       "decision-ledger": "artifact",

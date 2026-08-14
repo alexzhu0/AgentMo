@@ -49,6 +49,7 @@ const OPENCLAW_CLASSIFICATIONS = Object.freeze({
 });
 
 const SUBJECT_OPTION_FLAGS = Object.freeze({
+  "agent-idea-candidate": null,
   "birth-report": "--birth-report",
   "build-state": "--build-state",
   "build-contract": "--build-contract",
@@ -396,7 +397,7 @@ function assertDocumentInvocation(invocation, label) {
     } else {
       assert.match(
         invocation,
-        /(?:^|\s)artifact-contract\s+(?:decision-entry|discovery-manifest|user-need)(?:\s+--json)?(?:\s|$)/u,
+        /(?:^|\s)artifact-contract\s+(?:agent-idea-candidate|decision-entry|discovery-manifest|user-need)(?:\s+--json)?(?:\s|$)/u,
         `${label}: artifact-contract subject drifted`,
       );
     }

@@ -1,4 +1,8 @@
 const DISCOVERY_MANIFEST_SUBJECTS = Object.freeze(["discovery-manifest"]);
+const AGENT_IDEA_CANDIDATE_REPORT_SUBJECTS = Object.freeze([
+  "agent-idea-candidate",
+  "discovery-db",
+]);
 const USER_NEED_SUBJECTS = Object.freeze(["user-need"]);
 const DISCOVERY_APPROVAL_SUBJECTS = Object.freeze(["discovery-manifest", "discovery-db"]);
 const DESIGN_PLAN_SUBJECTS = Object.freeze([
@@ -81,6 +85,7 @@ export const DURABLE_COMMAND_SUBJECTS = Object.freeze({
   "discover-pack": DISCOVERY_MANIFEST_SUBJECTS,
   "discover-live": DISCOVERY_MANIFEST_SUBJECTS,
   "discover-workspace": DISCOVERY_MANIFEST_SUBJECTS,
+  "agent-idea-candidate-report": AGENT_IDEA_CANDIDATE_REPORT_SUBJECTS,
   "discovery-approve": DISCOVERY_APPROVAL_SUBJECTS,
   "need-report": USER_NEED_SUBJECTS,
   "decision-ledger": DECISION_LEDGER_SUBJECTS,

@@ -235,6 +235,7 @@ describe("cli", () => {
     assert.doesNotMatch(help.stdout, /AgentMother|agentmother/u);
     assert.match(help.stdout, /agentmo design-plan <agentmo-discovery-db\.json> --manifest <discovery\.json> --discovery-approval <approval\.json> --need <need\.json>/u);
     assert.match(help.stdout, /agentmo discover-report <discovery\.json> --digest discovery-manifest=sha256:<64hex>/u);
+    assert.match(help.stdout, /agentmo agent-idea-candidate-report <candidate\.json> --discovery-db <db\.json> --digest agent-idea-candidate=sha256:<64hex> --digest discovery-db=sha256:<64hex>/u);
     assert.match(help.stdout, /agentmo need-report <need\.json> --digest user-need=sha256:<64hex>/u);
     assert.match(help.stdout, /agentmo blueprint-draft <agentmo-discovery-db\.json> --need <need\.json> --digest discovery-db=sha256:<64hex> --digest user-need=sha256:<64hex> \[--design-plan/u);
     assert.match(help.stdout, /agentmo validate <blueprint\.json> --digest blueprint=sha256:<64hex>/u);
@@ -252,7 +253,7 @@ describe("cli", () => {
     assert.match(help.stdout, /agentmo domain-eval <blueprint\.json> --digest blueprint=sha256:<64hex> --cases <cases\.json> --digest domain-cases=sha256:<64hex>/u);
     assert.match(help.stdout, /agentmo delivery-report <blueprint\.json> --digest blueprint=sha256:<64hex> --build-state <agentmo-build-state\.json>/u);
     assert.match(help.stdout, /agentmo runtime-check --target openclaw \[--json\]/u);
-    assert.match(help.stdout, /agentmo artifact-contract decision-entry\|discovery-manifest\|openclaw-probe\|openclaw-target-carrier-admission\|openclaw-target-descriptor\|package-manifest\|user-need \[--json\]/u);
+    assert.match(help.stdout, /agentmo artifact-contract agent-idea-candidate\|decision-entry\|discovery-manifest\|openclaw-probe\|openclaw-target-carrier-admission\|openclaw-target-descriptor\|package-manifest\|user-need \[--json\]/u);
     assert.match(help.stdout, /agentmo package-inspect <directory> --manifest-sha256 sha256:<64hex> \[--json\]/u);
     assert.match(help.stdout, /agentmo package-inspect <archive\.d42> --archive-sha256 sha256:<64hex> \[--json\]/u);
     assert.match(help.stdout, /agentmo openclaw-probe --archive <archive\.d42> --archive-sha256 sha256:<64hex>/u);
