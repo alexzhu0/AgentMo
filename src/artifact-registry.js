@@ -617,13 +617,14 @@ export class AgentMoUnsupportedArtifactError extends Error {
   }
 }
 
-export function inspectJsonIdentityMembers(raw, options = {}) {
+export function inspectJsonMembers(raw, options = {}) {
   if (typeof raw !== "string") return { ok: false, reason: "invalid_json" };
   const maxDepth = options.maxDepth ?? JSON_IDENTITY_SCAN_MAX_DEPTH;
   const maxNodes = options.maxNodes ?? JSON_IDENTITY_SCAN_MAX_NODES;
   let index = 0;
   let nodes = 0;
-  let duplicate = false;
+  let duplicateIdentity = false;
+  let duplicateMember = false;
 
   function fail(reason) {
     const error = new Error(reason);
@@ -652,12 +653,14 @@ export function inspectJsonIdentityMembers(raw, options = {}) {
       const character = raw[index];
       if (character === '"') {
         index += 1;
-        if (!decode) return null;
+        let value;
         try {
-          return JSON.parse(raw.slice(start, index));
+          value = JSON.parse(raw.slice(start, index));
         } catch {
           fail("invalid_json");
         }
+        if (hasUnpairedSurrogate(value)) fail("invalid_unicode_scalar");
+        return decode ? value : null;
       }
       if (character.charCodeAt(0) < 0x20) fail("invalid_json");
       if (character === "\\") {
@@ -737,8 +740,11 @@ export function inspectJsonIdentityMembers(raw, options = {}) {
           ? TOP_LEVEL_IDENTITY_MEMBERS.has(key)
           : (scope === "source" && BUILD_STATE_SOURCE_IDENTITY_MEMBERS.has(key))
             || PROVENANCE_IDENTITY_MEMBERS.has(key);
-      if (watched && seen.has(key)) duplicate = true;
-      if (watched) seen.add(key);
+      if (seen.has(key)) {
+        if (watched) duplicateIdentity = true;
+        else duplicateMember = true;
+      }
+      seen.add(key);
       skipWhitespace();
       expect(":");
       skipWhitespace();
@@ -775,19 +781,46 @@ export function inspectJsonIdentityMembers(raw, options = {}) {
   } catch (error) {
     return {
       ok: false,
-      reason: error?.code === "resource_budget_exceeded" ? "resource_budget_exceeded" : "invalid_json",
+      reason: ["resource_budget_exceeded", "invalid_unicode_scalar"].includes(error?.code)
+        ? error.code
+        : "invalid_json",
     };
   }
-  return duplicate ? { ok: false, reason: "duplicate_identity_member" } : { ok: true };
+  if (duplicateIdentity) return { ok: false, reason: "duplicate_identity_member" };
+  if (duplicateMember) return { ok: false, reason: "duplicate_member" };
+  return { ok: true };
 }
 
-export function assertNoDuplicateIdentityMembers(raw) {
-  const inspection = inspectJsonIdentityMembers(raw);
+export function inspectJsonIdentityMembers(raw, options = {}) {
+  return inspectJsonMembers(raw, options);
+}
+
+export function assertNoDuplicateJsonMembers(raw) {
+  const inspection = inspectJsonMembers(raw);
   if (!inspection.ok && inspection.reason !== "invalid_json") {
     throw new AgentMoUnsupportedArtifactError(inspection.reason);
   }
   return inspection;
 }
+
+export function assertNoDuplicateIdentityMembers(raw) {
+  return assertNoDuplicateJsonMembers(raw);
+}
+
+function hasUnpairedSurrogate(value) {
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code >= 0xd800 && code <= 0xdbff) {
+      const next = value.charCodeAt(index + 1);
+      if (!(next >= 0xdc00 && next <= 0xdfff)) return true;
+      index += 1;
+    } else if (code >= 0xdc00 && code <= 0xdfff) {
+      return true;
+    }
+  }
+  return false;
+}
+
 
 export function inspectArtifactForMigration(value, options = {}) {
   if (!isObject(value)) return unsupported("non_object");

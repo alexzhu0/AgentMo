@@ -298,3 +298,122 @@ and commit explicit paths.
 
 Use `superpowers:finishing-a-development-branch`, retain the branch and local
 commits for control-session review, and do not merge, push, or open a PR.
+
+---
+
+## Independent review remediation (2026-08-14)
+
+The control session approved an additive remediation range after independent
+review. Existing commits are immutable; every change below is implemented with
+a failing regression first and lands only in a new bounded commit.
+
+### Task 7: Central exact-byte JSON safety
+
+**Files:**
+- Modify: `src/artifact-registry.js`
+- Modify: `src/artifact-admission.js`
+- Modify: `test/artifact-admission.test.js`
+- Modify: `test/agent-idea-candidate.test.js`
+
+**Interfaces:**
+- Produces: a central pre-`JSON.parse` inspection that rejects duplicate member
+  names at every object depth and rejects unpaired Unicode surrogates without
+  exposing member names or values.
+
+- [x] Add exact-byte admission tests for duplicate Candidate boundary,
+  duplicate Candidate free text containing a secret/path canary, duplicate
+  nested Discovery DB fact fields, escaped-equivalent member names, and
+  `\\ud800` / `\\ud801` surrogate canaries.
+- [x] Run `node --test test/artifact-admission.test.js test/agent-idea-candidate.test.js`
+  and require the new cases to fail for the reviewed last-wins/replacement-byte
+  behavior.
+- [x] Generalize the existing bounded scanner so each object tracks all decoded
+  member names, string tokens validate surrogate pairing, and admission rejects
+  non-JSON/resource/duplicate/surrogate results before `JSON.parse`.
+- [x] Rerun the same command and require the complete suites to pass.
+
+### Task 8: Bounded Candidate validation and public diagnostics
+
+**Files:**
+- Modify: `src/agent-idea-candidate.js`
+- Modify: `src/artifact-contract.js`
+- Modify: `src/cli.js`
+- Modify: `test/agent-idea-candidate.test.js`
+- Modify: `test/artifact-contract.test.js`
+
+**Interfaces:**
+- Produces: code-point-aligned string validation, a fixed diagnostic cap,
+  no per-item walk after an array exceeds its contract bound, nullable invalid
+  report identity, and duplicate single-value option rejection.
+
+- [x] Add a literal boundary matrix covering whitespace, NUL, exact/overflow
+  emoji code-point lengths for every Candidate string family, a 20,022-character
+  invalid `ideaId`, a 20,000-item invalid array, fixed canary/path/secret text,
+  and same/different duplicate `--discovery-db` values.
+- [x] Run `node --test test/agent-idea-candidate.test.js test/artifact-contract.test.js`
+  and require the new cases to fail for the reviewed mismatches and leaks.
+- [x] Add shared Candidate limits/pattern fragments, count Unicode code points,
+  stop array item validation after an over-limit error, cap returned diagnostics,
+  summarize only a fully valid Candidate, and fail the Candidate CLI parser on
+  the second single-value option before path resolution or artifact loading.
+- [x] Rerun the same command and require all cases to pass with no partial write
+  or canary disclosure.
+
+### Task 9: Stage 2 loader isolation
+
+**Files:**
+- Modify: `test/design-plan.test.js`
+
+**Interfaces:**
+- Produces: independent real-CLI attempts to substitute Candidate bytes for
+  `user-need`, `discovery-approval`, and decision-ledger current-head inputs,
+  plus a separate unknown extra-digest regression.
+
+- [x] Supply authentic unaffected companions and exact digest bindings for each
+  substitution so execution reaches the selected loader.
+- [x] Run `node --test test/design-plan.test.js` and verify each case asserts its
+  fixed loader/admission rejection code, exit 1, and absent Plan output.
+- [x] Do not change `design-plan` subjects, loader acceptance, or Plan authority.
+
+### Task 10: Node 20 evidence republication
+
+**Files:**
+- Create only after producer success: `release/evidence/2026.08.14-node20-core-receipt.json`
+- Modify only after producer success: `test/runtime-evidence-consumers.test.js`
+- Modify only after producer success: `docs/RUNTIME_COMPATIBILITY.md`
+- Modify only after producer success: `release/2026.08.14.md`
+
+**Interfaces:**
+- Consumes: the repository-owned distribution trust anchor, canonical Node
+  20.20.2 executable, exact official archive, exact checksum manifest, and a
+  new absent temporary receipt path.
+- Produces: a byte-identical published receipt for the current 41-file manifest;
+  historical receipts remain unchanged.
+
+- [x] Confirm the current consumer fails only because the old receipt binds the
+  40-file manifest and old command-set digest.
+- [x] Locate only already-present trusted inputs; do not download, install,
+  activate, search `PATH`, or accept environment overrides.
+- [x] Run the repository producer into a newly absent temporary path only when
+  all trusted inputs are present. Inputs were unavailable in the repository and
+  approved temporary roots, so publish nothing and record the exact bounded
+  blocker.
+- [ ] After success only, copy the exact receipt bytes to the new release path,
+  update post-publication consumer correspondence and maintained evidence text,
+  then require `node --test test/runtime-evidence-consumers.test.js` to pass.
+
+### Task 11: Final gates and additive commit
+
+**Files:**
+- Modify: `release/2026.08.14.md`
+- Review all paths changed by Tasks 7–10.
+
+- [x] Run the adversarial Candidate set, artifact admission/contract/subjects/
+  inventory set, selected Stage 1/2 regressions, runtime evidence consumers,
+  and `node --check` for every changed production JavaScript file.
+- [x] Run `git diff --check dbb0750..HEAD` and `npm run check`; preserve the first
+  real full-check failure and final exit/interruption state without retry loops.
+- [x] Review the complete diff for bounded/value-blind output, authority
+  separation, no `.env`, no host-private paths, and no runtime/Plan expansion.
+- [ ] Stage explicit paths only and append one review-remediation commit. Do not
+  rewrite, push, merge, open a PR, tag, or create a GitHub Release.

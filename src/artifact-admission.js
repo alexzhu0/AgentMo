@@ -1,7 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { open } from "node:fs/promises";
 import {
-  assertNoDuplicateIdentityMembers,
+  assertNoDuplicateJsonMembers,
   companionMultiplicityForDurableArtifact,
   companionSubjectsForDurableArtifact,
   resolveDurableArtifactDescriptor,
@@ -171,7 +171,7 @@ function admitExactArtifactBytes(bytes, options, admission) {
   }
 
   try {
-    assertNoDuplicateIdentityMembers(text);
+    assertNoDuplicateJsonMembers(text);
   } catch (error) {
     if (error?.code === "AGENTMO_UNSUPPORTED_ARTIFACT") throw error;
     throw new ArtifactAdmissionError("AGENTMO_ARTIFACT_INVALID_JSON");

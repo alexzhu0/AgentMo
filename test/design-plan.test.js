@@ -106,6 +106,10 @@ function planOptions(inputs, extra = {}) {
 async function buildDecisionLedger(need) {
   const root = await mkdtemp(path.join(tmpdir(), "agentmo-design-decision-ledger-"));
   const journalPath = path.join(root, "decision-ledger.json");
+  return buildDecisionLedgerAt(need, journalPath);
+}
+
+async function buildDecisionLedgerAt(need, journalPath) {
   const requirementRefs = [
     ...need.primary_tasks.map((_, index) => `primary-task-${String(index + 1).padStart(2, "0")}`),
     ...need.success_criteria.map((_, index) => `success-criterion-${String(index + 1).padStart(2, "0")}`),
@@ -170,8 +174,78 @@ function assertNoSensitiveOutput(value, label, tempRoot = null, pointer = "$") {
   }
 }
 
+async function stage2CandidateCliFixture(label) {
+  const inputs = await supportInputs();
+  const root = await mkdtemp(path.join(tmpdir(), `agentmo-candidate-stage2-${label}-`));
+  const approvalPath = path.join(root, "authentic-discovery-approval.json");
+  const approvalBytes = Buffer.from(`${JSON.stringify(inputs.discoveryApproval, null, 2)}\n`, "utf8");
+  await writeFile(approvalPath, approvalBytes);
+  const decisionLedgerPath = path.join(root, "authentic-decision-ledger.json");
+  const decisionLedger = await buildDecisionLedgerAt(inputs.need, decisionLedgerPath);
+  const candidate = {
+    schemaVersion: "agentmo.agent-idea-candidate.v1",
+    ideaId: "candidate-stage-2-loader-boundary",
+    title: "A bounded proposal for human review",
+    targetUsers: ["A prospective user group"],
+    candidateTasks: ["Review one bounded workflow opportunity"],
+    valueHypothesis: "The proposed workflow may reduce one measurable coordination burden.",
+    source: {
+      discoveryDb: {
+        identity: "agentmo.discovery-db.v1",
+        subject: "discovery-db",
+        digest: inputs.admissions.discoveryDb.digest,
+      },
+    },
+    evidenceIds: [inputs.discoveryDb.facts[0].id],
+    evidenceGaps: ["Human confirmation of the target user's actual need remains missing."],
+    judgmentBoundaries: ["This proposal does not prove value or authorize planning."],
+    certificationBoundary: {
+      proposalOnly: true,
+      userNeedProven: false,
+      valueProven: false,
+      agentCapabilityProven: false,
+      domainQualityProven: false,
+      planReady: false,
+      productionReady: false,
+      enterPlanAuthorized: false,
+      buildAuthorized: false,
+      runtimeAuthorized: false,
+    },
+  };
+  const candidatePath = path.join(root, "candidate.json");
+  const candidateBytes = Buffer.from(`${JSON.stringify(candidate, null, 2)}\n`, "utf8");
+  await writeFile(candidatePath, candidateBytes);
+  return {
+    root,
+    candidatePath,
+    candidateDigest: digest(candidateBytes),
+    approvalPath,
+    approvalDigest: digest(approvalBytes),
+    decisionLedgerPath,
+    decisionLedgerDigest: decisionLedger.head.digest,
+    admissions: inputs.admissions,
+  };
+}
+
+function stage2DesignPlanArgs(fixture, outPath) {
+  return [
+    "design-plan", DISCOVERY_DB_FILE,
+    "--manifest", DISCOVERY_MANIFEST_FILE,
+    "--discovery-approval", fixture.approvalPath,
+    "--need", USER_NEED_FILE,
+    "--decision-ledger", fixture.decisionLedgerPath,
+    "--out", outPath,
+    "--target", "openclaw",
+    "--digest", `discovery-manifest=${fixture.admissions.discoveryManifest.digest}`,
+    "--digest", `discovery-db=${fixture.admissions.discoveryDb.digest}`,
+    "--digest", `discovery-approval=${fixture.approvalDigest}`,
+    "--digest", `user-need=${fixture.admissions.userNeed.digest}`,
+    "--digest", `decision-ledger=${fixture.decisionLedgerDigest}`,
+  ];
+}
+
 describe("design plan", () => {
-  it("does not accept an Agent Idea Candidate as user need, approval, or Plan authority", async () => {
+  it("does not accept an Agent Idea Candidate through direct Stage 2 authority APIs", async () => {
     const inputs = await supportInputs();
     const factId = inputs.discoveryDb.facts[0].id;
     const candidate = {
@@ -231,28 +305,60 @@ describe("design plan", () => {
       /user-need/i,
     );
     assert.equal(subjectsForCommand("design-plan").includes("agent-idea-candidate"), false);
+  });
 
-    const outPath = path.join(root, "must-remain-absent.json");
+  it("keeps an independent unknown-subject rejection for an extra Candidate digest", async () => {
+    const fixture = await stage2CandidateCliFixture("extra-digest");
+    const outPath = path.join(fixture.root, "must-remain-absent.json");
     const cli = await runCli([
-      "design-plan",
-      DISCOVERY_DB_FILE,
-      "--manifest", DISCOVERY_MANIFEST_FILE,
-      "--discovery-approval", candidatePath,
-      "--need", USER_NEED_FILE,
-      "--decision-ledger", candidatePath,
-      "--out", outPath,
-      "--target", "openclaw",
-      "--digest", `discovery-manifest=${inputs.admissions.discoveryManifest.digest}`,
-      "--digest", `discovery-db=${inputs.admissions.discoveryDb.digest}`,
-      "--digest", `discovery-approval=${candidateDigest}`,
-      "--digest", `user-need=${inputs.admissions.userNeed.digest}`,
-      "--digest", `decision-ledger=${candidateDigest}`,
-      "--digest", `agent-idea-candidate=${candidateDigest}`,
+      ...stage2DesignPlanArgs(fixture, outPath),
+      "--digest", `agent-idea-candidate=${fixture.candidateDigest}`,
       "--json",
     ]);
     assert.equal(cli.code, 1);
     assert.equal(JSON.parse(cli.stdout).code, "AGENTMO_ARTIFACT_DIGEST_UNKNOWN_SUBJECT");
     await assert.rejects(() => access(outPath));
+  });
+
+  it("reaches each real Stage 2 loader before rejecting Candidate substitution", async () => {
+    const fixture = await stage2CandidateCliFixture("loader-substitution");
+    const cases = [
+      {
+        label: "user-need",
+        option: "--need",
+        digestSubject: "user-need",
+        code: "AGENTMO_UNSUPPORTED_ARTIFACT",
+      },
+      {
+        label: "discovery-approval",
+        option: "--discovery-approval",
+        digestSubject: "discovery-approval",
+        code: "AGENTMO_UNSUPPORTED_ARTIFACT",
+      },
+      {
+        label: "decision-ledger-current-head",
+        option: "--decision-ledger",
+        digestSubject: "decision-ledger",
+        code: "AGENTMO_DECISION_LEDGER_LINEAGE_INVALID",
+      },
+    ];
+    for (const testCase of cases) {
+      const outPath = path.join(fixture.root, `${testCase.label}-must-remain-absent.json`);
+      const args = stage2DesignPlanArgs(fixture, outPath);
+      const optionIndex = args.indexOf(testCase.option);
+      assert.notEqual(optionIndex, -1, testCase.label);
+      args[optionIndex + 1] = fixture.candidatePath;
+      const subjectBindingIndex = args.findIndex(
+        (value) => value.startsWith(`${testCase.digestSubject}=`),
+      );
+      assert.notEqual(subjectBindingIndex, -1, testCase.label);
+      args[subjectBindingIndex] = `${testCase.digestSubject}=${fixture.candidateDigest}`;
+
+      const cli = await runCli([...args, "--json"]);
+      assert.equal(cli.code, 1, testCase.label);
+      assert.equal(JSON.parse(cli.stdout).code, testCase.code, testCase.label);
+      await assert.rejects(() => access(outPath), undefined, testCase.label);
+    }
   });
 
   it("builds and validates a first-class Stage 2 design plan from DB plus need", async () => {

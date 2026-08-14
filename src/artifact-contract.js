@@ -4,7 +4,10 @@ import {
 } from "./decision-ledger.js";
 import {
   AGENT_IDEA_CANDIDATE_CERTIFICATION_BOUNDARY,
+  AGENT_IDEA_CANDIDATE_ID_PATTERN_SOURCE,
+  AGENT_IDEA_CANDIDATE_LIMITS,
   AGENT_IDEA_CANDIDATE_SCHEMA_VERSION,
+  AGENT_IDEA_CANDIDATE_TEXT_PATTERN_SOURCE,
 } from "./agent-idea-candidate.js";
 import { createHash } from "node:crypto";
 import { AGENT_PACKAGE_SCHEMA_VERSION } from "./package-contract.js";
@@ -75,11 +78,11 @@ const AGENT_IDEA_CANDIDATE_CONTRACT = deepFreeze({
     ],
     properties: {
       schemaVersion: { const: AGENT_IDEA_CANDIDATE_SCHEMA_VERSION },
-      ideaId: { type: "string", pattern: "^[a-z0-9][a-z0-9._:-]{0,127}$" },
-      title: { type: "string", minLength: 1, maxLength: 512 },
-      targetUsers: boundedStringArray(1, 64, 1024),
-      candidateTasks: boundedStringArray(1, 64, 2048),
-      valueHypothesis: { type: "string", minLength: 1, maxLength: 4096 },
+      ideaId: { type: "string", pattern: AGENT_IDEA_CANDIDATE_ID_PATTERN_SOURCE },
+      title: boundedCandidateString(AGENT_IDEA_CANDIDATE_LIMITS.title.maxLength),
+      targetUsers: boundedCandidateStringArray(AGENT_IDEA_CANDIDATE_LIMITS.targetUsers),
+      candidateTasks: boundedCandidateStringArray(AGENT_IDEA_CANDIDATE_LIMITS.candidateTasks),
+      valueHypothesis: boundedCandidateString(AGENT_IDEA_CANDIDATE_LIMITS.valueHypothesis.maxLength),
       source: {
         type: "object",
         additionalProperties: false,
@@ -98,13 +101,13 @@ const AGENT_IDEA_CANDIDATE_CONTRACT = deepFreeze({
         },
       },
       evidenceIds: {
-        ...boundedStringArray(1, 256, 256),
+        ...boundedCandidateStringArray(AGENT_IDEA_CANDIDATE_LIMITS.evidenceIds),
         uniqueItems: true,
         description: "Fact IDs must be strictly ascending by UTF-8 byte order as well as unique.",
         "x-agentmo-byte-sorted-unique": true,
       },
-      evidenceGaps: boundedStringArray(0, 64, 2048),
-      judgmentBoundaries: boundedStringArray(1, 64, 2048),
+      evidenceGaps: boundedCandidateStringArray(AGENT_IDEA_CANDIDATE_LIMITS.evidenceGaps),
+      judgmentBoundaries: boundedCandidateStringArray(AGENT_IDEA_CANDIDATE_LIMITS.judgmentBoundaries),
       certificationBoundary: {
         type: "object",
         additionalProperties: false,
@@ -909,6 +912,24 @@ function boundedStringArray(minItems, maxItems, maxLength) {
       minLength: 1,
       maxLength,
     },
+  };
+}
+
+function boundedCandidateString(maxLength) {
+  return {
+    type: "string",
+    minLength: 1,
+    maxLength,
+    pattern: AGENT_IDEA_CANDIDATE_TEXT_PATTERN_SOURCE,
+  };
+}
+
+function boundedCandidateStringArray(limits) {
+  return {
+    type: "array",
+    minItems: limits.minItems,
+    maxItems: limits.maxItems,
+    items: boundedCandidateString(limits.itemMaxLength),
   };
 }
 

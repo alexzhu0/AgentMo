@@ -3335,18 +3335,18 @@ reconcileExactModuleSurfaces(IO_SURFACE_ALLOWLIST, [
   `),
   exactModuleSurfaceGroup("src/cli.js", "phase-04-plan-08", "gated", `
     1312:durable-loader:loadAdmittedArtifact
-    4598:durable-loader:loadAdmittedArtifact
+    4599:durable-loader:loadAdmittedArtifact
   `),
   exactModuleSurfaceGroup("src/cli.js", "phase-04-plan-12", "gated", `
-    4541:durable-loader:loadAdmittedArtifact
-    4546:durable-loader:loadAdmittedArtifact
-    4551:durable-loader:loadAdmittedArtifact
-    4556:durable-loader:loadAdmittedArtifact
-    4561:durable-loader:loadAdmittedArtifact
-    4572:durable-loader:loadAdmittedArtifact
+    4542:durable-loader:loadAdmittedArtifact
+    4547:durable-loader:loadAdmittedArtifact
+    4552:durable-loader:loadAdmittedArtifact
+    4557:durable-loader:loadAdmittedArtifact
+    4562:durable-loader:loadAdmittedArtifact
+    4573:durable-loader:loadAdmittedArtifact
   `),
   exactModuleSurfaceGroup("src/cli.js", "phase-04-plan-16", "gated", `
-    4290:filesystem-read:fs.realpath
+    4291:filesystem-read:fs.realpath
   `),
   exactModuleSurfaceGroup("src/cli.js", "phase-02-plan-20", "non-artifact", `
     3094:process-output:process.stdout.write
@@ -3357,10 +3357,10 @@ reconcileExactModuleSurfaces(IO_SURFACE_ALLOWLIST, [
     3106:process-output:process.stderr.write
   `),
   exactModuleSurfaceGroup("src/cli.js", "phase-02-plan-20", "transient-runtime", `
-    5638:filesystem-read:fs.readFile
+    5639:filesystem-read:fs.readFile
   `),
   exactModuleSurfaceGroup("src/cli.js", "phase-02-plan-20", "ephemeral-secret", `
-    5664:filesystem-read:fs.readFile
+    5665:filesystem-read:fs.readFile
   `),
   exactModuleSurfaceGroup("src/cli.js", "phase-04-plan-19", "non-artifact-intake", `
 

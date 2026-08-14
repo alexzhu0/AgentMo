@@ -86,9 +86,10 @@ organization-authentication claim, runtime target, or runtime-specific field.
 
 ### Closed and bounded structure
 
-Every object has exact keys. Strings are non-empty after trimming, exclude NUL,
-and have explicit maximum lengths. Arrays are required, bounded, and contain
-bounded strings. `targetUsers`, `candidateTasks`, `evidenceIds`, and
+Every object has exact keys. Strings are non-empty after trimming, exclude NUL
+and unpaired Unicode surrogates, and have explicit maximum lengths counted by
+Unicode code point in both JSON Schema and production validation. Arrays are
+required, bounded, and contain bounded strings. `targetUsers`, `candidateTasks`, `evidenceIds`, and
 `judgmentBoundaries` are non-empty. `evidenceGaps` may be empty. `evidenceIds`
 must be sorted in byte order and unique.
 
@@ -121,15 +122,21 @@ Plan readiness, or production readiness.
 
 The report includes only bounded Candidate identity, counts, evidence-kind and
 trust composition, warnings, and the fixed certification boundary. It does not
-echo evidence text, source locations, user descriptions, or host paths.
+echo evidence text, source locations, user descriptions, or host paths. Shape-
+invalid Candidates receive null summary identity, zero counts, empty evidence
+composition, and at most 32 fixed field diagnostics. An array above its schema
+maximum receives one array-bound diagnostic and is not traversed item by item.
 
 ### Central safety
 
-Exact-byte admission continues to enforce duplicate identity rejection, UTF-8
-and JSON validity, bounded input size, secret-like content rejection, host
-absolute-path rejection, and raw transcript/tool body/stdout/stderr exclusion.
-Candidate-specific validation returns bounded field requirements only; it does
-not include rejected values.
+Exact-byte admission centrally rejects duplicate member names in every object
+at every depth before `JSON.parse`; decoded-equivalent escaped names are the
+same member. It also rejects unpaired Unicode surrogates before UTF-8 byte
+ordering, while preserving the established duplicate identity/provenance
+reason. UTF-8/JSON validity, bounded input size, secret-like content rejection,
+host absolute-path rejection, and raw transcript/tool body/stdout/stderr
+exclusion remain central. Candidate-specific validation returns bounded field
+requirements only; it does not include rejected values.
 
 ## Public interfaces
 
@@ -139,6 +146,10 @@ Module `src/agent-idea-candidate.js` exports:
 AGENT_IDEA_CANDIDATE_SCHEMA_VERSION
 AGENT_IDEA_CANDIDATE_SUBJECT
 AGENT_IDEA_CANDIDATE_CERTIFICATION_BOUNDARY
+AGENT_IDEA_CANDIDATE_MAX_ERRORS
+AGENT_IDEA_CANDIDATE_ID_PATTERN_SOURCE
+AGENT_IDEA_CANDIDATE_TEXT_PATTERN_SOURCE
+AGENT_IDEA_CANDIDATE_LIMITS
 validateAgentIdeaCandidate(candidate, context?)
 summarizeAgentIdeaCandidate(candidate, context?)
 buildAgentIdeaCandidateReport(candidate, context?)
@@ -160,12 +171,16 @@ agentmo agent-idea-candidate-report <candidate.json> \
 The report command admits the DB first, then admits the Candidate with that
 authentic result as its sole companion. It writes no file and has no apply,
 approve, decision, target, runtime, or output-path option.
+`--discovery-db` is single-valued: a second occurrence fails before either path
+is resolved or read, whether both values are equal or different.
 
 ## Compatibility and authority
 
 The new schema identity and CLI are additive. Existing discovery, user-need,
 approval, design-plan, blueprint, and runtime schemas are unchanged. Stage 2
-commands do not add Candidate inputs or digest subjects.
+commands do not add Candidate inputs or digest subjects. Regression cases use
+authentic unaffected companions and reach the real user-need, discovery-
+approval, and decision-ledger loaders before Candidate substitution is rejected.
 
 The Candidate proves only that exact bytes have the expected shape and cite
 unique facts in one exact admitted Discovery DB. It does not prove source

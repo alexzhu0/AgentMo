@@ -9,8 +9,10 @@ import {
   digestRawBytes,
   loadAdmittedArtifact,
 } from "../src/artifact-admission.js";
+import { getArtifactContract } from "../src/artifact-contract.js";
 import {
   AGENT_IDEA_CANDIDATE_CERTIFICATION_BOUNDARY,
+  AGENT_IDEA_CANDIDATE_MAX_ERRORS,
   AGENT_IDEA_CANDIDATE_SCHEMA_VERSION,
   AGENT_IDEA_CANDIDATE_SUBJECT,
   buildAgentIdeaCandidateReport,
@@ -213,6 +215,85 @@ describe("Agent Idea Candidate", () => {
     assert.equal(JSON.stringify(report).includes("function Object"), false);
   });
 
+  it("bounds invalid public reports and never summarizes unvalidated identity or evidence", () => {
+    const privateCanary = "sk-private-candidate-canary";
+    const hostPath = "/Users/private-candidate/report.txt";
+    const invalid = validCandidate();
+    invalid.schemaVersion = `${privateCanary}-schema`;
+    invalid.ideaId = privateCanary.repeat(1001);
+    invalid.title = hostPath;
+    invalid.targetUsers = Array.from({ length: 20_000 }, () => privateCanary);
+
+    const report = buildAgentIdeaCandidateReport(invalid, discoveryContext());
+    assert.equal(report.ok, false);
+    assert.equal(report.errors.length <= AGENT_IDEA_CANDIDATE_MAX_ERRORS, true);
+    assert.deepEqual(report.warnings, []);
+    assert.equal(report.summary.schemaVersion, null);
+    assert.equal(report.summary.ideaId, null);
+    assert.equal(report.summary.targetUserCount, 0);
+    assert.deepEqual(report.summary.evidenceKinds, {});
+    assert.deepEqual(report.summary.trustLevels, {});
+    assert.equal(report.errors.some((error) => error.includes("targetUsers[")), false);
+    for (const output of [JSON.stringify(report), formatAgentIdeaCandidateReport(report)]) {
+      assert.equal(output.includes(privateCanary), false);
+      assert.equal(output.includes(hostPath), false);
+      assert.equal(output.length < 10_000, true);
+    }
+
+    const capped = validCandidate();
+    capped.targetUsers = Array.from({ length: 64 }, () => "");
+    capped.candidateTasks = Array.from({ length: 64 }, () => "");
+    const validation = validateAgentIdeaCandidate(capped, discoveryContext());
+    assert.equal(validation.ok, false);
+    assert.equal(validation.errors.length, AGENT_IDEA_CANDIDATE_MAX_ERRORS);
+    assert.equal(JSON.stringify(validation).includes(privateCanary), false);
+  });
+
+  it("keeps public Schema and production string boundaries aligned by Unicode code point", () => {
+    const schema = getArtifactContract("agent-idea-candidate").jsonSchema;
+    const cases = [
+      ["title", 512, schema.properties.title],
+      ["targetUsers", 1024, schema.properties.targetUsers.items],
+      ["candidateTasks", 2048, schema.properties.candidateTasks.items],
+      ["valueHypothesis", 4096, schema.properties.valueHypothesis],
+      ["evidenceIds", 256, schema.properties.evidenceIds.items],
+      ["evidenceGaps", 2048, schema.properties.evidenceGaps.items],
+      ["judgmentBoundaries", 2048, schema.properties.judgmentBoundaries.items],
+    ];
+    for (const [field, maximum, stringSchema] of cases) {
+      for (const [label, value, expected] of [
+        ["whitespace", " \t\n", false],
+        ["NUL", "valid\0invalid", false],
+        ["emoji maximum", "😀".repeat(maximum), true],
+        ["emoji overflow", "😀".repeat(maximum + 1), false],
+      ]) {
+        const candidate = validCandidate();
+        if (["targetUsers", "candidateTasks", "evidenceIds", "evidenceGaps", "judgmentBoundaries"].includes(field)) {
+          candidate[field] = [value];
+        } else {
+          candidate[field] = value;
+        }
+        const productionAccepts = validateAgentIdeaCandidate(candidate).ok;
+        assert.equal(productionAccepts, expected, `${field} ${label} production`);
+        assert.equal(schemaAcceptsString(stringSchema, value), expected, `${field} ${label} schema`);
+      }
+    }
+
+    const ideaIdSchema = schema.properties.ideaId;
+    for (const [label, value, expected] of [
+      ["whitespace", " ", false],
+      ["NUL", "idea\0id", false],
+      ["maximum", "a".repeat(128), true],
+      ["overflow", "a".repeat(129), false],
+    ]) {
+      const candidate = validCandidate();
+      candidate.ideaId = value;
+      assert.equal(validateAgentIdeaCandidate(candidate).ok, expected, `ideaId ${label} production`);
+      assert.equal(schemaAcceptsString(ideaIdSchema, value), expected, `ideaId ${label} schema`);
+    }
+    assert.equal(validateAgentIdeaCandidate(getArtifactContract("agent-idea-candidate").minimalTemplate).ok, true);
+  });
+
   it("exact-admits Candidate bytes only with the authentic Discovery DB companion", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agentmo-idea-candidate-admission-"));
     const dbBytes = await readFile(PREBUILT_DISCOVERY_DB);
@@ -254,6 +335,92 @@ describe("Agent Idea Candidate", () => {
       }),
       (error) => error.code === "AGENTMO_ARTIFACT_ADMISSION_RESULT_INVALID",
     );
+  });
+
+  it("rejects duplicate Candidate members before last-wins parsing or content audit", async () => {
+    const fixture = await cliFixture("duplicate-members");
+    const canonical = candidateForAdmission(fixture.dbAdmission);
+    const canonicalBoundary = JSON.stringify(canonical.certificationBoundary);
+    const authorityBoundary = JSON.stringify({
+      ...canonical.certificationBoundary,
+      enterPlanAuthorized: true,
+    });
+    const secretPathCanary = "api_key=private-duplicate-secret /Users/private-duplicate/path";
+    const rawCases = [
+      {
+        label: "boundary",
+        raw: `${JSON.stringify(canonical).replace(
+          `\"certificationBoundary\":${canonicalBoundary}`,
+          `\"certificationBoundary\":${authorityBoundary},\"certificationBoundary\":${canonicalBoundary}`,
+        )}\n`,
+      },
+      {
+        label: "free-text",
+        raw: `${JSON.stringify(canonical).replace(
+          `\"title\":${JSON.stringify(canonical.title)}`,
+          `\"title\":${JSON.stringify(secretPathCanary)},\"title\":${JSON.stringify(canonical.title)}`,
+        )}\n`,
+      },
+      {
+        label: "escaped-key",
+        raw: `${JSON.stringify(canonical).replace(
+          `\"title\":${JSON.stringify(canonical.title)}`,
+          `\"ti\\u0074le\":${JSON.stringify(secretPathCanary)},\"title\":${JSON.stringify(canonical.title)}`,
+        )}\n`,
+      },
+    ];
+
+    for (const testCase of rawCases) {
+      const bytes = Buffer.from(testCase.raw, "utf8");
+      const file = path.join(fixture.root, `${testCase.label}.json`);
+      await writeFile(file, bytes);
+      await assert.rejects(
+        () => loadAdmittedArtifact({
+          filePath: file,
+          subject: "agent-idea-candidate",
+          expectedDigest: digestRawBytes(bytes),
+          companions: { "discovery-db": fixture.dbAdmission },
+        }),
+        (error) => {
+          assert.equal(error.code, "AGENTMO_UNSUPPORTED_ARTIFACT");
+          const serialized = JSON.stringify(error);
+          assert.equal(serialized.includes(secretPathCanary), false);
+          assert.equal(serialized.includes(fixture.root), false);
+          return true;
+        },
+        testCase.label,
+      );
+    }
+  });
+
+  it("rejects distinct unpaired surrogate values before UTF-8 evidence ordering", async () => {
+    const validationCandidate = validCandidate();
+    validationCandidate.evidenceIds = ["\ud800", "\ud801"];
+    const validation = validateAgentIdeaCandidate(validationCandidate, discoveryContext());
+    assert.equal(validation.ok, false);
+    assert.equal(
+      validation.errors.filter((error) => error.includes("invalid Unicode scalar value")).length,
+      2,
+    );
+
+    const fixture = await cliFixture("surrogate-values");
+    for (const [index, surrogate] of ["\ud800", "\ud801"].entries()) {
+      const candidate = candidateForAdmission(fixture.dbAdmission);
+      candidate.title = `bounded-${surrogate}-candidate`;
+      const bytes = Buffer.from(`${JSON.stringify(candidate)}\n`, "utf8");
+      const file = path.join(fixture.root, `surrogate-${index}.json`);
+      await writeFile(file, bytes);
+      await assert.rejects(
+        () => loadAdmittedArtifact({
+          filePath: file,
+          subject: "agent-idea-candidate",
+          expectedDigest: digestRawBytes(bytes),
+          companions: { "discovery-db": fixture.dbAdmission },
+        }),
+        (error) => error.code === "AGENTMO_UNSUPPORTED_ARTIFACT"
+          && error.reason === "invalid_unicode_scalar",
+      );
+    }
   });
 
   it("rejects stale evidence binding, secret-like values, and host paths before reporting", async () => {
@@ -425,6 +592,46 @@ describe("Agent Idea Candidate", () => {
     assert.equal(result.stdout.includes(privateCanary), false);
     assert.equal(result.stdout.includes(fixture.root), false);
   });
+
+  it("fails closed on repeated Candidate single-value options before reading either path", async () => {
+    const fixture = await cliFixture("duplicate-discovery-db-option");
+    const missingPath = path.join(fixture.root, "private-missing-db-canary.json");
+    const cases = [
+      {
+        label: "same path",
+        args: [
+          "agent-idea-candidate-report", fixture.candidateFile,
+          "--discovery-db", fixture.dbFile,
+          "--discovery-db", fixture.dbFile,
+          "--digest", `agent-idea-candidate=${fixture.candidateDigest}`,
+          "--digest", `discovery-db=${fixture.dbDigest}`,
+          "--json",
+        ],
+      },
+      {
+        label: "different path",
+        args: [
+          "agent-idea-candidate-report", fixture.candidateFile,
+          "--discovery-db", missingPath,
+          "--discovery-db", fixture.dbFile,
+          "--digest", `agent-idea-candidate=${fixture.candidateDigest}`,
+          "--digest", `discovery-db=${fixture.dbDigest}`,
+          "--json",
+        ],
+      },
+    ];
+    const beforeEntries = await readdir(fixture.root);
+    for (const testCase of cases) {
+      const result = await runCli(testCase.args);
+      assert.equal(result.code, 1, testCase.label);
+      assert.equal(result.stderr, "", testCase.label);
+      const error = JSON.parse(result.stdout);
+      assert.equal(error.code, "AGENTMO_CLI_REQUEST_REJECTED", testCase.label);
+      assert.equal(result.stdout.includes(fixture.root), false, testCase.label);
+      assert.equal(result.stdout.includes("private-missing-db-canary"), false, testCase.label);
+      assert.deepEqual(await readdir(fixture.root), beforeEntries, testCase.label);
+    }
+  });
 });
 
 function candidateForAdmission(dbAdmission) {
@@ -479,4 +686,12 @@ function runCli(args) {
     child.stderr.on("data", (chunk) => { stderr += chunk; });
     child.on("close", (code) => resolve({ code, stdout, stderr }));
   });
+}
+
+function schemaAcceptsString(schema, value) {
+  if (typeof value !== "string") return false;
+  const length = [...value].length;
+  if (schema.minLength !== undefined && length < schema.minLength) return false;
+  if (schema.maxLength !== undefined && length > schema.maxLength) return false;
+  return schema.pattern === undefined || new RegExp(schema.pattern, "u").test(value);
 }

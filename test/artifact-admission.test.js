@@ -818,6 +818,49 @@ describe("artifact admission", () => {
     );
   });
 
+  it("rejects duplicate members inside nested Discovery DB facts before last-wins parsing", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agentmo-discovery-db-duplicate-fact-"));
+    const canonical = await readFile(DISCOVERY_DB, "utf8");
+    const factIdMatch = /"id": "([^"]+)"/u.exec(canonical);
+    assert.notEqual(factIdMatch, null);
+    const duplicate = `"id": "private-first-id-canary",\n      "id": ${JSON.stringify(factIdMatch[1])}`;
+    const raw = canonical.replace(`"id": ${JSON.stringify(factIdMatch[1])}`, duplicate);
+    const bytes = Buffer.from(raw, "utf8");
+    const file = path.join(root, "duplicate-fact.json");
+    await writeFile(file, bytes);
+
+    await rejectsWithCode(
+      () => loadAdmittedArtifact({
+        filePath: file,
+        subject: "discovery-db",
+        expectedDigest: sha256(bytes),
+      }),
+      "AGENTMO_UNSUPPORTED_ARTIFACT",
+      [root, "private-first-id-canary"],
+    );
+  });
+
+  it("rejects unpaired surrogate strings in exact Discovery DB bytes before parsing", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agentmo-discovery-db-surrogate-"));
+    const canonical = JSON.parse(await readFile(DISCOVERY_DB, "utf8"));
+    for (const [index, surrogate] of ["\ud800", "\ud801"].entries()) {
+      const candidate = structuredClone(canonical);
+      candidate.facts[0].id = surrogate;
+      const bytes = Buffer.from(`${JSON.stringify(candidate)}\n`, "utf8");
+      const file = path.join(root, `surrogate-${index}.json`);
+      await writeFile(file, bytes);
+      await assert.rejects(
+        () => loadAdmittedArtifact({
+          filePath: file,
+          subject: "discovery-db",
+          expectedDigest: sha256(bytes),
+        }),
+        (error) => error.code === "AGENTMO_UNSUPPORTED_ARTIFACT"
+          && error.reason === "invalid_unicode_scalar",
+      );
+    }
+  });
+
   it("hashes only exact Buffer bytes using the canonical digest syntax", () => {
     const bytes = Buffer.from("{\"schemaVersion\":\"agentmo.discovery-db.v1\"}\n", "utf8");
     assert.equal(digestRawBytes(bytes), sha256(bytes));

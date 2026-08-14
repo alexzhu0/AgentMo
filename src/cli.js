@@ -3215,6 +3215,7 @@ function parseAgentIdeaCandidateReportArgs(args) {
   for (let index = 1; index < args.length; index += 1) {
     const arg = args[index];
     if (arg === "--discovery-db") {
+      if (discoveryDb !== null) throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
       discoveryDb = args[index + 1];
       index += 1;
     } else if (arg === "--json") {
