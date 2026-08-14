@@ -2,9 +2,12 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
 import { describe, it } from "node:test";
-import { open, readFile } from "node:fs/promises";
+import { mkdtemp, open, readFile, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildUserNeedReport, loadUserNeed, validateUserNeed } from "../src/user-need.js";
+import { serializePersistableJson } from "../src/persistability.js";
 
 const SUPPORT_NEED = new URL("../examples/support-triage.need.json", import.meta.url);
 const CLI = fileURLToPath(new URL("../bin/agentmo.js", import.meta.url));
@@ -99,6 +102,23 @@ describe("user need", () => {
     const validation = validateUserNeed(need);
     assert.equal(validation.ok, false);
     assert.match(validation.errors.join("\n"), /source_refs/);
+  });
+
+  it("round-trips writer-supported lone surrogates through exact user-need admission", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agentmo-user-need-unicode-roundtrip-"));
+    const file = path.join(root, "need.json");
+    const need = await loadSupportNeed();
+    need.problem = `${need.problem}\ud800`;
+    assert.equal(validateUserNeed(need).ok, true);
+    const serialized = serializePersistableJson(need, { subject: "user-need" });
+    const bytes = Buffer.from(serialized, "utf8");
+    await writeFile(file, bytes);
+
+    const loaded = await loadUserNeed(file, {
+      subject: "user-need",
+      expectedDigest: digest(bytes),
+    });
+    assert.equal(loaded.problem.endsWith("\ud800"), true);
   });
 
 });

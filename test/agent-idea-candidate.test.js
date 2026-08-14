@@ -249,6 +249,145 @@ describe("Agent Idea Candidate", () => {
     assert.equal(JSON.stringify(validation).includes(privateCanary), false);
   });
 
+  it("snapshots hostile public inputs without invoking getters, proxies, or array overrides", () => {
+    const privateCanary = "sk-hostile-candidate-canary /Users/private/candidate.txt";
+    let getterCalls = 0;
+    const getterCandidate = validCandidate();
+    Object.defineProperty(getterCandidate, "title", {
+      enumerable: true,
+      get() {
+        getterCalls += 1;
+        return privateCanary;
+      },
+    });
+
+    for (const invoke of [
+      () => validateAgentIdeaCandidate(getterCandidate, discoveryContext()),
+      () => summarizeAgentIdeaCandidate(getterCandidate, discoveryContext()),
+      () => buildAgentIdeaCandidateReport(getterCandidate, discoveryContext()),
+    ]) {
+      let result;
+      assert.doesNotThrow(() => { result = invoke(); });
+      assert.equal(JSON.stringify(result).includes(privateCanary), false);
+    }
+    assert.equal(getterCalls, 0);
+
+    let proxyCalls = 0;
+    const proxyCandidate = new Proxy(validCandidate(), {
+      get() {
+        proxyCalls += 1;
+        throw new Error(privateCanary);
+      },
+    });
+    let proxyValidation;
+    assert.doesNotThrow(() => {
+      proxyValidation = validateAgentIdeaCandidate(proxyCandidate, discoveryContext());
+    });
+    assert.equal(proxyValidation.ok, false);
+    assert.equal(proxyCalls, 0);
+    assert.equal(JSON.stringify(proxyValidation).includes(privateCanary), false);
+
+    let overrideCalls = 0;
+    const overriddenArrays = validCandidate();
+    for (const method of ["entries", "some", "every"]) {
+      Object.defineProperty(overriddenArrays.evidenceIds, method, {
+        enumerable: true,
+        value() {
+          overrideCalls += 1;
+          throw new Error(privateCanary);
+        },
+      });
+    }
+    let overriddenValidation;
+    assert.doesNotThrow(() => {
+      overriddenValidation = validateAgentIdeaCandidate(overriddenArrays, discoveryContext());
+    });
+    assert.equal(overriddenValidation.ok, false);
+    assert.equal(overrideCalls, 0);
+    assert.equal(JSON.stringify(overriddenValidation).includes(privateCanary), false);
+
+    const hostileContext = discoveryContext();
+    Object.defineProperty(hostileContext.discoveryDb.facts[0], "id", {
+      enumerable: true,
+      get() {
+        getterCalls += 1;
+        return privateCanary;
+      },
+    });
+    let contextValidation;
+    assert.doesNotThrow(() => {
+      contextValidation = validateAgentIdeaCandidate(validCandidate(), hostileContext);
+    });
+    assert.equal(contextValidation.ok, false);
+    assert.equal(getterCalls, 0);
+  });
+
+  it("normalizes direct formatter input to one bounded value-blind report", () => {
+    const privateCanary = "sk-direct-report-canary /Users/private/report.txt";
+    const hostile = {
+      kind: "agentmo_agent_idea_candidate_report",
+      version: "0.1",
+      ok: true,
+      summary: {
+        schemaVersion: privateCanary.repeat(100),
+        ideaId: privateCanary.repeat(100),
+        targetUserCount: 999_999,
+        candidateTaskCount: 999_999,
+        evidenceCount: 999_999,
+        evidenceGapCount: 999_999,
+        judgmentBoundaryCount: 999_999,
+        evidenceKinds: { [privateCanary]: 999_999 },
+        trustLevels: { [privateCanary]: 999_999 },
+        certificationBoundary: { enterPlanAuthorized: true },
+      },
+      warnings: Array.from({ length: 100 }, () => privateCanary),
+      errors: Array.from({ length: 100 }, () => privateCanary),
+    };
+    const output = formatAgentIdeaCandidateReport(hostile);
+    assert.equal(output.includes(privateCanary), false);
+    assert.match(output, /AgentMo Agent Idea Candidate: unknown/u);
+    assert.match(output, /Status: fail/u);
+    assert.equal(output.length < 8_000, true);
+    assert.equal(output.split("\n").filter((line) => line.startsWith("- ")).length <= 32, true);
+
+    const malformedCases = [
+      JSON.parse('{"summary":null,"warnings":"ordinary","errors":[{"bad":true}]}'),
+      { summary: { ideaId: 7 }, warnings: [null], errors: [{ bad: true }] },
+    ];
+    for (const malformed of malformedCases) {
+      let formatted;
+      assert.doesNotThrow(() => { formatted = formatAgentIdeaCandidateReport(malformed); });
+      assert.match(formatted, /Status: fail/u);
+      assert.equal(formatted.length < 8_000, true);
+    }
+
+    let getterCalls = 0;
+    const accessorReport = {};
+    Object.defineProperty(accessorReport, "summary", {
+      enumerable: true,
+      get() {
+        getterCalls += 1;
+        throw new Error(privateCanary);
+      },
+    });
+    let accessorOutput;
+    assert.doesNotThrow(() => { accessorOutput = formatAgentIdeaCandidateReport(accessorReport); });
+    assert.equal(getterCalls, 0);
+    assert.equal(accessorOutput.includes(privateCanary), false);
+
+    let proxyCalls = 0;
+    const proxyReport = new Proxy({}, {
+      get() {
+        proxyCalls += 1;
+        throw new Error(privateCanary);
+      },
+    });
+    let proxyOutput;
+    assert.doesNotThrow(() => { proxyOutput = formatAgentIdeaCandidateReport(proxyReport); });
+    assert.equal(proxyCalls, 0);
+    assert.equal(proxyOutput.includes(privateCanary), false);
+  });
+
   it("keeps public Schema and production string boundaries aligned by Unicode code point", () => {
     const schema = getArtifactContract("agent-idea-candidate").jsonSchema;
     const cases = [

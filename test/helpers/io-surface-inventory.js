@@ -3159,10 +3159,10 @@ reconcileExactModuleSurfaces(IO_SURFACE_ALLOWLIST, [
     3818:filesystem-read:fs.readFile
   `),
   exactModuleSurfaceGroup("src/artifact-admission.js", "phase-03-plan-03", "gated", `
-    506:filesystem-open:file.openInput
-    507:file-handle-read:FileHandle.stat
-    517:file-handle-read:FileHandle.read
-    529:file-handle-read:FileHandle.stat
+    508:filesystem-open:file.openInput
+    509:file-handle-read:FileHandle.stat
+    519:file-handle-read:FileHandle.read
+    531:file-handle-read:FileHandle.stat
   `),
   exactModuleSurfaceGroup("src/build-contract.js", "phase-03-plan-05", "gated", `
     309:durable-loader:loadAdmittedArtifact

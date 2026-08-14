@@ -1,3 +1,5 @@
+import { isProxy } from "node:util/types";
+
 export const AGENT_IDEA_CANDIDATE_SCHEMA_VERSION = "agentmo.agent-idea-candidate.v1";
 export const AGENT_IDEA_CANDIDATE_SUBJECT = "agent-idea-candidate";
 export const AGENT_IDEA_CANDIDATE_MAX_ERRORS = 32;
@@ -47,8 +49,31 @@ const IDEA_ID_PATTERN = new RegExp(AGENT_IDEA_CANDIDATE_ID_PATTERN_SOURCE, "u");
 const EXTRACTION_FIELD_WARNING = "evidenceIds cite extraction_field planning leads; they do not prove user need, value, capability, domain quality, or Plan readiness.";
 const REPORTED_EVIDENCE_KINDS = new Set(["extraction_field", "source_chunk"]);
 const REPORTED_TRUST_LEVELS = new Set(["verified", "trusted", "derived", "unverified", "unknown"]);
+const REPORT_KEYS = Object.freeze(["kind", "version", "ok", "summary", "warnings", "errors"]);
+const SUMMARY_KEYS = Object.freeze([
+  "schemaVersion",
+  "ideaId",
+  "targetUserCount",
+  "candidateTaskCount",
+  "evidenceCount",
+  "evidenceGapCount",
+  "judgmentBoundaryCount",
+  "evidenceKinds",
+  "trustLevels",
+  "certificationBoundary",
+]);
+const PUBLIC_SNAPSHOT_MAX_DEPTH = 64;
+const PUBLIC_SNAPSHOT_MAX_NODES = 20_000;
+const HOSTILE_INPUT_ERROR = "Agent Idea Candidate must contain only own JSON data properties.";
+const UNRECOGNIZED_REPORT_ERROR = "Candidate report contained an unrecognized diagnostic.";
 
 export function validateAgentIdeaCandidate(candidate, context) {
+  const captured = captureCandidateInputs(candidate, context);
+  if (!captured.ok) return invalidCandidateValidation();
+  return validateCandidateSnapshot(captured.candidate, captured.context, context !== undefined);
+}
+
+function validateCandidateSnapshot(candidate, context, contextProvided) {
   const errors = [];
   const warnings = [];
   if (!plainObject(candidate)) {
@@ -82,11 +107,17 @@ export function validateAgentIdeaCandidate(candidate, context) {
   validateStringArray(candidate.judgmentBoundaries, "judgmentBoundaries", AGENT_IDEA_CANDIDATE_LIMITS.judgmentBoundaries, errors);
   validateCertificationBoundary(candidate.certificationBoundary, errors);
 
-  if (context !== undefined && errors.length === 0) {
+  if (contextProvided && errors.length === 0) {
     const beforeContextErrors = errors.length;
     const resolved = resolveEvidence(candidate, context, errors);
-    if (errors.length === beforeContextErrors
-      && resolved.some((fact) => fact.kind === "extraction_field")) {
+    let citesExtractionField = false;
+    for (let index = 0; index < resolved.length; index += 1) {
+      if (resolved[index].kind === "extraction_field") {
+        citesExtractionField = true;
+        break;
+      }
+    }
+    if (errors.length === beforeContextErrors && citesExtractionField) {
       warnings.push(EXTRACTION_FIELD_WARNING);
     }
   }
@@ -95,14 +126,27 @@ export function validateAgentIdeaCandidate(candidate, context) {
 }
 
 export function summarizeAgentIdeaCandidate(candidate, context) {
-  const shapeValidation = validateAgentIdeaCandidate(candidate);
+  const captured = captureCandidateInputs(candidate, context);
+  if (!captured.ok) return emptyCandidateSummary();
+  return summarizeCandidateSnapshot(captured.candidate, captured.context, context !== undefined);
+}
+
+function summarizeCandidateSnapshot(candidate, context, contextProvided) {
+  const shapeValidation = validateCandidateSnapshot(candidate, undefined, false);
   const shapeValid = shapeValidation.ok;
-  const contextValid = context === undefined
+  const contextValid = !contextProvided
     ? true
-    : validateAgentIdeaCandidate(candidate, context).ok;
-  const facts = shapeValid && context !== undefined && contextValid
+    : validateCandidateSnapshot(candidate, context, true).ok;
+  const facts = shapeValid && contextProvided && contextValid
     ? resolveEvidence(candidate, context, [])
     : [];
+  const evidenceKinds = [];
+  const trustLevels = [];
+  for (let index = 0; index < facts.length; index += 1) {
+    const fact = facts[index];
+    evidenceKinds[index] = REPORTED_EVIDENCE_KINDS.has(fact.kind) ? fact.kind : "other";
+    trustLevels[index] = REPORTED_TRUST_LEVELS.has(fact.trustLevel) ? fact.trustLevel : "unknown";
+  }
   return {
     schemaVersion: shapeValid ? candidate.schemaVersion : null,
     ideaId: shapeValid ? candidate.ideaId : null,
@@ -111,18 +155,17 @@ export function summarizeAgentIdeaCandidate(candidate, context) {
     evidenceCount: shapeValid ? countStrings(candidate.evidenceIds) : 0,
     evidenceGapCount: shapeValid ? countStrings(candidate.evidenceGaps) : 0,
     judgmentBoundaryCount: shapeValid ? countStrings(candidate.judgmentBoundaries) : 0,
-    evidenceKinds: countValues(facts.map((fact) => (
-      REPORTED_EVIDENCE_KINDS.has(fact.kind) ? fact.kind : "other"
-    ))),
-    trustLevels: countValues(facts.map((fact) => (
-      REPORTED_TRUST_LEVELS.has(fact.trustLevel) ? fact.trustLevel : "unknown"
-    ))),
+    evidenceKinds: countValues(evidenceKinds),
+    trustLevels: countValues(trustLevels),
     certificationBoundary: { ...AGENT_IDEA_CANDIDATE_CERTIFICATION_BOUNDARY },
   };
 }
 
 export function buildAgentIdeaCandidateReport(candidate, context) {
-  const validation = validateAgentIdeaCandidate(candidate, context);
+  const captured = captureCandidateInputs(candidate, context);
+  const validation = captured.ok
+    ? validateCandidateSnapshot(captured.candidate, captured.context, context !== undefined)
+    : invalidCandidateValidation();
   const errors = context === undefined
     ? boundedErrors([...validation.errors, "Candidate reporting requires the exact admitted Discovery DB context."])
     : validation.errors;
@@ -130,35 +173,316 @@ export function buildAgentIdeaCandidateReport(candidate, context) {
     kind: "agentmo_agent_idea_candidate_report",
     version: "0.1",
     ok: errors.length === 0,
-    summary: summarizeAgentIdeaCandidate(candidate, context),
+    summary: captured.ok
+      ? summarizeCandidateSnapshot(captured.candidate, captured.context, context !== undefined)
+      : emptyCandidateSummary(),
     warnings: validation.warnings,
     errors,
   };
 }
 
 export function formatAgentIdeaCandidateReport(report) {
-  const summary = plainObject(report?.summary) ? report.summary : {};
+  const normalized = normalizeAgentIdeaCandidateReport(report);
+  const summary = normalized.summary;
   const lines = [
     `AgentMo Agent Idea Candidate: ${summary.ideaId ?? "unknown"}`,
-    `Status: ${report?.ok === true ? "pass" : "fail"}`,
-    `Target users: ${summary.targetUserCount ?? 0}`,
-    `Candidate tasks: ${summary.candidateTaskCount ?? 0}`,
-    `Evidence IDs: ${summary.evidenceCount ?? 0}`,
-    `Evidence gaps: ${summary.evidenceGapCount ?? 0}`,
-    `Judgment boundaries: ${summary.judgmentBoundaryCount ?? 0}`,
+    `Status: ${normalized.ok ? "pass" : "fail"}`,
+    `Target users: ${summary.targetUserCount}`,
+    `Candidate tasks: ${summary.candidateTaskCount}`,
+    `Evidence IDs: ${summary.evidenceCount}`,
+    `Evidence gaps: ${summary.evidenceGapCount}`,
+    `Judgment boundaries: ${summary.judgmentBoundaryCount}`,
     `Evidence kinds: ${formatCounts(summary.evidenceKinds)}`,
     `Trust levels: ${formatCounts(summary.trustLevels)}`,
     "Plan authority: none",
   ];
-  if (Array.isArray(report?.warnings) && report.warnings.length > 0) {
+  if (normalized.warnings.length > 0) {
     lines.push("", "Warnings:");
-    for (const warning of report.warnings) lines.push(`- ${warning}`);
+    for (let index = 0; index < normalized.warnings.length; index += 1) {
+      lines.push(`- ${normalized.warnings[index]}`);
+    }
   }
-  if (Array.isArray(report?.errors) && report.errors.length > 0) {
+  if (normalized.errors.length > 0) {
     lines.push("", "Errors:");
-    for (const error of report.errors) lines.push(`- ${error}`);
+    for (let index = 0; index < normalized.errors.length; index += 1) {
+      lines.push(`- ${normalized.errors[index]}`);
+    }
   }
   return `${lines.join("\n")}\n`;
+}
+
+function captureCandidateInputs(candidate, context) {
+  try {
+    const state = { active: new WeakSet(), nodes: 0 };
+    return {
+      ok: true,
+      candidate: snapshotOwnJsonData(candidate, 0, state),
+      context: context === undefined ? undefined : snapshotOwnJsonData(context, 0, state),
+    };
+  } catch {
+    return { ok: false, candidate: null, context: undefined };
+  }
+}
+
+function snapshotOwnJsonData(value, depth, state) {
+  state.nodes += 1;
+  if (depth > PUBLIC_SNAPSHOT_MAX_DEPTH || state.nodes > PUBLIC_SNAPSHOT_MAX_NODES) {
+    throw new TypeError("bounded_candidate_snapshot_required");
+  }
+  if (value === null || typeof value === "string" || typeof value === "boolean") return value;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value !== "object" || isProxy(value)) {
+    throw new TypeError("own_candidate_data_required");
+  }
+  if (state.active.has(value)) throw new TypeError("acyclic_candidate_data_required");
+
+  state.active.add(value);
+  try {
+    if (Array.isArray(value)) return snapshotArray(value, depth, state);
+    return snapshotObject(value, depth, state);
+  } finally {
+    state.active.delete(value);
+  }
+}
+
+function snapshotArray(value, depth, state) {
+  if (Object.getPrototypeOf(value) !== Array.prototype) {
+    throw new TypeError("ordinary_candidate_array_required");
+  }
+  const lengthDescriptor = Object.getOwnPropertyDescriptor(value, "length");
+  const length = lengthDescriptor?.value;
+  if (!Number.isSafeInteger(length) || length < 0 || length > PUBLIC_SNAPSHOT_MAX_NODES - state.nodes) {
+    throw new TypeError("bounded_candidate_array_required");
+  }
+  const keys = Reflect.ownKeys(value);
+  if (keys.length !== length + 1) throw new TypeError("dense_candidate_array_required");
+  const copy = new Array(length);
+  for (let index = 0; index < length; index += 1) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+    if (!enumerableDataDescriptor(descriptor)) throw new TypeError("own_candidate_data_required");
+    copy[index] = snapshotOwnJsonData(descriptor.value, depth + 1, state);
+  }
+  for (let index = 0; index < keys.length; index += 1) {
+    const key = keys[index];
+    if (key !== "length" && (typeof key !== "string" || !canonicalArrayIndex(key, length))) {
+      throw new TypeError("canonical_candidate_array_required");
+    }
+  }
+  return copy;
+}
+
+function snapshotObject(value, depth, state) {
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) {
+    throw new TypeError("ordinary_candidate_object_required");
+  }
+  const copy = Object.create(null);
+  const keys = Reflect.ownKeys(value);
+  for (let index = 0; index < keys.length; index += 1) {
+    const key = keys[index];
+    if (typeof key !== "string") throw new TypeError("string_candidate_key_required");
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (!enumerableDataDescriptor(descriptor)) throw new TypeError("own_candidate_data_required");
+    copy[key] = snapshotOwnJsonData(descriptor.value, depth + 1, state);
+  }
+  return copy;
+}
+
+function canonicalArrayIndex(key, length) {
+  if (!/^(?:0|[1-9][0-9]*)$/u.test(key)) return false;
+  const index = Number(key);
+  return Number.isSafeInteger(index) && index >= 0 && index < length && String(index) === key;
+}
+
+function enumerableDataDescriptor(descriptor) {
+  return descriptor !== undefined
+    && descriptor.enumerable === true
+    && Object.hasOwn(descriptor, "value");
+}
+
+function invalidCandidateValidation() {
+  return { ok: false, errors: [HOSTILE_INPUT_ERROR], warnings: [] };
+}
+
+function emptyCandidateSummary() {
+  return {
+    schemaVersion: null,
+    ideaId: null,
+    targetUserCount: 0,
+    candidateTaskCount: 0,
+    evidenceCount: 0,
+    evidenceGapCount: 0,
+    judgmentBoundaryCount: 0,
+    evidenceKinds: {},
+    trustLevels: {},
+    certificationBoundary: { ...AGENT_IDEA_CANDIDATE_CERTIFICATION_BOUNDARY },
+  };
+}
+
+function normalizeAgentIdeaCandidateReport(report) {
+  let captured;
+  try {
+    captured = snapshotOwnJsonData(report, 0, { active: new WeakSet(), nodes: 0 });
+  } catch {
+    return invalidNormalizedReport();
+  }
+  if (!plainObject(captured) || !hasExactKeys(captured, REPORT_KEYS)) {
+    return invalidNormalizedReport();
+  }
+  const normalizedSummary = normalizeReportSummary(captured.summary);
+  const diagnostics = normalizeReportDiagnostics(captured.errors, captured.warnings);
+  const shapeOk = captured.kind === "agentmo_agent_idea_candidate_report"
+    && captured.version === "0.1"
+    && typeof captured.ok === "boolean"
+    && normalizedSummary.ok
+    && diagnostics.ok
+    && (captured.ok ? diagnostics.errors.length === 0 : diagnostics.errors.length > 0);
+  if (!shapeOk) return invalidNormalizedReport();
+  return {
+    ok: captured.ok,
+    summary: normalizedSummary.value,
+    warnings: diagnostics.warnings,
+    errors: diagnostics.errors,
+  };
+}
+
+function normalizeReportSummary(summary) {
+  if (!plainObject(summary) || !hasExactKeys(summary, SUMMARY_KEYS)) return { ok: false };
+  const schemaVersion = summary.schemaVersion === AGENT_IDEA_CANDIDATE_SCHEMA_VERSION
+    ? summary.schemaVersion
+    : summary.schemaVersion === null ? null : undefined;
+  const ideaId = typeof summary.ideaId === "string" && IDEA_ID_PATTERN.test(summary.ideaId)
+    ? summary.ideaId
+    : summary.ideaId === null ? null : undefined;
+  const countLimits = [
+    ["targetUserCount", AGENT_IDEA_CANDIDATE_LIMITS.targetUsers.maxItems],
+    ["candidateTaskCount", AGENT_IDEA_CANDIDATE_LIMITS.candidateTasks.maxItems],
+    ["evidenceCount", AGENT_IDEA_CANDIDATE_LIMITS.evidenceIds.maxItems],
+    ["evidenceGapCount", AGENT_IDEA_CANDIDATE_LIMITS.evidenceGaps.maxItems],
+    ["judgmentBoundaryCount", AGENT_IDEA_CANDIDATE_LIMITS.judgmentBoundaries.maxItems],
+  ];
+  const counts = Object.create(null);
+  for (let index = 0; index < countLimits.length; index += 1) {
+    const [key, maximum] = countLimits[index];
+    if (!boundedCount(summary[key], maximum)) return { ok: false };
+    counts[key] = summary[key];
+  }
+  const evidenceKinds = normalizeCountMap(
+    summary.evidenceKinds,
+    new Set(["extraction_field", "source_chunk", "other"]),
+    counts.evidenceCount,
+  );
+  const trustLevels = normalizeCountMap(
+    summary.trustLevels,
+    new Set([...REPORTED_TRUST_LEVELS, "unknown"]),
+    counts.evidenceCount,
+  );
+  if (schemaVersion === undefined
+    || ideaId === undefined
+    || evidenceKinds === null
+    || trustLevels === null
+    || !exactCertificationBoundary(summary.certificationBoundary)) {
+    return { ok: false };
+  }
+  return {
+    ok: true,
+    value: {
+      schemaVersion,
+      ideaId,
+      ...counts,
+      evidenceKinds,
+      trustLevels,
+      certificationBoundary: { ...AGENT_IDEA_CANDIDATE_CERTIFICATION_BOUNDARY },
+    },
+  };
+}
+
+function normalizeCountMap(value, allowedKeys, maximumTotal) {
+  if (!plainObject(value)) return null;
+  const keys = Object.keys(value);
+  const normalized = {};
+  let total = 0;
+  for (let index = 0; index < keys.length; index += 1) {
+    const key = keys[index];
+    const count = value[key];
+    if (!allowedKeys.has(key) || !Number.isSafeInteger(count) || count <= 0) return null;
+    total += count;
+    if (total > maximumTotal) return null;
+    normalized[key] = count;
+  }
+  return normalized;
+}
+
+function normalizeReportDiagnostics(errorValues, warningValues) {
+  if (!Array.isArray(errorValues) || !Array.isArray(warningValues)) {
+    return { ok: false, errors: [UNRECOGNIZED_REPORT_ERROR], warnings: [] };
+  }
+  if (errorValues.length + warningValues.length > AGENT_IDEA_CANDIDATE_MAX_ERRORS) {
+    return { ok: false, errors: [UNRECOGNIZED_REPORT_ERROR], warnings: [] };
+  }
+  const errors = [];
+  const warnings = [];
+  for (let index = 0; index < errorValues.length; index += 1) {
+    if (!knownCandidateDiagnostic(errorValues[index], false)) {
+      return { ok: false, errors: [UNRECOGNIZED_REPORT_ERROR], warnings: [] };
+    }
+    errors[index] = errorValues[index];
+  }
+  for (let index = 0; index < warningValues.length; index += 1) {
+    if (!knownCandidateDiagnostic(warningValues[index], true)) {
+      return { ok: false, errors: [UNRECOGNIZED_REPORT_ERROR], warnings: [] };
+    }
+    warnings[index] = warningValues[index];
+  }
+  return { ok: true, errors, warnings };
+}
+
+function knownCandidateDiagnostic(value, warning) {
+  if (warning) return value === EXTRACTION_FIELD_WARNING;
+  if (typeof value !== "string" || value.length > 256) return false;
+  if (new Set([
+    HOSTILE_INPUT_ERROR,
+    "Agent Idea Candidate must be a JSON object.",
+    "Agent Idea Candidate must contain only the canonical Candidate fields.",
+    `schemaVersion must be ${AGENT_IDEA_CANDIDATE_SCHEMA_VERSION}.`,
+    "ideaId must be a lowercase bounded identifier.",
+    "evidenceIds must be sorted and unique.",
+    "source must contain only discoveryDb provenance.",
+    "source.discoveryDb must contain exact identity, subject, and digest provenance.",
+    "source.discoveryDb.identity must be agentmo.discovery-db.v1.",
+    "source.discoveryDb.subject must be discovery-db.",
+    "source.discoveryDb.digest must be an exact sha256 digest.",
+    "certificationBoundary must contain only the canonical proposal boundary fields.",
+    "Candidate validation requires the exact admitted Discovery DB context.",
+    "source.discoveryDb does not match the exact admitted Discovery DB.",
+    "Candidate reporting requires the exact admitted Discovery DB context.",
+  ]).has(value)) return true;
+  return /^(?:title|targetUsers(?:\[[0-9]{1,3}\])?|candidateTasks(?:\[[0-9]{1,3}\])?|valueHypothesis|evidenceIds(?:\[[0-9]{1,3}\])?|evidenceGaps(?:\[[0-9]{1,3}\])?|judgmentBoundaries(?:\[[0-9]{1,3}\])?) must (?:be a non-empty string|not contain an invalid Unicode scalar value|be at most (?:256|512|1024|2048|4096) characters|be an array|contain at least [01] item|contain at most (?:64|256) items)\.$/u.test(value)
+    || /^certificationBoundary\.(?:proposalOnly|userNeedProven|valueProven|agentCapabilityProven|domainQualityProven|planReady|productionReady|enterPlanAuthorized|buildAuthorized|runtimeAuthorized) must be (?:true|false)\.$/u.test(value)
+    || /^evidenceIds\[[0-9]{1,3}\] must resolve to exactly one Discovery DB fact\.$/u.test(value);
+}
+
+function invalidNormalizedReport() {
+  return {
+    ok: false,
+    summary: emptyCandidateSummary(),
+    warnings: [],
+    errors: [UNRECOGNIZED_REPORT_ERROR],
+  };
+}
+
+function boundedCount(value, maximum) {
+  return Number.isSafeInteger(value) && value >= 0 && value <= maximum;
+}
+
+function exactCertificationBoundary(value) {
+  const keys = Object.keys(AGENT_IDEA_CANDIDATE_CERTIFICATION_BOUNDARY);
+  if (!plainObject(value) || !hasExactKeys(value, keys)) return false;
+  for (let index = 0; index < keys.length; index += 1) {
+    const key = keys[index];
+    if (value[key] !== AGENT_IDEA_CANDIDATE_CERTIFICATION_BOUNDARY[key]) return false;
+  }
+  return true;
 }
 
 function validateString(value, field, maxLength, errors) {

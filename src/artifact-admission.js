@@ -171,7 +171,9 @@ function admitExactArtifactBytes(bytes, options, admission) {
   }
 
   try {
-    assertNoDuplicateJsonMembers(text);
+    assertNoDuplicateJsonMembers(text, {
+      rejectInvalidUnicodeScalar: subject === "agent-idea-candidate" || subject === "discovery-db",
+    });
   } catch (error) {
     if (error?.code === "AGENTMO_UNSUPPORTED_ARTIFACT") throw error;
     throw new ArtifactAdmissionError("AGENTMO_ARTIFACT_INVALID_JSON");

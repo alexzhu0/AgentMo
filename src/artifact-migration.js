@@ -43,6 +43,7 @@ const ITEM_FIELDS = new Set([
 const REJECTION_REASONS = new Set([
   "conflicting_identity",
   "duplicate_identity_member",
+  "duplicate_member",
   "input_too_large",
   "invalid_json",
   "invalid_utf8",

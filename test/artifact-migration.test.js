@@ -31,6 +31,7 @@ import {
   buildMigrationReceipt,
   planArtifactMigrationBytes,
   serializeMigrationPlan,
+  validateMigrationPlanForReceipt,
 } from "../src/artifact-migration.js";
 import {
   applyArtifactMigration as applyArtifactMigrationWithBindings,
@@ -677,6 +678,65 @@ test("duplicate identity members are rejected before JSON last-wins admission", 
     }),
     (error) => error?.code === "AGENTMO_UNSUPPORTED_ARTIFACT" && error?.reason === "duplicate_identity_member",
   );
+});
+
+test("ordinary and escaped duplicate members produce valid non-applicable plans and receipts", async () => {
+  const rawInputs = [
+    '{"agentmother_version":"0.1","title":"private-first-canary","title":"bounded"}',
+    '{"agentmother_version":"0.1","ti\\u0074le":"private-first-canary","title":"bounded"}',
+  ];
+
+  for (const raw of rawInputs) {
+    const plan = planArtifactMigrationBytes([Buffer.from(raw, "utf8")]);
+    assert.equal(plan.applicable, false);
+    assert.equal(plan.items[0].reason, "duplicate_member");
+    assert.equal(serializeMigrationPlan(plan).includes("private-first-canary"), false);
+    assert.deepEqual(validateMigrationPlanForReceipt(plan), { ok: true, errors: [] });
+    assert.deepEqual(buildMigrationReceipt(plan), {
+      schemaVersion: MIGRATION_RECEIPT_SCHEMA_VERSION,
+      plan_digest: plan.plan_digest,
+      result: "non_applicable",
+      items: [{
+        ordinal: 1,
+        result: "rejected_duplicate_member",
+        input_digest: plan.items[0].input_digest,
+        warnings: ["migration_input_rejected"],
+      }],
+    });
+  }
+});
+
+test("escaped lone surrogate remains migration writer-loader compatible outside Candidate scope", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "agentmo-migration-unicode-roundtrip-"));
+  const sourceDirectory = path.join(directory, "source");
+  const outputParent = path.join(directory, "output");
+  const input = path.join(sourceDirectory, "source.json");
+  const out = path.join(outputParent, "out");
+  const legacy = await readFile(new URL("legacy-blueprint.json", FIXTURE_ROOT), "utf8");
+  const raw = legacy.replace(
+    "Exercise the legacy blueprint writer contract.",
+    "Exercise the legacy blueprint writer contract.\\ud800",
+  );
+  await mkdir(sourceDirectory, { mode: 0o700 });
+  await mkdir(outputParent, { mode: 0o700 });
+  await writeFile(input, raw, "utf8");
+  const plan = await planArtifactMigration([input]);
+
+  assert.equal(plan.applicable, true);
+  assert.equal(plan.items[0].result, "ready");
+  assert.equal(plan.items[0].reason, undefined);
+  assert.deepEqual(validateMigrationPlanForReceipt(plan), { ok: true, errors: [] });
+  assert.equal(buildMigrationReceipt(plan).result, "applicable");
+
+  const result = await applyArtifactMigration({ inputs: [input], out, plan });
+  assert.equal(result.plan_digest, plan.plan_digest);
+  const output = path.join(out, "blueprint.agentmo.json");
+  const outputBytes = await readFile(output);
+  const admitted = await loadAdmittedBlueprint(output, {
+    subject: "blueprint",
+    expectedDigest: digestBytes(outputBytes),
+  });
+  assert.equal(admitted.value.domain_genome.purpose.endsWith("\ud800"), true);
 });
 
 test("receipt builder rejects forged plans and injected fields", async () => {

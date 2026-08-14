@@ -656,6 +656,60 @@ describe("cli", () => {
     assert.deepEqual((await readdir(root)).sort(), before);
   });
 
+  it("keeps duplicate and escaped-surrogate migration preview/apply behavior self-consistent", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agentmo-cli-migration-duplicate-member-"));
+    const cases = [
+      '{"agentmother_version":"0.1","title":"private-duplicate-canary","title":"bounded"}',
+      '{"agentmother_version":"0.1","ti\\u0074le":"private-duplicate-canary","title":"bounded"}',
+    ];
+
+    for (const [index, raw] of cases.entries()) {
+      const input = path.join(root, `source-${index}.json`);
+      const out = path.join(root, `out-${index}`);
+      await writeFile(input, raw, "utf8");
+      const digestArgs = await migrationDigestArgs([input]);
+
+      const preview = await runCli(["migrate", input, ...digestArgs, "--json"]);
+      assert.equal(preview.code, 1, preview.stderr);
+      assert.equal(preview.stderr, "");
+      assert.equal(JSON.parse(preview.stdout).items[0].reason, "duplicate_member");
+      assert.equal(preview.stdout.includes("private-duplicate-canary"), false);
+
+      const apply = await runCli(["migrate", input, ...digestArgs, "--out", out, "--json"]);
+      assert.equal(apply.code, 1, apply.stderr);
+      assert.equal(apply.stderr, "");
+      assert.equal(JSON.parse(apply.stdout).code, "AGENTMO_MIGRATION_BATCH_REJECTED");
+      assert.equal(apply.stdout.includes("private-duplicate-canary"), false);
+      await assert.rejects(() => stat(out), { code: "ENOENT" });
+    }
+
+    const scalarSource = path.join(root, "scalar-source");
+    const scalarTarget = path.join(root, "scalar-target");
+    const scalarInput = path.join(scalarSource, "source-scalar.json");
+    const scalarOut = path.join(scalarTarget, "out-scalar");
+    await mkdir(scalarSource, { mode: 0o700 });
+    await mkdir(scalarTarget, { mode: 0o700 });
+    const legacy = await readFile(new URL("./fixtures/migration/legacy-blueprint.json", import.meta.url), "utf8");
+    await writeFile(
+      scalarInput,
+      legacy.replace(
+        "Exercise the legacy blueprint writer contract.",
+        "Exercise the legacy blueprint writer contract.\\ud800",
+      ),
+      "utf8",
+    );
+    const scalarDigests = await migrationDigestArgs([scalarInput]);
+    const scalarPreview = await runCli(["migrate", scalarInput, ...scalarDigests, "--json"]);
+    assert.equal(scalarPreview.code, 0, scalarPreview.stderr);
+    assert.equal(JSON.parse(scalarPreview.stdout).applicable, true);
+    const scalarApply = await runCli([
+      "migrate", scalarInput, ...scalarDigests, "--out", scalarOut, "--json",
+    ]);
+    assert.equal(scalarApply.code, 0, scalarApply.stderr);
+    assert.equal(JSON.parse(scalarApply.stdout).status, "committed");
+    assert.equal((await stat(path.join(scalarOut, "blueprint.agentmo.json"))).isFile(), true);
+  });
+
   it("returns a value-blind JSON artifact error for an optional legacy status build-state", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agentmo-cli-migration-required-"));
     const legacyBuildState = path.join(root, "source-state.json");

@@ -621,6 +621,7 @@ export function inspectJsonMembers(raw, options = {}) {
   if (typeof raw !== "string") return { ok: false, reason: "invalid_json" };
   const maxDepth = options.maxDepth ?? JSON_IDENTITY_SCAN_MAX_DEPTH;
   const maxNodes = options.maxNodes ?? JSON_IDENTITY_SCAN_MAX_NODES;
+  const rejectInvalidUnicodeScalar = options.rejectInvalidUnicodeScalar === true;
   let index = 0;
   let nodes = 0;
   let duplicateIdentity = false;
@@ -659,7 +660,9 @@ export function inspectJsonMembers(raw, options = {}) {
         } catch {
           fail("invalid_json");
         }
-        if (hasUnpairedSurrogate(value)) fail("invalid_unicode_scalar");
+        if (rejectInvalidUnicodeScalar && hasUnpairedSurrogate(value)) {
+          fail("invalid_unicode_scalar");
+        }
         return decode ? value : null;
       }
       if (character.charCodeAt(0) < 0x20) fail("invalid_json");
@@ -795,8 +798,8 @@ export function inspectJsonIdentityMembers(raw, options = {}) {
   return inspectJsonMembers(raw, options);
 }
 
-export function assertNoDuplicateJsonMembers(raw) {
-  const inspection = inspectJsonMembers(raw);
+export function assertNoDuplicateJsonMembers(raw, options = {}) {
+  const inspection = inspectJsonMembers(raw, options);
   if (!inspection.ok && inspection.reason !== "invalid_json") {
     throw new AgentMoUnsupportedArtifactError(inspection.reason);
   }
