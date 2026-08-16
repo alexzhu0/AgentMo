@@ -36,7 +36,7 @@ Release 记录按日期倒序维护（最新在前），不要按版本号排序
 
 | 日期 | 阶段 | 状态 | 记录 | GitHub Release |
 | --- | --- | --- | --- | --- |
-| 2026.08.14 | Discover Agent Idea Candidate proposal contract | 已实现 target-neutral、exact-DB-bound、read-only、non-authoritative Candidate 垂直切片；未实现 human Decision Artifact | [`2026.08.14.md`](./2026.08.14.md) | 未发布 |
+| 2026.08.14 | Discover Agent Idea Candidate proposal contract + Node 20 evidence closure | Candidate 垂直切片、Node 20 trusted receipt/post-publication consumer 与四段 fail-fast npm check 已闭合；未提交、未集成、未发布 | [`2026.08.14.md`](./2026.08.14.md) | 未发布 |
 | 2026.08.12 | AgentMo 权威架构收敛：数据连接、Idea 发现、测试数据集、Coding Agent 与 Runtime Adapter | 架构口径已更新；新增适配器与自动 Idea 发现仍是待实现能力 | [`2026.08.12.md`](./2026.08.12.md) | 未发布 |
 | 2026.08.10 | 开发协作迁移：GSD → Superpowers | 当前事实已收敛到维护文档和 release；旧规划工作区与本机 GSD runtime 已按确认清理 | [`2026.08.10.md`](./2026.08.10.md) | 未发布 |
 | 2026.08.06 | 白领 Research DB / OpenClaw 独立黑盒 POC | 验收运行 PASS：首次 20 条、二次 0 重复、重启恢复、8 证据/0 缺口 brief 与证据约束问答通过；schedule、完整来源健康与生产认证仍未完成 | [`2026.08.06.md`](./2026.08.06.md) | [`release-2026.08.06`](https://github.com/alexzhu0/AgentMo/releases/tag/release-2026.08.06) |

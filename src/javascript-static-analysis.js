@@ -11,6 +11,7 @@ const FS_READERS = new Set([
   "fstatSync",
   "lstat",
   "opendir",
+  "read",
   "readFile",
   "readFileSync",
   "readlink",
@@ -48,6 +49,14 @@ const CHILD_PROCESS_EXECUTORS = new Set([
   "fork",
   "spawn",
   "spawnSync",
+]);
+const CHILD_PROCESS_SPECIFIERS = new Set(["child_process", "node:child_process"]);
+const MODULE_SPECIFIERS = new Set(["module", "node:module"]);
+const PROCESS_SPECIFIERS = new Set(["node:process", "process"]);
+const CHILD_PROCESS_LOADER_IDENTIFIERS = new Set([
+  "createRequire",
+  "getBuiltinModule",
+  "require",
 ]);
 const ASSIGNMENT_OPERATORS = new Set([
   "=", "+=", "-=", "*=", "/=", "%=", "**=", "&=", "|=", "^=", "&&=", "||=", "??=",
@@ -101,6 +110,82 @@ export function analyzeJavaScriptSource(source, options = {}) {
     processInvocations: Object.freeze(processInvocations.map((record) => Object.freeze(record))),
     constBindings: Object.freeze(constBindings.map((record) => Object.freeze(record))),
   });
+}
+
+export function inventoryChildProcessCallSites(source, options = {}) {
+  if (typeof source !== "string"
+    || options === null
+    || typeof options !== "object"
+    || Array.isArray(options)) reject();
+  const file = typeof options.file === "string" && options.file.length > 0
+    ? options.file
+    : "fixture.js";
+  const tokens = tokenizeJavaScript(source);
+  const pairs = buildDelimiterPairs(tokens);
+  const imports = analyzeModuleSyntax(tokens, pairs);
+  const childProcessNamespaces = new Set();
+  const childProcessNamed = new Map();
+  let childProcessImportCount = 0;
+
+  if (tokens.some((token) => token.type === "identifier"
+    && CHILD_PROCESS_LOADER_IDENTIFIERS.has(token.value))) reject();
+  for (let index = 0; index < tokens.length; index += 1) {
+    if (tokens[index]?.type === "identifier"
+      && tokens[index].value === "process"
+      && !isAllowedStaticProcessReference(tokens, index)) reject();
+  }
+
+  for (const loader of imports.loaders) {
+    if (CHILD_PROCESS_SPECIFIERS.has(loader.specifier)) {
+      childProcessImportCount += 1;
+      if (loader.kind !== "static-import") reject();
+    }
+    if (MODULE_SPECIFIERS.has(loader.specifier)) reject();
+    if (PROCESS_SPECIFIERS.has(loader.specifier)) reject();
+  }
+  for (const [local, binding] of imports.bindings) {
+    if (!CHILD_PROCESS_SPECIFIERS.has(binding.module)) continue;
+    if (binding.kind === "namespace" || binding.kind === "default") {
+      childProcessNamespaces.add(local);
+    } else if (CHILD_PROCESS_EXECUTORS.has(binding.imported)) {
+      childProcessNamed.set(local, binding.imported);
+    } else {
+      reject();
+    }
+  }
+  if (childProcessImportCount > 0
+    && childProcessNamespaces.size === 0
+    && childProcessNamed.size === 0) reject();
+
+  const calls = collectCalls(tokens, pairs);
+  const allowedReferences = new Set(imports.bindingTokenIndexes);
+  const sites = [];
+  for (const { callee, openIndex } of calls) {
+    const method = childProcessExecutionMethod(callee, childProcessNamed, childProcessNamespaces);
+    if (method === null) continue;
+    if (callee.dynamicProperty
+      || tokens.slice(callee.tokenIndexes[0], openIndex).some((token) => isPunctuator(token, "["))) reject();
+    for (const tokenIndex of callee.tokenIndexes) allowedReferences.add(tokenIndex);
+    sites.push(Object.freeze({ file, line: callee.line, method }));
+  }
+
+  const protectedNames = new Set([
+    ...childProcessNamespaces,
+    ...childProcessNamed.keys(),
+  ]);
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index];
+    if (token.type !== "identifier" || !protectedNames.has(token.value)) continue;
+    if (!allowedReferences.has(index)) reject();
+  }
+  return Object.freeze(sites);
+}
+
+function isAllowedStaticProcessReference(tokens, index) {
+  if (isPunctuator(tokens[index - 1], ".") || isPunctuator(tokens[index - 1], "?.")) return true;
+  if (isPunctuator(tokens[index + 1], ":")) return true;
+  return isPunctuator(tokens[index + 1], ".")
+    && tokens[index + 2]?.type === "identifier";
 }
 
 function assertProcessGlobalIsUnshadowed(tokens, pairs, imports) {

@@ -34,10 +34,27 @@ const EXPECTED_GENERATED_CALLER_SURFACES = Object.freeze([
 const EXPECTED_MAINTAINED_CALLER_FILES = Object.freeze([
   "README.md",
   "docs/MVP_RUNBOOK.md",
-  "docs/OMX_SESSION_MIGRATION.md",
   "docs/OPENCLAW_RUNTIME_NOTES.md",
   "docs/RUNTIME_EXECUTION.md",
 ]);
+const EXPECTED_AGGREGATE_TEST_LANES = Object.freeze([
+  "npm run check:test:main",
+  "npm run check:test:durable-fs",
+  "npm run check:test:packed-hook-chain",
+  "npm run check:test:packed-behavior",
+]);
+
+function assertAggregateTestLaneChain(aggregate) {
+  const segments = aggregate.split(" && ");
+  const testLaneSegments = segments.filter((segment) => (
+    segment.startsWith("npm run check:test:")
+  ));
+  assert.deepEqual(testLaneSegments, EXPECTED_AGGREGATE_TEST_LANES);
+  assert.deepEqual(
+    segments.slice(-EXPECTED_AGGREGATE_TEST_LANES.length),
+    EXPECTED_AGGREGATE_TEST_LANES,
+  );
+}
 
 const OPENCLAW_CLASSIFICATIONS = Object.freeze({
   "agents:add": "mutation",
@@ -70,6 +87,23 @@ const SUBJECT_OPTION_FLAGS = Object.freeze({
 });
 
 describe("maintained command documentation", () => {
+  it("rejects non-fail-fast, duplicate, and inserted aggregate test lanes", () => {
+    const prefix = "node --check synthetic.js";
+    const valid = [prefix, ...EXPECTED_AGGREGATE_TEST_LANES].join(" && ");
+    assert.doesNotThrow(() => assertAggregateTestLaneChain(valid));
+    for (const invalid of [
+      valid.replace(" && npm run check:test:durable-fs", " ; npm run check:test:durable-fs"),
+      valid.replace("npm run check:test:durable-fs", "npm run check:test:durable-fs || true"),
+      `${valid} && npm run check:test:main`,
+      valid.replace(
+        "npm run check:test:packed-hook-chain",
+        "npm run check:test:synthetic && npm run check:test:packed-hook-chain",
+      ),
+    ]) {
+      assert.throws(() => assertAggregateTestLaneChain(invalid), assert.AssertionError);
+    }
+  });
+
   it("discovers every AgentMo shell-fence invocation and binds exact file bytes through the production registry", async () => {
     const files = [path.join(REPO_ROOT, "README.md"), ...(await markdownFiles(path.join(REPO_ROOT, "docs")))];
     const corpus = [];
@@ -282,7 +316,6 @@ describe("maintained command documentation", () => {
       "README.md",
       "docs/MVP_RUNBOOK.md",
       "docs/STAGE_CONTRACTS.md",
-      "docs/OMX_SESSION_MIGRATION.md",
       "docs/AGENTMO_MVP_LEDGER.md",
       "release/2026.07.27.md",
     ];
@@ -331,12 +364,42 @@ describe("maintained command documentation", () => {
     const stageContracts = documents.get("docs/STAGE_CONTRACTS.md");
     assert.doesNotMatch(stageContracts, /current Stage 1 does not fetch/iu);
     assert.doesNotMatch(stageContracts, /produces a reviewed design contract/iu);
+
+    const archivedOmx = await readFile(path.join(REPO_ROOT, "docs/OMX_SESSION_MIGRATION.md"), "utf8");
+    assert.match(archivedOmx, /not a recovery entrypoint and contains no executable workflow/u);
+    assert.match(archivedOmx, /docs\/SUPERPOWERS_WORKFLOW\.md/u);
+    assert.deepEqual(extractShellBlocks(archivedOmx, "docs/OMX_SESSION_MIGRATION.md"), []);
+    assert.deepEqual(extractAgentMoInvocations(archivedOmx), []);
+
+    const readme = documents.get("README.md");
+    const recoverySection = readme.slice(
+      readme.indexOf("## Session recovery and current handoff"),
+      readme.indexOf("## Why this exists"),
+    );
+    let previousIndex = -1;
+    for (const authority of [
+      "AGENTS.md",
+      "docs/SUPERPOWERS_WORKFLOW.md",
+      "docs/CURRENT_STATUS.md",
+      "release/README.md",
+      "docs/MVP_RUNBOOK.md",
+    ]) {
+      const authorityIndex = recoverySection.indexOf(authority);
+      assert.equal(authorityIndex > previousIndex, true, `README.md: recovery order for ${authority}`);
+      previousIndex = authorityIndex;
+    }
+
+    const currentStatus = await readFile(path.join(REPO_ROOT, "docs/CURRENT_STATUS.md"), "utf8");
+    assert.match(currentStatus, /7 个本地、尚未 push 或 integrate 的 Candidate\s+commits/u);
+    assert.match(currentStatus, /后续收口批次仍未\s+commit/u);
+    assert.match(currentStatus, /没有 push、PR、tag 或 GitHub Release/u);
   });
 
   it("keeps Builder v1 docs on the append-only CLI and indexes every dated release once", async () => {
     const readme = await readFile(path.join(REPO_ROOT, "README.md"), "utf8");
     const runbook = await readFile(path.join(REPO_ROOT, "docs/MVP_RUNBOOK.md"), "utf8");
     const currentRelease = await readFile(path.join(REPO_ROOT, "release/2026.07.22.md"), "utf8");
+    const packageJson = JSON.parse(await readFile(path.join(REPO_ROOT, "package.json"), "utf8"));
     const documentedCommands = Array.from(
       readme.matchAll(/```text\n([\s\S]*?)```/gu),
       (match) => match[1],
@@ -356,6 +419,12 @@ describe("maintained command documentation", () => {
     assert.doesNotMatch(currentRelease, /--journal <attempt-dir>/u);
     assert.match(documentedCommands, /verify-codex-uat-candidate\.js preview/u);
     assert.match(documentedCommands, /verify-codex-uat-candidate\.js decide approve/u);
+
+    assert.equal(
+      packageJson.scripts["check:test:durable-fs"],
+      "AGENTMO_TEST_LANE=durable-fs node --test --test-concurrency=1 --test-name-pattern='^(publishes an 86-member projection in bounded batches within 90 seconds|preserves the retained baseline when the external producer is killed during successor build)$' test/builder-marketplace-projection-transaction.test.js test/builder-package-security.test.js",
+    );
+    assertAggregateTestLaneChain(packageJson.scripts.check);
 
     for (const markdown of [readme, runbook, currentRelease]) {
       assert.match(markdown, /projected-v2/u);

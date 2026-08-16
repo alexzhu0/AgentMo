@@ -68,6 +68,7 @@ import {
   buildApprovedPackageFixture,
   packageProduceOptions,
 } from "./helpers/package-produce-fixture.js";
+import { NATIVE_OPENCLAW_FS } from "./helpers/native-openclaw-fs.js";
 
 const sha256 = (bytes) => (
   `sha256:${createHash("sha256").update(bytes).digest("hex")}`
@@ -95,6 +96,7 @@ let fsHelperReceiptPath;
 let fsHelperReceiptDigest;
 
 before(async () => {
+  if (!NATIVE_OPENCLAW_FS) return;
   const root = await mkdtemp(path.join(tmpdir(), "agentmo-transaction-fs-helper-"));
   fsHelperPath = path.join(root, "openclaw-fs-kernel");
   fsHelperReceiptPath = path.join(root, "openclaw-fs-kernel.receipt.json");
@@ -600,7 +602,9 @@ describe("OpenClaw install receipt-last transaction", () => {
     }
   });
 
-  it("durable nonce replay rejects a fresh attempt for ordinary, sensitive and conflict markers", async () => {
+  it("durable nonce replay rejects a fresh attempt for ordinary, sensitive and conflict markers", {
+    skip: !NATIVE_OPENCLAW_FS,
+  }, async () => {
     const {
       prepareOpenClawAuthorityStateRoot,
       reserveOpenClawAuthoritySet,
@@ -696,7 +700,9 @@ describe("OpenClaw install receipt-last transaction", () => {
     assert.equal(observeCalls, 0);
   });
 
-  it("concurrent reservation permits at most one exact attempt without a global lock", async () => {
+  it("concurrent reservation permits at most one exact attempt without a global lock", {
+    skip: !NATIVE_OPENCLAW_FS,
+  }, async () => {
     const {
       prepareOpenClawAuthorityStateRoot,
       reserveOpenClawAuthoritySet,
@@ -815,7 +821,9 @@ describe("OpenClaw install receipt-last transaction", () => {
     assert.equal(await readFile(output, "utf8"), "{}\n");
   });
 
-  it("rejects cached recovery booleans and preserves every named object", async () => {
+  it("rejects cached recovery booleans and preserves every named object", {
+    skip: !NATIVE_OPENCLAW_FS,
+  }, async () => {
     const variants = [
       { cachedAuthentic: true },
       { ownerMarkerDigestMatches: false },
@@ -847,7 +855,9 @@ describe("OpenClaw install receipt-last transaction", () => {
     }
   });
 
-  it("preserves an exact reopened published object because deletion is not session-bound", async () => {
+  it("preserves an exact reopened published object because deletion is not session-bound", {
+    skip: !NATIVE_OPENCLAW_FS,
+  }, async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agentmo-recovery-exact-preserve-"));
     const target = path.join(root, "managed.txt");
     const marker = path.join(root, "owner.marker");
@@ -877,7 +887,9 @@ describe("OpenClaw install receipt-last transaction", () => {
     assert.equal(await readFile(target, "utf8"), "fixture");
   });
 
-  it("recovery replacement stays preserved and incomplete after a new process revalidates it", async () => {
+  it("recovery replacement stays preserved and incomplete after a new process revalidates it", {
+    skip: !NATIVE_OPENCLAW_FS,
+  }, async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agentmo-recovery-replacement-"));
     const target = path.join(root, "managed.txt");
     const displaced = path.join(root, "managed.displaced");
@@ -916,12 +928,7 @@ describe("OpenClaw install receipt-last transaction", () => {
     assert.equal(await readFile(displaced, "utf8"), "approved");
   });
 
-  it("keeps both credential grammars proposal-only and returns honest unsupported without spawn", async () => {
-    const {
-      prepareOpenClawAuthorityStateRoot,
-      reserveOpenClawAuthoritySet,
-    } = await import("../src/openclaw-authority-consumption.js");
-    const { openOpenClawSafeFsSession } = await import("../src/openclaw-safe-fs.js");
+  it("keeps both credential grammars proposal-only", () => {
     const routes = [
       ["models-auth", [
         "models",
@@ -937,7 +944,7 @@ describe("OpenClaw install receipt-last transaction", () => {
         "plan.json",
       ]],
     ];
-    for (const [label, argv] of routes) {
+    for (const [, argv] of routes) {
       const proposal = buildOpenClawCredentialSetupProposal({
         profileReference: "openclaw-profile:fixture",
         missingEnvironmentNames: ["OPENCLAW_API_TOKEN"],
@@ -950,26 +957,51 @@ describe("OpenClaw install receipt-last transaction", () => {
       assert.equal(Object.hasOwn(proposal, "credentialValue"), false);
       assert.equal(proposal.certificationBoundary.proposalOnly, true);
       assert.equal(proposal.certificationBoundary.installed, false);
-      if (label === "secrets-apply") continue;
+    }
+  });
 
-      const fixture = authorityFixture({
-        ordinaryNonce: "authority:route:ordinary",
-        sensitiveNonce: "authority:route:sensitive",
-        conflictNonce: "authority:route:conflict",
-        credentialArgv: argv,
-      });
-      const authorityStateRoot = await mkdtemp(
-        path.join(tmpdir(), `agentmo-credential-${label}-authority-`),
-      );
-      await chmod(authorityStateRoot, 0o700);
-      await prepareOpenClawAuthorityStateRoot(authorityStateRoot);
-      const session = await openOpenClawSafeFsSession({
-        rootPath: authorityStateRoot,
-        helperPath: fsHelperPath,
-        receiptPath: fsHelperReceiptPath,
-        receiptDigest: fsHelperReceiptDigest,
-      });
-      try {
+  it("returns honest unsupported after native credential authority reservation", {
+    skip: !NATIVE_OPENCLAW_FS,
+  }, async () => {
+    const {
+      prepareOpenClawAuthorityStateRoot,
+      reserveOpenClawAuthoritySet,
+    } = await import("../src/openclaw-authority-consumption.js");
+    const { openOpenClawSafeFsSession } = await import("../src/openclaw-safe-fs.js");
+    const argv = [
+      "models",
+      "auth",
+      "login",
+      "--provider",
+      "fixture-provider",
+    ];
+    const proposal = buildOpenClawCredentialSetupProposal({
+      profileReference: "openclaw-profile:fixture",
+      missingEnvironmentNames: ["OPENCLAW_API_TOKEN"],
+      officialRoute: {
+        executable: "openclaw",
+        argv,
+        timeoutMs: 30_000,
+      },
+    });
+    const fixture = authorityFixture({
+      ordinaryNonce: "authority:route:ordinary",
+      sensitiveNonce: "authority:route:sensitive",
+      conflictNonce: "authority:route:conflict",
+      credentialArgv: argv,
+    });
+    const authorityStateRoot = await mkdtemp(
+      path.join(tmpdir(), "agentmo-credential-models-auth-authority-"),
+    );
+    await chmod(authorityStateRoot, 0o700);
+    await prepareOpenClawAuthorityStateRoot(authorityStateRoot);
+    const session = await openOpenClawSafeFsSession({
+      rootPath: authorityStateRoot,
+      helperPath: fsHelperPath,
+      receiptPath: fsHelperReceiptPath,
+      receiptDigest: fsHelperReceiptDigest,
+    });
+    try {
         const authorityReservation = await reserveOpenClawAuthoritySet({
           session,
           attemptId: "attempt:route",
@@ -1005,7 +1037,7 @@ describe("OpenClaw install receipt-last transaction", () => {
           ),
         );
 
-        assert.equal(processStarts, 0, label);
+        assert.equal(processStarts, 0, "models-auth");
         const result = await runApprovedOpenClawCredentialHandoff(
           handoffOptions,
         );
@@ -1033,9 +1065,8 @@ describe("OpenClaw install receipt-last transaction", () => {
         await assert.rejects(() => access(
           path.join(authorityStateRoot, "must-not-be-created"),
         ));
-      } finally {
-        await session.close();
-      }
+    } finally {
+      await session.close();
     }
   });
 
@@ -1106,7 +1137,9 @@ describe("OpenClaw install receipt-last transaction", () => {
     await assert.rejects(() => access(output));
   });
 
-  it("executes an isolated install, upgrade, rollback, and uninstall receipt chain through official config", async () => {
+  it("executes an isolated install, upgrade, rollback, and uninstall receipt chain through official config", {
+    skip: !NATIVE_OPENCLAW_FS,
+  }, async () => {
     const targetExecutableSource = [
       "import { fsyncSync, ftruncateSync, readFileSync, writeSync } from 'node:fs';",
       "const argv = process.argv.slice(2);",
@@ -2223,7 +2256,9 @@ describe("OpenClaw install receipt-last transaction", () => {
     );
   });
 
-  it("rejects authority-root replay before effects, then applies inside the canonical disposable root", async () => {
+  it("rejects authority-root replay before effects, then applies inside the canonical disposable root", {
+    skip: !NATIVE_OPENCLAW_FS,
+  }, async () => {
     const fixture = await buildApprovedPackageFixture();
     const root = fixture.root;
     const targetRoot = path.join(root, "isolated-target");

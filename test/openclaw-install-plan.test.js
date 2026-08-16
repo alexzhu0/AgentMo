@@ -14,6 +14,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { it } from "node:test";
+import { NATIVE_OPENCLAW_FS } from "./helpers/native-openclaw-fs.js";
 import { getArtifactContract } from "../src/artifact-contract.js";
 import { produceAgentPackage } from "../src/package-produce.js";
 import { serializePersistableJson } from "../src/persistability.js";
@@ -345,7 +346,9 @@ it("builds closed absent-genesis and lifecycle authorities for all four actions"
   }
 });
 
-it("observed genesis derives checked paths through retained safe-fs and rejects caller absence claims", async () => {
+it("observed genesis derives checked paths through retained safe-fs and rejects caller absence claims", {
+  skip: !NATIVE_OPENCLAW_FS,
+}, async () => {
   const fixture = await buildApprovedPackageFixture();
   const root = await mkdtemp(path.join(tmpdir(), "agentmo-observed-genesis-"));
   await chmod(root, 0o700);
@@ -484,7 +487,9 @@ it("binds target, scope, three-way ownership, operations, patches, actions and c
   );
 });
 
-it("publishes absent-genesis and install plans create-only with external final-byte digests", async () => {
+it("publishes absent-genesis and install plans create-only with external final-byte digests", {
+  skip: !NATIVE_OPENCLAW_FS,
+}, async () => {
   const root = await mkdtemp(path.join(tmpdir(), "agentmo-install-authority-writers-"));
   await chmod(root, 0o700);
   const absentFile = path.join(root, "absent-genesis.json");
@@ -585,7 +590,9 @@ it("preserves its new output when post-validation publication bytes drift", asyn
   assert.equal(await readFile(occupied, "utf8"), "foreign\n");
 });
 
-it("fresh processes capture exact genesis and publish one archive-only install preview", async () => {
+it("fresh processes capture exact genesis and publish one archive-only install preview", {
+  skip: !NATIVE_OPENCLAW_FS,
+}, async () => {
   const probeFixture = await lifecycleProbeFixture();
   const {
     archiveDigest,
@@ -769,7 +776,9 @@ it("fresh processes capture exact genesis and publish one archive-only install p
   }
 });
 
-it("fresh non-install previews reject structurally forged predecessor receipts", async () => {
+it("fresh non-install previews reject structurally forged predecessor receipts", {
+  skip: !NATIVE_OPENCLAW_FS,
+}, async () => {
   const probeFixture = await lifecycleProbeFixture();
   const {
     archiveDigest,

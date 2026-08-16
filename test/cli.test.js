@@ -1973,7 +1973,9 @@ describe("cli", () => {
     assert.deepEqual(await readdir(root), []);
   });
 
-  it("emits bounded value-blind helper pair recovery evidence", async () => {
+  it("emits bounded value-blind helper pair recovery evidence", {
+    skip: process.platform !== "linux" || process.arch !== "x64",
+  }, async () => {
     const binaryParent = await mkdtemp(
       path.join(tmpdir(), "agentmo-cli-safe-fs-recovery-binary-"),
     );

@@ -1,4 +1,4 @@
-import { createReadStream, fstatSync } from "node:fs";
+import { fstatSync, read } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { digestRawBytes } from "./artifact-admission.js";
@@ -7,6 +7,7 @@ import { serializePersistableJson } from "./persistability.js";
 const VERIFIED_BOOTSTRAP_CAPABILITIES = new WeakMap();
 const DIGEST_PATTERN = /^sha256:[a-f0-9]{64}$/u;
 const MAX_BOOTSTRAP_GRAPH_BYTES = 24 * 1024 * 1024;
+const RAW_DESCRIPTOR_READ_BYTES = 64 * 1024;
 const MARKETPLACE_DESCRIPTOR_RELATIVE_PATH = ".agents/plugins/marketplace.json";
 const MODULE_PACKAGE_ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const MARKETPLACE_ROOT = path.resolve(MODULE_PACKAGE_ROOT, "..", "..", "..", "..");
@@ -117,14 +118,7 @@ async function readAuthenticatedBootstrapGraph() {
   if (retainedGraphBytes === null) {
     const descriptorStats = fstatSync(4);
     if (!descriptorStats.isFIFO() && !descriptorStats.isSocket()) reject();
-    const chunks = [];
-    let total = 0;
-    for await (const chunk of createReadStream(null, { fd: 4, autoClose: false })) {
-      total += chunk.byteLength;
-      if (total > MAX_BOOTSTRAP_GRAPH_BYTES) reject();
-      chunks.push(chunk);
-    }
-    retainedGraphBytes = Buffer.concat(chunks, total);
+    retainedGraphBytes = await readBoundedRawDescriptor(4, MAX_BOOTSTRAP_GRAPH_BYTES);
   }
   const expectedDigest = process.env.AGENTMO_BUILDER_HOOK_GRAPH_DIGEST;
   if (!DIGEST_PATTERN.test(expectedDigest ?? "")
@@ -136,6 +130,29 @@ async function readAuthenticatedBootstrapGraph() {
   } catch {
     reject();
   }
+}
+
+async function readBoundedRawDescriptor(descriptor, maxBytes) {
+  const chunks = [];
+  let total = 0;
+  while (true) {
+    const length = Math.min(RAW_DESCRIPTOR_READ_BYTES, maxBytes - total + 1);
+    const buffer = Buffer.allocUnsafe(length);
+    const bytesRead = await readRawDescriptor(descriptor, buffer, length);
+    if (bytesRead === 0) return Buffer.concat(chunks, total);
+    total += bytesRead;
+    if (total > maxBytes) reject();
+    chunks.push(bytesRead === length ? buffer : buffer.subarray(0, bytesRead));
+  }
+}
+
+function readRawDescriptor(descriptor, buffer, length) {
+  return new Promise((resolve, rejectRead) => {
+    read(descriptor, buffer, 0, length, null, (error, bytesRead) => {
+      if (error) rejectRead(error);
+      else resolve(bytesRead);
+    });
+  });
 }
 
 function decodeCanonicalBase64(value) {

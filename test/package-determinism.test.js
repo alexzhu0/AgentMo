@@ -3,15 +3,13 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { it } from "node:test";
 import {
-  produceAgentPackage,
-} from "../src/package-produce.js";
-import {
   buildPackageArchive,
   readPackageArchiveInventory,
 } from "../src/package-archive.js";
 import {
   buildApprovedPackageFixture,
   packageProduceOptions,
+  produceAgentPackageFixture,
 } from "./helpers/package-produce-fixture.js";
 
 it("builds byte-identical directories and archives under different roots", async () => {
@@ -21,10 +19,10 @@ it("builds byte-identical directories and archives under different roots", async
   const rightRoot = path.join(right.root, "right-package");
   const leftArchive = path.join(left.root, "left.d42");
   const rightArchive = path.join(right.root, "right.d42");
-  const leftResult = await produceAgentPackage(
+  const leftResult = await produceAgentPackageFixture(
     packageProduceOptions(left, leftRoot, leftArchive),
   );
-  const rightResult = await produceAgentPackage(
+  const rightResult = await produceAgentPackageFixture(
     packageProduceOptions(right, rightRoot, rightArchive),
   );
   assert.equal(leftResult.manifestDigest, rightResult.manifestDigest);
@@ -49,7 +47,7 @@ it("rejects archive content, member-set, type, mode, and manifest-binding drift"
   const fixture = await buildApprovedPackageFixture();
   const outputRoot = path.join(fixture.root, "package");
   const archivePath = path.join(fixture.root, "package.d42");
-  await produceAgentPackage(packageProduceOptions(fixture, outputRoot, archivePath));
+  await produceAgentPackageFixture(packageProduceOptions(fixture, outputRoot, archivePath));
   const archive = JSON.parse(await readFile(archivePath, "utf8"));
   const mutations = [
     (value) => { value.members[0].contentBase64 = Buffer.from("drift").toString("base64"); },

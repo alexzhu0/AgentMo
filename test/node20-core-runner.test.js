@@ -43,11 +43,12 @@ describe("Node 20 core runner fail-closed contract", () => {
     assert.doesNotMatch(helper, /\b(?:curl|wget|brew|apt|npx|npm install|npm add|npm exec)\b/iu);
   });
 
-  it("syntax-checks the Agent Idea Candidate production module in the owned Node 20 batch", async () => {
+  it("syntax-checks the Agent Idea Candidate production modules in the owned Node 20 batch", async () => {
     const { OWNED_COMMAND_MANIFEST } = await loadReceiptModule();
     const syntax = OWNED_COMMAND_MANIFEST.find(({ id }) => id === "syntax");
+    assert.equal(syntax.files.includes("src/agent-idea-candidate-cli.js"), true);
     assert.equal(syntax.files.includes("src/agent-idea-candidate.js"), true);
-    assert.deepEqual(syntax.expected, { pass: 41, skip: 0, fail: 0, total: 41 });
+    assert.deepEqual(syntax.expected, { pass: 42, skip: 0, fail: 0, total: 42 });
   });
 
   it("requires every explicit provenance input and never searches PATH", async () => {
@@ -236,11 +237,17 @@ describe("Node 20 core runner fail-closed contract", () => {
       { id: "core-contracts", kind: "test" },
       { id: "stage-contracts", kind: "test" },
     ]);
-    assert.deepEqual(OWNED_COMMAND_MANIFEST.at(-1).expected, {
-      pass: 3,
+    assert.deepEqual(OWNED_COMMAND_MANIFEST.find(({ id }) => id === "core-contracts").expected, {
+      pass: 62,
       skip: 1,
       fail: 0,
-      total: 4,
+      total: 63,
+    });
+    assert.deepEqual(OWNED_COMMAND_MANIFEST.at(-1).expected, {
+      pass: 3,
+      skip: 2,
+      fail: 0,
+      total: 5,
     });
     assert.equal(Object.isFrozen(OWNED_COMMAND_MANIFEST), true);
     assert.equal(Object.isFrozen(OWNED_COMMAND_MANIFEST.at(-1).expected), true);
@@ -253,31 +260,12 @@ describe("Node 20 core runner fail-closed contract", () => {
       assertNode20Receipt,
       buildNode20Receipt,
     } = await loadReceiptModule();
-    const digest = "a".repeat(64);
-    const receipt = buildNode20Receipt({
-      observedAt: "2026-07-13T08:30:00.000Z",
-      runtime: {
-        version: "20.20.2",
-        architecture: "arm64",
-        processExecPathMatchesSelectedExecutable: true,
-      },
-      provenance: {
-        archiveName: "node-v20.20.2-darwin-arm64.tar.gz",
-        archiveSha256: digest,
-        checksumManifestSha256: "b".repeat(64),
-        checksumEntrySha256: digest,
-        archiveMember: "node-v20.20.2-darwin-arm64/bin/node",
-        archiveMemberSha256: "c".repeat(64),
-        executableSha256: "c".repeat(64),
-        executableMatchesArchiveMember: true,
-      },
-      commandSetDigest: COMMAND_SET_DIGEST,
-      batches: [
-        { id: "syntax", pass: 41, skip: 0, fail: 0, total: 41 },
-        { id: "core-contracts", pass: 45, skip: 0, fail: 0, total: 45 },
-        { id: "stage-contracts", pass: 3, skip: 1, fail: 0, total: 4 },
-      ],
-    });
+    const receipt = buildNode20Receipt(receiptInput(COMMAND_SET_DIGEST, {
+      pass: 62,
+      skip: 1,
+      fail: 0,
+      total: 63,
+    }));
 
     assert.deepEqual(Object.keys(receipt), [
       "schemaVersion",
@@ -305,7 +293,67 @@ describe("Node 20 core runner fail-closed contract", () => {
       (error) => error?.code === "AGENTMO_NODE20_LANE_RECEIPT_INVALID",
     );
   });
+
+  it("allows non-negative published skip shape while exact manifest counts stay fail closed", async () => {
+    const {
+      COMMAND_SET_DIGEST,
+      assertNode20Receipt,
+      buildNode20Receipt,
+    } = await loadReceiptModule();
+    const receipt = buildNode20Receipt(receiptInput(COMMAND_SET_DIGEST, {
+      pass: 62,
+      skip: 1,
+      fail: 0,
+      total: 63,
+    }));
+
+    assert.equal(assertNode20Receipt(receipt), receipt);
+    for (const batches of [
+      receipt.batches.map((batch) => batch.id === "core-contracts"
+        ? { ...batch, skip: 2, total: batch.total + 1 }
+        : batch),
+      receipt.batches.map((batch) => batch.id === "core-contracts"
+        ? { ...batch, id: "wrong-core-contracts" }
+        : batch),
+      receipt.batches.map((batch) => batch.id === "core-contracts"
+        ? { ...batch, pass: batch.pass - 1, total: batch.total - 1 }
+        : batch),
+    ]) {
+      assert.throws(
+        () => assertNode20Receipt({ ...receipt, batches }),
+        (error) => error?.code === "AGENTMO_NODE20_LANE_RECEIPT_INVALID",
+      );
+    }
+  });
 });
+
+function receiptInput(commandSetDigest, coreCounts) {
+  const digest = "a".repeat(64);
+  return {
+    observedAt: "2026-07-13T08:30:00.000Z",
+    runtime: {
+      version: "20.20.2",
+      architecture: "arm64",
+      processExecPathMatchesSelectedExecutable: true,
+    },
+    provenance: {
+      archiveName: "node-v20.20.2-darwin-arm64.tar.gz",
+      archiveSha256: digest,
+      checksumManifestSha256: "b".repeat(64),
+      checksumEntrySha256: digest,
+      archiveMember: "node-v20.20.2-darwin-arm64/bin/node",
+      archiveMemberSha256: "c".repeat(64),
+      executableSha256: "c".repeat(64),
+      executableMatchesArchiveMember: true,
+    },
+    commandSetDigest,
+    batches: [
+      { id: "syntax", pass: 42, skip: 0, fail: 0, total: 42 },
+      { id: "core-contracts", ...coreCounts },
+      { id: "stage-contracts", pass: 3, skip: 2, fail: 0, total: 5 },
+    ],
+  };
+}
 
 function runnerArguments({
   nodeBin,

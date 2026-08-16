@@ -14,6 +14,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { it } from "node:test";
+import { NATIVE_OPENCLAW_FS } from "./helpers/native-openclaw-fs.js";
 
 const CLI = fileURLToPath(new URL("../bin/agentmo.js", import.meta.url));
 const DISCOVERY_LIVE_MODULE = new URL("../src/discovery-live.js", import.meta.url).href;
@@ -61,7 +62,9 @@ async function assertRejectedWithoutOutput(args, out) {
   await assert.rejects(() => access(out));
 }
 
-it("fresh processes compose bounded Phase 3 authority and reject every stale transition without Phase 4/5 outputs", async () => {
+it("fresh processes compose bounded Phase 3 authority and reject every stale transition without Phase 4/5 outputs", {
+  skip: !NATIVE_OPENCLAW_FS,
+}, async () => {
   const root = await mkdtemp(path.join(tmpdir(), "agentmo-phase3-contract-"));
   const manifest = path.join(root, "discovery.json");
   const discoveryRoot = path.join(root, "discovery");

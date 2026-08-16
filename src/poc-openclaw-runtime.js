@@ -4,6 +4,7 @@ import { mkdir, readFile } from "node:fs/promises";
 import { connect, createServer } from "node:net";
 import path from "node:path";
 import { checkPocWorkspace } from "./poc-agent.js";
+import { assertCurrentOpenClawTargetRuntime } from "./runtime-compatibility.js";
 import { assertRuntimeEnvReady, resolveRuntimeEnv } from "./runtime-env.js";
 import { redactManagedText } from "./secret-redaction.js";
 
@@ -97,11 +98,14 @@ export function openPocDashboardUrl(url, options = {}) {
     throw pocRuntimeError("AGENTMO_POC_DASHBOARD_URL_INVALID");
   }
   const platform = options.platform ?? process.platform;
-  const launch = options.spawnProcess ?? spawn;
+  const injectedSpawn = options.spawnProcess;
   const command = platform === "darwin" ? "open" : platform === "win32" ? "cmd" : "xdg-open";
   const args = platform === "win32" ? ["/c", "start", "", url] : [url];
   return new Promise((resolve, reject) => {
-    const child = launch(command, args, { shell: false, detached: true, stdio: "ignore" });
+    const launchOptions = { shell: false, detached: true, stdio: "ignore" };
+    const child = injectedSpawn == null
+      ? spawn(command, args, launchOptions)
+      : injectedSpawn(command, args, launchOptions);
     child.once("error", () => reject(pocRuntimeError("AGENTMO_POC_DASHBOARD_BROWSER_UNAVAILABLE")));
     child.once("spawn", () => { child.unref(); resolve(); });
   });
@@ -175,6 +179,7 @@ export function buildPocOpenClawCommands(options) {
 }
 
 export async function runPocOpenClaw(options) {
+  assertCurrentOpenClawTargetRuntime();
   const workspace = path.resolve(options.workspace);
   const workspaceCheck = await checkPocWorkspace(workspace);
   const runtimeEnvContent = await readRuntimeEnvFile(options.runtimeEnvFile);
@@ -240,6 +245,7 @@ export async function runPocOpenClaw(options) {
 }
 
 export async function runPocOpenClawDashboard(options) {
+  assertCurrentOpenClawTargetRuntime();
   const workspace = path.resolve(options.workspace);
   const workspaceCheck = await checkPocWorkspace(workspace);
   const runtimeEnvContent = await readRuntimeEnvFile(options.runtimeEnvFile);
@@ -379,6 +385,7 @@ async function readRuntimeEnvFile(filePath) {
 
 function executePocOpenClawCommand(command) {
   return new Promise((resolve, reject) => {
+    assertCurrentOpenClawTargetRuntime();
     const child = spawn(command.executable, command.args, {
       cwd: command.cwd,
       env: command.env,
@@ -414,6 +421,7 @@ function isLoopbackPortAvailable(port) {
 
 function executePocGateway(command, { port, onListening }) {
   return new Promise((resolve, reject) => {
+    assertCurrentOpenClawTargetRuntime();
     const child = spawn(command.executable, command.args, {
       cwd: command.cwd,
       env: command.env,

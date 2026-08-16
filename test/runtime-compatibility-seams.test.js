@@ -1,10 +1,16 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, readdir, stat } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import { buildPlan } from "../src/build-plan.js";
+import { inventoryChildProcessCallSites } from "../src/javascript-static-analysis.js";
+import { writePocWorkspace } from "../src/poc-agent.js";
+import {
+  runPocOpenClaw,
+  runPocOpenClawDashboard,
+} from "../src/poc-openclaw-runtime.js";
 import { buildRunEval, executeRuntimeRun, replayRunState } from "../src/run-state.js";
 import { buildRuntimePlan } from "../src/runtime-plan.js";
 import { runRuntimeCommand } from "../src/runtime-execution.js";
@@ -65,6 +71,27 @@ const JAVASCRIPT_MUTATION_INVENTORY = Object.freeze([
   }),
 ]);
 
+const POC_CHILD_PROCESS_SITE_INVENTORY = Object.freeze([
+  Object.freeze({
+    id: "poc-dashboard-browser-child",
+    kind: "local-ui-child",
+    implementation: "openPocDashboardUrl",
+    owners: Object.freeze(["openPocDashboardUrl"]),
+  }),
+  Object.freeze({
+    id: "poc-openclaw-command-child",
+    kind: "openclaw-runtime-child",
+    implementation: "executePocOpenClawCommand",
+    owners: Object.freeze(["runPocOpenClaw", "runPocOpenClawDashboard"]),
+  }),
+  Object.freeze({
+    id: "poc-openclaw-gateway-child",
+    kind: "openclaw-runtime-child",
+    implementation: "executePocGateway",
+    owners: Object.freeze(["runPocOpenClawDashboard"]),
+  }),
+]);
+
 describe("OpenClaw runtime compatibility seams", () => {
   it("binds the Node 20 core lane to one strict actual-runtime runner", async () => {
     const packageJson = JSON.parse(await readFile(path.join(REPOSITORY_ROOT, "package.json"), "utf8"));
@@ -103,7 +130,7 @@ describe("OpenClaw runtime compatibility seams", () => {
     assert.equal(INCOMPATIBLE_CONTRACT_VERSION.startsWith("20."), true);
   });
 
-  it("closes exactly three OpenClaw mutation journeys and inventories every production spawn", async () => {
+  it("classifies every production spawn and binds OpenClaw children to guarded owners", async () => {
     assert.deepEqual(
       JAVASCRIPT_MUTATION_INVENTORY.map(({ id, kind }) => ({ id, kind })),
       [
@@ -169,28 +196,103 @@ describe("OpenClaw runtime compatibility seams", () => {
     );
     assertOrdered(builderSpawn, ["assertBuilderPlatform();", "spawn("]);
 
-    const spawnSites = [];
-    for (const fileUrl of await listJavaScriptFiles(SOURCE_ROOT)) {
-      const source = await readFile(fileUrl, "utf8");
-      // Package admission validates the hook separately. Here inventory only
-      // real source-level named child_process imports, not quoted fixture text.
-      const importsSpawn = /import\s*\{[^}]*\bspawn\b[^}]*\}\s*from\s*["']node:child_process["']/u.test(source);
-      let count = importsSpawn ? [...source.matchAll(/\bspawn\s*\(/gu)].length : 0;
-      if (importsSpawn) {
-        for (const match of source.matchAll(
-          /\bconst\s+([A-Za-z_$][\w$]*)\s*=\s*options\.[A-Za-z_$][\w$]*\s*\?\?\s*spawn\s*;/gu,
-        )) {
-          const aliasCall = new RegExp(`\\b${match[1]}\\s*\\(`, "gu");
-          count += [...source.matchAll(aliasCall)].length;
-        }
-      }
-      if (count > 0) {
-        spawnSites.push({
-          file: path.relative(REPOSITORY_ROOT, fileURLToPath(fileUrl)),
-          count,
-        });
-      }
-    }
+    assert.deepEqual(POC_CHILD_PROCESS_SITE_INVENTORY, [
+      {
+        id: "poc-dashboard-browser-child",
+        kind: "local-ui-child",
+        implementation: "openPocDashboardUrl",
+        owners: ["openPocDashboardUrl"],
+      },
+      {
+        id: "poc-openclaw-command-child",
+        kind: "openclaw-runtime-child",
+        implementation: "executePocOpenClawCommand",
+        owners: ["runPocOpenClaw", "runPocOpenClawDashboard"],
+      },
+      {
+        id: "poc-openclaw-gateway-child",
+        kind: "openclaw-runtime-child",
+        implementation: "executePocGateway",
+        owners: ["runPocOpenClawDashboard"],
+      },
+    ]);
+
+    const pocSource = await readFile(path.join(REPOSITORY_ROOT, "src/poc-openclaw-runtime.js"), "utf8");
+    const pocBodies = new Map([
+      ["openPocDashboardUrl", sourceSlice(
+        pocSource,
+        "export function openPocDashboardUrl",
+        "export function buildPocOpenClawCommands",
+      )],
+      ["runPocOpenClaw", sourceSlice(
+        pocSource,
+        "export async function runPocOpenClaw",
+        "export async function runPocOpenClawDashboard",
+      )],
+      ["runPocOpenClawDashboard", sourceSlice(
+        pocSource,
+        "export async function runPocOpenClawDashboard",
+        "function assertPocRuntimeOptions",
+      )],
+      ["executePocOpenClawCommand", sourceSlice(
+        pocSource,
+        "function executePocOpenClawCommand",
+        "async function runDashboardSetupCommand",
+      )],
+      ["executePocGateway", sourceSlice(
+        pocSource,
+        "function executePocGateway",
+        "async function waitForLoopbackPort",
+      )],
+    ]);
+
+    const browserChild = pocBodies.get("openPocDashboardUrl");
+    assert.equal(countOccurrences(browserChild, "spawn(command, args, launchOptions)"), 1);
+    assert.equal(countOccurrences(browserChild, "assertCurrentOpenClawTargetRuntime"), 0);
+    assertOrdered(browserChild, [
+      "new URL(url)",
+      "parsed.protocol !== \"http:\"",
+      "const injectedSpawn = options.spawnProcess",
+      "injectedSpawn == null",
+      "spawn(command, args, launchOptions)",
+    ]);
+
+    const commandOwner = pocBodies.get("runPocOpenClaw");
+    assert.match(commandOwner, /^export async function runPocOpenClaw\(options\) \{\n  assertCurrentOpenClawTargetRuntime\(\);/u);
+    assertOrdered(commandOwner, [
+      "assertCurrentOpenClawTargetRuntime();",
+      "path.resolve(options.workspace)",
+      "checkPocWorkspace",
+      "readRuntimeEnvFile",
+      "mkdir(",
+      "buildPocOpenClawCommands",
+      "options.runCommand",
+    ]);
+
+    const dashboardOwner = pocBodies.get("runPocOpenClawDashboard");
+    assert.match(dashboardOwner, /^export async function runPocOpenClawDashboard\(options\) \{\n  assertCurrentOpenClawTargetRuntime\(\);/u);
+    assertOrdered(dashboardOwner, [
+      "assertCurrentOpenClawTargetRuntime();",
+      "path.resolve(options.workspace)",
+      "checkPocWorkspace",
+      "readRuntimeEnvFile",
+      "options.checkPort",
+      "mkdir(",
+      "options.gatewayTokenFactory",
+      "buildPocDashboardCommands",
+      "options.runCommand",
+      "options.runGateway",
+    ]);
+
+    const commandChild = pocBodies.get("executePocOpenClawCommand");
+    assert.equal(countOccurrences(commandChild, "const child = spawn("), 1);
+    assert.match(commandChild, /assertCurrentOpenClawTargetRuntime\(\);\s*const child = spawn\(/u);
+
+    const gatewayChild = pocBodies.get("executePocGateway");
+    assert.equal(countOccurrences(gatewayChild, "const child = spawn("), 1);
+    assert.match(gatewayChild, /assertCurrentOpenClawTargetRuntime\(\);\s*const child = spawn\(/u);
+
+    const spawnSites = await inventoryProductionSpawnSites();
     assert.deepEqual(spawnSites, [
       { file: "src/builder-behavior-eval.js", count: 1 },
       { file: "src/builder-codex-host.js", count: 2 },
@@ -201,9 +303,279 @@ describe("OpenClaw runtime compatibility seams", () => {
       { file: "src/openclaw-probe.js", count: 1 },
       { file: "src/openclaw-process-supervisor.js", count: 1 },
       { file: "src/openclaw-safe-fs.js", count: 2 },
-      { file: "src/poc-openclaw-runtime.js", count: 1 },
+      { file: "src/poc-openclaw-runtime.js", count: 3 },
       { file: "src/runtime-execution.js", count: 1 },
     ]);
+  });
+
+  it("fails closed when a production child-process binding hides a fourth unclassified spawn site", async () => {
+    const pocSource = await readFile(path.join(REPOSITORY_ROOT, "src/poc-openclaw-runtime.js"), "utf8");
+    const fourthSite = `${pocSource}\nconst spawnAgain = spawn;\nspawnAgain(process.execPath, ["--version"]);\n`;
+
+    assert.throws(
+      () => assertExactPocSpawnInventory(fourthSite),
+      (error) => error?.code === "AGENTMO_CHILD_PROCESS_INVENTORY_REJECTED",
+    );
+  });
+
+  it("recognizes renamed and namespace child-process imports and rejects re-aliasing", () => {
+    assert.equal(countClassifiedSpawnSites(
+      'import { spawn as launchChild } from "node:child_process";\nlaunchChild("node", []);\n',
+    ), 1);
+    assert.equal(countClassifiedSpawnSites(
+      'import * as childProcess from "node:child_process";\nchildProcess.spawn("node", []);\n',
+    ), 1);
+    assert.equal(countClassifiedSpawnSites(
+      'import { spawn as launchChild } from "child_process";\nlaunchChild("node", []);\n',
+    ), 1);
+    assert.throws(
+      () => countClassifiedSpawnSites(
+        'import { spawn } from "node:child_process";\nconst spawnAgain = spawn;\nspawnAgain("node", []);\n',
+      ),
+      (error) => error?.code === "AGENTMO_CHILD_PROCESS_INVENTORY_REJECTED",
+    );
+    for (const source of [
+      'import * as childProcess from "node:child_process";\nchildProcess["spawn"]("node", []);\n',
+      'const childProcess = await import("node:child_process");\nchildProcess.spawn("node", []);\n',
+      'const childProcess = require("node:child_process");\nchildProcess.spawn("node", []);\n',
+      'const childProcess = process.getBuiltinModule("node:child_process");\nchildProcess.spawn("node", []);\n',
+      'const childProcess = await import("child_process");\nchildProcess.spawn("node", []);\n',
+      'const childProcess = require("node:" + "child_process");\nchildProcess.spawn("node", []);\n',
+      'const childProcess = process.getBuiltinModule(`node:${"child_process"}`);\nchildProcess.spawn("node", []);\n',
+      'import { createRequire } from "node:module";\nconst load = createRequire(import.meta.url);\nconst childProcess = load("node:child_process");\nchildProcess.spawn("node", []);\n',
+      'import { createRequire } from "module";\nconst load = createRequire(import.meta.url);\nconst childProcess = load("child_process");\nchildProcess.spawn("node", []);\n',
+      'import moduleBuiltin from "node:module";\nconst load = moduleBuiltin.createRequire(import.meta.url);\nconst childProcess = load("node:child_process");\nchildProcess.spawn("node", []);\n',
+      'const moduleBuiltin = await import("node:module");\nconst load = moduleBuiltin.createRequire(import.meta.url);\nconst childProcess = load("node:child_process");\nchildProcess.spawn("node", []);\n',
+      'const moduleBuiltin = require("module");\nconst load = moduleBuiltin.createRequire(import.meta.url);\nconst childProcess = load("child_process");\nchildProcess.spawn("node", []);\n',
+      'const gbm = process.getBuiltinModule;\nconst childProcess = gbm("node:child_process");\nchildProcess.spawn("node", []);\n',
+      'const gbm = process.getBuiltinModule.bind(process);\nconst childProcess = gbm("node:child_process");\nchildProcess.spawn("node", []);\n',
+      'import { getBuiltinModule as gbm } from "node:process";\nconst childProcess = gbm("node:child_process");\nchildProcess.spawn("node", []);\n',
+      'const req = require;\nconst childProcess = req("node:child_process");\nchildProcess.spawn("node", []);\n',
+      'const req = require.bind(globalThis);\nconst childProcess = req("node:child_process");\nchildProcess.spawn("node", []);\n',
+      'export { createRequire } from "node:module";\n',
+      'export { createRequire as loader } from "module";\n',
+      'process["getBuiltinModule"]("node:child_process").spawn("node", []);\n',
+      'const gbm = process["getBuiltinModule"];\nconst childProcess = gbm("node:child_process");\nchildProcess.spawn("node", []);\n',
+      'process["getBuiltinModule"]("node:module")["createRequire"](import.meta.url)("node:child_process").spawn("node", []);\n',
+      'process["get\\u0042uiltinModule"]("node:child_process").spawn("node", []);\n',
+      'process[`getBuiltinModule`]("node:child_process").spawn("node", []);\n',
+      'const capturedProcess = process;\n',
+      'acceptAuthority(process);\n',
+      'function exposeAuthority() { return process; }\n',
+      'Reflect.get(process, "getBuiltinModule")("node:child_process").spawn("node", []);\n',
+      'import * as processBuiltin from "node:process";\nprocessBuiltin.getBuiltinModule("node:child_process");\n',
+      'import processBuiltin from "process";\nprocessBuiltin.getBuiltinModule("node:child_process");\n',
+    ]) {
+      assert.throws(
+        () => countClassifiedSpawnSites(source),
+        (error) => error?.code === "AGENTMO_CHILD_PROCESS_INVENTORY_REJECTED",
+      );
+    }
+    assert.equal(countClassifiedSpawnSites([
+      '// require("node:child_process")',
+      'const stringDecoy = "process.getBuiltinModule";',
+      'const templateDecoy = `createRequire("node:module")`;',
+      'const regexDecoy = /require\\("child_process"\\)/u;',
+      'const environment = process.env;',
+      'const platform = process.platform;',
+      '',
+    ].join("\n")), 0);
+  });
+
+  it("rejects POC OpenClaw command entry before reading any hostile options property", async () => {
+    const { options, trapCounts } = hostilePocOptions();
+    const error = await withSimulatedCurrentNodeVersion(
+      INCOMPATIBLE_CONTRACT_VERSION,
+      () => captureRejectedError(() => runPocOpenClaw(options)),
+    );
+
+    assert.deepEqual(trapCounts, {
+      get: 0,
+      has: 0,
+      ownKeys: 0,
+      getOwnPropertyDescriptor: 0,
+    });
+    assertFixedUnsupportedRuntimeError(error, [
+      "options-canary",
+      "/private/options-canary",
+      "sk-options-canary",
+    ]);
+  });
+
+  it("rejects POC OpenClaw Dashboard entry before reading any hostile options property", async () => {
+    const { options, trapCounts } = hostilePocOptions();
+    const error = await withSimulatedCurrentNodeVersion(
+      INCOMPATIBLE_CONTRACT_VERSION,
+      () => captureRejectedError(() => runPocOpenClawDashboard(options)),
+    );
+
+    assert.deepEqual(trapCounts, {
+      get: 0,
+      has: 0,
+      ownKeys: 0,
+      getOwnPropertyDescriptor: 0,
+    });
+    assertFixedUnsupportedRuntimeError(error, [
+      "options-canary",
+      "/private/options-canary",
+      "sk-options-canary",
+    ]);
+  });
+
+  it("rejects POC OpenClaw commands before workspace, runtime-env, profile, credential, or runner effects", async () => {
+    const { root, workspace, envFile, profileHome } = await createPocRuntimeSeamFixture(
+      "agentmo-poc-command-runtime-seam-",
+    );
+    const effects = [];
+
+    const error = await withSimulatedCurrentNodeVersion(
+      INCOMPATIBLE_CONTRACT_VERSION,
+      () => captureRejectedError(() => runPocOpenClaw({
+        workspace,
+        profile: "agentmo-poc-runtime-seam",
+        model: "deepseek/test-model",
+        message: "Return bounded test output.",
+        runtimeEnvFile: envFile,
+        runCommand: async () => {
+          effects.push("runCommand");
+          return { exitCode: 0, stdout: "{}", stderr: "" };
+        },
+        ...ANTI_BYPASS_OPTIONS,
+      })),
+    );
+
+    assertFixedUnsupportedRuntimeError(error, [root, "test-only-provider-secret"]);
+    assert.equal(Object.hasOwn(error, "pocDiagnostic"), false);
+    assert.deepEqual(effects, []);
+    await assertPathAbsent(profileHome);
+  });
+
+  it("rejects POC OpenClaw gateway before port, profile, token, setup, gateway, readiness, or browser effects", async () => {
+    const { root, workspace, envFile, profileHome } = await createPocRuntimeSeamFixture(
+      "agentmo-poc-gateway-runtime-seam-",
+    );
+    const effects = [];
+
+    const error = await withSimulatedCurrentNodeVersion(
+      INCOMPATIBLE_CONTRACT_VERSION,
+      () => captureRejectedError(() => runPocOpenClawDashboard({
+        workspace,
+        profile: "agentmo-poc-dashboard-seam",
+        model: "deepseek/test-model",
+        runtimeEnvFile: envFile,
+        port: 18889,
+        checkPort: async () => { effects.push("checkPort"); return true; },
+        gatewayTokenFactory: () => {
+          effects.push("gatewayTokenFactory");
+          return "test-only-gateway-token";
+        },
+        runCommand: async () => {
+          effects.push("runCommand");
+          return { exitCode: 0, stdout: "{}", stderr: "" };
+        },
+        runGateway: async () => { effects.push("runGateway"); return 0; },
+        onReady: async () => { effects.push("onReady"); },
+        openDashboard: async () => { effects.push("openDashboard"); },
+        ...ANTI_BYPASS_OPTIONS,
+      })),
+    );
+
+    assertFixedUnsupportedRuntimeError(error, [
+      root,
+      "test-only-provider-secret",
+      "test-only-gateway-token",
+    ]);
+    assert.equal(Object.hasOwn(error, "pocDiagnostic"), false);
+    assert.deepEqual(effects, []);
+    await assertPathAbsent(profileHome);
+  });
+
+  it("keeps the ordinary POC OpenClaw final child barrier from spawning after runtime authority changes", async () => {
+    const { root, workspace, envFile } = await createPocRuntimeSeamFixture(
+      "agentmo-poc-command-final-barrier-",
+    );
+    const marker = path.join(root, "must-remain-absent.txt");
+    const markerExecutable = await createMarkerExecutable(root, marker);
+    const options = {
+      workspace,
+      profile: "agentmo-poc-command-barrier",
+      model: "deepseek/test-model",
+      message: "Return bounded test output.",
+      runtimeEnvFile: envFile,
+      executable: markerExecutable,
+    };
+    const restoreRuntime = switchRuntimeAtDefaultHelper(options, "runCommand");
+    let error;
+    try {
+      error = await captureRejectedError(() => runPocOpenClaw(options));
+    } finally {
+      restoreRuntime();
+    }
+
+    assertFixedUnsupportedRuntimeError(error, [root, "test-only-provider-secret"]);
+    await assertPathAbsent(marker);
+  });
+
+  it("keeps the POC gateway final child barrier from spawning after runtime authority changes", async () => {
+    const { root, workspace, envFile } = await createPocRuntimeSeamFixture(
+      "agentmo-poc-gateway-final-barrier-",
+    );
+    const marker = path.join(root, "must-remain-absent.txt");
+    const markerExecutable = await createMarkerExecutable(root, marker);
+    const effects = [];
+    const options = {
+      workspace,
+      profile: "agentmo-poc-gateway-barrier",
+      model: "deepseek/test-model",
+      runtimeEnvFile: envFile,
+      executable: markerExecutable,
+      port: 18889,
+      checkPort: async () => { effects.push("checkPort"); return true; },
+      gatewayTokenFactory: () => {
+        effects.push("gatewayTokenFactory");
+        return "test-only-gateway-token";
+      },
+      runCommand: async () => {
+        effects.push("runCommand");
+        return { exitCode: 0, stdout: "{}", stderr: "" };
+      },
+      onReady: async () => { effects.push("onReady"); },
+      openDashboard: async () => { effects.push("openDashboard"); },
+    };
+    const restoreRuntime = switchRuntimeAtDefaultHelper(options, "runGateway");
+    let error;
+    try {
+      error = await captureRejectedError(() => runPocOpenClawDashboard(options));
+    } finally {
+      restoreRuntime();
+    }
+
+    assertFixedUnsupportedRuntimeError(error, [
+      root,
+      "test-only-provider-secret",
+      "test-only-gateway-token",
+    ]);
+    assert.equal(effects.includes("onReady"), false);
+    assert.equal(effects.includes("openDashboard"), false);
+    await assertPathAbsent(marker);
+  });
+
+  it("restores the simulated runtime when final-barrier helper setup rejects hostile options", () => {
+    const original = Object.getOwnPropertyDescriptor(process.versions, "node");
+    const options = new Proxy(Object.create(null), {
+      defineProperty() {
+        throw new TypeError("hostile setup rejection");
+      },
+    });
+    try {
+      assert.throws(
+        () => switchRuntimeAtDefaultHelper(options, "runCommand"),
+        /hostile setup rejection/u,
+      );
+      assert.deepEqual(Object.getOwnPropertyDescriptor(process.versions, "node"), original);
+    } finally {
+      Object.defineProperty(process.versions, "node", original);
+    }
   });
 
   it("keeps OpenClaw scaffold rejection ahead of build-state and filesystem publication", async () => {
@@ -395,6 +767,147 @@ describe("OpenClaw runtime compatibility seams", () => {
   });
 
 });
+
+function pocRuntimeSeed() {
+  return {
+    schemaVersion: "agentmo.poc-seed.v1",
+    agentId: "runtime-seam-poc",
+    records: [{
+      id: "runtime-seam-record",
+      title: "Runtime seam record",
+      url: "https://example.com/runtime-seam",
+      publishedAt: "2026-05-06T00:00:00.000Z",
+      collectedAt: "2026-08-15T00:00:00.000Z",
+      category: "runtime-seam",
+      sourceType: "paper",
+      trustTier: "primary",
+      summary: "A bounded synthetic runtime seam record.",
+    }],
+  };
+}
+
+async function createPocRuntimeSeamFixture(prefix) {
+  const root = await mkdtemp(path.join(tmpdir(), prefix));
+  const workspace = path.join(root, "workspace");
+  const envFile = path.join(root, "runtime.env");
+  await writePocWorkspace(pocRuntimeSeed(), workspace);
+  await writeFile(envFile, "DEEPSEEK_API_KEY=test-only-provider-secret\n", "utf8");
+  return Object.freeze({
+    root,
+    workspace,
+    envFile,
+    profileHome: path.join(workspace, ".agentmo-poc-home"),
+  });
+}
+
+function hostilePocOptions() {
+  const trapCounts = {
+    get: 0,
+    has: 0,
+    ownKeys: 0,
+    getOwnPropertyDescriptor: 0,
+  };
+  const fail = (trap) => {
+    trapCounts[trap] += 1;
+    throw new Error("options-canary /private/options-canary sk-options-canary123456");
+  };
+  const options = new Proxy(Object.create(null), {
+    get: () => fail("get"),
+    has: () => fail("has"),
+    ownKeys: () => fail("ownKeys"),
+    getOwnPropertyDescriptor: () => fail("getOwnPropertyDescriptor"),
+  });
+  return Object.freeze({ options, trapCounts });
+}
+
+async function captureRejectedError(operation) {
+  let caught;
+  try {
+    await operation();
+  } catch (error) {
+    caught = error;
+  }
+  assert.notEqual(caught, undefined, "operation must reject");
+  return caught;
+}
+
+function assertFixedUnsupportedRuntimeError(error, forbidden = []) {
+  assert.equal(error?.code, "AGENTMO_OPENCLAW_RUNTIME_UNSUPPORTED");
+  assert.equal(error?.message, "Current process does not satisfy the OpenClaw target runtime range.");
+  const rendered = `${error?.name}:${error?.message}:${error?.code}:${JSON.stringify(error)}`;
+  assert.equal(rendered.includes(INCOMPATIBLE_CONTRACT_VERSION), false);
+  for (const canary of forbidden) assert.equal(rendered.includes(canary), false, canary);
+}
+
+async function createMarkerExecutable(root, marker) {
+  const markerExecutable = path.join(root, "marker-child");
+  await writeFile(
+    markerExecutable,
+    `#!/bin/sh\nprintf '%s' spawned > ${JSON.stringify(marker)}\n`,
+    { encoding: "utf8", mode: 0o700 },
+  );
+  await chmod(markerExecutable, 0o700);
+  return markerExecutable;
+}
+
+function switchRuntimeAtDefaultHelper(options, property) {
+  const original = Object.getOwnPropertyDescriptor(process.versions, "node");
+  assert.equal(original?.configurable, true, SIMULATION_NOTICE);
+  try {
+    Object.defineProperty(process.versions, "node", { ...original, value: "24.0.0" });
+    Object.defineProperty(options, property, {
+      configurable: true,
+      enumerable: false,
+      get() {
+        Object.defineProperty(process.versions, "node", {
+          ...original,
+          value: INCOMPATIBLE_CONTRACT_VERSION,
+        });
+        return undefined;
+      },
+    });
+  } catch (error) {
+    Object.defineProperty(process.versions, "node", original);
+    throw error;
+  }
+  return () => Object.defineProperty(process.versions, "node", original);
+}
+
+async function inventoryProductionSpawnSites() {
+  const spawnSites = [];
+  for (const fileUrl of await listJavaScriptFiles(SOURCE_ROOT)) {
+    const source = await readFile(fileUrl, "utf8");
+    const count = countClassifiedSpawnSites(source);
+    if (count > 0) {
+      spawnSites.push({
+        file: path.relative(REPOSITORY_ROOT, fileURLToPath(fileUrl)),
+        count,
+      });
+    }
+  }
+  return spawnSites;
+}
+
+function assertExactPocSpawnInventory(source) {
+  const count = countClassifiedSpawnSites(source);
+  if (count !== POC_CHILD_PROCESS_SITE_INVENTORY.length) rejectChildProcessInventory();
+}
+
+function countClassifiedSpawnSites(source) {
+  try {
+    return inventoryChildProcessCallSites(source, {
+      file: "production-child-process-inventory.js",
+    }).filter(({ method }) => method === "spawn").length;
+  } catch {
+    rejectChildProcessInventory();
+  }
+}
+
+function rejectChildProcessInventory() {
+  const error = new Error("Production child-process inventory is incomplete.");
+  error.code = "AGENTMO_CHILD_PROCESS_INVENTORY_REJECTED";
+  throw error;
+}
 
 async function withSimulatedCurrentNodeVersion(version, operation) {
   const original = Object.getOwnPropertyDescriptor(process.versions, "node");

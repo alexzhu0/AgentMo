@@ -54,6 +54,10 @@ const configuration = JSON.parse(process.argv.at(-1));
 const host = await import(configuration.moduleUrl);
 await host.acquireCodexSelectorStateReservation(configuration.request);
 `;
+const SHORT_LIVED_REAP_LEAF_TIMEOUT_MS = 10_000;
+const SHORT_LIVED_REAP_MARKER_TIMEOUT_MS = 15_000;
+const SHORT_LIVED_OBSERVATION_TIMEOUT_MS = 4_000;
+const SHORT_LIVED_FIXTURE_TIMEOUT_MS = 30_000;
 
 const FAKE_CODEX_SOURCE = `#!/usr/bin/env node
 const fs = require("node:fs");
@@ -114,15 +118,30 @@ function spawnEscapedStdoutGrandchild(kind) {
 }
 function spawnEscapedMarketplaceJsonGrandchild() {
   const emittedPath = path.join(process.env.HOME, ".fake-codex-command-post-exit-json-emitted");
+  const reapedPath = path.join(process.env.HOME, ".fake-codex-command-post-exit-parent-reaped");
   const source = [
     'const fs = require("node:fs");',
     'const path = require("node:path");',
+    "const parentPid = " + String(process.pid) + ";",
+    "const reapedDeadline = Date.now() + ${SHORT_LIVED_REAP_LEAF_TIMEOUT_MS};",
     'process.stdout.on("error", () => process.exit(0));',
-    "setTimeout(() => {",
-    "  fs.writeFileSync(" + JSON.stringify(emittedPath) + ", \\\"emitted\\\");",
-    '  process.stdout.write(JSON.stringify({ marketplaces: [{ name: "agentmo-local", source: path.join(process.env.HOME, ".agentmo", "builder", "codex-host", "marketplace", "agentmo-local") }] }));',
-    "  setTimeout(() => process.exit(0), 1);",
-    "}, 25);",
+    "function waitForParentReap() {",
+    "  try {",
+    "    process.kill(parentPid, 0);",
+    "  } catch (error) {",
+    '    if (error?.code !== "ESRCH") process.exit(1);',
+    "    fs.writeFileSync(" + JSON.stringify(reapedPath) + ", \\\"reaped\\\");",
+    "    setTimeout(() => {",
+    "      fs.writeFileSync(" + JSON.stringify(emittedPath) + ", \\\"emitted\\\");",
+    '      process.stdout.write(JSON.stringify({ marketplaces: [{ name: "agentmo-local", source: path.join(process.env.HOME, ".agentmo", "builder", "codex-host", "marketplace", "agentmo-local") }] }));',
+    "      setTimeout(() => process.exit(0), 1);",
+    "    }, 10);",
+    "    return;",
+    "  }",
+    "  if (Date.now() >= reapedDeadline) process.exit(1);",
+    "  setTimeout(waitForParentReap, 5);",
+    "}",
+    "waitForParentReap();",
   ].join("\\n");
   const child = spawn(process.execPath, ["-e", source], {
     detached: true,
@@ -164,6 +183,14 @@ if (commandMode === "escaped-post-exit-json"
   fs.writeFileSync(commandTimeoutSeenPath, "seen");
   fs.writeFileSync(path.join(process.env.HOME, ".fake-codex-command-pid"), String(process.pid));
   if (commandMode === "daemon" || commandMode === "escaped-daemon") {
+    if (commandMode === "escaped-daemon") {
+      process.on("exit", () => {
+        fs.writeFileSync(
+          path.join(process.env.HOME, ".fake-codex-command-escaped-parent-exit"),
+          "observed",
+        );
+      });
+    }
     const readyPath = commandMode === "escaped-daemon"
       ? spawnEscapedStdoutGrandchild("command-escaped")
       : spawnStubbornGrandchild("command");
@@ -213,6 +240,14 @@ if (commandMode === "escaped-post-exit-json"
       fs.writeFileSync(path.join(process.env.HOME, ".fake-codex-app-server-stdin-closed"), "observed");
     });
     if (appServerMode === "malformed-daemon" || appServerMode === "escaped-daemon") {
+      if (appServerMode === "escaped-daemon") {
+        process.on("exit", () => {
+          fs.writeFileSync(
+            path.join(process.env.HOME, ".fake-codex-app-server-escaped-parent-exit"),
+            "observed",
+          );
+        });
+      }
       const readyPath = appServerMode === "escaped-daemon"
         ? spawnEscapedStdoutGrandchild("app-server-escaped")
         : spawnStubbornGrandchild("app-server");
@@ -469,6 +504,33 @@ async function waitForFile(filePath, timeoutMs, message) {
   throw new Error(message);
 }
 
+function assertShortLivedEscapedDeadlineHierarchy() {
+  assert.ok(SHORT_LIVED_REAP_LEAF_TIMEOUT_MS < SHORT_LIVED_REAP_MARKER_TIMEOUT_MS);
+  assert.ok(
+    SHORT_LIVED_REAP_MARKER_TIMEOUT_MS + SHORT_LIVED_OBSERVATION_TIMEOUT_MS
+      < SHORT_LIVED_FIXTURE_TIMEOUT_MS,
+  );
+  assert.match(
+    FAKE_CODEX_SOURCE,
+    /"const reapedDeadline = Date\.now\(\) \+ 10000;",/u,
+  );
+  assert.doesNotMatch(FAKE_CODEX_SOURCE, /SHORT_LIVED_REAP_LEAF_TIMEOUT_MS/u);
+}
+
+async function drainShortLivedObservation(observationPromise) {
+  if (observationPromise === null) return null;
+  try {
+    await settleWithin(
+      observationPromise,
+      SHORT_LIVED_OBSERVATION_TIMEOUT_MS,
+      "short-lived host observation drain",
+    );
+    return null;
+  } catch (error) {
+    return error;
+  }
+}
+
 async function readEscapedGrandchildPid(runtime, kind) {
   const processId = Number(await readFile(
     path.join(runtime.home, `.fake-codex-${kind}-grandchild-pid`),
@@ -499,6 +561,22 @@ async function terminateEscapedProcess(processId, description) {
 }
 
 describe("Codex host additive-only contract", () => {
+  it("keeps the escaped parent-reap deadlines strictly nested", () => {
+    assertShortLivedEscapedDeadlineHierarchy();
+  });
+
+  it("drains a started short-lived observation before fixture restoration", async () => {
+    let settled = false;
+    const observation = new Promise((resolve) => {
+      setImmediate(() => {
+        settled = true;
+        resolve("settled");
+      });
+    });
+    assert.equal(await drainShortLivedObservation(observation), null);
+    assert.equal(settled, true);
+  });
+
   it("keeps selector, owner, and consumer evidence deterministic", () => {
     const selector = buildCodexHostSelector(release());
     assert.deepEqual(selector, {
@@ -755,8 +833,13 @@ describe("Codex host additive-only contract", () => {
       let escapedPid = null;
       let observationPromise = null;
       try {
-        const startedAt = Date.now();
         observationPromise = observeCodexHost({ projectRoot, release: release() });
+        await waitForFile(
+          path.join(runtime.home, ".fake-codex-command-escaped-parent-exit"),
+          10_000,
+          "escaped PATH-shadow command parent did not reach exit lifecycle",
+        );
+        const startedAt = Date.now();
         const observation = await settleWithin(
           observationPromise,
           4_000,
@@ -800,6 +883,7 @@ describe("Codex host additive-only contract", () => {
 
   it("rejects marketplace JSON emitted by a short-lived escaped command child after parent exit", {
     skip: process.platform === "win32",
+    timeout: SHORT_LIVED_FIXTURE_TIMEOUT_MS,
   }, async () => {
     const runtime = await createRuntime("agentmo-host-command-post-exit-json-", {
       fakeCodex: true,
@@ -807,24 +891,44 @@ describe("Codex host additive-only contract", () => {
     });
     await withRuntime(runtime, async () => {
       const projectRoot = await mkdtemp(path.join(tmpdir(), "agentmo-host-command-post-exit-json-project-"));
-      const startedAt = Date.now();
-      const observation = await settleWithin(
-        observeCodexHost({ projectRoot, release: release() }),
-        4_000,
-        "post-exit marketplace JSON left host observation unbounded",
-      );
-      const elapsedMs = Date.now() - startedAt;
+      let observationPromise = null;
+      let bodyError = null;
+      let drainError = null;
+      try {
+        observationPromise = observeCodexHost({ projectRoot, release: release() });
+        await waitForFile(
+          path.join(runtime.home, ".fake-codex-command-post-exit-parent-reaped"),
+          SHORT_LIVED_REAP_MARKER_TIMEOUT_MS,
+          "escaped command fixture did not observe its direct parent as reaped",
+        );
+        const startedAt = Date.now();
+        const observation = await settleWithin(
+          observationPromise,
+          SHORT_LIVED_OBSERVATION_TIMEOUT_MS,
+          "post-exit marketplace JSON left host observation unbounded",
+        );
+        const elapsedMs = Date.now() - startedAt;
 
-      await waitForFile(
-        path.join(runtime.home, ".fake-codex-command-post-exit-json-emitted"),
-        2_000,
-        "escaped command fixture did not attempt its post-exit JSON write",
-      );
-      assert.equal(observation.availability, "unavailable");
-      assert.equal(observation.marketplace.registration, "ambiguous");
-      assert.equal(observation.marketplace.sourceMatch, false);
-      assert.equal(observation.plugin.sourceMatch, false);
-      assert.equal(elapsedMs < 2_500, true, "post-exit command did not settle promptly");
+        await waitForFile(
+          path.join(runtime.home, ".fake-codex-command-post-exit-json-emitted"),
+          SHORT_LIVED_REAP_MARKER_TIMEOUT_MS,
+          "escaped command fixture did not attempt its post-exit JSON write",
+        );
+        assert.equal(observation.availability, "unavailable");
+        assert.equal(observation.marketplace.registration, "ambiguous");
+        assert.equal(observation.marketplace.sourceMatch, false);
+        assert.equal(observation.plugin.sourceMatch, false);
+        assert.equal(elapsedMs < 2_500, true, "post-exit command did not settle promptly");
+      } catch (error) {
+        bodyError = error;
+      } finally {
+        drainError = await drainShortLivedObservation(observationPromise);
+      }
+      if (bodyError !== null && drainError !== null) {
+        throw new AggregateError([bodyError, drainError], "Short-lived fixture and drain failed.");
+      }
+      if (bodyError !== null) throw bodyError;
+      if (drainError !== null) throw drainError;
     });
   });
 
@@ -841,8 +945,13 @@ describe("Codex host additive-only contract", () => {
       let escapedPid = null;
       let observationPromise = null;
       try {
-        const startedAt = Date.now();
         observationPromise = observeCodexHost({ projectRoot, release: release() });
+        await waitForFile(
+          path.join(runtime.home, ".fake-codex-app-server-escaped-parent-exit"),
+          10_000,
+          "escaped app-server parent did not reach exit lifecycle",
+        );
+        const startedAt = Date.now();
         const observation = await settleWithin(
           observationPromise,
           4_000,

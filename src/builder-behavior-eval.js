@@ -779,6 +779,7 @@ async function prepareAuthenticatedHookHarness({ admitted, installed, work }) {
     if (!destination.startsWith(`${packageRoot}${path.sep}`)) {
       fail("AGENTMO_BUILDER_BEHAVIOR_INSTALL_REJECTED");
     }
+    await mkdir(path.dirname(destination), { recursive: true, mode: 0o700 });
     await writeFile(destination, AUTHENTIC_HOOK_FIXTURE_METADATA, {
       flag: "wx",
       mode: 0o600,

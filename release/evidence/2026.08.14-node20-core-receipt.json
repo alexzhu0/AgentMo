@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "agentmo.node20-core-lane-receipt.v1",
+  "status": "tested",
+  "observedAt": "2026-08-15T10:43:35.437Z",
+  "runtime": {
+    "version": "20.20.2",
+    "architecture": "arm64",
+    "processExecPathMatchesSelectedExecutable": true
+  },
+  "provenance": {
+    "archiveName": "node-v20.20.2-darwin-arm64.tar.gz",
+    "archiveSha256": "466e05f3477c20dfb723054dfebffe55bc74660ee77f612166fca121dacb65b6",
+    "checksumManifestSha256": "c6f74825d6ddf350ef06600c67fec6ea2f7996cf438a78c3cb2a89b29d4320ed",
+    "checksumEntrySha256": "466e05f3477c20dfb723054dfebffe55bc74660ee77f612166fca121dacb65b6",
+    "archiveMember": "node-v20.20.2-darwin-arm64/bin/node",
+    "archiveMemberSha256": "38de4fc456c0c439bac48c727d378f749abb4e31f4116703bb1ee9a746fccbb6",
+    "executableSha256": "38de4fc456c0c439bac48c727d378f749abb4e31f4116703bb1ee9a746fccbb6",
+    "executableMatchesArchiveMember": true
+  },
+  "commandSetDigest": "455e7d36ab8eb2334e0854977063637cc79bc9b9734fd3c3df2bfa6ea86894e2",
+  "batches": [
+    {
+      "id": "syntax",
+      "pass": 42,
+      "skip": 0,
+      "fail": 0,
+      "total": 42
+    },
+    {
+      "id": "core-contracts",
+      "pass": 62,
+      "skip": 1,
+      "fail": 0,
+      "total": 63
+    },
+    {
+      "id": "stage-contracts",
+      "pass": 3,
+      "skip": 2,
+      "fail": 0,
+      "total": 5
+    }
+  ],
+  "certificationBoundary": {
+    "runtimeEvidenceCertifiesDomainQuality": false,
+    "runtimeEvidenceApprovesProduction": false,
+    "runtimeEvidenceCertifiesWiderOpenClaw": false
+  }
+}

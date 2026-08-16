@@ -19,7 +19,7 @@
 ```json
 {
   "schemaVersion": "agentmo.runtime-compatibility-matrix.v1",
-  "observedAt": "2026-07-13",
+  "observedAt": "2026-08-15",
   "evidenceClasses": [
     "upstream-declared",
     "official-supported",
@@ -102,7 +102,7 @@
       "range": ">=20",
       "command": "npm run check:core:node20 -- --node-bin \"$NODE20_BIN\" --archive \"$NODE20_ARCHIVE\" --checksums \"$NODE20_CHECKSUMS\" --expected-version 20.20.2 --expected-arch arm64 --receipt \"$NODE20_RECEIPT\"",
       "status": "tested",
-      "evidenceRef": "receipt=release/evidence/2026.07.13-node20-core-receipt.json; receipt-sha256=c06631d9ccb43ebb2b5cbf85a4f20cccc65421148d051cdb238fc96a1f1559bf; command-set-sha256=7f397187278cdde65ed29704ff6dd91c0d952dea464d1fe6d144235da9b0edf5; archive-sha256=466e05f3477c20dfb723054dfebffe55bc74660ee77f612166fca121dacb65b6; checksums-manifest-sha256=c6f74825d6ddf350ef06600c67fec6ea2f7996cf438a78c3cb2a89b29d4320ed; archive-member-sha256=38de4fc456c0c439bac48c727d378f749abb4e31f4116703bb1ee9a746fccbb6; executable-sha256=38de4fc456c0c439bac48c727d378f749abb4e31f4116703bb1ee9a746fccbb6; batches=syntax:40/0/0/40|core-contracts:45/0/0/45|stage-contracts:3/1/0/4",
+      "evidenceRef": "receipt=release/evidence/2026.08.14-node20-core-receipt.json; receipt-sha256=64fd5deba66e05c94c176934a5472ecdebc15a85ac63d943257d1bc0480be538; command-set-sha256=455e7d36ab8eb2334e0854977063637cc79bc9b9734fd3c3df2bfa6ea86894e2; archive-sha256=466e05f3477c20dfb723054dfebffe55bc74660ee77f612166fca121dacb65b6; checksums-manifest-sha256=c6f74825d6ddf350ef06600c67fec6ea2f7996cf438a78c3cb2a89b29d4320ed; archive-member-sha256=38de4fc456c0c439bac48c727d378f749abb4e31f4116703bb1ee9a746fccbb6; executable-sha256=38de4fc456c0c439bac48c727d378f749abb4e31f4116703bb1ee9a746fccbb6; batches=syntax:42/0/0/42|core-contracts:62/1/0/63|stage-contracts:3/2/0/5",
       "remainingRisk": "Node.js 20 is end-of-life; this is compatibility and rejection evidence, not a production-runtime recommendation."
     },
     {
@@ -128,9 +128,11 @@
 
 ## 实际执行边界
 
-`scripts/node20-core-lane.sh` 不下载运行时、不搜索 `PATH`、不回退到 current-host `node`，也不修改或模拟 `process.versions.node`。它只接受显式 canonical executable、archive、checksum manifest、精确版本/架构和一个尚不存在的临时 receipt 目标；由所选 executable 启动的 helper 会核对 `realpath(process.execPath)`、repo-owned trust anchor、官方 archive checksum、archive member 与 executable bytes，再运行固定 producer command manifest。该 manifest 的摘要为 `7f397187278cdde65ed29704ff6dd91c0d952dea464d1fe6d144235da9b0edf5`，本次实际结果为 syntax 40 pass、core contracts 45 pass、Stage contracts 3 pass + 1 skip，零 fail。`test/runtime-evidence-consumers.test.js` 是发布后的消费者，不进入 producer manifest，也不接受历史 trust-marker 环境变量代替 receipt。
+`scripts/node20-core-lane.sh` 不下载运行时、不搜索 `PATH`、不回退到 current-host `node`，也不修改或模拟 `process.versions.node`。它只接受显式 canonical executable、archive、checksum manifest、精确版本/架构和一个尚不存在的临时 receipt 目标；由所选 executable 启动的 helper 会核对 `realpath(process.execPath)`、repo-owned trust anchor、官方 archive checksum、archive member 与 executable bytes，再运行固定 producer command manifest。当前 manifest 的摘要为 `455e7d36ab8eb2334e0854977063637cc79bc9b9734fd3c3df2bfa6ea86894e2`，本次实际结果为 syntax 42 pass、core contracts 62 pass + 1 skip、Stage contracts 3 pass + 2 skip，零 fail。`test/runtime-evidence-consumers.test.js` 是发布后的消费者，不进入 producer manifest，也不接受历史 trust-marker 环境变量代替 receipt。
 
-Node.js 20 临时运行时只从 Node.js 官方发布地址取得；执行前以官方 `SHASUMS256.txt` 条目和仓库内 [`scripts/node20-distribution-trust.json`](../scripts/node20-distribution-trust.json) 双重约束归档、manifest、member 与 executable。成功生成的临时 receipt 经逐字节核对后发布为 [`release/evidence/2026.07.13-node20-core-receipt.json`](../release/evidence/2026.07.13-node20-core-receipt.json)，只保存版本、架构、provenance/command 摘要、批次计数与三个 false certification booleans；receipt SHA-256 为 `c06631d9ccb43ebb2b5cbf85a4f20cccc65421148d051cdb238fc96a1f1559bf`。它不保存临时宿主路径、原始命令输出、payload、transcript 或 credential-bearing state。
+Node.js 20 临时运行时只从 Node.js 官方发布地址取得；执行前以官方 `SHASUMS256.txt` 条目和仓库内 [`scripts/node20-distribution-trust.json`](../scripts/node20-distribution-trust.json) 双重约束归档、manifest、member 与 executable。成功生成的临时 receipt 经逐字节核对后发布为 [`release/evidence/2026.08.14-node20-core-receipt.json`](../release/evidence/2026.08.14-node20-core-receipt.json)，只保存版本、架构、provenance/command 摘要、批次计数与三个 false certification booleans；receipt SHA-256 为 `64fd5deba66e05c94c176934a5472ecdebc15a85ac63d943257d1bc0480be538`，观察时间为 `2026-08-15T10:43:35.437Z`。历史 [`2026.07.13-node20-core-receipt.json`](../release/evidence/2026.07.13-node20-core-receipt.json) 及其 SHA-256 `c06631d9ccb43ebb2b5cbf85a4f20cccc65421148d051cdb238fc96a1f1559bf` 保留为旧 command manifest 的历史证据。两份 receipt 都不保存临时宿主路径、原始命令输出、payload、transcript 或 credential-bearing state。
+
+矩阵中的 boundary command、current-host `npm run check`、`24.18.0 arm64` 与 `448/448` 结果来自 2026.07.13 的历史 current-host/boundary evidence，本轮没有重跑这些命令；更新 `observedAt` 只表示 Node.js 20 current evidence row 在 2026.08.15 被新 receipt 替换，不把历史 current-host 事实冒充成本轮执行。
 
 ## 非认证边界
 

@@ -1,16 +1,15 @@
 import { dirname, isAbsolute, relative, resolve, win32 } from "node:path";
 import { lstat, readFile, realpath, writeFile } from "node:fs/promises";
 import {
-  admittedArtifactProvenance,
   ArtifactAdmissionError,
   digestRawBytes,
   loadAdmittedArtifact,
   parseDigestBindings,
 } from "./artifact-admission.js";
 import {
-  buildAgentIdeaCandidateReport,
-  formatAgentIdeaCandidateReport,
-} from "./agent-idea-candidate.js";
+  AGENT_IDEA_CANDIDATE_REPORT_HELP,
+  runAgentIdeaCandidateReportCommand,
+} from "./agent-idea-candidate-cli.js";
 import {
   formatArtifactContract,
   getArtifactContract,
@@ -737,31 +736,7 @@ async function runCommand(args) {
   }
 
   if (command === "agent-idea-candidate-report") {
-    const options = parseAgentIdeaCandidateReportArgs(rest);
-    const discoveryDbAdmission = await loadAdmittedArtifact({
-      filePath: options.discoveryDb,
-      subject: "discovery-db",
-      expectedDigest: options.digests["discovery-db"],
-    });
-    const candidateAdmission = await loadAdmittedArtifact({
-      filePath: options.file,
-      subject: "agent-idea-candidate",
-      expectedDigest: options.digests["agent-idea-candidate"],
-      companions: { "discovery-db": discoveryDbAdmission },
-    });
-    const report = buildAgentIdeaCandidateReport(candidateAdmission.value, {
-      discoveryDb: discoveryDbAdmission.value,
-      source: admittedArtifactProvenance(discoveryDbAdmission, {
-        subject: "discovery-db",
-        value: discoveryDbAdmission.value,
-      }),
-    });
-    await emitArtifactOutput(report, {
-      json: options.json,
-      subject: "agent-idea-candidate-report",
-      format: () => formatAgentIdeaCandidateReport(report),
-    });
-    if (!report.ok) process.exitCode = 1;
+    await runAgentIdeaCandidateReportCommand(rest, { emitArtifactOutput, cliError });
     return;
   }
 
@@ -3204,40 +3179,6 @@ function parseDiscoverReportArgs(args) {
   }
   const digests = parseDigestBindings(digestBindings, subjectsForCommand("discover-report"));
   return { file: resolve(file), json, digests };
-}
-
-function parseAgentIdeaCandidateReportArgs(args) {
-  const file = args[0];
-  if (!file) throw new Error("Missing Agent Idea Candidate file path.");
-  let discoveryDb = null;
-  let json = false;
-  const digestBindings = [];
-  for (let index = 1; index < args.length; index += 1) {
-    const arg = args[index];
-    if (arg === "--discovery-db") {
-      if (discoveryDb !== null) throw cliError("AGENTMO_CLI_REQUEST_REJECTED");
-      discoveryDb = args[index + 1];
-      index += 1;
-    } else if (arg === "--json") {
-      json = true;
-    } else if (arg === "--digest") {
-      digestBindings.push(requireDigestBinding(args[index + 1]));
-      index += 1;
-    } else {
-      throw new Error(`Unknown agent-idea-candidate-report option: ${arg}`);
-    }
-  }
-  requireOptionValue(discoveryDb, "--discovery-db");
-  const digests = parseDigestBindings(
-    digestBindings,
-    subjectsForCommand("agent-idea-candidate-report"),
-  );
-  return {
-    file: resolve(file),
-    discoveryDb: resolve(discoveryDb),
-    json,
-    digests,
-  };
 }
 
 function requireDigestBinding(value) {
@@ -6430,11 +6371,7 @@ Usage: agentmo discover-workspace <discovery.json> --digest discovery-manifest=s
 Contract: agentmo artifact-contract discovery-manifest --json
 Only approved repo-bound local files are read.
 `,
-    "agent-idea-candidate-report": `AgentMo agent-idea-candidate-report
-Usage: agentmo agent-idea-candidate-report <candidate.json> --discovery-db <db.json> --digest agent-idea-candidate=sha256:<64hex> --digest discovery-db=sha256:<64hex> [--json]
-Contract: agentmo artifact-contract agent-idea-candidate --json
-Validates one proposal-only Candidate and exact Discovery DB fact references. It does not authorize Plan, build, runtime, or production use and does not record a human decision.
-`,
+    "agent-idea-candidate-report": AGENT_IDEA_CANDIDATE_REPORT_HELP,
     "discovery-approve": `AgentMo discovery-approve
 Usage: agentmo discovery-approve <discovery.json> --discovery-db <agentmo-discovery-db.json> --digest discovery-manifest=sha256:<64hex> --digest discovery-db=sha256:<64hex> [--approve --preview-digest sha256:<64hex> --out <approval.json>] [--json]
 Preview is write-free. Apply records local operator intent for enter-Plan only; it does not certify organizational authority, source quality, runtime, domain, package, or production readiness.

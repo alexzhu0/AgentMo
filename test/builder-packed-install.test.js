@@ -28,11 +28,13 @@ import {
   buildApprovedPackageFixture,
   packageProduceOptions,
 } from "./helpers/package-produce-fixture.js";
+import { NATIVE_OPENCLAW_FS } from "./helpers/native-openclaw-fs.js";
 
 const execFileAsync = promisify(execFile);
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const RECEIPT_PATH = ".agentmo/builder/install-receipt.json";
 const PACKED_INSTALL_TIMEOUT_MS = 360_000;
+const PACKED_AUTHENTIC_HOOK_TIMEOUT_MS = 90_000;
 const PHASE_4_PACKED_RUNTIME_MODULES = Object.freeze([
   "src/openclaw-authority-consumption.js",
   "src/openclaw-authority-root-binding.js",
@@ -112,20 +114,43 @@ async function checkpointJournalSnapshot(filePath) {
 
 function runNode(filePath, input, options = {}) {
   return new Promise((resolve) => {
+    const startedAt = Date.now();
     const child = execFile(process.execPath, [filePath], {
       encoding: "utf8",
       cwd: options.cwd,
       env: options.env === undefined ? process.env : { ...process.env, ...options.env },
       timeout: options.timeoutMs ?? 15_000,
     }, (error, stdout, stderr) => {
+      const termination = error === null
+        ? "exited"
+        : error?.killed === true
+          ? "timed-out"
+          : Number.isInteger(error?.code)
+            ? "nonzero-exit"
+            : "launch-failed";
       resolve({
+        termination,
         code: Number.isInteger(error?.code) ? error.code : (error === null ? 0 : 1),
         signal: error?.signal ?? null,
+        killed: error?.killed === true || child.killed === true,
+        elapsedMs: Date.now() - startedAt,
         stdout,
         stderr,
       });
     });
     child.stdin.end(input);
+  });
+}
+
+function valueBlindHookExecutionDiagnosis(result) {
+  return JSON.stringify({
+    termination: result.termination,
+    code: result.code,
+    signal: result.signal,
+    killed: result.killed,
+    elapsedMs: result.elapsedMs,
+    stdoutBytes: Buffer.byteLength(result.stdout ?? "", "utf8"),
+    stderrBytes: Buffer.byteLength(result.stderr ?? "", "utf8"),
   });
 }
 
@@ -1678,6 +1703,7 @@ describe("packed Codex Builder setup", { concurrency: false }, () => {
   });
 
   it("Phase 4 extracted tarball full journey closes six root gaps", {
+    skip: !NATIVE_OPENCLAW_FS,
     timeout: PACKED_INSTALL_TIMEOUT_MS,
   }, async () => {
     const targetExecutableSource = [
@@ -2667,8 +2693,8 @@ describe("packed Codex Builder setup", { concurrency: false }, () => {
         kind, sourcePath, relativePath, destinationPath, digest, byteLength,
       })),
     );
-    assert.equal(first.assets.length, 106);
-    assert.equal(first.assets.filter((asset) => asset.kind === "runtime").length, 101);
+    assert.equal(first.assets.length, 116);
+    assert.equal(first.assets.filter((asset) => asset.kind === "runtime").length, 111);
     assert.deepEqual(
       first.assets.map((asset) => asset.destinationPath),
       first.assets.map((asset) => asset.destinationPath).toSorted((left, right) => {
@@ -2691,6 +2717,26 @@ describe("packed Codex Builder setup", { concurrency: false }, () => {
     assert.equal(first.assets.some((asset) => asset.sourcePath === "src/discovery-approval.js"), true);
     assert.equal(first.assets.some((asset) => asset.sourcePath === "src/decision-ledger.js"), true);
     assert.equal(first.assets.some((asset) => asset.sourcePath === "src/build-contract.js"), true);
+    for (const sourcePath of [
+      "src/agent-idea-candidate-cli.js",
+      "src/agent-idea-candidate.js",
+      "src/poc-agent.js",
+      "src/poc-cli.js",
+      "src/poc-openclaw-runtime.js",
+      "src/poc-research-brief.js",
+      "src/poc-research-collector.js",
+      "src/poc-research-contract.js",
+      "src/poc-research-store.js",
+      "src/poc-research-workspace.js",
+    ]) {
+      assert.equal(
+        first.assets.some((asset) => (
+          asset.kind === "runtime" && asset.sourcePath === sourcePath
+        )),
+        true,
+        sourcePath,
+      );
+    }
     assert.equal(
       first.assets.some(
         (asset) => asset.sourcePath === "src/openclaw-install-evidence.js",
@@ -3957,13 +4003,24 @@ describe("packed Codex Builder setup", { concurrency: false }, () => {
       transcript_path: "/private/tmp/SECRET_TRANSCRIPT",
       output: "SECRET_OUTPUT_CANARY",
     };
-    const childOptions = {
+    const baseChildOptions = {
       cwd: project,
       env: { HOME: home, CODEX_HOME: path.join(home, ".codex") },
+    };
+    const authenticatedSuccessChildOptions = {
+      ...baseChildOptions,
+      timeoutMs: PACKED_AUTHENTIC_HOOK_TIMEOUT_MS,
+    };
+    const fastRejectionChildOptions = {
+      ...baseChildOptions,
       timeoutMs: 35_000,
     };
-    const session = await runNode(runnerPath, JSON.stringify(sessionInput), childOptions);
-    assert.equal(session.code, 0, session.stderr);
+    const session = await runNode(
+      runnerPath,
+      JSON.stringify(sessionInput),
+      authenticatedSuccessChildOptions,
+    );
+    assert.equal(session.code, 0, valueBlindHookExecutionDiagnosis(session));
     assert.equal(session.stderr, "");
     const sessionOutput = JSON.parse(session.stdout);
     assert.equal(sessionOutput.hookSpecificOutput.hookEventName, "SessionStart");
@@ -4045,9 +4102,9 @@ describe("packed Codex Builder setup", { concurrency: false }, () => {
     const activeReplay = await runNode(
       runnerPath,
       JSON.stringify(sessionInput),
-      childOptions,
+      authenticatedSuccessChildOptions,
     );
-    assert.equal(activeReplay.code, 0, activeReplay.stderr);
+    assert.equal(activeReplay.code, 0, valueBlindHookExecutionDiagnosis(activeReplay));
     assert.equal(activeReplay.stdout, "{}\n");
     assert.equal(activeReplay.stderr, "");
     assert.deepEqual(
@@ -4079,7 +4136,7 @@ describe("packed Codex Builder setup", { concurrency: false }, () => {
     const unknown = await runNode(runnerPath, JSON.stringify({
       hook_event_name: "UserPromptSubmit",
       session_id: "packed-chain-session",
-    }), childOptions);
+    }), fastRejectionChildOptions);
     assert.equal(unknown.code, 0);
     assert.equal(unknown.stdout, "");
     assert.equal(unknown.stderr, "");
@@ -4095,7 +4152,7 @@ describe("packed Codex Builder setup", { concurrency: false }, () => {
         hook_event_name: "SessionStart",
         session_id: "hostile-delivery-cwd",
         project: project,
-      }), { ...childOptions, cwd: hostileCwd });
+      }), { ...fastRejectionChildOptions, cwd: hostileCwd });
       assert.notEqual(rejected.code, 0);
       assert.equal(rejected.stdout, "");
       assert.equal(rejected.stderr, "");
@@ -4108,7 +4165,7 @@ describe("packed Codex Builder setup", { concurrency: false }, () => {
     const missingReceipt = await runNode(runnerPath, JSON.stringify({
       hook_event_name: "SessionStart",
       session_id: "missing-receipt",
-    }), childOptions);
+    }), fastRejectionChildOptions);
     assert.notEqual(missingReceipt.code, 0);
     assert.equal(missingReceipt.stdout, "");
     assert.equal(missingReceipt.stderr, "");
@@ -4118,16 +4175,16 @@ describe("packed Codex Builder setup", { concurrency: false }, () => {
     const pre = await runNode(runnerPath, JSON.stringify({
       hook_event_name: "PreCompact",
       session_id: "packed-chain-session",
-    }), childOptions);
-    assert.equal(pre.code, 0, pre.stderr);
+    }), authenticatedSuccessChildOptions);
+    assert.equal(pre.code, 0, valueBlindHookExecutionDiagnosis(pre));
     assert.equal(pre.stdout, "{}\n");
     assert.equal(pre.stderr, "");
 
     const post = await runNode(runnerPath, JSON.stringify({
       hook_event_name: "PostCompact",
       session_id: "packed-chain-session",
-    }), childOptions);
-    assert.equal(post.code, 0, post.stderr);
+    }), authenticatedSuccessChildOptions);
+    assert.equal(post.code, 0, valueBlindHookExecutionDiagnosis(post));
     const postOutput = JSON.parse(post.stdout);
     assert.equal(postOutput.hookSpecificOutput.hookEventName, "PostCompact");
     assert.match(postOutput.hookSpecificOutput.additionalContext, /resumable at plan/u);
@@ -4137,8 +4194,8 @@ describe("packed Codex Builder setup", { concurrency: false }, () => {
     const replay = await runNode(runnerPath, JSON.stringify({
       hook_event_name: "PostCompact",
       session_id: "packed-chain-session",
-    }), childOptions);
-    assert.equal(replay.code, 0, replay.stderr);
+    }), authenticatedSuccessChildOptions);
+    assert.equal(replay.code, 0, valueBlindHookExecutionDiagnosis(replay));
     assert.equal(replay.stdout, "{}\n");
     assert.equal(replay.stderr, "");
     assert.deepEqual(await checkpointJournalSnapshot(checkpointPath), beforeReplay);
@@ -4147,7 +4204,7 @@ describe("packed Codex Builder setup", { concurrency: false }, () => {
     const swapped = startNode(runnerPath, JSON.stringify({
       hook_event_name: "PreCompact",
       session_id: "packed-chain-session",
-    }), childOptions);
+    }), authenticatedSuccessChildOptions);
     // The adjacent launcher child is spawned only after admission has captured
     // and digested the complete release. Observe that natural process boundary
     // before replacing pathnames; a fixed delay races slower Linux runners.
@@ -4293,9 +4350,9 @@ describe("packed Codex Builder setup", { concurrency: false }, () => {
       }), {
         ...fixture.childOptions,
         env: { ...fixture.childOptions.env, TMPDIR: hostileTmp },
-        timeoutMs: 35_000,
+        timeoutMs: PACKED_AUTHENTIC_HOOK_TIMEOUT_MS,
       });
-      assert.equal(delivered.code, 0, delivered.stderr);
+      assert.equal(delivered.code, 0, valueBlindHookExecutionDiagnosis(delivered));
       assert.equal(delivered.stderr, "");
     }
     assert.deepEqual(await readdir(hostileTmp), []);

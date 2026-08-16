@@ -309,6 +309,7 @@ describe("artifact/output surface inventory", () => {
       "src/builder-codex-uat-continuation.js",
       "src/builder-codex-uat-private-authority.js",
       "src/builder-package.js",
+      "src/agent-idea-candidate-cli.js",
       "src/cli.js",
     ]);
     const discovered = (await scanIoSurfaces(REPO_ROOT))
@@ -330,6 +331,7 @@ describe("artifact/output surface inventory", () => {
       ["src/builder-package.js", "phase-02-plan-17"],
       ["src/builder-codex-uat-continuation.js", "phase-02-plan-22"],
       ["src/builder-codex-uat-private-authority.js", "phase-02-plan-23"],
+      ["src/agent-idea-candidate-cli.js", "phase-03-plan-05"],
       ["src/cli.js", "phase-02-plan-20"],
     ]);
     assert.equal(allowed.every(([id, row]) => (
@@ -440,19 +442,27 @@ describe("artifact/output surface inventory", () => {
     );
   });
 
-  it("publishes the Agent Idea Candidate validator in npm and Builder inventories", async () => {
-    const sourcePath = "src/agent-idea-candidate.js";
+  it("publishes the Agent Idea Candidate validator and CLI runner in npm and Builder inventories", async () => {
+    const sourcePaths = [
+      "src/agent-idea-candidate-cli.js",
+      "src/agent-idea-candidate.js",
+    ];
     const packageJson = JSON.parse(await readFile(
       path.join(REPO_ROOT, "package.json"),
       "utf8",
     ));
-    assert.equal(packageJson.files.includes(sourcePath), true);
-    assert.equal(
-      BUILDER_RELEASE_ASSET_INVENTORY.some((entry) => entry.sourcePath === sourcePath),
-      true,
-    );
-    assert.equal(BUILDER_NPM_TARBALL_INVENTORY.includes(sourcePath), true);
-    assert.match(packageJson.scripts.check, /node --check src\/agent-idea-candidate\.js(?: |$)/u);
+    for (const sourcePath of sourcePaths) {
+      assert.equal(packageJson.files.includes(sourcePath), true);
+      assert.equal(
+        BUILDER_RELEASE_ASSET_INVENTORY.some((entry) => entry.sourcePath === sourcePath),
+        true,
+      );
+      assert.equal(BUILDER_NPM_TARBALL_INVENTORY.includes(sourcePath), true);
+      assert.match(
+        packageJson.scripts.check,
+        new RegExp(`node --check ${sourcePath.replaceAll(".", "\\.")}(?: |$)`, "u"),
+      );
+    }
   });
 
   it("proves durable reads use one exact retained capture instead of trusting a gated label", async () => {

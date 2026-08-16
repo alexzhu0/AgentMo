@@ -24,6 +24,7 @@ import { buildPackageArchive } from "../../src/package-archive.js";
 import { produceAgentPackage } from "../../src/package-produce.js";
 import { serializePersistableJson } from "../../src/persistability.js";
 import { buildSupportContractInputs } from "./build-contract-fixture.js";
+import { NATIVE_OPENCLAW_FS } from "./native-openclaw-fs.js";
 
 export const digestBytes = (bytes) => (
   `sha256:${createHash("sha256").update(bytes).digest("hex")}`
@@ -183,7 +184,7 @@ export async function buildApprovedPackageFixture(options = {}) {
       buildInfoDigest: digestBytes(await readFile(inputs.targetFiles.buildInfoPath)),
     },
   });
-  if (process.platform === "linux") {
+  if (NATIVE_OPENCLAW_FS) {
     await writeOpenClawTargetCarrierAdmission(
       paths["openclaw-target-carrier-admission"],
       targetAdmission,
@@ -239,7 +240,7 @@ export function packageProduceOptions(fixture, outputRoot, archivePath) {
 }
 
 export async function produceAgentPackageFixture(options) {
-  if (process.platform === "linux") return produceAgentPackage(options);
+  if (NATIVE_OPENCLAW_FS) return produceAgentPackage(options);
   let captured = null;
   try {
     await produceAgentPackage(options, {

@@ -38,6 +38,7 @@ import {
 } from "../src/openclaw-target-descriptor.js";
 import { serializePersistableJson } from "../src/persistability.js";
 import { buildSupportContractInputs } from "./helpers/build-contract-fixture.js";
+import { NATIVE_OPENCLAW_FS } from "./helpers/native-openclaw-fs.js";
 
 const sha256 = (bytes) => `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
 const CLI = fileURLToPath(new URL("../bin/agentmo.js", import.meta.url));
@@ -216,7 +217,9 @@ describe("OpenClaw exact target/carrier admission", () => {
     assert.equal(typeof writeOpenClawTargetCarrierAdmission, "function");
   });
 
-  it("publishes one create-only exact admission and fresh-process re-admits its source chain", async () => {
+  it("publishes one create-only exact admission and fresh-process re-admits its source chain", {
+    skip: !NATIVE_OPENCLAW_FS,
+  }, async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agentmo-openclaw-target-success-"));
     const chain = await exactAuthorityChain(root);
     const executable = path.join(root, "openclaw");
@@ -280,7 +283,9 @@ describe("OpenClaw exact target/carrier admission", () => {
     assert.deepEqual(reAdmitted.value, admission);
   });
 
-  it("preserves an unknown admission post-publication replacement", async () => {
+  it("preserves an unknown admission post-publication replacement", {
+    skip: !NATIVE_OPENCLAW_FS,
+  }, async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agentmo-openclaw-admission-replacement-"));
     const chain = await exactAuthorityChain(root);
     const admission = await buildOpenClawTargetCarrierAdmission({
@@ -381,7 +386,9 @@ describe("OpenClaw exact target/carrier admission", () => {
     await assert.rejects(() => access(output));
   });
 
-  it("itemizes an admission when failure follows atomic final rename", async () => {
+  it("itemizes an admission when failure follows atomic final rename", {
+    skip: !NATIVE_OPENCLAW_FS,
+  }, async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agentmo-openclaw-admission-link-window-"));
     const chain = await exactAuthorityChain(root);
     const admission = await buildOpenClawTargetCarrierAdmission({
@@ -487,7 +494,9 @@ describe("OpenClaw exact target/carrier admission", () => {
     );
   });
 
-  it("admits through the public fresh-process CLI and rejects every plugin-byte option", async () => {
+  it("admits through the public fresh-process CLI and rejects every plugin-byte option", {
+    skip: !NATIVE_OPENCLAW_FS,
+  }, async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agentmo-openclaw-target-cli-"));
     const chain = await exactAuthorityChain(root);
     const blueprintPath = path.join(root, "blueprint.json");

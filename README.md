@@ -426,12 +426,15 @@ as a domain scaffold operation.
 
 ## Session recovery and current handoff
 
-AgentMo carries a repo-local current-status page and handoff for restarting
-Codex/OMX without relying on old chat context:
+AgentMo carries repo-local current-status and workflow pages for restarting a
+coding session without relying on old chat context:
 
 ```text
+AGENTS.md
+docs/SUPERPOWERS_WORKFLOW.md
 docs/CURRENT_STATUS.md
-docs/OMX_SESSION_MIGRATION.md
+release/README.md
+docs/MVP_RUNBOOK.md
 ```
 
 Use it when starting a fresh session or when work becomes mixed with sibling projects:
@@ -439,14 +442,18 @@ Use it when starting a fresh session or when work becomes mixed with sibling pro
 ```bash
 export AGENTMO_REPO="<path-to-AgentMo>"
 cd "$AGENTMO_REPO"
-omx --madmax --xhigh
+git status --short
+git branch --show-current
+git rev-parse --short HEAD
 ```
 
-Then tell the new session to read `docs/CURRENT_STATUS.md` first, followed by
-`docs/OMX_SESSION_MIGRATION.md`. Together they record the active objective,
-dirty-tree expectations, verification commands, secret-handling rules, and the
-boundary that AgentMo work must not touch `pi`, `AgentHarness`, or `openclaw`
-unless explicitly requested.
+Then tell the new session to read `AGENTS.md`,
+`docs/SUPERPOWERS_WORKFLOW.md`, `docs/CURRENT_STATUS.md`, `release/README.md`,
+and `docs/MVP_RUNBOOK.md` in that order. Together they record the active
+objective, dirty-tree expectations, verification commands, secret-handling
+rules, and the boundary that AgentMo work must not touch `pi`, `AgentHarness`,
+or `openclaw` unless explicitly requested. The archived
+`docs/OMX_SESSION_MIGRATION.md` is historical and non-executable.
 
 Local agent instructions live in:
 
@@ -527,7 +534,7 @@ examples/win9.agentmo.json  Reference blueprint based on Win9-on-Pi
 examples/win9.discovery.json  Reference discovery/input manifest
 examples/support-triage.*   MVP birth-loop fixture inputs, domain cases, and generated draft blueprint
 docs/                       Concept, lifecycle, schema, quality gates
-docs/OMX_SESSION_MIGRATION.md  Fresh-session handoff and ultragoal-style recovery plan
+docs/OMX_SESSION_MIGRATION.md  Archived, non-executable former session handoff
 docs/AGENT_BIRTH_GATE.md    Birth-report evidence levels and fail-closed gate
 docs/MVP_RUNBOOK.md         End-to-end MVP birth-loop runbook
 docs/AGENTMO_MVP_LEDGER.md  MVP evidence ledger and non-certification disclosure
@@ -605,7 +612,7 @@ See `docs/MVP_RUNBOOK.md` and `docs/AGENT_BIRTH_GATE.md`.
 
 AgentMo core remains Node.js `>=20`, while OpenClaw target mutation requires `>=22.19.0 <23 || >=23.11.0`. Run `node ./bin/agentmo.js runtime-check --target openclaw` before any direct OpenClaw mutation; this CLI check is authoritative and is not runtime, domain, or production certification.
 
-`--runtime-env-file` is AgentMo's sole public runtime environment-file option. The collision-prone former spelling is intentionally not an alias because a Node launcher can consume it before AgentMo receives argv; the Bash live-smoke helper keeps its own local option. Phase 01.2 binds actual Node 20 execution to a [repository-owned distribution trust anchor](scripts/node20-distribution-trust.json), an [exact published receipt](release/evidence/2026.07.13-node20-core-receipt.json), and a [post-publication compatibility matrix](docs/RUNTIME_COMPATIBILITY.md). These are bounded mechanism records, not domain-quality or production certification.
+`--runtime-env-file` is AgentMo's sole public runtime environment-file option. The collision-prone former spelling is intentionally not an alias because a Node launcher can consume it before AgentMo receives argv; the Bash live-smoke helper keeps its own local option. Phase 01.2 binds actual Node 20 execution to a [repository-owned distribution trust anchor](scripts/node20-distribution-trust.json), the [current exact published receipt](release/evidence/2026.08.14-node20-core-receipt.json), and a [post-publication compatibility matrix](docs/RUNTIME_COMPATIBILITY.md). The [2026.07.13 receipt](release/evidence/2026.07.13-node20-core-receipt.json) remains historical evidence for its older command manifest. These are bounded mechanism records, not domain-quality or production certification.
 
 ```text
 openclaw/

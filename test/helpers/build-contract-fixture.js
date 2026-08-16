@@ -16,6 +16,7 @@ import {
 } from "../../src/openclaw-target-descriptor.js";
 import { buildOpenClawFsKernel } from "../../src/openclaw-safe-fs.js";
 import { serializePersistableJson } from "../../src/persistability.js";
+import { NATIVE_OPENCLAW_FS } from "./native-openclaw-fs.js";
 
 const MANIFEST_FILE = new URL("../../examples/support-triage.discovery.json", import.meta.url);
 const DB_FILE = new URL("../../examples/fixtures/support-triage/prebuilt-discovery-db.json", import.meta.url);
@@ -63,7 +64,7 @@ export async function buildSupportContractInputs(options = {}) {
     },
   });
   const targetDescriptorPath = path.join(root, "openclaw-target-descriptor.json");
-  if (process.platform === "linux") {
+  if (NATIVE_OPENCLAW_FS) {
     await writeOpenClawTargetDescriptor(
       targetDescriptorPath,
       targetDescriptorCandidate,
@@ -196,7 +197,7 @@ async function buildOpenClawFsPublicationFixture() {
   const root = await mkdtemp(path.join(tmpdir(), "agentmo-safe-fs-fixture-"));
   const helperPath = path.join(root, "openclaw-fs-kernel");
   const receiptPath = path.join(root, "openclaw-fs-kernel.receipt.json");
-  if (process.platform !== "linux") {
+  if (!NATIVE_OPENCLAW_FS) {
     return Object.freeze({
       helperPath,
       receiptPath,

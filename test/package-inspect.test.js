@@ -16,12 +16,12 @@ import {
   formatAgentPackageInspection,
   inspectAgentPackage,
 } from "../src/package-inspect.js";
-import { produceAgentPackage } from "../src/package-produce.js";
 import { serializePersistableJson } from "../src/persistability.js";
 import {
   buildApprovedPackageFixture,
   digestBytes,
   packageProduceOptions,
+  produceAgentPackageFixture,
 } from "./helpers/package-produce-fixture.js";
 
 const CLI = path.resolve("bin/agentmo.js");
@@ -31,7 +31,7 @@ describe("offline Agent Package inspection", () => {
     const fixture = await buildApprovedPackageFixture();
     const packageRoot = path.join(fixture.root, "package");
     const archivePath = path.join(fixture.root, "package.d42");
-    const produced = await produceAgentPackage(
+    const produced = await produceAgentPackageFixture(
       packageProduceOptions(fixture, packageRoot, archivePath),
     );
     const stateSentinel = path.join(fixture.root, "openclaw-state-sentinel.json");
@@ -83,7 +83,7 @@ describe("offline Agent Package inspection", () => {
     const fixture = await buildApprovedPackageFixture();
     const packageRoot = path.join(fixture.root, "cli-package");
     const archivePath = path.join(fixture.root, "cli-package.d42");
-    const produced = await produceAgentPackage(
+    const produced = await produceAgentPackageFixture(
       packageProduceOptions(fixture, packageRoot, archivePath),
     );
     const common = [
@@ -131,7 +131,7 @@ describe("offline Agent Package inspection", () => {
     const fixture = await buildApprovedPackageFixture();
     const packageRoot = path.join(fixture.root, "archive-package");
     const archivePath = path.join(fixture.root, "archive-package.d42");
-    const produced = await produceAgentPackage(
+    const produced = await produceAgentPackageFixture(
       packageProduceOptions(fixture, packageRoot, archivePath),
     );
     const archiveBytes = await readFile(archivePath);
@@ -203,7 +203,7 @@ describe("offline Agent Package inspection", () => {
     const fixture = await buildApprovedPackageFixture();
     const packageRoot = path.join(fixture.root, "directory-package");
     const archivePath = path.join(fixture.root, "directory-package.d42");
-    const produced = await produceAgentPackage(
+    const produced = await produceAgentPackageFixture(
       packageProduceOptions(fixture, packageRoot, archivePath),
     );
     const firstMember = JSON.parse(
@@ -243,7 +243,7 @@ describe("offline Agent Package inspection", () => {
     const fixture = await buildApprovedPackageFixture();
     const packageRoot = path.join(fixture.root, "hostile-package");
     const archivePath = path.join(fixture.root, "hostile-package.d42");
-    await produceAgentPackage(packageProduceOptions(fixture, packageRoot, archivePath));
+    await produceAgentPackageFixture(packageProduceOptions(fixture, packageRoot, archivePath));
     const original = JSON.parse(await readFile(archivePath, "utf8"));
     const hostileValues = [
       { apiKey: "sk-private-package-canary-123456789" },

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile, spawn } from "node:child_process";
+import { EventEmitter } from "node:events";
 import {
   chmod,
   cp,
@@ -11,12 +12,14 @@ import {
   readdir,
   realpath,
   rename,
+  rm,
   symlink,
   unlink,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { PassThrough } from "node:stream";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { describe, it } from "node:test";
 import { promisify } from "node:util";
@@ -35,6 +38,8 @@ import { serializePersistableJson } from "../src/persistability.js";
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const execFileAsync = promisify(execFile);
 const RELEASE_BUILDER_PATH = path.join(REPO_ROOT, "scripts", "build-builder-uat-releases.js");
+const MAIN_TEST_LANE = process.env.AGENTMO_TEST_LANE === "main";
+const RELEASE_PHASE_READY_DEADLINE_MS = 30_000;
 
 function releaseBuilderArguments(
   outDirectory,
@@ -86,21 +91,178 @@ function startReleaseBuilder(outDirectory, baselineVersion, successorVersion) {
       stdio: ["ignore", "pipe", "pipe"],
     },
   );
+  const lifecycle = trackReleaseBuilderChild(child);
+  return { child, ...lifecycle };
+}
+
+function trackReleaseBuilderChild(child) {
   child.stdout.setEncoding("utf8");
   child.stderr.setEncoding("utf8");
   let stdout = "";
   let stderr = "";
   child.stdout.on("data", (chunk) => { stdout += chunk; });
   child.stderr.on("data", (chunk) => { stderr += chunk; });
-  const completed = new Promise((resolve) => {
-    child.once("exit", (code, signal) => resolve({
+  let errorRecord = null;
+  let exitRecord = null;
+  let closeRecord = null;
+  let killRecord = null;
+  let spawned = false;
+  let resolveCompleted;
+  let resolveClosed;
+  let completedSettled = false;
+  const completed = new Promise((resolve) => { resolveCompleted = resolve; });
+  const closed = new Promise((resolve) => { resolveClosed = resolve; });
+  child.once("spawn", () => {
+    spawned = true;
+  });
+  child.once("error", (error) => {
+    errorRecord = Object.freeze({
+      termination: spawned ? "lifecycle-failed" : "launch-failed",
+      code: null,
+      signal: null,
+      errorCode: typeof error?.code === "string" ? error.code : "unknown",
+    });
+    if (!completedSettled) {
+      completedSettled = true;
+      resolveCompleted(errorRecord);
+    }
+  });
+  child.once("exit", (code, signal) => {
+    exitRecord = Object.freeze({ code, signal });
+  });
+  child.once("close", (code, signal) => {
+    closeRecord = Object.freeze({
+      termination: "closed",
       code,
       signal,
       stdout,
       stderr,
-    }));
+    });
+    resolveClosed(closeRecord);
+    if (!completedSettled) {
+      completedSettled = true;
+      resolveCompleted(closeRecord);
+    }
   });
-  return { child, completed };
+  return {
+    completed,
+    closed,
+    lifecycleStatus() {
+      return Object.freeze({
+        error: errorRecord,
+        exit: exitRecord,
+        close: closeRecord,
+        kill: killRecord,
+      });
+    },
+    sendKill(signal, purpose) {
+      if (errorRecord !== null || exitRecord !== null || closeRecord !== null
+          || child.exitCode !== null || child.signalCode !== null) return false;
+      if (killRecord !== null) return false;
+      killRecord = Object.freeze({ signal, purpose, result: "attempting" });
+      let accepted;
+      try {
+        accepted = child.kill(signal);
+      } catch (error) {
+        killRecord = Object.freeze({ signal, purpose, result: "threw" });
+        throw error;
+      }
+      if (accepted !== true) {
+        killRecord = Object.freeze({ signal, purpose, result: "rejected" });
+        throw new Error("Release producer termination was not accepted.");
+      }
+      killRecord = Object.freeze({ signal, purpose, result: "accepted" });
+      return true;
+    },
+  };
+}
+
+function fakeReleaseBuilderChild() {
+  const child = new EventEmitter();
+  child.stdout = new PassThrough();
+  child.stderr = new PassThrough();
+  child.exitCode = null;
+  child.signalCode = null;
+  child.killCalls = [];
+  child.kill = (signal) => {
+    child.killCalls.push(signal);
+    return true;
+  };
+  return child;
+}
+
+function settleWithin(promise, timeoutMs, label) {
+  let timer;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`${label} timed out.`)), timeoutMs);
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
+
+async function waitForRetainedBaselinePhase(
+  root,
+  baselineName,
+  successorName,
+  execution,
+  timeoutMs,
+) {
+  const startedAt = Date.now();
+  const deadline = startedAt + timeoutMs;
+  while (Date.now() < deadline) {
+    assertReleaseBuilderActive(execution);
+    const scratchName = (await readdir(root))
+      .find((name) => name.startsWith(".agentmo-builder-uat-build-"));
+    if (scratchName !== undefined) {
+      const scratchRoot = path.join(root, scratchName);
+      const baselineIsRegularFile = await lstat(
+        path.join(scratchRoot, "publish", baselineName),
+      ).then((stats) => stats.isFile(), (error) => {
+        if (error?.code === "ENOENT") return false;
+        throw error;
+      });
+      const successorAbsent = await lstat(
+        path.join(scratchRoot, "publish", successorName),
+      ).then(() => false, (error) => {
+        if (error?.code === "ENOENT") return true;
+        throw error;
+      });
+      if (baselineIsRegularFile && successorAbsent) {
+        assertReleaseBuilderActive(execution);
+        return { scratchRoot, elapsedMs: Date.now() - startedAt };
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 2));
+  }
+  throw new Error("Retained baseline phase did not become ready within its safety deadline.");
+}
+
+function assertReleaseBuilderActive(execution) {
+  const status = execution.lifecycleStatus();
+  if (status.error !== null || status.exit !== null || status.close !== null
+      || execution.child.exitCode !== null || execution.child.signalCode !== null) {
+    throw new Error("Release producer terminated before the retained baseline phase.");
+  }
+}
+
+async function cleanupReleaseExecution(execution) {
+  try {
+    const initialStatus = execution.lifecycleStatus();
+    if (initialStatus.error !== null && initialStatus.exit === null && initialStatus.close === null) {
+      await settleWithin(execution.closed, 5_000, "release producer error close");
+      return null;
+    }
+    if (initialStatus.close === null && initialStatus.kill === null) {
+      execution.sendKill("SIGKILL", "cleanup");
+    }
+    if (execution.lifecycleStatus().close === null) {
+      await settleWithin(execution.closed, 5_000, "release producer cleanup close");
+    }
+    return null;
+  } catch (error) {
+    return error;
+  }
 }
 
 function fileIdentity(stats) {
@@ -417,6 +579,135 @@ async function callStablePackage(
 }
 
 describe("Builder package trust boundaries", () => {
+  it("fails closed across release producer error, exit, close, and single-kill cleanup", async () => {
+    const spawnFailure = fakeReleaseBuilderChild();
+    const spawnFailureLifecycle = trackReleaseBuilderChild(spawnFailure);
+    const spawnError = new Error("synthetic spawn failure");
+    spawnError.code = "ENOENT";
+    spawnFailure.emit("error", spawnError);
+    assert.deepEqual(
+      await settleWithin(spawnFailureLifecycle.completed, 100, "spawn failure lifecycle"),
+      { termination: "launch-failed", code: null, signal: null, errorCode: "ENOENT" },
+    );
+    assert.throws(
+      () => assertReleaseBuilderActive({ child: spawnFailure, ...spawnFailureLifecycle }),
+      /terminated before the retained baseline phase/u,
+    );
+    const spawnFailureCleanup = cleanupReleaseExecution({
+      child: spawnFailure,
+      ...spawnFailureLifecycle,
+    });
+    queueMicrotask(() => spawnFailure.emit("close", null, null));
+    assert.equal(await spawnFailureCleanup, null);
+    assert.deepEqual(spawnFailure.killCalls, []);
+
+    for (const terminal of [
+      { code: 7, signal: null },
+      { code: null, signal: "SIGTERM" },
+    ]) {
+      const child = fakeReleaseBuilderChild();
+      const lifecycle = trackReleaseBuilderChild(child);
+      child.exitCode = terminal.code;
+      child.signalCode = terminal.signal;
+      child.emit("exit", terminal.code, terminal.signal);
+      child.emit("close", terminal.code, terminal.signal);
+      assert.deepEqual(await lifecycle.completed, {
+        termination: "closed",
+        ...terminal,
+        stdout: "",
+        stderr: "",
+      });
+      const execution = { child, ...lifecycle };
+      assert.throws(
+        () => assertReleaseBuilderActive(execution),
+        /terminated before the retained baseline phase/u,
+      );
+      assert.equal(await cleanupReleaseExecution(execution), null);
+      assert.deepEqual(child.killCalls, []);
+    }
+
+    const running = fakeReleaseBuilderChild();
+    running.kill = (signal) => {
+      running.killCalls.push(signal);
+      queueMicrotask(() => {
+        running.signalCode = signal;
+        running.emit("exit", null, signal);
+        running.emit("close", null, signal);
+      });
+      return true;
+    };
+    const runningLifecycle = trackReleaseBuilderChild(running);
+    assert.equal(
+      await cleanupReleaseExecution({ child: running, ...runningLifecycle }),
+      null,
+    );
+    assert.deepEqual(running.killCalls, ["SIGKILL"]);
+
+    const injected = fakeReleaseBuilderChild();
+    const injectedLifecycle = trackReleaseBuilderChild(injected);
+    assert.equal(injectedLifecycle.sendKill("SIGKILL", "crash-injection"), true);
+    const injectedCleanup = cleanupReleaseExecution({ child: injected, ...injectedLifecycle });
+    queueMicrotask(() => {
+      injected.signalCode = "SIGKILL";
+      injected.emit("exit", null, "SIGKILL");
+      injected.emit("close", null, "SIGKILL");
+    });
+    assert.equal(await injectedCleanup, null);
+    assert.deepEqual(injected.killCalls, ["SIGKILL"]);
+
+    for (const terminal of [
+      { code: 9, signal: null },
+      { code: null, signal: "SIGTERM" },
+    ]) {
+      const child = fakeReleaseBuilderChild();
+      const lifecycle = trackReleaseBuilderChild(child);
+      child.exitCode = terminal.code;
+      child.signalCode = terminal.signal;
+      child.emit("exit", terminal.code, terminal.signal);
+      assert.equal(lifecycle.sendKill("SIGKILL", "must-not-run"), false);
+      assert.deepEqual(child.killCalls, []);
+      child.emit("close", terminal.code, terminal.signal);
+      await lifecycle.closed;
+    }
+
+    for (const behavior of ["returns-false", "throws"]) {
+      const child = fakeReleaseBuilderChild();
+      child.kill = (signal) => {
+        child.killCalls.push(signal);
+        if (behavior === "throws") throw new Error("synthetic kill failure");
+        return false;
+      };
+      const lifecycle = trackReleaseBuilderChild(child);
+      assert.throws(
+        () => lifecycle.sendKill("SIGKILL", "single-use-canary"),
+        /termination was not accepted|synthetic kill failure/u,
+      );
+      assert.equal(lifecycle.sendKill("SIGKILL", "single-use-canary"), false);
+      assert.deepEqual(child.killCalls, ["SIGKILL"]);
+      child.emit("close", null, null);
+      await lifecycle.closed;
+    }
+
+    const postSpawnError = fakeReleaseBuilderChild();
+    const postSpawnLifecycle = trackReleaseBuilderChild(postSpawnError);
+    postSpawnError.emit("spawn");
+    const lifecycleError = new Error("synthetic post-spawn failure");
+    lifecycleError.code = "EIO";
+    postSpawnError.emit("error", lifecycleError);
+    queueMicrotask(() => postSpawnError.emit("close", null, null));
+    assert.deepEqual(await postSpawnLifecycle.completed, {
+      termination: "lifecycle-failed",
+      code: null,
+      signal: null,
+      errorCode: "EIO",
+    });
+    assert.equal(
+      await cleanupReleaseExecution({ child: postSpawnError, ...postSpawnLifecycle }),
+      null,
+    );
+    assert.deepEqual(postSpawnError.killCalls, []);
+  });
+
   it("matches every npm-packed member to one explicit release or metadata inventory entry", async () => {
     const cache = await mkdtemp(path.join(tmpdir(), "agentmo-package-inventory-cache-"));
     const packed = await execFileAsync("npm", [
@@ -591,7 +882,9 @@ describe("Builder package trust boundaries", () => {
     assert.deepEqual(outputAfter, outputBefore);
   });
 
-  it("preserves the retained baseline when the external producer is killed during successor build", async () => {
+  it("preserves the retained baseline when the external producer is killed during successor build", {
+    skip: MAIN_TEST_LANE ? "covered by the isolated durable-fs lane" : false,
+  }, async (context) => {
     const root = await realpath(await mkdtemp(path.join(tmpdir(), "agentmo-release-sigkill-")));
     const outDirectory = path.join(root, "releases");
     const baselineVersion = "0.1.0-cr08.1";
@@ -600,43 +893,52 @@ describe("Builder package trust boundaries", () => {
     const successorName = `agentmo-${successorVersion}.tgz`;
     const execution = startReleaseBuilder(outDirectory, baselineVersion, successorVersion);
 
-    let scratchRoot;
-    const deadline = Date.now() + 30_000;
-    while (Date.now() < deadline) {
-      const scratchName = (await readdir(root))
-        .find((name) => name.startsWith(".agentmo-builder-uat-build-"));
-      if (scratchName !== undefined) {
-        scratchRoot = path.join(root, scratchName);
-        const published = await lstat(
-          path.join(scratchRoot, "publish", baselineName),
-          { bigint: true },
-        ).then((stats) => stats.isFile(), (error) => {
-          if (error?.code === "ENOENT") return false;
-          throw error;
-        });
-        const successorAbsent = await lstat(
-          path.join(scratchRoot, "publish", successorName),
-        ).then(() => false, (error) => {
-          if (error?.code === "ENOENT") return true;
-          throw error;
-        });
-        if (published && successorAbsent) break;
-      }
-      if (execution.child.exitCode !== null || execution.child.signalCode !== null) break;
-      await new Promise((resolve) => setTimeout(resolve, 2));
-    }
-    assert.notEqual(scratchRoot, undefined, "release scratch must become observable");
-    assert.equal(execution.child.exitCode, null, "producer must still be running");
-    assert.equal(execution.child.kill("SIGKILL"), true);
+    let testError = null;
+    let cleanupError = null;
+    let directoryCleanupError = null;
+    let completedSuccessfully = false;
+    try {
+      try {
+        const phase = await waitForRetainedBaselinePhase(
+          root,
+          baselineName,
+          successorName,
+          execution,
+          RELEASE_PHASE_READY_DEADLINE_MS,
+        );
+        context.diagnostic(`retained-baseline-ready elapsedMs=${phase.elapsedMs}`);
+        assertReleaseBuilderActive(execution);
+        assert.equal(execution.sendKill("SIGKILL", "crash-injection"), true);
 
-    const killed = await execution.completed;
-    assert.equal(killed.signal, "SIGKILL", killed.stderr);
-    assert.equal(killed.stdout, "");
-    assert.deepEqual(await readdir(path.join(scratchRoot, "publish")), [baselineName]);
-    await assert.rejects(
-      lstat(outDirectory),
-      (error) => error?.code === "ENOENT",
-    );
+        const killed = await settleWithin(
+          execution.closed,
+          5_000,
+          "release producer SIGKILL settlement",
+        );
+        assert.equal(killed.signal, "SIGKILL", killed.stderr);
+        assert.equal(killed.stdout, "");
+        assert.deepEqual(await readdir(path.join(phase.scratchRoot, "publish")), [baselineName]);
+        await assert.rejects(
+          lstat(outDirectory),
+          (error) => error?.code === "ENOENT",
+        );
+        completedSuccessfully = true;
+      } catch (error) {
+        testError = error;
+      }
+    } finally {
+      cleanupError = await cleanupReleaseExecution(execution);
+      if (completedSuccessfully) {
+        try {
+          await rm(root, { recursive: true, force: true });
+        } catch (error) {
+          directoryCleanupError = error;
+        }
+      }
+    }
+    const errors = [testError, cleanupError, directoryCleanupError].filter(Boolean);
+    if (errors.length > 1) throw new AggregateError(errors, testError?.message ?? "Cleanup failed.");
+    if (errors.length === 1) throw errors[0];
   });
 
   it("rejects an unregistered two-link tarball without widening the generic reader", async () => {
@@ -903,9 +1205,9 @@ describe("Builder package trust boundaries", () => {
     assert.deepEqual(
       BUILDER_PLUGIN_HOOK_IO_SURFACE_INVENTORY.slice(31, 34),
       [
-        "plugin/hooks/agentmo-hook.js:804:filesystem-read:fs.lstat",
-        "plugin/hooks/agentmo-hook.js:805:filesystem-read:fs.readlink",
-        "plugin/hooks/agentmo-hook.js:806:filesystem-read:fs.lstat",
+        "plugin/hooks/agentmo-hook.js:813:filesystem-read:fs.lstat",
+        "plugin/hooks/agentmo-hook.js:814:filesystem-read:fs.readlink",
+        "plugin/hooks/agentmo-hook.js:815:filesystem-read:fs.lstat",
       ],
     );
 

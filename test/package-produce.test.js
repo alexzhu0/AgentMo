@@ -24,9 +24,10 @@ import {
   digestBytes,
   packageProduceOptions,
 } from "./helpers/package-produce-fixture.js";
+import { NATIVE_OPENCLAW_FS } from "./helpers/native-openclaw-fs.js";
 
 describe("exact approved package Produce", {
-  skip: process.platform !== "linux",
+  skip: !NATIVE_OPENCLAW_FS,
 }, () => {
   it("works from a fresh CLI process using only exact named artifacts", async () => {
     const fixture = await buildApprovedPackageFixture();

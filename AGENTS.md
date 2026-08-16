@@ -106,7 +106,7 @@ For docs-only changes, run at least:
 git diff --check
 ```
 
-If changing Stage 2 planning, run `node --test test/design-plan.test.js` and the Stage 2 contract test set documented in `docs/MVP_RUNBOOK.md`. If changing the composed MVP birth-loop, also verify the support-triage vertical slice described in `docs/OMX_SESSION_MIGRATION.md` or `docs/MVP_RUNBOOK.md`.
+If changing Stage 2 planning, run `node --test test/design-plan.test.js` and the Stage 2 contract test set documented in `docs/MVP_RUNBOOK.md`. If changing the composed MVP birth-loop, also verify the support-triage vertical slice documented in `docs/MVP_RUNBOOK.md`.
 
 Runtime compatibility changes must preserve these controls:
 

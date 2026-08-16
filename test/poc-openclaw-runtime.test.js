@@ -157,14 +157,22 @@ describe("POC OpenClaw runtime", () => {
     const child = new EventEmitter();
     child.unref = () => { child.unrefCalled = true; };
     const url = "http://127.0.0.1:18889/chat?session=agent%3Aai-frontier-poc%3Amain#token=test-only-token";
-    const opening = openPocDashboardUrl(url, {
+    let spawnGetterReads = 0;
+    const options = {
       platform: "darwin",
-      spawnProcess: (command, args, options) => {
-        launched.push({ command, args, options });
-        queueMicrotask(() => child.emit("spawn"));
-        return child;
+    };
+    Object.defineProperty(options, "spawnProcess", {
+      enumerable: true,
+      get() {
+        spawnGetterReads += 1;
+        return (command, args, launchOptions) => {
+          launched.push({ command, args, options: launchOptions });
+          queueMicrotask(() => child.emit("spawn"));
+          return child;
+        };
       },
     });
+    const opening = openPocDashboardUrl(url, options);
     await opening;
 
     assert.deepEqual(launched, [{
@@ -172,11 +180,47 @@ describe("POC OpenClaw runtime", () => {
       args: [url],
       options: { shell: false, detached: true, stdio: "ignore" },
     }]);
+    assert.equal(spawnGetterReads, 1);
     assert.equal(child.unrefCalled, true);
     assert.throws(
       () => openPocDashboardUrl("https://example.com/#token=bad"),
       (error) => error?.code === "AGENTMO_POC_DASHBOARD_URL_INVALID",
     );
+  });
+
+  it("rejects invalid Dashboard browser URLs and tokens without spawning a local UI child", () => {
+    const tokenCanary = "browser-token-canary";
+    const invalidUrls = [
+      `https://127.0.0.1:18889/chat?session=agent%3Aai-frontier-poc%3Amain#token=${tokenCanary}`,
+      `http://localhost:18889/chat?session=agent%3Aai-frontier-poc%3Amain#token=${tokenCanary}`,
+      `http://127.0.0.1:80/chat?session=agent%3Aai-frontier-poc%3Amain#token=${tokenCanary}`,
+      `http://127.0.0.1:18889/not-chat?session=agent%3Aai-frontier-poc%3Amain#token=${tokenCanary}`,
+      `http://127.0.0.1:18889/chat?session=not-an-agent#token=${tokenCanary}`,
+      "http://127.0.0.1:18889/chat?session=agent%3Aai-frontier-poc%3Amain",
+      "http://127.0.0.1:18889/chat?session=agent%3Aai-frontier-poc%3Amain#token=",
+    ];
+    let spawnCalls = 0;
+
+    for (const url of invalidUrls) {
+      let rejected;
+      assert.throws(
+        () => openPocDashboardUrl(url, {
+          platform: "darwin",
+          spawnProcess: () => { spawnCalls += 1; },
+        }),
+        (error) => {
+          rejected = error;
+          assert.equal(error?.code, "AGENTMO_POC_DASHBOARD_URL_INVALID");
+          assert.equal(error?.message, "AgentMo POC OpenClaw operation was rejected.");
+          return true;
+        },
+      );
+      const rendered = `${rejected?.name}:${rejected?.message}:${rejected?.code}:${JSON.stringify(rejected)}`;
+      assert.equal(rendered.includes(tokenCanary), false);
+      assert.equal(rendered.includes(url), false);
+    }
+
+    assert.equal(spawnCalls, 0);
   });
 
   it("builds isolated profile commands with no delivery or schedule action", () => {

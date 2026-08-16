@@ -48,7 +48,7 @@ const RUNNER_RELATIVE_PATH = "plugins/agentmo/hooks/agentmo-hook.js";
 const LAUNCHER_RELATIVE_PATH = "plugins/agentmo/runtime/agentmo/bin/agentmo.js";
 const AUTHENTICATED_BOOTSTRAP_LOADER_SOURCE = String.raw`
 import { createHash } from "node:crypto";
-import { createReadStream, fstatSync } from "node:fs";
+import { fstatSync, read } from "node:fs";
 
 const reject = () => {
   throw new Error("Authenticated bootstrap graph rejected.");
@@ -62,10 +62,19 @@ const descriptorStats = fstatSync(3);
 if (!descriptorStats.isFIFO() && !descriptorStats.isSocket()) reject();
 const chunks = [];
 let total = 0;
-for await (const chunk of createReadStream(null, { fd: 3, autoClose: false })) {
-  total += chunk.byteLength;
+while (true) {
+  const length = Math.min(64 * 1024, 24 * 1024 * 1024 - total + 1);
+  const buffer = Buffer.allocUnsafe(length);
+  const bytesRead = await new Promise((resolve, rejectRead) => {
+    read(3, buffer, 0, length, null, (error, observed) => {
+      if (error) rejectRead(error);
+      else resolve(observed);
+    });
+  });
+  if (bytesRead === 0) break;
+  total += bytesRead;
   if (total > 24 * 1024 * 1024) reject();
-  chunks.push(chunk);
+  chunks.push(bytesRead === length ? buffer : buffer.subarray(0, bytesRead));
 }
 const raw = Buffer.concat(chunks, total);
 const expected = process.env.AGENTMO_BUILDER_HOOK_GRAPH_DIGEST;
@@ -1798,33 +1807,16 @@ async function runAdjacentLauncher(inputBytes, paths) {
     let directExit = null;
     let timer = null;
     let deadlineSettlementGrace = null;
+    let child = null;
+    let parentCancellationSignal = null;
+    let parentCancellationHandlers = null;
     const loaderUrl = `data:text/javascript,${encodeURIComponent(AUTHENTICATED_BOOTSTRAP_LOADER_SOURCE)}`;
     const entrySource = [
       `process.argv = [process.execPath, ${JSON.stringify(paths.launcherPath)}, "__builder-hook"];`,
       `await import(${JSON.stringify(paths.graph.launcherUrl)});`,
     ].join("\n");
-    const child = spawn(process.execPath, [
-      "--no-warnings",
-      "--experimental-loader",
-      loaderUrl,
-      "--input-type=module",
-      "--eval",
-      entrySource,
-    ], {
-        cwd: paths.projectRoot,
-        detached: true,
-        env: {
-          AGENTMO_BUILDER_HOOK_BOOTSTRAP_MODE: "authenticated-graph-v1",
-          AGENTMO_BUILDER_HOOK_GRAPH_DIGEST: paths.graph.digest,
-          AGENTMO_BUILDER_HOOK_RUNNER_DIGEST: paths.runnerDigest,
-          LANG: "C",
-          LC_ALL: "C",
-        },
-        shell: false,
-        stdio: ["pipe", "pipe", "pipe", "pipe", "pipe"],
-    });
     const terminateGroup = () => {
-      if (!Number.isSafeInteger(child.pid) || child.pid <= 0) return;
+      if (!Number.isSafeInteger(child?.pid) || child.pid <= 0) return;
       try {
         process.kill(-child.pid, "SIGKILL");
       } catch (error) {
@@ -1832,7 +1824,7 @@ async function runAdjacentLauncher(inputBytes, paths) {
       }
     };
     const groupExists = () => {
-      if (!Number.isSafeInteger(child.pid) || child.pid <= 0) return false;
+      if (!Number.isSafeInteger(child?.pid) || child.pid <= 0) return false;
       try {
         process.kill(-child.pid, 0);
         return true;
@@ -1843,6 +1835,7 @@ async function runAdjacentLauncher(inputBytes, paths) {
       }
     };
     const destroyChildPipes = () => {
+      if (child === null) return;
       for (const stream of [
         child.stdin,
         child.stdout,
@@ -1858,6 +1851,7 @@ async function runAdjacentLauncher(inputBytes, paths) {
       }
     };
     const detachChild = () => {
+      if (child === null) return;
       try {
         child.unref();
       } catch {
@@ -1874,10 +1868,17 @@ async function runAdjacentLauncher(inputBytes, paths) {
         deadlineSettlementGrace = null;
       }
     };
+    const removeParentCancellationListeners = () => {
+      if (parentCancellationHandlers === null) return;
+      process.off("SIGTERM", parentCancellationHandlers.SIGTERM);
+      process.off("SIGINT", parentCancellationHandlers.SIGINT);
+      parentCancellationHandlers = null;
+    };
     const settleRejected = () => {
       if (settled || settlingFailure) return;
       settlingFailure = true;
       clearTimers();
+      removeParentCancellationListeners();
       terminateGroup();
       destroyChildPipes();
       detachChild();
@@ -1887,6 +1888,68 @@ async function runAdjacentLauncher(inputBytes, paths) {
       settled = true;
       reject(new Error("Installed hook launcher rejected."));
     };
+    const settleParentCancellation = () => {
+      if (
+        settled
+        || settlingFailure
+        || parentCancellationSignal === null
+        || child === null
+      ) return;
+      settlingFailure = true;
+      const signal = parentCancellationSignal;
+      clearTimers();
+      removeParentCancellationListeners();
+      terminateGroup();
+      destroyChildPipes();
+      detachChild();
+      settled = true;
+      try {
+        process.kill(process.pid, signal);
+      } catch {
+        process.exitCode = 1;
+      }
+      reject(new Error("Installed hook launcher rejected."));
+    };
+    const observeParentCancellation = (signal) => {
+      if (parentCancellationSignal === null) parentCancellationSignal = signal;
+      settleParentCancellation();
+    };
+    parentCancellationHandlers = {
+      SIGTERM: () => observeParentCancellation("SIGTERM"),
+      SIGINT: () => observeParentCancellation("SIGINT"),
+    };
+    process.on("SIGTERM", parentCancellationHandlers.SIGTERM);
+    process.on("SIGINT", parentCancellationHandlers.SIGINT);
+    try {
+      child = spawn(process.execPath, [
+        "--no-warnings",
+        "--experimental-loader",
+        loaderUrl,
+        "--input-type=module",
+        "--eval",
+        entrySource,
+      ], {
+          cwd: paths.projectRoot,
+          detached: true,
+          env: {
+            AGENTMO_BUILDER_HOOK_BOOTSTRAP_MODE: "authenticated-graph-v1",
+            AGENTMO_BUILDER_HOOK_GRAPH_DIGEST: paths.graph.digest,
+            AGENTMO_BUILDER_HOOK_RUNNER_DIGEST: paths.runnerDigest,
+            LANG: "C",
+            LC_ALL: "C",
+          },
+          shell: false,
+          stdio: ["pipe", "pipe", "pipe", "pipe", "pipe"],
+      });
+    } catch {
+      spawnError = true;
+      settleRejected();
+      return;
+    }
+    if (parentCancellationSignal !== null) {
+      settleParentCancellation();
+      return;
+    }
     timer = setTimeout(() => {
       if (settled || closed) return;
       timedOut = true;
@@ -1901,6 +1964,7 @@ async function runAdjacentLauncher(inputBytes, paths) {
     }, CHILD_TIMEOUT_MS);
     child.on("error", () => {
       spawnError = true;
+      settleRejected();
     });
     child.stdout.on("data", (chunk) => {
       stdoutBytes += chunk.byteLength;
@@ -1936,7 +2000,7 @@ async function runAdjacentLauncher(inputBytes, paths) {
     child.on("close", (code, signal) => {
       if (settled || closed) return;
       closed = true;
-      clearTimeout(timer);
+      clearTimers();
       if (code !== 0 || signal !== null || overflow || timedOut || spawnError || stderrBytes !== 0) {
         settleRejected();
         return;
@@ -1946,15 +2010,21 @@ async function runAdjacentLauncher(inputBytes, paths) {
         settleRejected();
         return;
       }
+      removeParentCancellationListeners();
       settled = true;
       resolve(Buffer.concat(stdout, stdoutBytes));
     });
     for (const stream of [child.stdin, child.stdio[3], child.stdio[4]]) {
       stream.on("error", () => {});
     }
-    child.stdin.end(inputBytes);
-    child.stdio[3].end(paths.graph.bytes);
-    child.stdio[4].end(paths.graph.bytes);
+    try {
+      child.stdin.end(inputBytes);
+      child.stdio[3].end(paths.graph.bytes);
+      child.stdio[4].end(paths.graph.bytes);
+    } catch {
+      spawnError = true;
+      settleRejected();
+    }
   });
 }
 

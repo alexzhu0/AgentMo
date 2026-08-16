@@ -28,6 +28,7 @@ import {
   buildOpenClawFsKernel,
   openOpenClawSafeFsSession,
 } from "../src/openclaw-safe-fs.js";
+import { NATIVE_OPENCLAW_FS } from "./helpers/native-openclaw-fs.js";
 
 const sha256 = (bytes) => (
   `sha256:${createHash("sha256").update(bytes).digest("hex")}`
@@ -57,7 +58,7 @@ let receiptDigest;
 let buildResult;
 
 before(async () => {
-  if (process.platform !== "linux") return;
+  if (!NATIVE_OPENCLAW_FS) return;
   buildRoot = await mkdtemp(path.join(tmpdir(), "agentmo-safe-fs-build-"));
   await chmod(buildRoot, 0o700);
   helperPath = path.join(buildRoot, "openclaw-fs-kernel");
@@ -247,8 +248,8 @@ function assertClosedRecoveryEvidence(recovery, forbidden = []) {
   for (const value of forbidden) assert.equal(durable.includes(value), false);
 }
 
-it("fails closed before native build or admission outside Linux", {
-  skip: process.platform === "linux",
+it("fails closed before native build or admission outside Linux x64", {
+  skip: NATIVE_OPENCLAW_FS,
 }, async () => {
   const root = await mkdtemp(path.join(tmpdir(), "agentmo-safe-fs-unsupported-"));
   await chmod(root, 0o700);
@@ -284,7 +285,7 @@ it("executes the safe-fs helper only through one retained inherited descriptor",
 });
 
 describe("OpenClaw safe fs retained-dirfd kernel", {
-  skip: process.platform !== "linux",
+  skip: !NATIVE_OPENCLAW_FS,
 }, () => {
   it("builds a durable closed receipt with fixed compiler, argv and environment", async () => {
     const receiptBytes = await readFile(receiptPath);

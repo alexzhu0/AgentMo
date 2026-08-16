@@ -90,6 +90,10 @@ npm run check
 
 如果 `npm run check` 全部通过，说明本地环境 OK。
 
+OpenClaw native filesystem publication/lifecycle evidence 只由 Linux/x64 CI
+产生；macOS 上对应 native cases 必须诚实 skip，portable/offline contracts 仍应正常运行，
+不得把 Darwin fixture 结果标成 native evidence。
+
 建议先按顺序读：
 
 ```text
@@ -99,11 +103,12 @@ docs/STAGE_CONTRACTS.md
 release/2026.07.10.md
 ```
 
-如果你也用 Codex / OMX / AI 编程，再读：
+如果你也用 Codex / AI 编程，再读：
 
 ```text
 AGENTS.md
-docs/OMX_SESSION_MIGRATION.md
+docs/SUPERPOWERS_WORKFLOW.md
+docs/CURRENT_STATUS.md
 ```
 
 ## 4. 标准任务流

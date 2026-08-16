@@ -49,6 +49,7 @@ import { serializePersistableJson } from "../src/persistability.js";
 import {
   createOpenClawAuthorityRootBinding,
 } from "../src/openclaw-authority-root-binding.js";
+import { NATIVE_OPENCLAW_FS } from "./helpers/native-openclaw-fs.js";
 
 const sha256 = (bytes) => (
   `sha256:${createHash("sha256").update(bytes).digest("hex")}`
@@ -66,21 +67,6 @@ const source = (identity, subject, value) => ({
 let helperPath;
 let helperReceiptPath;
 let helperReceiptDigest;
-
-before(async () => {
-  const root = await mkdtemp(path.join(
-    tmpdir(),
-    "agentmo-install-evidence-helper-",
-  ));
-  await chmod(root, 0o700);
-  helperPath = path.join(root, "openclaw-fs-kernel");
-  helperReceiptPath = path.join(root, "openclaw-fs-kernel.receipt.json");
-  const built = await buildOpenClawFsKernel({
-    binaryOut: helperPath,
-    receiptOut: helperReceiptPath,
-  });
-  helperReceiptDigest = built.receiptDigest;
-});
 
 function archiveBinding(label = "post-effect") {
   const members = [{
@@ -394,7 +380,24 @@ async function produceAttempt(fixture, attemptId, suffix) {
 }
 
 describe("canonical OpenClaw post-effect evidence", () => {
-  it("creates closed post-state and per-action artifacts and admits a fresh reopen", async () => {
+  before(async () => {
+    if (!NATIVE_OPENCLAW_FS) return;
+    const root = await mkdtemp(path.join(
+      tmpdir(),
+      "agentmo-install-evidence-helper-",
+    ));
+    await chmod(root, 0o700);
+    helperPath = path.join(root, "openclaw-fs-kernel");
+    helperReceiptPath = path.join(root, "openclaw-fs-kernel.receipt.json");
+    const built = await buildOpenClawFsKernel({
+      binaryOut: helperPath,
+      receiptOut: helperReceiptPath,
+    });
+    helperReceiptDigest = built.receiptDigest;
+  });
+  it("creates closed post-state and per-action artifacts and admits a fresh reopen", {
+    skip: !NATIVE_OPENCLAW_FS,
+  }, async () => {
     const fixture = await makeFixture("positive");
     const attempt = await produceAttempt(
       fixture,
@@ -465,7 +468,9 @@ describe("canonical OpenClaw post-effect evidence", () => {
     await fixture.ledger.close();
   });
 
-  it("does not let valid copied JSON plus a recomputed digest mint any producer brand", async () => {
+  it("does not let valid copied JSON plus a recomputed digest mint any producer brand", {
+    skip: !NATIVE_OPENCLAW_FS,
+  }, async () => {
     const fixture = await makeFixture("forgery");
     const attempt = await produceAttempt(
       fixture,
@@ -513,7 +518,9 @@ describe("canonical OpenClaw post-effect evidence", () => {
     await fixture.ledger.close();
   });
 
-  it("rejects wrong attempt, plan, root and action bindings on specialized reopen", async () => {
+  it("rejects wrong attempt, plan, root and action bindings on specialized reopen", {
+    skip: !NATIVE_OPENCLAW_FS,
+  }, async () => {
     const fixture = await makeFixture("binding");
     const attempt = await produceAttempt(
       fixture,
@@ -618,7 +625,9 @@ describe("canonical OpenClaw post-effect evidence", () => {
     await other.ledger.close();
   });
 
-  it("rejects marker/result omission, duplication, reorder and a forked finalization", async () => {
+  it("rejects marker/result omission, duplication, reorder and a forked finalization", {
+    skip: !NATIVE_OPENCLAW_FS,
+  }, async () => {
     const fixture = await makeFixture("finalization");
     const first = await produceAttempt(
       fixture,
@@ -709,7 +718,9 @@ describe("canonical OpenClaw post-effect evidence", () => {
     await fixture.ledger.close();
   });
 
-  it("preserves unknown and replaced evidence names while failing closed", async () => {
+  it("preserves unknown and replaced evidence names while failing closed", {
+    skip: !NATIVE_OPENCLAW_FS,
+  }, async () => {
     const unknownFixture = await makeFixture("unknown-name");
     const unknownAttempt = "attempt:post-effect:unknown-name";
     const unknownDigest = sha256(Buffer.from(unknownAttempt));

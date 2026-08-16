@@ -13,7 +13,6 @@ import {
   rename,
   symlink,
   unlink,
-  utimes,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -174,6 +173,67 @@ async function treeSnapshot(root) {
   }
   await visit(root);
   return records.sort();
+}
+
+async function settleWithin(promise, timeoutMs, message) {
+  let timer;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(message)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function closeDoctorChildWithin(child, closed) {
+  if (child.exitCode === null && child.signalCode === null) child.kill("SIGTERM");
+  try {
+    return await settleWithin(closed, 1_000, "doctor child did not close after SIGTERM");
+  } catch (error) {
+    if (child.exitCode !== null || child.signalCode !== null) throw error;
+    child.kill("SIGKILL");
+    return settleWithin(closed, 1_000, "doctor child did not close after SIGKILL");
+  }
+}
+
+async function runDoctorRaceCleanup(body, cleanupSteps) {
+  let bodyFailed = false;
+  let bodyError;
+  let result;
+  try {
+    result = await body();
+  } catch (error) {
+    bodyFailed = true;
+    bodyError = error;
+  }
+  let cleanupFailed = false;
+  let firstCleanupError;
+  for (const cleanupStep of cleanupSteps) {
+    try {
+      await cleanupStep();
+    } catch (error) {
+      if (!cleanupFailed) {
+        cleanupFailed = true;
+        firstCleanupError = error;
+      }
+    }
+  }
+  if (bodyFailed) {
+    if (cleanupFailed) {
+      throw new AggregateError(
+        [bodyError, firstCleanupError],
+        "doctor race body and cleanup failed",
+        { cause: bodyError },
+      );
+    }
+    throw bodyError;
+  }
+  if (cleanupFailed) throw firstCleanupError;
+  return result;
 }
 
 async function fakeCodexBin(root) {
@@ -430,7 +490,49 @@ describe("read-only Builder doctor", () => {
     assert.equal(report.remediation.includes("run-setup-preview"), false);
   });
 
-  it("fails closed under an external same-byte inode swap race", async () => {
+  it("attempts every doctor race cleanup step while preserving the body failure", async () => {
+    const calls = [];
+    const bodyError = new Error("body-failure");
+    const closeError = new Error("close-failure");
+    const firstRestoreError = new Error("first-restore-failure");
+    await assert.rejects(
+      () => runDoctorRaceCleanup(
+        async () => {
+          calls.push("body");
+          throw bodyError;
+        },
+        [
+          async () => {
+            calls.push("close");
+            throw closeError;
+          },
+          async () => {
+            calls.push("restore-alternate");
+            throw firstRestoreError;
+          },
+          async () => {
+            calls.push("restore-original");
+          },
+        ],
+      ),
+      (error) => {
+        assert.equal(error instanceof AggregateError, true);
+        assert.equal(error.cause, bodyError);
+        assert.deepEqual(error.errors, [bodyError, closeError]);
+        return true;
+      },
+    );
+    assert.deepEqual(calls, [
+      "body",
+      "close",
+      "restore-alternate",
+      "restore-original",
+    ]);
+  });
+
+  it("fails closed under an external same-byte inode swap race", {
+    timeout: 60_000,
+  }, async () => {
     const { project } = await installedProject();
     const target = path.join(project, AGENT_FILE);
     const alternate = `${target}.alternate`;
@@ -444,66 +546,90 @@ describe("read-only Builder doctor", () => {
     ]);
     assert.notEqual(originalIdentity.ino, alternateIdentity.ino);
     assert.deepEqual(alternateBytes, originalBytes);
-    const targetStats = await lstat(target);
-    await utimes(target, new Date(0), targetStats.mtime);
-    const primedTarget = await lstat(target, { bigint: true });
     const child = spawn(
       process.execPath,
       [
         path.join(REPO_ROOT, "test/helpers/doctor-diagnose-child.js"),
-        JSON.stringify({ projectRoot: project, probe: compatibleProbe() }),
+        JSON.stringify({
+          projectRoot: project,
+          probe: compatibleProbe(),
+          targetRelativePath: AGENT_FILE,
+        }),
       ],
       { stdio: ["ignore", "ignore", "ignore", "ipc"] },
     );
     let readyResolve;
+    let readBoundaryResolve;
     let terminalResolve;
     const ready = new Promise((resolve) => { readyResolve = resolve; });
+    const readBoundaryPromise = new Promise((resolve) => { readBoundaryResolve = resolve; });
     const terminalPromise = new Promise((resolve) => { terminalResolve = resolve; });
     const closed = new Promise((resolve, reject) => {
       child.on("error", reject);
       child.on("message", (message) => {
         if (message?.type === "ready") readyResolve(message);
-        else terminalResolve(message);
+        else if (message?.type === "read-boundary") readBoundaryResolve(message);
+        else if (message?.type === "result" || message?.type === "error") terminalResolve(message);
       });
-      child.on("close", resolve);
+      child.on("close", (code, signal) => resolve({ code, signal }));
     });
-    await ready;
-    child.send({ type: "diagnose" });
-    let lifecycleReadObserved = false;
-    const observationDeadline = Date.now() + 10_000;
-    while (Date.now() < observationDeadline) {
-      const observed = await lstat(target, { bigint: true });
-      if (observed.atimeNs !== primedTarget.atimeNs) {
-        lifecycleReadObserved = true;
-        break;
-      }
-      if (child.exitCode !== null || child.signalCode !== null) break;
-      await new Promise((resolve) => setTimeout(resolve, 1));
-    }
-    assert.equal(lifecycleReadObserved, true, "lifecycle admission must read the original inode");
-    await rename(target, swap);
-    await rename(alternate, target);
-    const [swappedTarget, retainedOriginal] = await Promise.all([
-      lstat(target, { bigint: true }),
-      lstat(swap, { bigint: true }),
+    let originalMoved = false;
+    let alternateInstalled = false;
+    await runDoctorRaceCleanup(async () => {
+      await settleWithin(ready, 2_000, "doctor child did not become ready");
+      child.send({ type: "diagnose" });
+      const readBoundary = await settleWithin(
+        readBoundaryPromise,
+        15_000,
+        "doctor child did not report the retained read boundary",
+      );
+      assert.deepEqual(readBoundary, {
+        type: "read-boundary",
+        relativePath: AGENT_FILE,
+        identity: {
+          device: originalIdentity.dev.toString(),
+          inode: originalIdentity.ino.toString(),
+        },
+      });
+      await rename(target, swap);
+      originalMoved = true;
+      await rename(alternate, target);
+      alternateInstalled = true;
+      const [swappedTarget, retainedOriginal] = await Promise.all([
+        lstat(target, { bigint: true }),
+        lstat(swap, { bigint: true }),
+      ]);
+      assert.equal(swappedTarget.ino, alternateIdentity.ino);
+      assert.equal(retainedOriginal.ino, originalIdentity.ino);
+      assert.deepEqual(await readFile(target), originalBytes);
+      child.send({ type: "swap-complete" });
+      const terminal = await settleWithin(
+        terminalPromise,
+        30_000,
+        "doctor child did not return a diagnosis after the swap",
+      );
+      const childClose = await settleWithin(closed, 2_000, "doctor child did not close");
+      assert.deepEqual(childClose, { code: 0, signal: null });
+      const [terminalTarget, terminalOriginal] = await Promise.all([
+        lstat(target, { bigint: true }),
+        lstat(swap, { bigint: true }),
+      ]);
+      assert.equal(terminalTarget.ino, alternateIdentity.ino);
+      assert.equal(terminalOriginal.ino, originalIdentity.ino);
+      assert.equal(terminal?.type, "result", terminal?.error?.code);
+      const report = terminal.report;
+      assert.equal(report.status, "inconsistent");
+      assert.equal(report.receipt.status, "corrupt");
+      assert.equal(report.files.find((item) => item.relativePath === MARKER_FILE).status, "unsafe");
+    }, [
+      () => closeDoctorChildWithin(child, closed),
+      async () => {
+        if (alternateInstalled) await rename(target, alternate);
+      },
+      async () => {
+        if (originalMoved) await rename(swap, target);
+      },
     ]);
-    assert.equal(swappedTarget.ino, alternateIdentity.ino);
-    assert.equal(retainedOriginal.ino, originalIdentity.ino);
-    assert.deepEqual(await readFile(target), originalBytes);
-    const terminal = await terminalPromise;
-    await closed;
-    const [terminalTarget, terminalOriginal] = await Promise.all([
-      lstat(target, { bigint: true }),
-      lstat(swap, { bigint: true }),
-    ]);
-    assert.equal(terminalTarget.ino, alternateIdentity.ino);
-    assert.equal(terminalOriginal.ino, originalIdentity.ino);
-    assert.equal(terminal?.type, "result", terminal?.error?.code);
-    const report = terminal.report;
-    assert.equal(report.status, "inconsistent");
-    assert.equal(report.files.find((item) => item.relativePath === AGENT_FILE).status, "unsafe");
-    await rename(target, alternate);
-    await rename(swap, target);
   });
 
   it("fails closed when an admitted parent becomes a symlink", async () => {

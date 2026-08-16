@@ -19,6 +19,7 @@ import {
 import {
   getOpenClawFsPublicationFixture,
 } from "./helpers/build-contract-fixture.js";
+import { NATIVE_OPENCLAW_FS } from "./helpers/native-openclaw-fs.js";
 
 const sha256 = (bytes) => (
   `sha256:${createHash("sha256").update(bytes).digest("hex")}`
@@ -121,7 +122,9 @@ describe("OpenClaw exact target descriptor", () => {
     assert.equal(validateOpenClawTargetDescriptor(changed).ok, false);
   });
 
-  it("writes canonical bytes create-only and never accepts a forged candidate", async () => {
+  it("writes canonical bytes create-only and never accepts a forged candidate", {
+    skip: !NATIVE_OPENCLAW_FS,
+  }, async () => {
     const target = await makeTarget();
     const descriptor = await buildOpenClawTargetDescriptor(await descriptorOptions(target));
     const output = path.join(target.root, "target-descriptor.json");
@@ -164,7 +167,9 @@ describe("OpenClaw exact target descriptor", () => {
     await assert.rejects(() => stat(output));
   });
 
-  it("preserves an unknown descriptor post-publication replacement", async () => {
+  it("preserves an unknown descriptor post-publication replacement", {
+    skip: !NATIVE_OPENCLAW_FS,
+  }, async () => {
     const target = await makeTarget();
     const descriptor = await buildOpenClawTargetDescriptor(await descriptorOptions(target));
     const output = path.join(target.root, "target-descriptor-replaced.json");
@@ -199,7 +204,9 @@ describe("OpenClaw exact target descriptor", () => {
     assert.notDeepEqual(await readFile(preservedOwned), sentinelBytes);
   });
 
-  it("itemizes a descriptor when failure follows atomic final rename", async () => {
+  it("itemizes a descriptor when failure follows atomic final rename", {
+    skip: !NATIVE_OPENCLAW_FS,
+  }, async () => {
     const target = await makeTarget();
     const descriptor = await buildOpenClawTargetDescriptor(await descriptorOptions(target));
     const output = path.join(target.root, "target-descriptor-link-window.json");

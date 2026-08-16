@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
-import { readdir, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
+import { BUILDER_NPM_TARBALL_INVENTORY } from "../src/builder-package.js";
 
 const REPOSITORY_ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
-const SHIPPED_SOURCE_ROOTS = Object.freeze(["bin", "plugin", "scripts", "src"]);
+const SHIPPED_SOURCE_PREFIXES = Object.freeze(["bin/", "plugin/", "scripts/", "src/"]);
 const SOURCE_EXTENSIONS = new Set([".cjs", ".js", ".json", ".mjs", ".sh", ".toml"]);
 const FORBIDDEN_TEST_CONTROL_MARKERS = Object.freeze([
   "__testOnly",
@@ -32,6 +33,8 @@ const FORBIDDEN_MIGRATION_CONTROL_MARKERS = Object.freeze([
 describe("shipped Builder test-control boundary", () => {
   it("does not ship caller-controlled test or fault control markers", async () => {
     const sourceFiles = await collectShippedSourceFiles();
+    assert.equal(sourceFiles.includes("scripts/verify-codex-uat-candidate.js"), true);
+    assert.equal(sourceFiles.includes("scripts/check-single-flight.js"), false);
     const findings = [];
     for (const filePath of sourceFiles) {
       const source = await readFile(path.join(REPOSITORY_ROOT, filePath), "utf8");
@@ -58,22 +61,10 @@ function hasStandaloneIdentifier(source, marker) {
 }
 
 async function collectShippedSourceFiles() {
-  const files = [];
-  for (const root of SHIPPED_SOURCE_ROOTS) {
-    await visit(root, files);
-  }
-  return files.toSorted((left, right) => left.localeCompare(right));
-}
-
-async function visit(relativeDirectory, files) {
-  const directory = path.join(REPOSITORY_ROOT, relativeDirectory);
-  const entries = await readdir(directory, { withFileTypes: true });
-  for (const entry of entries) {
-    const relativePath = path.join(relativeDirectory, entry.name);
-    if (entry.isDirectory()) {
-      await visit(relativePath, files);
-    } else if (entry.isFile() && SOURCE_EXTENSIONS.has(path.extname(entry.name))) {
-      files.push(relativePath);
-    }
-  }
+  return BUILDER_NPM_TARBALL_INVENTORY
+    .filter((sourcePath) => (
+      SHIPPED_SOURCE_PREFIXES.some((prefix) => sourcePath.startsWith(prefix))
+      && SOURCE_EXTENSIONS.has(path.extname(sourcePath))
+    ))
+    .toSorted((left, right) => left.localeCompare(right));
 }

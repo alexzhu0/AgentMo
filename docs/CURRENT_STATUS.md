@@ -1,6 +1,6 @@
 # AgentMo 当前状态与恢复入口
 
-更新日期：2026-08-12
+更新日期：2026-08-16
 
 本页是短期恢复锚点。它只描述当前工作状态；历史决策、审计和发布证据保留在
 `release/`，不应被本页改写。旧规划工作区已移除，不是恢复权威。
@@ -15,115 +15,100 @@ Discover -> Plan -> Produce
 
 当前权威架构口径已经收敛到 `docs/CONCEPT.md`：
 
-- Discover 连接公开搜索、内部数据库/API、MCP、本地文件和用户反馈等已授权
-  数据源，形成 Research DB，并从证据中提炼可能被做成 Agent Package 的
-  Agent Idea，交由用户确认；
-- Plan 为确认后的 Idea 同时生成 Agent 设计与验证义务，包括 Evaluation
-  Contract、Test Dataset、Acceptance Criteria 和失败边界；
-- Produce 由 Codex、Cursor、Claude Code、Kimi Code 等 Coding Agent 按批准的
-  规划进行编码，并以 Plan 阶段预先定义的测试数据集验证交付物；
-- OpenClaw 是首个 Runtime Adapter，不是 AgentMo 的永久边界；未来目标可包括
-  Pi、Hermes 或业务方提供的 Agent 架构规范；
-- 外部开发工作流、规划框架和插件不属于 AgentMo 产品架构；AgentMo CLI、合同、
-  Builder Protocol、Agent Package、测试与 Runtime 运行不得依赖它们。
+- Discover 连接已授权的数据源，形成 Research DB，并从证据中提炼候选 Agent
+  Idea，交由人类确认；
+- Plan 为经独立授权的 Idea 生成 Agent 设计与验证义务；
+- Produce 由 Coding Agent 按批准的规划编码，并以 Plan 预先定义的测试数据验证；
+- OpenClaw 是首个 Runtime Adapter，不是 AgentMo 的永久边界；
+- 外部开发工作流、规划框架和插件不属于 AgentMo 产品架构或 runtime 依赖。
 
-上述内容同时包含目标架构与扩展边界，不得把尚未完成的数据连接器、Coding Agent
-适配器、Runtime Adapter 或自动 Idea 发现能力描述为当前已交付能力。
-通用架构图和权威架构定义不放入任何具体领域 Agent、POC 或客户场景；这些内容只在
-对应的实现、验收和历史记录中描述。
+这些描述包含目标架构与扩展边界，不得把尚未完成的连接器、自动 Idea 生成、
+Plan 消费、Runtime Adapter 或认证能力写成当前已交付能力。通用架构和合同不得
+嵌入具体领域 POC。
 
-白领研究型 OpenClaw POC 已完成一次独立、受限的验收运行：两次采集分别新增
-20 条与 0 条记录；重启后 Research DB 与每日 brief 可读；短问题可由
-OpenClaw/DeepSeek 仅基于本地证据回答，缺证据时会拒答。该验收不等于生产可用、
-完整来源健康、领域认证或自动化发布。
+## 当前分支与未提交收口
 
-当前正在维护的改动位于隔离 worktree：
+当前分支在 `origin/main` 之上已有 7 个本地、尚未 push 或 integrate 的 Candidate
+commits。它们记录了批准设计、proposal-only 的
+`agentmo.agent-idea-candidate.v1` artifact contract、公开校验、admission/report CLI
+及多轮 trust-boundary 加固；该 artifact 不包含 human decision，也不授权 Plan。
+
+在这 7 个本地 commits 之后，当前 worktree 的后续收口批次仍未 commit，包括：
+
+- Candidate CLI 模块拆分、Builder/runtime asset 与 syntax ownership 同步；
+- OpenClaw 两个真实 child-process site 的入口前置 guard、spawn-adjacent guard，
+  以及 static-import-only、fail-closed 的 child-process site inventory；browser opener
+  仍是独立的本地 UI effect；
+- Node.js 20.20.2 Darwin arm64 可信 producer receipt 与 post-publication consumer
+  闭环。当前 receipt 为
+  `release/evidence/2026.08.14-node20-core-receipt.json`，receipt SHA-256 为
+  `64fd5deba66e05c94c176934a5472ecdebc15a85ac63d943257d1bc0480be538`，
+  command-set digest 为
+  `455e7d36ab8eb2334e0854977063637cc79bc9b9734fd3c3df2bfa6ea86894e2`。
+  精确 TAP 计数为 syntax `42/0/0/42`、core `62/1/0/63`、stage
+  `3/2/0/5`（pass/skip/fail/total）；consumer 为 6 pass、0 fail、exit 0。
+
+这些本地 commits 与未提交收口均不应被假设存在于其他 checkout。Node20 receipt
+只证明受限机制与发行输入 provenance，不证明领域质量、生产就绪或更广泛
+OpenClaw 兼容。
+
+## 历史 POC
+
+白领研究型 OpenClaw POC 的一次独立、受限验收发生于 2026-08-06。该历史验收和
+边界记录在 `release/2026.08.06.md`；它不承诺当时的临时 worktree 或 workspace
+仍然存在，也不等于生产可用、完整来源健康、领域认证或自动化发布。
+
+以下仅保留命令形状作为历史说明，不是当前恢复步骤：
 
 ```text
-/private/tmp/agentmo-poc-openclaw-builder
-branch: codex/poc-openclaw-builder
-base HEAD: 22c3c28
+node ./bin/agentmo.js poc dashboard <historical-workspace> \
+  --profile <historical-profile> \
+  --model <historical-model> \
+  --runtime-env-file <absolute-runtime-env-file> \
+  --port <loopback-port>
 ```
 
-这里的 Dashboard、文档与测试改动仍未提交。不要假设默认仓库 checkout 已包含它们，
-也不要删除或移动其他已有 dirty 文件。
-
-## 可体验的 POC
-
-验收 workspace 位于临时目录：
-
-```text
-/private/tmp/agentmo-white-collar-final-poc.rmjWaz/workspace
-```
-
-临时目录可能被系统清理；它是可体验的 POC 状态，不是可发布的 Agent Package。
-从隔离 worktree 启动 Dashboard：
-
-```bash
-cd /private/tmp/agentmo-poc-openclaw-builder
-
-node ./bin/agentmo.js poc dashboard \
-  /private/tmp/agentmo-white-collar-final-poc.rmjWaz/workspace \
-  --profile agentmo-poc-white-collar-dashboard \
-  --model deepseek/deepseek-v4-flash \
-  --runtime-env-file /absolute/path/to/runtime.env \
-  --port 18889
-```
-
-该命令只使用允许名的运行时环境变量；令牌不会打印或持久化。它启动一个前台、
-loopback、token-authenticated 的隔离 Gateway，并打开精确的
-`white-collar-research-poc` 会话。若端口已被手动 Gateway 占用，命令会拒绝，
-而不是停止、覆盖或修改默认 `~/.openclaw`。用启动该命令的终端按 Ctrl-C 停止。
-
-## 已验证的边界
-
-- `poc dashboard` 为隔离 Profile 写入 DeepSeek provider、模型目录与精确 Agent
-  注册；不改默认 OpenClaw Profile。
-- 采集只能使用注册来源与显式网络模式。公开 DNS 被本机代理映射到保留地址时，
-  `synthetic-dns-proxy` 是 POC 的受限例外，不是放宽 SSRF 防护或通用爬虫能力。
-- 08:00 Asia/Shanghai 仅有 schedule preview；没有授权或执行 schedule、投递或发布。
-- macOS 验证非 Linux 原生文件系统路径会 fail-closed；Linux native Package
-  Produce/containment 证据仍应由 Linux CI 提供。
+POC 的 schedule 只曾得到 preview；没有由该历史验收授权 schedule activation、
+投递或发布。macOS 的非 Linux 原生文件系统路径仍 fail closed，Linux native
+Package Produce/containment 证据仍需相应 Linux gate。
 
 ## 当前验证与未完成项
 
-最近一次聚焦验证通过：
+Node20 post-publication consumer 已通过 6/6、exit 0。2026-08-16 的唯一最终
+`npm run check` 自然 exit 0，precheck、syntax 与四段 fail-fast test chain 均完整执行：
 
-```text
-node --test test/package-produce.test.js test/openclaw-safe-fs.test.js \
-  test/artifact-surface-coverage.test.js test/poc-cli.test.js \
-  test/poc-openclaw-runtime.test.js test/discovery-live-transport.test.js
-# 46 pass, 0 fail
+- main：1051 tests / 996 pass / 55 skip / 0 fail；
+- durable-fs：2/2 pass，其中 86-member 为 `34057.646667ms`，producer crash 为
+  `20706.853958ms`；
+- packed-hook-chain：1/1 pass；
+- packed-behavior：8/8 pass。
 
-git diff --check
-# pass
-```
+这些结果只证明本次有界机制与测试集合通过，不认证领域质量、生产就绪或更广泛
+OpenClaw 兼容。分支上的 7 个本地 commits 仍未 push/integrate，后续 worktree 收口批次
+仍未 commit；当前没有 push、PR、tag 或 GitHub Release，也没有 npm publication。
 
-`npm run check` 不是当前绿色结论：一次聚合尝试进入无关的、长时间 Phase 4
-fault-injection 测试后被人为中止；中止前 256 项通过、没有真实断言失败，剩余项为
-取消。不要把取消当成全绿，也不要为日常 POC 重跑该全量长套件。
-
-下一步需要明确的人类决定：
-
-1. 复核并按功能分组提交当前 Dashboard/测试/文档改动；之后才可 push。
-2. 需要 Package 原生闭环时，执行精确 commit 的 Linux CI gate；这不要求把 Mac
-   POC 开发迁移到 Linux。
-3. 若要把 POC 变成长期使用的产品能力，先决定来源白名单、持久化位置、schedule
-   activation、投递渠道与人工审核边界；它们目前都未获授权。
+下一步是最终独立复审；之后仍须等待用户明确授权，才能 commit、integrate 或 push。
+当前没有这些授权。
 
 ## 新 session 最小恢复步骤
 
 1. 先读 `AGENTS.md`、`docs/SUPERPOWERS_WORKFLOW.md`、本页、
-   `release/README.md`、`release/2026.08.06.md`、`README.md`、
+   `release/README.md`、`release/2026.08.14.md`、`README.md`、
    `docs/MVP_RUNBOOK.md` 和 `docs/AGENT_BIRTH_GATE.md`。
-2. 在实际工作目录运行 `pwd`、`git status --short`、`git branch --show-current`、
-   `git rev-parse --short HEAD`；以实时结果为准。
+2. 在实际工作目录运行以下实时命令，并以输出为准：
+
+   ```text
+   pwd
+   git status --short
+   git branch --show-current
+   git rev-parse --short HEAD
+   ```
+
 3. 不读取 `.env` 内容、不记录密钥、不操作 sibling projects，除非用户明确授权。
-4. 不把 POC 证据升级为 OpenClaw 安装、runtime 认证、领域质量或生产认证。
+4. 不恢复 OMX/GSD 命令或旧规划工作区；Superpowers 是仓库开发工作流，不是
+   AgentMo 产品或 runtime 依赖。
+5. 不把 POC 或 Node20 机制证据升级为 OpenClaw 安装、领域质量、生产就绪或发布
+   认证。
 
-历史追溯从 `release/PROJECT_HISTORY.md` 和对应日期 release 开始；不要恢复或执行
-旧规划工作流的待办、命令或流程。
-
-相关证据：`release/2026.08.06.md`、
-`docs/superpowers/specs/2026-08-05-white-collar-research-db-poc-design.md`、
-`docs/superpowers/specs/2026-08-06-poc-dashboard-design.md`。
+历史追溯从 `release/PROJECT_HISTORY.md` 和对应日期 release 开始；归档的
+`docs/OMX_SESSION_MIGRATION.md` 不是可执行恢复入口。

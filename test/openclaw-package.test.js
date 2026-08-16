@@ -19,20 +19,21 @@ import {
   writeOpenClawTargetCarrierAdmission,
 } from "../src/openclaw-target-admission.js";
 import { readPackageArchiveInventory } from "../src/package-archive.js";
-import { produceAgentPackage } from "../src/package-produce.js";
 import { serializePersistableJson } from "../src/persistability.js";
 import { buildOpenClawPackageProjection } from "../src/targets/openclaw-package.js";
 import {
   buildApprovedPackageFixture,
   digestBytes,
   packageProduceOptions,
+  produceAgentPackageFixture,
 } from "./helpers/package-produce-fixture.js";
+import { NATIVE_OPENCLAW_FS } from "./helpers/native-openclaw-fs.js";
 
 it("projects complete OpenClaw-native resources and only recipe-derived plugin bytes", async () => {
   const fixture = await buildApprovedPackageFixture();
   const outputRoot = path.join(fixture.root, "package");
   const archivePath = path.join(fixture.root, "package.d42");
-  await produceAgentPackage(packageProduceOptions(fixture, outputRoot, archivePath));
+  await produceAgentPackageFixture(packageProduceOptions(fixture, outputRoot, archivePath));
   const required = [
     "projections/openclaw/workspace/AGENTS.md",
     "projections/openclaw/workspace/SOUL.md",
@@ -82,7 +83,7 @@ it("preserves nested recipe paths and same-basename members through manifest and
   const fixture = await buildNestedPackageFixture();
   const outputRoot = path.join(fixture.root, "nested-package");
   const archivePath = path.join(fixture.root, "nested-package.d42");
-  const produced = await produceAgentPackage(
+  const produced = await produceAgentPackageFixture(
     packageProduceOptions(fixture, outputRoot, archivePath),
   );
   const expectedPaths = [
@@ -298,11 +299,18 @@ async function buildNestedPackageFixture() {
     },
   });
   const targetAdmissionPath = path.join(fixture.root, "nested-target-admission.json");
-  await writeOpenClawTargetCarrierAdmission(
-    targetAdmissionPath,
-    targetAdmission,
-    fixture.publication,
-  );
+  if (NATIVE_OPENCLAW_FS) {
+    await writeOpenClawTargetCarrierAdmission(
+      targetAdmissionPath,
+      targetAdmission,
+      fixture.publication,
+    );
+  } else {
+    await writeFile(targetAdmissionPath, Buffer.from(serializePersistableJson(
+      targetAdmission,
+      { subject: "openclaw-target-carrier-admission" },
+    ), "utf8"), { flag: "wx", mode: 0o600 });
+  }
   fixture.paths["build-contract"] = contractPath;
   fixture.paths["plan-approval"] = approvalPath;
   fixture.paths["openclaw-target-carrier-admission"] = targetAdmissionPath;
