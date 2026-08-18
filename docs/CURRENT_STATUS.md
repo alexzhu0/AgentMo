@@ -1,6 +1,6 @@
 # AgentMo 当前状态与恢复入口
 
-更新日期：2026-08-16
+更新日期：2026-08-17
 
 本页是短期恢复锚点。它只描述当前工作状态；历史决策、审计和发布证据保留在
 `release/`，不应被本页改写。旧规划工作区已移除，不是恢复权威。
@@ -28,19 +28,21 @@ Plan 消费、Runtime Adapter 或认证能力写成当前已交付能力。通�
 
 ## 当前分支与未提交收口
 
-当前分支在 `origin/main` 之上已有 7 个本地、尚未 push 或 integrate 的 Candidate
-commits。它们记录了批准设计、proposal-only 的
+当前 `main` 在 `origin/main` 之上已有 8 个本地、尚未 push 的 commits。它们记录了
+批准设计、proposal-only 的
 `agentmo.agent-idea-candidate.v1` artifact contract、公开校验、admission/report CLI
-及多轮 trust-boundary 加固；该 artifact 不包含 human decision，也不授权 Plan。
+及多轮 trust-boundary 加固，并已包含 Candidate CLI 拆分、OpenClaw runtime guard、
+Node 20 receipt/post-publication consumer 与此前 aggregate 修复；该 artifact 不包含
+human decision，也不授权 Plan。
 
-在这 7 个本地 commits 之后，当前 worktree 的后续收口批次仍未 commit，包括：
+当前 worktree 仍有一个尚未 commit 的 aggregate gate 收口批次，包括：
 
-- Candidate CLI 模块拆分、Builder/runtime asset 与 syntax ownership 同步；
-- OpenClaw 两个真实 child-process site 的入口前置 guard、spawn-adjacent guard，
-  以及 static-import-only、fail-closed 的 child-process site inventory；browser opener
-  仍是独立的本地 UI effect；
-- Node.js 20.20.2 Darwin arm64 可信 producer receipt 与 post-publication consumer
-  闭环。当前 receipt 为
+- private continuation 的 15 秒边界观察窗口与 30 秒 child watchdog 合同；
+- immutable successor behavior 从 packed-behavior 拆分为独立、末端 fail-fast lane；
+- 对应 package script、command-doc 回归与本日期 release 记录。
+
+Node.js 20.20.2 Darwin arm64 可信 producer receipt 与 post-publication consumer 已在
+当前 8 个本地 commits 中。当前 receipt 为
   `release/evidence/2026.08.14-node20-core-receipt.json`，receipt SHA-256 为
   `64fd5deba66e05c94c176934a5472ecdebc15a85ac63d943257d1bc0480be538`，
   command-set digest 为
@@ -74,20 +76,21 @@ Package Produce/containment 证据仍需相应 Linux gate。
 
 ## 当前验证与未完成项
 
-Node20 post-publication consumer 已通过 6/6、exit 0。2026-08-16 的唯一最终
-`npm run check` 自然 exit 0，precheck、syntax 与四段 fail-fast test chain 均完整执行：
+Node20 post-publication consumer 已通过 6/6、exit 0。2026-08-17 的唯一最终
+`npm run check` 自然 exit 0，precheck、syntax 与五段 fail-fast test chain 均完整执行：
 
-- main：1051 tests / 996 pass / 55 skip / 0 fail；
-- durable-fs：2/2 pass，其中 86-member 为 `34057.646667ms`，producer crash 为
-  `20706.853958ms`；
-- packed-hook-chain：1/1 pass；
-- packed-behavior：8/8 pass。
+- main：1052 tests / 996 pass / 56 skip / 0 fail；
+- durable-fs：2/2 pass，其中 86-member 为 `33361.146125ms`，producer crash 为
+  `20469.311292ms`；
+- packed-hook-chain：1/1 pass，`160726.065083ms`；
+- packed-behavior：7 pass / 1 isolated-lane skip / 0 fail；
+- immutable-successor：1/1 pass，`342658.224667ms`。
 
 这些结果只证明本次有界机制与测试集合通过，不认证领域质量、生产就绪或更广泛
-OpenClaw 兼容。分支上的 7 个本地 commits 仍未 push/integrate，后续 worktree 收口批次
+OpenClaw 兼容。分支上的 8 个本地 commits 仍未 push，当前 aggregate gate 收口批次
 仍未 commit；当前没有 push、PR、tag 或 GitHub Release，也没有 npm publication。
 
-下一步是最终独立复审；之后仍须等待用户明确授权，才能 commit、integrate 或 push。
+下一步是最终独立复审；之后仍须等待用户明确授权，才能 commit 或 push。
 当前没有这些授权。
 
 ## 新 session 最小恢复步骤

@@ -69,6 +69,9 @@ if (process.argv[1]?.endsWith("agentmo-hook.js")
 }
 `;
 const CHILD_NODE_OPTIONS = `--import=data:text/javascript,${encodeURIComponent(CHILD_PRELOAD_SOURCE)}`;
+const packedBehaviorIt = process.env.AGENTMO_TEST_LANE === "immutable-successor"
+  ? it.skip
+  : it;
 
 function digest(bytes) {
   return `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
@@ -925,7 +928,7 @@ describe("packed fresh-process Builder behavior evaluation", {
     ? "runs in the isolated packed-behavior lane"
     : false,
 }, () => {
-  it("observes every fixed scenario without claiming real Codex activation or domain quality", {
+  packedBehaviorIt("observes every fixed scenario without claiming real Codex activation or domain quality", {
     timeout: 360_000,
   }, async () => {
     const project = await mkdtemp(path.join(tmpdir(), "agentmo-behavior-project-"));
@@ -1000,7 +1003,7 @@ describe("packed fresh-process Builder behavior evaluation", {
     assert.deepEqual(await readdir(packedExecutionCwd), []);
   });
 
-  it("reaps a SIGTERM-ignoring PATH-shadow probe without leaking inherited values", {
+  packedBehaviorIt("reaps a SIGTERM-ignoring PATH-shadow probe without leaking inherited values", {
     skip: process.platform === "win32",
     timeout: 180_000,
   }, async () => {
@@ -1053,7 +1056,7 @@ describe("packed fresh-process Builder behavior evaluation", {
     }
   });
 
-  it("bounds an escaped stdout-holding PATH-shadow probe", {
+  packedBehaviorIt("bounds an escaped stdout-holding PATH-shadow probe", {
     skip: process.platform === "win32",
     timeout: 180_000,
   }, async () => {
@@ -1091,7 +1094,7 @@ describe("packed fresh-process Builder behavior evaluation", {
   });
 
   it("uses one immutable successor selection for receipt, hook, doctor, and behavior", {
-    skip: process.env.AGENTMO_TEST_LANE === "main"
+    skip: ["main", "packed-behavior"].includes(process.env.AGENTMO_TEST_LANE)
       ? "runs in the isolated immutable-successor lane"
       : false,
   }, async () => {
@@ -1260,7 +1263,7 @@ describe("packed fresh-process Builder behavior evaluation", {
     assert.deepEqual(tamperedJournal.head, journal.head);
   });
 
-  it("rejects a wrong receipt digest and modified hook before launching any host probe", async () => {
+  packedBehaviorIt("rejects a wrong receipt digest and modified hook before launching any host probe", async () => {
     const project = await mkdtemp(path.join(tmpdir(), "agentmo-behavior-reject-"));
     const { receiptDigest, home } = await installProject(project);
     await writeFile(probeMarker, "", "utf8");
@@ -1283,7 +1286,7 @@ describe("packed fresh-process Builder behavior evaluation", {
     assert.equal((await readFile(probeMarker, "utf8")), "");
   });
 
-  it("rejects caller-supplied doctor, scenario, result, or observation claims", async () => {
+  packedBehaviorIt("rejects caller-supplied doctor, scenario, result, or observation claims", async () => {
     const project = await mkdtemp(path.join(tmpdir(), "agentmo-behavior-forgery-"));
     const { receiptDigest } = await installProject(project);
     for (const injected of [
@@ -1303,7 +1306,7 @@ describe("packed fresh-process Builder behavior evaluation", {
     }
   });
 
-  it("exact-admits one connected UAT candidate without merging it into mechanism evidence", async () => {
+  packedBehaviorIt("exact-admits one connected UAT candidate without merging it into mechanism evidence", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agentmo-behavior-uat-"));
     const project = path.join(root, "project");
     const home = path.join(root, "home");
@@ -1544,7 +1547,7 @@ describe("packed fresh-process Builder behavior evaluation", {
     );
   });
 
-  it("rejects a digest-consistent ledger without the exact current project consumer", async () => {
+  packedBehaviorIt("rejects a digest-consistent ledger without the exact current project consumer", async () => {
     for (const mode of ["missing", "scope-mismatch", "release-mismatch"]) {
       const root = await mkdtemp(path.join(tmpdir(), `agentmo-behavior-consumer-${mode}-`));
       const project = path.join(root, "project");

@@ -55,8 +55,18 @@ const PRIOR_PREFLIGHT_SCRIPT = path.resolve(
 const CONTINUATION_ENTRY_PATTERN = /^\d{16}\.[a-f0-9]{64}\.json$/u;
 const CONTINUATION_SEQUENCE_PATTERN = /^\d{16}\.json$/u;
 const CONTINUATION_STAGE_PATTERN = /^([a-f0-9]{64})\.(record|prepared|outcome)\.stage\.json$/u;
+const PRIVATE_TRANSITION_BOUNDARY_TIMEOUT_MS = 15_000;
+const PRIVATE_TRANSITION_CHILD_TIMEOUT_MS = 30_000;
 let releaseFixturePromise;
 describe("repository-private prior-attempt authority", () => {
+  it("keeps the private child watchdog outside the complete boundary observation window", () => {
+    assert.equal(
+      PRIVATE_TRANSITION_CHILD_TIMEOUT_MS
+        >= PRIVATE_TRANSITION_BOUNDARY_TIMEOUT_MS + 15_000,
+      true,
+    );
+  });
+
   it("exports the closed prior receipt and continuation contracts", () => {
     assert.equal(CODEX_UAT_PRIOR_PREFLIGHT_SCHEMA_VERSION, "agentmo.codex-uat-prior-preflight.v1");
     assert.equal(CODEX_UAT_CONTINUATION_SCHEMA_VERSION, "agentmo.codex-uat-continuation.v1");
@@ -534,8 +544,9 @@ function startPrivateTransitionChild(repositoryRoot, next) {
 async function stopPrivateTransitionAt(repositoryRoot, next, directoryName, predicate) {
   const child = startPrivateTransitionChild(repositoryRoot, next);
   const terminalPromise = collectPrivateTransitionChild(child);
+  terminalPromise.catch(() => undefined);
   const directory = path.join(continuationAuthorityRoot(repositoryRoot), directoryName);
-  const deadline = Date.now() + 15_000;
+  const deadline = Date.now() + PRIVATE_TRANSITION_BOUNDARY_TIMEOUT_MS;
   let matched = false;
   while (Date.now() < deadline && child.exitCode === null) {
     const names = await readdir(directory);
@@ -563,7 +574,7 @@ async function collectPrivateTransitionChild(child) {
       settled = true;
       child.kill("SIGKILL");
       rejectPromise(new Error("private continuation child timed out"));
-    }, 10_000);
+    }, PRIVATE_TRANSITION_CHILD_TIMEOUT_MS);
     child.on("error", (error) => {
       if (settled) return;
       settled = true;

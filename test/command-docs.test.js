@@ -42,6 +42,7 @@ const EXPECTED_AGGREGATE_TEST_LANES = Object.freeze([
   "npm run check:test:durable-fs",
   "npm run check:test:packed-hook-chain",
   "npm run check:test:packed-behavior",
+  "npm run check:test:immutable-successor",
 ]);
 
 function assertAggregateTestLaneChain(aggregate) {
@@ -390,8 +391,8 @@ describe("maintained command documentation", () => {
     }
 
     const currentStatus = await readFile(path.join(REPO_ROOT, "docs/CURRENT_STATUS.md"), "utf8");
-    assert.match(currentStatus, /7 个本地、尚未 push 或 integrate 的 Candidate\s+commits/u);
-    assert.match(currentStatus, /后续收口批次仍未\s+commit/u);
+    assert.match(currentStatus, /8 个本地、尚未 push 的 commits/u);
+    assert.match(currentStatus, /当前 aggregate gate 收口批次\s+仍未 commit/u);
     assert.match(currentStatus, /没有 push、PR、tag 或 GitHub Release/u);
   });
 
@@ -423,6 +424,10 @@ describe("maintained command documentation", () => {
     assert.equal(
       packageJson.scripts["check:test:durable-fs"],
       "AGENTMO_TEST_LANE=durable-fs node --test --test-concurrency=1 --test-name-pattern='^(publishes an 86-member projection in bounded batches within 90 seconds|preserves the retained baseline when the external producer is killed during successor build)$' test/builder-marketplace-projection-transaction.test.js test/builder-package-security.test.js",
+    );
+    assert.equal(
+      packageJson.scripts["check:test:immutable-successor"],
+      "AGENTMO_TEST_LANE=immutable-successor node --test --test-name-pattern='^uses one immutable successor selection for receipt, hook, doctor, and behavior$' test/codex-builder-behavior.test.js",
     );
     assertAggregateTestLaneChain(packageJson.scripts.check);
 
