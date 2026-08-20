@@ -47,6 +47,7 @@ const SYNTAX_FILES = [
   "src/build-state.js",
   "src/cli.js",
   "src/control-snapshot.js",
+  "src/decision-entry-canonicalizer.js",
   "src/delivery-report.js",
   "src/design-plan.js",
   "src/discovery-db.js",
@@ -89,7 +90,7 @@ export const OWNED_COMMAND_MANIFEST = deepFreeze([
     id: "syntax",
     kind: "syntax",
     files: SYNTAX_FILES,
-    expected: { pass: 42, skip: 0, fail: 0, total: 42 },
+    expected: { pass: 43, skip: 0, fail: 0, total: 43 },
   },
   {
     id: "core-contracts",

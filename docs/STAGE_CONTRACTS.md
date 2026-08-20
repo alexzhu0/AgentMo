@@ -320,8 +320,8 @@ Stage 2 produces a valid `agentmo.design-plan.v1` plus a valid AgentMo blueprint
 ### Validators and commands
 
 - `agentmo need-report <need.json> [--json]`
-- `agentmo decision-ledger append|inspect ...` records or inspects typed, predecessor-bound Plan decisions; it never accepts transcripts or stdin authority.
-- `agentmo artifact-contract decision-entry --json` exports the closed five-kind entry schema and a production-validator-valid minimal template.
+- `agentmo decision-ledger canonicalize-entry ...` creates a new absent canonical Decision Entry artifact before its digest exists, fixing reference-array order before serializing and verifying its one-link private-stage bytes. It requires a caller-owned non-group/world-writable output parent and exclusive same-UID control of its output parent, private stage, and target namespace; it is not a concurrent same-UID filesystem transaction. Observable pre-publication identity or symlink anomalies fail closed, and it never rolls back a published public pathname. `append|inspect` records or inspects typed, predecessor-bound Plan decisions and never rewrites approved bytes, accepts transcripts, or accepts stdin authority.
+- `agentmo artifact-contract decision-entry --json` exports the closed five-kind entry schema, byte-sorted unique reference-array rule, and a production-validator-valid minimal template.
 - `agentmo design-plan <agentmo-discovery-db.json> --manifest <discovery.json> --discovery-approval <approval.json> --need <need.json> --decision-ledger <ledger.json> --digest discovery-manifest=<sha256:...> --digest discovery-db=<sha256:...> --digest discovery-approval=<sha256:...> --digest user-need=<sha256:...> --digest decision-ledger=<sha256:...> --out <agentmo-design-plan.json> [--target agentmo|openclaw] [--json]`
 - `agentmo blueprint-draft <agentmo-discovery-db.json> --need <need.json> --design-plan <agentmo-design-plan.json> --out <blueprint.json> [--target agentmo|openclaw] [--json]`
 - `agentmo validate <blueprint.json>`

@@ -1205,9 +1205,9 @@ describe("Builder package trust boundaries", () => {
     assert.deepEqual(
       BUILDER_PLUGIN_HOOK_IO_SURFACE_INVENTORY.slice(31, 34),
       [
-        "plugin/hooks/agentmo-hook.js:813:filesystem-read:fs.lstat",
-        "plugin/hooks/agentmo-hook.js:814:filesystem-read:fs.readlink",
-        "plugin/hooks/agentmo-hook.js:815:filesystem-read:fs.lstat",
+        "plugin/hooks/agentmo-hook.js:816:filesystem-read:fs.lstat",
+        "plugin/hooks/agentmo-hook.js:817:filesystem-read:fs.readlink",
+        "plugin/hooks/agentmo-hook.js:818:filesystem-read:fs.lstat",
       ],
     );
 

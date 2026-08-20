@@ -465,6 +465,68 @@ describe("artifact/output surface inventory", () => {
     }
   });
 
+  it("publishes the Decision Entry canonicalizer in the exact npm and Builder closure", async () => {
+    const sourcePath = "src/decision-entry-canonicalizer.js";
+    const packageJson = JSON.parse(await readFile(
+      path.join(REPO_ROOT, "package.json"),
+      "utf8",
+    ));
+    assert.equal(packageJson.files.includes(sourcePath), true);
+    assert.equal(
+      BUILDER_RELEASE_ASSET_INVENTORY.some((entry) => entry.sourcePath === sourcePath),
+      true,
+    );
+    assert.equal(BUILDER_NPM_TARBALL_INVENTORY.includes(sourcePath), true);
+    assert.match(
+      packageJson.scripts.check,
+      new RegExp(`node --check ${sourcePath.replaceAll(".", "\\.")}(?: |$)`, "u"),
+    );
+  });
+
+  it("keeps Decision Entry canonicalization I/O confined to private staging and create-only publication", async () => {
+    const surfaces = (await scanIoSurfaces(REPO_ROOT))
+      .filter((item) => item.file === "src/decision-entry-canonicalizer.js")
+      .map(({ kind, callee }) => `${kind}:${callee}`);
+    assert.deepEqual(surfaces, [
+      "filesystem-lifecycle:fs.link",
+      "filesystem-read:fs.lstat",
+      "filesystem-open:fs.open",
+      "file-handle-read:FileHandle.stat",
+      "filesystem-read:fs.lstat",
+      "file-handle-lifecycle:FileHandle.sync",
+      "file-handle-read:FileHandle.stat",
+      "filesystem-read:fs.lstat",
+      "filesystem-lifecycle:fs.mkdtemp",
+      "filesystem-lifecycle:fs.chmod",
+      "filesystem-read:fs.lstat",
+      "filesystem-open:fs.open",
+      "file-handle-read:FileHandle.stat",
+      "filesystem-read:fs.lstat",
+      "filesystem-open:fs.open",
+      "file-handle:FileHandle.writeFile",
+      "file-handle-lifecycle:FileHandle.sync",
+      "file-handle-read:FileHandle.stat",
+      "filesystem-read:fs.lstat",
+      "file-handle-read:FileHandle.stat",
+      "file-handle-read:FileHandle.read",
+      "file-handle-read:FileHandle.stat",
+      "file-handle-read:FileHandle.stat",
+      "filesystem-read:fs.lstat",
+      "file-handle-read:FileHandle.stat",
+      "filesystem-read:fs.lstat",
+      "filesystem-lifecycle:fs.unlink",
+      "filesystem-lifecycle:fs.rmdir",
+    ]);
+    const source = await readFile(
+      path.join(REPO_ROOT, "src/decision-entry-canonicalizer.js"),
+      "utf8",
+    );
+    assert.match(source, /await unlink\(stage\.entryPath\)/u);
+    assert.doesNotMatch(source, /\.truncate\(/u);
+    assert.doesNotMatch(source, /\bunlink\(filePath\)/u);
+    assert.doesNotMatch(source, /afterPublication|afterStaging|canonicalization hooks/u);
+  });
+
   it("proves durable reads use one exact retained capture instead of trusting a gated label", async () => {
     const bytes = await readFile(SUPPORT_BLUEPRINT);
     const expectedDigest = digestRawBytes(bytes);

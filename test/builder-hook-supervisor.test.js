@@ -565,19 +565,34 @@ describe("installed hook child supervisor", () => {
     await absent(marker);
   });
 
-  it("settles at the timeout when an escaped descendant holds stdout open", async () => {
+  it("settles at the timeout when an escaped descendant holds stdout open", {
+    timeout: 5_000,
+  }, async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agentmo-hook-supervisor-escape-"));
     const pidPath = path.join(root, "escaped-pid");
+    const pendingPidPath = path.join(root, "pending-escaped-pid");
+    const ownerPidPath = path.join(root, "escaped-owner-pid");
+    const releasePath = path.join(root, "release-escaped-pid");
     const launcherPath = path.join(root, "virtual-launcher.js");
     await writeFile(launcherPath, "", { flag: "wx", mode: 0o600 });
     const launcherUrl = pathToFileURL(launcherPath).href;
     const descendantSource = [
       'const fs = require("node:fs");',
-      `fs.writeFileSync(${JSON.stringify(pidPath)}, String(process.pid));`,
+      `const releasePath = ${JSON.stringify(releasePath)};`,
+      `const pendingPidPath = ${JSON.stringify(pendingPidPath)};`,
+      `const pidPath = ${JSON.stringify(pidPath)};`,
+      "const publish = () => {",
+      "  if (!fs.existsSync(releasePath)) return;",
+      "  fs.writeFileSync(pendingPidPath, String(process.pid));",
+      "  fs.renameSync(pendingPidPath, pidPath);",
+      "  clearInterval(waitForRelease);",
+      "};",
+      "const waitForRelease = setInterval(publish, 10);",
       "setTimeout(() => {}, 10_000);",
     ].join("\n");
     const launcherSource = [
       'import { spawn } from "node:child_process";',
+      'import { writeFileSync } from "node:fs";',
       `const descendant = spawn(process.execPath, ["--eval", ${JSON.stringify(descendantSource)}], {`,
       '  detached: true, stdio: ["ignore", "inherit", "inherit"],',
       "});",
@@ -585,6 +600,7 @@ describe("installed hook child supervisor", () => {
       '  descendant.once("spawn", resolve);',
       '  descendant.once("error", reject);',
       "});",
+      `writeFileSync(${JSON.stringify(ownerPidPath)}, String(descendant.pid));`,
       "descendant.unref();",
       "await new Promise((resolve) => setTimeout(resolve, 100));",
       "process.exit(0);",
@@ -592,19 +608,35 @@ describe("installed hook child supervisor", () => {
     const source = await readFile(HOOK_PATH, "utf8");
     const run = compileSupervisor(source, launcherUrl, launcherSource);
     const started = Date.now();
-
-    await assert.rejects(
-      run(Buffer.alloc(0), supervisorPaths(root, launcherUrl)),
-      /Installed hook launcher rejected/u,
-    );
-    assert.ok(Date.now() - started < 2_000);
-
-    const escapedPid = Number.parseInt(await readFile(pidPath, "utf8"), 10);
-    assert.ok(Number.isSafeInteger(escapedPid) && escapedPid > 0);
+    let escapedPid = null;
     try {
-      process.kill(escapedPid, "SIGKILL");
-    } catch (error) {
-      if (error?.code !== "ESRCH") throw error;
+      await assert.rejects(
+        run(Buffer.alloc(0), supervisorPaths(root, launcherUrl)),
+        /Installed hook launcher rejected/u,
+      );
+      assert.ok(Date.now() - started < 2_000);
+
+      await writeFile(releasePath, "release", { flag: "wx", mode: 0o600 });
+      await settleWithin(waitForPath(pidPath, 1_000), 1_500, "escaped descendant pid marker");
+      escapedPid = Number.parseInt(await readFile(pidPath, "utf8"), 10);
+      assert.ok(Number.isSafeInteger(escapedPid) && escapedPid > 0);
+    } finally {
+      try {
+        let cleanupPid = escapedPid;
+        if (!Number.isSafeInteger(cleanupPid) || cleanupPid <= 0) {
+          await settleWithin(waitForPath(ownerPidPath, 1_000), 1_500, "escaped descendant owner pid marker");
+          cleanupPid = Number.parseInt(await readFile(ownerPidPath, "utf8"), 10);
+        }
+        assert.ok(Number.isSafeInteger(cleanupPid) && cleanupPid > 0, "escaped descendant owner pid unavailable for cleanup");
+        try {
+          process.kill(-cleanupPid, "SIGKILL");
+        } catch (error) {
+          if (error?.code !== "ESRCH") throw error;
+        }
+        await waitForGroupExit(-cleanupPid, 2_000);
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
     }
   });
 

@@ -95,6 +95,7 @@ import {
   appendDecisionEntry,
   loadDecisionLedger,
 } from "./decision-ledger.js";
+import { canonicalizeDecisionEntryFile } from "./decision-entry-canonicalizer.js";
 import { buildDesignPlan, buildDesignPlanReport, formatDesignPlanReport, writeDesignPlan } from "./design-plan.js";
 import {
   buildDiscoveryApproval,
@@ -803,6 +804,18 @@ async function runCommand(args) {
 
   if (command === "decision-ledger") {
     const options = parseDecisionLedgerArgs(rest);
+    if (options.action === "canonicalize-entry") {
+      const result = await canonicalizeDecisionEntryFile({
+        entryPath: options.entry,
+        outPath: options.out,
+      });
+      await emitNonArtifactOutput(result, {
+        json: options.json,
+        subject: "decision-entry-canonicalization",
+        format: (value) => `${value.digest}\n`,
+      });
+      return;
+    }
     if (options.action === "inspect") {
       const ledger = await loadDecisionLedger({
         journalPath: options.journal,
@@ -2960,8 +2973,10 @@ function exactObjectKeys(value, keys) {
 }
 
 function boundedArtifactValidationDetails(error) {
-  if (error?.code !== "AGENTMO_UNSUPPORTED_ARTIFACT"
-    || error?.reason !== "schema_validation_failed"
+  const schemaValidationFailure = error?.code === "AGENTMO_UNSUPPORTED_ARTIFACT"
+    && error?.reason === "schema_validation_failed";
+  const draftCanonicalizationFailure = error?.code === "AGENTMO_DECISION_ENTRY_CANONICALIZE_REJECTED";
+  if ((!schemaValidationFailure && !draftCanonicalizationFailure)
     || !listArtifactContractSubjects().includes(error?.subject)
     || !Array.isArray(error?.issues)
     || error.issues.length === 0) {
@@ -4762,11 +4777,12 @@ function parseDiscoveryApproveArgs(args) {
 
 function parseDecisionLedgerArgs(args) {
   const action = args[0];
-  if (!["inspect", "append"].includes(action)) {
-    throw new Error("decision-ledger action must be inspect or append.");
+  if (!["inspect", "append", "canonicalize-entry"].includes(action)) {
+    throw new Error("decision-ledger action must be inspect, append, or canonicalize-entry.");
   }
   let journal = null;
   let entry = null;
+  let out = null;
   let expectedHeadDigest;
   let json = false;
   const digestBindings = [];
@@ -4777,6 +4793,9 @@ function parseDecisionLedgerArgs(args) {
       index += 1;
     } else if (arg === "--entry") {
       entry = args[index + 1];
+      index += 1;
+    } else if (arg === "--out") {
+      out = args[index + 1];
       index += 1;
     } else if (arg === "--expected-head-digest") {
       expectedHeadDigest = args[index + 1];
@@ -4790,15 +4809,29 @@ function parseDecisionLedgerArgs(args) {
       throw new Error(`Unknown decision-ledger option: ${arg}`);
     }
   }
+  if (action === "canonicalize-entry") {
+    requireOptionValue(entry, "--entry");
+    requireOptionValue(out, "--out");
+    if (journal !== null || expectedHeadDigest !== undefined || digestBindings.length !== 0) {
+      throw new Error("decision-ledger canonicalize-entry accepts only --entry and --out.");
+    }
+    return {
+      action,
+      entry: resolve(entry),
+      out: resolve(out),
+      json,
+    };
+  }
   requireOptionValue(journal, "--journal");
   if (action === "inspect") {
-    if (entry !== null || expectedHeadDigest !== undefined) {
+    if (entry !== null || out !== null || expectedHeadDigest !== undefined) {
       throw new Error("decision-ledger inspect is read-only.");
     }
     const digests = parseDigestBindings(digestBindings, ["decision-ledger"]);
     return { action, journal: resolve(journal), json, digests };
   }
   requireOptionValue(entry, "--entry");
+  if (out !== null) throw new Error("decision-ledger append does not write entry artifacts.");
   if (expectedHeadDigest !== undefined) {
     requireOptionValue(expectedHeadDigest, "--expected-head-digest");
   }
@@ -6224,6 +6257,7 @@ Usage:
   agentmo agent-idea-candidate-report <candidate.json> --discovery-db <db.json> --digest agent-idea-candidate=sha256:<64hex> --digest discovery-db=sha256:<64hex> [--json]
   agentmo discovery-approve <discovery.json> --discovery-db <agentmo-discovery-db.json> --digest discovery-manifest=sha256:<64hex> --digest discovery-db=sha256:<64hex> [--approve --preview-digest sha256:<64hex> --out <approval.json>] [--json]
   agentmo need-report <need.json> --digest user-need=sha256:<64hex> [--json]
+  agentmo decision-ledger canonicalize-entry --entry <draft-entry.json> --out <absent-canonical-entry.json> [--json]
   agentmo decision-ledger append --journal <ledger.json> --entry <decision-entry.json> --digest decision-entry=sha256:<64hex> [--expected-head-digest sha256:<64hex>] [--json]
   agentmo decision-ledger inspect --journal <ledger.json> --digest decision-ledger=sha256:<64hex> [--json]
   agentmo design-plan <agentmo-discovery-db.json> --manifest <discovery.json> --discovery-approval <approval.json> --need <need.json> --decision-ledger <ledger.json> --digest discovery-manifest=sha256:<64hex> --digest discovery-db=sha256:<64hex> --digest discovery-approval=sha256:<64hex> --digest user-need=sha256:<64hex> --digest decision-ledger=sha256:<64hex> --out <agentmo-design-plan.json> [--target agentmo|openclaw] [--json]
@@ -6271,7 +6305,7 @@ Concepts:
   agent-idea-candidate-report  Validate one proposal-only Candidate against exact Discovery DB facts; does not authorize Plan.
   discovery-approve  Preview or explicitly approve one exact manifest plus one exact discovery DB for Plan entry.
   need-report      Validate and summarize a concrete user-need brief.
-  decision-ledger  Append or inspect typed predecessor-bound Plan decisions without transcript authority.
+  decision-ledger  Canonicalize unapproved drafts, then append or inspect typed predecessor-bound Plan decisions without transcript authority.
   design-plan      Produce a Stage 2 planning contract from discovery DB plus user need.
   blueprint-draft  Draft a valid AgentMo blueprint from discovery data plus user need, optionally gated by design-plan.
   build-contract   Specify the complete traceable OpenClaw Agent Package resource graph without materializing it.
@@ -6383,10 +6417,12 @@ Valid example: examples/support-triage.need.json
 `,
     "decision-ledger": `AgentMo decision-ledger
 Usage:
+  agentmo decision-ledger canonicalize-entry --entry <draft-entry.json> --out <absent-canonical-entry.json> [--json]
   agentmo decision-ledger append --journal <ledger.json> --entry <decision-entry.json> --digest decision-entry=sha256:<64hex> [--expected-head-digest sha256:<64hex>] [--json]
   agentmo decision-ledger inspect --journal <ledger.json> --digest decision-ledger=sha256:<64hex> [--json]
 Contract: agentmo artifact-contract decision-entry --json
-Append accepts one closed typed entry artifact and never accepts transcript or stdin authority. Successors require the exact current head digest.
+Canonicalize-entry creates a new absent canonical artifact and reports its exact digest before approval. It requires a caller-owned, non-group/world-writable output parent on the supported Darwin/Linux POSIX no-follow platforms. Append only verifies canonical bytes; it never sorts or rewrites an approved artifact. Successors require the exact current head digest. The Plan ledger accepts --expected-head-digest; --expected-head-sha256 is a Builder-only flag and is rejected here.
+Canonicalize-entry is not a same-UID concurrent filesystem transaction: the caller must keep the output parent, private stage, and target namespace exclusively controlled and path-stable while it runs. Observable identity or symlink anomalies fail closed; it never rolls back a published output by pathname.
 `,
     "design-plan": `AgentMo design-plan
 Usage: agentmo design-plan <agentmo-discovery-db.json> --manifest <discovery.json> --discovery-approval <approval.json> --need <need.json> --decision-ledger <ledger.json> --digest discovery-manifest=sha256:<64hex> --digest discovery-db=sha256:<64hex> --digest discovery-approval=sha256:<64hex> --digest user-need=sha256:<64hex> --digest decision-ledger=sha256:<64hex> --out <agentmo-design-plan.json> [--target agentmo|openclaw] [--json]

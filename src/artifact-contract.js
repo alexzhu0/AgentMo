@@ -51,6 +51,8 @@ const DECISION_REF_ARRAY = Object.freeze({
   type: "array",
   maxItems: 128,
   uniqueItems: true,
+  description: "References must be strictly ascending by UTF-8 byte order as well as unique. Canonicalize an unapproved draft before calculating its digest.",
+  "x-agentmo-byte-sorted-unique": true,
   items: DECISION_REF,
 });
 

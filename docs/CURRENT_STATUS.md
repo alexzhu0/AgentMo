@@ -1,6 +1,6 @@
 # AgentMo 当前状态与恢复入口
 
-更新日期：2026-08-17
+更新日期：2026-08-20
 
 本页是短期恢复锚点。它只描述当前工作状态；历史决策、审计和发布证据保留在
 `release/`，不应被本页改写。旧规划工作区已移除，不是恢复权威。
@@ -39,16 +39,22 @@ human decision，也不授权 Plan。
 
 - private continuation 的 15 秒边界观察窗口与 30 秒 child watchdog 合同；
 - immutable successor behavior 从 packed-behavior 拆分为独立、末端 fail-fast lane；
+- Plan decision entry canonical writer，以及 Builder bootstrap graph 的 exact-frame
+  fd3/fd4 delivery 和 supervisor PID readiness 修复；
 - 对应 package script、command-doc 回归与本日期 release 记录。
 
-Node.js 20.20.2 Darwin arm64 可信 producer receipt 与 post-publication consumer 已在
-当前 8 个本地 commits 中。当前 receipt 为
-  `release/evidence/2026.08.14-node20-core-receipt.json`，receipt SHA-256 为
-  `64fd5deba66e05c94c176934a5472ecdebc15a85ac63d943257d1bc0480be538`，
+Node.js 20.20.2 Darwin arm64 可信 producer 的历史 receipt 与 post-publication
+consumer 已在当前 8 个本地 commits 中；当前未提交的 Plan canonical writer 与 Builder
+bootstrap graph exact-frame repair 批次以相同 repo-owned trust anchor 生成新的 current
+receipt：
+  `release/evidence/2026.08.19-node20-core-receipt.json`，receipt SHA-256 为
+  `c9cf7af677710482553fe3499591c6f65ee6126aa7ec245cadf8ab6d1721224a`，
   command-set digest 为
-  `455e7d36ab8eb2334e0854977063637cc79bc9b9734fd3c3df2bfa6ea86894e2`。
-  精确 TAP 计数为 syntax `42/0/0/42`、core `62/1/0/63`、stage
-  `3/2/0/5`（pass/skip/fail/total）；consumer 为 6 pass、0 fail、exit 0。
+  `870fa5b804ed47e9071bad276016919e852ffd482dad10d2791418b0e51a15a8`。
+  精确 TAP 计数为 syntax `43/0/0/43`、core `62/1/0/63`、stage
+  `3/2/0/5`（pass/skip/fail/total），观察时间为 `2026-08-20T10:26:23.563Z`；它保留
+  已扩展的 owned syntax batch，未扩大 trust anchor、producer 或认证范围。2026.07.13
+  与 2026.08.14 receipt 均保留为旧 manifest 的历史字节证据。
 
 这些本地 commits 与未提交收口均不应被假设存在于其他 checkout。Node20 receipt
 只证明受限机制与发行输入 provenance，不证明领域质量、生产就绪或更广泛
