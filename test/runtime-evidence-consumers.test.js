@@ -14,10 +14,10 @@ import {
 
 const REPOSITORY_ROOT = fileURLToPath(new URL("../", import.meta.url));
 const THIS_FILE = fileURLToPath(import.meta.url);
-const NODE20_RECEIPT_RELATIVE_PATH = "release/evidence/2026.08.14-node20-core-receipt.json";
+const NODE20_RECEIPT_RELATIVE_PATH = "release/evidence/2026.08.19-node20-core-receipt.json";
 const NODE20_RECEIPT = path.join(REPOSITORY_ROOT, NODE20_RECEIPT_RELATIVE_PATH);
 const RUNTIME_COMPATIBILITY_DOCUMENT = path.join(REPOSITORY_ROOT, "docs/RUNTIME_COMPATIBILITY.md");
-const RELEASE_RECORD = path.join(REPOSITORY_ROOT, "release/2026.08.14.md");
+const RELEASE_RECORD = path.join(REPOSITORY_ROOT, "release/2026.08.19.md");
 const RELEASE_INDEX = path.join(REPOSITORY_ROOT, "release/README.md");
 const MAINTAINED_RUNTIME_ENV_FLAG_FILES = Object.freeze([
   "README.md",
@@ -27,9 +27,9 @@ const MAINTAINED_RUNTIME_ENV_FLAG_FILES = Object.freeze([
 const NODE20_ARCHIVE_SHA256 = "466e05f3477c20dfb723054dfebffe55bc74660ee77f612166fca121dacb65b6";
 const NODE20_CHECKSUM_MANIFEST_SHA256 = "c6f74825d6ddf350ef06600c67fec6ea2f7996cf438a78c3cb2a89b29d4320ed";
 const NODE20_EXECUTABLE_SHA256 = "38de4fc456c0c439bac48c727d378f749abb4e31f4116703bb1ee9a746fccbb6";
-const NODE20_RECEIPT_SHA256 = "64fd5deba66e05c94c176934a5472ecdebc15a85ac63d943257d1bc0480be538";
-const NODE20_COMMAND_SET_SHA256 = "455e7d36ab8eb2334e0854977063637cc79bc9b9734fd3c3df2bfa6ea86894e2";
-const NODE20_OBSERVED_AT = "2026-08-15T10:43:35.437Z";
+const NODE20_RECEIPT_SHA256 = "c9cf7af677710482553fe3499591c6f65ee6126aa7ec245cadf8ab6d1721224a";
+const NODE20_COMMAND_SET_SHA256 = "870fa5b804ed47e9071bad276016919e852ffd482dad10d2791418b0e51a15a8";
+const NODE20_OBSERVED_AT = "2026-08-20T10:26:23.563Z";
 const NODE20_COMMAND = 'npm run check:core:node20 -- --node-bin "$NODE20_BIN" --archive "$NODE20_ARCHIVE" --checksums "$NODE20_CHECKSUMS" --expected-version 20.20.2 --expected-arch arm64 --receipt "$NODE20_RECEIPT"';
 const BOUNDARY_COMMAND = "node --test test/runtime-compatibility.test.js test/runtime-compatibility-seams.test.js test/runtime-evidence-consumers.test.js test/cli.test.js test/live-smoke-script.test.js test/command-docs.test.js test/node20-core-runner.test.js test/node20-core-lane.test.js test/artifact-surface-coverage.test.js && bash -n scripts/node20-core-lane.sh scripts/openclaw-live-smoke.sh";
 const BOUNDARY_EVIDENCE_REF = "test/runtime-compatibility.test.js; test/runtime-compatibility-seams.test.js; test/runtime-evidence-consumers.test.js; test/cli.test.js; test/live-smoke-script.test.js; test/command-docs.test.js; test/node20-core-runner.test.js; test/node20-core-lane.test.js; test/artifact-surface-coverage.test.js; scripts/node20-core-lane.sh#bash-n; scripts/openclaw-live-smoke.sh#bash-n";
@@ -45,7 +45,7 @@ const RELEASE_EVIDENCE_CLASSES = Object.freeze([
   "target-executed",
 ]);
 const RELEASE_STATUSES = Object.freeze(["tested", "failed", "untested"]);
-const RELEASE_INDEX_ROW = "| 2026.08.14 | Discover Agent Idea Candidate proposal contract + Node 20 evidence closure | Candidate 垂直切片、Node 20 trusted receipt/post-publication consumer 与四段 fail-fast npm check 已闭合；未提交、未集成、未发布 | [`2026.08.14.md`](./2026.08.14.md) | 未发布 |";
+const RELEASE_INDEX_ROW = "| 2026.08.19 | Plan Decision Entry canonical writer + Builder bootstrap exact-frame + Node 20 evidence closure | Plan canonical writer、公开排序/flag 合同、approved narrow same-UID boundary、Builder fd3/fd4 exact-frame contract 与新 Node20 trusted receipt/post-publication consumer 已闭合；未提交、未集成、未发布 | [`2026.08.19.md`](./2026.08.19.md) | 未发布 |";
 const VERIFY_FLAG = "--verify-published-evidence";
 
 const verifyIndex = process.argv.indexOf(VERIFY_FLAG);
@@ -104,19 +104,22 @@ if (verifyIndex !== -1) {
     it("records only bounded exact release facts and leaves target live execution untested", async () => {
       const source = await readFile(RELEASE_RECORD, "utf8");
       for (const exactFact of [
-        "## 2026-08-15 Node20 evidence closure",
+        "# 2026.08.19 Plan Decision Entry canonical writer + Builder bootstrap exact-frame + Node 20 evidence closure",
         "[Runtime compatibility matrix](../docs/RUNTIME_COMPATIBILITY.md)",
         "current host `v24.18.0` arm64",
         "`v20.20.2` arm64",
         NODE20_ARCHIVE_SHA256,
         CURRENT_HOST_RESULT,
+        "same-UID concurrent filesystem transaction",
+        "byte-sorted reference arrays",
+        "--expected-head-digest",
         "`target-executed` | provider-backed OpenClaw live execution | official target range | `untested`",
         "collision-free `--runtime-env-file` option reaches AgentMo through real Node and shebang launchers",
         "repo-owned trust anchor",
         "post-publication consumers",
         "does not certify domain quality, approve production, or certify wider OpenClaw compatibility",
       ]) assert.equal(source.includes(exactFact), true, exactFact);
-      assertValueBlindEvidence(source, "release/2026.08.14.md");
+      assertValueBlindEvidence(source, "release/2026.08.19.md");
     });
 
     it("keeps the public runtime environment flag collision-free across maintenance surfaces", async () => {
@@ -174,7 +177,7 @@ async function verifyPublishedEvidence(receiptPath) {
     "certificationBoundary",
   ]);
   assert.equal(matrix.schemaVersion, "agentmo.runtime-compatibility-matrix.v1");
-  assert.equal(matrix.observedAt, "2026-08-15");
+  assert.equal(matrix.observedAt, "2026-08-19");
   assert.deepEqual(matrix.evidenceClasses, RELEASE_EVIDENCE_CLASSES);
   assert.deepEqual(matrix.statuses, RELEASE_STATUSES);
 
@@ -281,7 +284,7 @@ async function verifyPublishedEvidence(receiptPath) {
     exactNode20Result,
     CURRENT_HOST_RESULT,
   ]) assert.equal(releaseSource.includes(exactFact), true, exactFact);
-  assertValueBlindEvidence(releaseSource, "release/2026.08.14.md");
+  assertValueBlindEvidence(releaseSource, "release/2026.08.19.md");
   assert.equal(releaseIndexSource.includes(RELEASE_INDEX_ROW), true);
   assertValueBlindEvidence(releaseIndexSource, "release/README.md");
 }

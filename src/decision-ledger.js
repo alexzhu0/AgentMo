@@ -37,10 +37,15 @@ const DURABLE_ENTRY_KEYS = Object.freeze([
 const SAFE_ID_PATTERN = /^[a-z0-9][a-z0-9._:-]{0,127}$/u;
 const DIGEST_PATTERN = /^sha256:[a-f0-9]{64}$/u;
 const MAX_LEDGER_ENTRIES = 256;
-const MAX_ENTRY_BYTES = 64 * 1024;
+export const DECISION_ENTRY_MAX_BYTES = 64 * 1024;
 const MAX_SUBJECT_LENGTH = 512;
 const MAX_REASON_LENGTH = 4096;
 const MAX_REFS = 128;
+const ENTRY_REFERENCE_FIELDS = Object.freeze([
+  "sourceRefs",
+  "decisionRefs",
+  "requirementRefs",
+]);
 const LEDGER_ADMISSIONS = new WeakMap();
 
 export class DecisionLedgerError extends Error {
@@ -95,7 +100,7 @@ export async function appendDecisionEntry(options) {
         ? {}
         : { expectedPredecessorAdmission: LEDGER_ADMISSIONS.get(current).head }),
       maxEntries: MAX_LEDGER_ENTRIES,
-      maxValueBytes: MAX_ENTRY_BYTES,
+      maxValueBytes: DECISION_ENTRY_MAX_BYTES,
     });
   } catch (error) {
     if (error?.code === "AGENTMO_IMMUTABLE_JOURNAL_CONFLICT_REJECTED") {
@@ -137,7 +142,7 @@ export async function loadDecisionLedger(options) {
     journal = await loadImmutableJournal({
       journalPath: options.journalPath,
       maxEntries: MAX_LEDGER_ENTRIES,
-      maxValueBytes: MAX_ENTRY_BYTES,
+      maxValueBytes: DECISION_ENTRY_MAX_BYTES,
     });
   } catch (error) {
     if (error?.code?.startsWith("AGENTMO_IMMUTABLE_JOURNAL_")) {
@@ -234,17 +239,66 @@ export function validateDecisionLedger(ledger) {
 }
 
 export function validateDecisionEntry(value) {
+  const errors = diagnoseDecisionEntry(value);
+  return { ok: errors.length === 0, errors };
+}
+
+export function diagnoseDecisionEntry(value, options = {}) {
+  const requireCanonicalRefs = options?.requireCanonicalRefs !== false;
   if (!isPlainObject(value)
     || !hasExactKeys(value, ["schemaVersion", ...ENTRY_INPUT_KEYS])
     || value.schemaVersion !== DECISION_ENTRY_SCHEMA_VERSION) {
-    return { ok: false, errors: ["decision entry must use the closed typed entry shape"] };
+    return ["decision entry must use the closed typed entry shape."];
   }
+
+  const errors = [];
+  if (!SAFE_ID_PATTERN.test(value.entryId ?? "")) {
+    errors.push("entryId must be a bounded safe identifier.");
+  }
+  if (!ENTRY_KINDS.has(value.entryKind)) {
+    errors.push("entryKind must be one of the closed decision kinds.");
+  }
+  if (!isBoundedText(value.subject, MAX_SUBJECT_LENGTH)) {
+    errors.push("subject must be bounded non-empty text.");
+  }
+  if (!isBoundedText(value.reason, MAX_REASON_LENGTH)) {
+    errors.push("reason must be bounded non-empty text.");
+  }
+  for (const field of ENTRY_REFERENCE_FIELDS) {
+    if (!isSafeRefArray(value[field])) {
+      errors.push(`${field} must be a bounded array of safe identifiers.`);
+    } else if (requireCanonicalRefs && !isCanonicalRefArray(value[field])) {
+      errors.push(`${field} must be a strictly ascending unique array of safe identifiers.`);
+    } else if (!requireCanonicalRefs && !isUniqueRefArray(value[field])) {
+      errors.push(`${field} must be a unique array of safe identifiers.`);
+    }
+  }
+  if (errors.length > 0) return errors;
+
   try {
-    normalizeEntryInput(Object.fromEntries(ENTRY_INPUT_KEYS.map((key) => [key, value[key]])));
-    return { ok: true, errors: [] };
+    if (requireCanonicalRefs) {
+      normalizeEntryInput(Object.fromEntries(ENTRY_INPUT_KEYS.map((key) => [key, value[key]])));
+    } else {
+      normalizeEntryDraftInput(Object.fromEntries(ENTRY_INPUT_KEYS.map((key) => [key, value[key]])));
+    }
+    return [];
   } catch {
-    return { ok: false, errors: ["decision entry contains invalid or prohibited material"] };
+    return ["decision entry contains invalid or prohibited material."];
   }
+}
+
+// This is an authoring boundary only. It produces a new canonical candidate
+// before its digest exists; append and durable admission remain strict readers.
+export function canonicalizeDecisionEntryDraft(value) {
+  const errors = diagnoseDecisionEntry(value, { requireCanonicalRefs: false });
+  if (errors.length > 0) fail("AGENTMO_DECISION_LEDGER_INVALID_ENTRY");
+  const normalized = normalizeEntryDraftInput(Object.fromEntries(
+    ENTRY_INPUT_KEYS.map((key) => [key, value[key]]),
+  ));
+  return deepFreeze({
+    schemaVersion: DECISION_ENTRY_SCHEMA_VERSION,
+    ...normalized,
+  });
 }
 
 export function validateDurableDecisionLedgerEntry(value) {
@@ -278,6 +332,24 @@ export function admittedDecisionLedgerProvenance(ledger) {
 }
 
 function normalizeEntryInput(value) {
+  return normalizeEntryInputWithReferences(value, (references) => {
+    if (!isCanonicalRefArray(references)) {
+      fail("AGENTMO_DECISION_LEDGER_INVALID_ENTRY");
+    }
+    return [...references];
+  });
+}
+
+function normalizeEntryDraftInput(value) {
+  return normalizeEntryInputWithReferences(value, (references) => {
+    if (!isUniqueRefArray(references)) {
+      fail("AGENTMO_DECISION_LEDGER_INVALID_ENTRY");
+    }
+    return [...references].sort(compareCanonicalReference);
+  });
+}
+
+function normalizeEntryInputWithReferences(value, normalizeReferences) {
   if (!isPlainObject(value) || !hasExactKeys(value, ENTRY_INPUT_KEYS)) {
     fail("AGENTMO_DECISION_LEDGER_INVALID_ENTRY");
   }
@@ -287,24 +359,19 @@ function normalizeEntryInput(value) {
     || !isBoundedText(value.reason, MAX_REASON_LENGTH)) {
     fail("AGENTMO_DECISION_LEDGER_INVALID_ENTRY");
   }
-  for (const field of ["sourceRefs", "decisionRefs", "requirementRefs"]) {
-    if (!isCanonicalRefArray(value[field])) {
-      fail("AGENTMO_DECISION_LEDGER_INVALID_ENTRY");
-    }
-  }
   const candidate = {
     entryId: value.entryId,
     entryKind: value.entryKind,
     subject: value.subject,
     reason: value.reason,
-    sourceRefs: [...value.sourceRefs],
-    decisionRefs: [...value.decisionRefs],
-    requirementRefs: [...value.requirementRefs],
+    sourceRefs: normalizeReferences(value.sourceRefs),
+    decisionRefs: normalizeReferences(value.decisionRefs),
+    requirementRefs: normalizeReferences(value.requirementRefs),
   };
   try {
     serializePersistableJson(candidate, {
       subject: "decision-ledger",
-      maxBytes: MAX_ENTRY_BYTES,
+      maxBytes: DECISION_ENTRY_MAX_BYTES,
     });
   } catch (error) {
     if (error instanceof PersistabilityError) {
@@ -371,7 +438,7 @@ function serializeLedgerEntry(entry) {
   try {
     return serializePersistableJson(entry, {
       subject: "decision-ledger",
-      maxBytes: MAX_ENTRY_BYTES,
+      maxBytes: DECISION_ENTRY_MAX_BYTES,
     });
   } catch (error) {
     if (error instanceof PersistabilityError) {
@@ -382,10 +449,23 @@ function serializeLedgerEntry(entry) {
 }
 
 function isCanonicalRefArray(value) {
+  return isSafeRefArray(value)
+    && value.every((item, index) => index === 0
+      || compareCanonicalReference(value[index - 1], item) < 0);
+}
+
+function isUniqueRefArray(value) {
+  return isSafeRefArray(value) && new Set(value).size === value.length;
+}
+
+function isSafeRefArray(value) {
   return Array.isArray(value)
     && value.length <= MAX_REFS
-    && value.every((item) => typeof item === "string" && SAFE_ID_PATTERN.test(item))
-    && value.every((item, index) => index === 0 || value[index - 1] < item);
+    && value.every((item) => typeof item === "string" && SAFE_ID_PATTERN.test(item));
+}
+
+function compareCanonicalReference(left, right) {
+  return Buffer.compare(Buffer.from(left, "utf8"), Buffer.from(right, "utf8"));
 }
 
 function isBoundedText(value, maxLength) {

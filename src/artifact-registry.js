@@ -273,6 +273,7 @@ export const DURABLE_ARTIFACT_REGISTRY = Object.freeze([
     identity: "agentmo.decision-entry.v1",
     legacy_inspector: "unsupported",
     validate_canonical_input: validateCanonicalDecisionEntry,
+    diagnose_canonical_input: diagnoseCanonicalDecisionEntry,
   }),
   Object.freeze({
     subject: "decision-ledger",
@@ -1309,6 +1310,58 @@ function validateCanonicalDecisionEntry(value) {
   });
 }
 
+function diagnoseCanonicalDecisionEntry(value) {
+  const keys = [
+    "schemaVersion",
+    "entryId",
+    "entryKind",
+    "subject",
+    "reason",
+    "sourceRefs",
+    "decisionRefs",
+    "requirementRefs",
+  ];
+  if (!isObject(value)
+    || !hasExactKeys(value, keys)
+    || value.schemaVersion !== "agentmo.decision-entry.v1") {
+    return ["decision entry must use the closed typed entry shape."];
+  }
+
+  const id = /^[a-z0-9][a-z0-9._:-]{0,127}$/u;
+  const kinds = new Set(["fact", "inference", "unknown", "rejected-option", "human-decision"]);
+  const issues = [];
+  if (!id.test(value.entryId ?? "")) {
+    issues.push("entryId must be a bounded safe identifier.");
+  }
+  if (!kinds.has(value.entryKind)) {
+    issues.push("entryKind must be one of the closed decision kinds.");
+  }
+  if (!isBoundedDecisionEntryText(value.subject, 512)) {
+    issues.push("subject must be bounded non-empty text.");
+  }
+  if (!isBoundedDecisionEntryText(value.reason, 4096)) {
+    issues.push("reason must be bounded non-empty text.");
+  }
+  for (const field of ["sourceRefs", "decisionRefs", "requirementRefs"]) {
+    const references = value[field];
+    if (!Array.isArray(references)
+      || references.length > 128
+      || !references.every((reference) => typeof reference === "string" && id.test(reference))) {
+      issues.push(`${field} must be a bounded array of safe identifiers.`);
+    } else if (!references.every((reference, index) => index === 0
+      || compareDecisionEntryReference(references[index - 1], reference) < 0)) {
+      issues.push(`${field} must be a strictly ascending unique array of safe identifiers.`);
+    }
+  }
+  if (issues.length > 0) return issues;
+  try {
+    serializePersistableJson(value, { subject: "decision-entry", maxBytes: 64 * 1024 });
+  } catch {
+    return ["decision entry contains invalid or prohibited material."];
+  }
+  return [];
+}
+
 function validateCanonicalOpenClawInstallApproval(value) {
   return validateSafely(() => (
     isObject(value)
@@ -1529,17 +1582,25 @@ function validDecisionEntryBody(value) {
   const kinds = new Set(["fact", "inference", "unknown", "rejected-option", "human-decision"]);
   return id.test(value.entryId ?? "")
     && kinds.has(value.entryKind)
-    && typeof value.subject === "string"
-    && value.subject.length > 0
-    && value.subject.length <= 512
-    && typeof value.reason === "string"
-    && value.reason.length > 0
-    && value.reason.length <= 4096
+    && isBoundedDecisionEntryText(value.subject, 512)
+    && isBoundedDecisionEntryText(value.reason, 4096)
     && ["sourceRefs", "decisionRefs", "requirementRefs"].every((key) =>
       Array.isArray(value[key])
         && value[key].length <= 128
         && value[key].every((item) => typeof item === "string" && id.test(item))
-        && value[key].every((item, index) => index === 0 || value[key][index - 1] < item));
+        && value[key].every((item, index) => index === 0
+          || compareDecisionEntryReference(value[key][index - 1], item) < 0));
+}
+
+function isBoundedDecisionEntryText(value, maxCodePoints) {
+  return typeof value === "string"
+    && value.length > 0
+    && Array.from(value).length <= maxCodePoints
+    && !value.includes("\0");
+}
+
+function compareDecisionEntryReference(left, right) {
+  return Buffer.compare(Buffer.from(left, "utf8"), Buffer.from(right, "utf8"));
 }
 
 function hasExactKeys(value, keys) {

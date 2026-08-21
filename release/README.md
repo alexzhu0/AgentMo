@@ -36,6 +36,7 @@ Release 记录按日期倒序维护（最新在前），不要按版本号排序
 
 | 日期 | 阶段 | 状态 | 记录 | GitHub Release |
 | --- | --- | --- | --- | --- |
+| 2026.08.19 | Plan Decision Entry canonical writer + Builder bootstrap exact-frame + Node 20 evidence closure | Plan canonical writer、公开排序/flag 合同、approved narrow same-UID boundary、Builder fd3/fd4 exact-frame contract 与新 Node20 trusted receipt/post-publication consumer 已闭合；未提交、未集成、未发布 | [`2026.08.19.md`](./2026.08.19.md) | 未发布 |
 | 2026.08.17 | 合并后 aggregate gate 收口 | continuation watchdog 合同与 immutable-successor 独立 lane 已闭合；五段 `npm run check` 自然 exit 0；未提交、未 push、未发布 | [`2026.08.17.md`](./2026.08.17.md) | 未发布 |
 | 2026.08.14 | Discover Agent Idea Candidate proposal contract + Node 20 evidence closure | Candidate 垂直切片、Node 20 trusted receipt/post-publication consumer 与四段 fail-fast npm check 已闭合；未提交、未集成、未发布 | [`2026.08.14.md`](./2026.08.14.md) | 未发布 |
 | 2026.08.12 | AgentMo 权威架构收敛：数据连接、Idea 发现、测试数据集、Coding Agent 与 Runtime Adapter | 架构口径已更新；新增适配器与自动 Idea 发现仍是待实现能力 | [`2026.08.12.md`](./2026.08.12.md) | 未发布 |

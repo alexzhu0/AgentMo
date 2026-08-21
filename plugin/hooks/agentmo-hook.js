@@ -60,10 +60,14 @@ const exactKeys = (value, keys) => {
 };
 const descriptorStats = fstatSync(3);
 if (!descriptorStats.isFIFO() && !descriptorStats.isSocket()) reject();
-const chunks = [];
+const declaredByteLength = process.env.AGENTMO_BUILDER_HOOK_GRAPH_BYTE_LENGTH;
+if (!/^[1-9]\d*$/u.test(declaredByteLength ?? "")) reject();
+const exactByteLength = Number(declaredByteLength);
+if (!Number.isSafeInteger(exactByteLength) || exactByteLength > 24 * 1024 * 1024) reject();
+const chunks = []; // Parent-owned exact frame; never probe EOF or interpret later bytes.
 let total = 0;
-while (true) {
-  const length = Math.min(64 * 1024, 24 * 1024 * 1024 - total + 1);
+while (total < exactByteLength) {
+  const length = Math.min(64 * 1024, exactByteLength - total);
   const buffer = Buffer.allocUnsafe(length);
   const bytesRead = await new Promise((resolve, rejectRead) => {
     read(3, buffer, 0, length, null, (error, observed) => {
@@ -71,12 +75,11 @@ while (true) {
       else resolve(observed);
     });
   });
-  if (bytesRead === 0) break;
+  if (!Number.isSafeInteger(bytesRead) || bytesRead <= 0 || bytesRead > length) reject();
   total += bytesRead;
-  if (total > 24 * 1024 * 1024) reject();
   chunks.push(bytesRead === length ? buffer : buffer.subarray(0, bytesRead));
 }
-const raw = Buffer.concat(chunks, total);
+const raw = Buffer.concat(chunks, exactByteLength);
 const expected = process.env.AGENTMO_BUILDER_HOOK_GRAPH_DIGEST;
 const observed = "sha256:" + createHash("sha256").update(raw).digest("hex");
 if (!/^sha256:[a-f0-9]{64}$/u.test(expected ?? "") || observed !== expected) reject();
@@ -393,7 +396,7 @@ function buildAuthenticatedBootstrapGraph(options) {
     marketplaceRoot: options.marketplaceRoot,
     entries,
   }), "utf8");
-  if (bytes.byteLength > MAX_BOOTSTRAP_GRAPH_BYTES) fail();
+  if (bytes.byteLength < 1 || bytes.byteLength > MAX_BOOTSTRAP_GRAPH_BYTES) fail();
   const launcherUrl = pathToFileURL(path.join(
     options.marketplaceRoot,
     ...LAUNCHER_RELATIVE_PATH.split("/"),
@@ -1934,6 +1937,7 @@ async function runAdjacentLauncher(inputBytes, paths) {
           env: {
             AGENTMO_BUILDER_HOOK_BOOTSTRAP_MODE: "authenticated-graph-v1",
             AGENTMO_BUILDER_HOOK_GRAPH_DIGEST: paths.graph.digest,
+            AGENTMO_BUILDER_HOOK_GRAPH_BYTE_LENGTH: String(paths.graph.bytes.byteLength),
             AGENTMO_BUILDER_HOOK_RUNNER_DIGEST: paths.runnerDigest,
             LANG: "C",
             LC_ALL: "C",

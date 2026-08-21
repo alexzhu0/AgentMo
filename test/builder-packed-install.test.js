@@ -2693,8 +2693,8 @@ describe("packed Codex Builder setup", { concurrency: false }, () => {
         kind, sourcePath, relativePath, destinationPath, digest, byteLength,
       })),
     );
-    assert.equal(first.assets.length, 116);
-    assert.equal(first.assets.filter((asset) => asset.kind === "runtime").length, 111);
+    assert.equal(first.assets.length, 117);
+    assert.equal(first.assets.filter((asset) => asset.kind === "runtime").length, 112);
     assert.deepEqual(
       first.assets.map((asset) => asset.destinationPath),
       first.assets.map((asset) => asset.destinationPath).toSorted((left, right) => {
@@ -2716,6 +2716,7 @@ describe("packed Codex Builder setup", { concurrency: false }, () => {
     assert.equal(first.assets.some((asset) => asset.sourcePath === "src/discovery-live-transport.js"), true);
     assert.equal(first.assets.some((asset) => asset.sourcePath === "src/discovery-approval.js"), true);
     assert.equal(first.assets.some((asset) => asset.sourcePath === "src/decision-ledger.js"), true);
+    assert.equal(first.assets.some((asset) => asset.sourcePath === "src/decision-entry-canonicalizer.js"), true);
     assert.equal(first.assets.some((asset) => asset.sourcePath === "src/build-contract.js"), true);
     for (const sourcePath of [
       "src/agent-idea-candidate-cli.js",

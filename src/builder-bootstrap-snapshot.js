@@ -115,10 +115,15 @@ export function consumeVerifiedBootstrapSnapshotCapability(options = {}) {
 }
 
 async function readAuthenticatedBootstrapGraph() {
+  const exactByteLength = parseDeclaredBootstrapGraphByteLength(
+    process.env.AGENTMO_BUILDER_HOOK_GRAPH_BYTE_LENGTH,
+  );
   if (retainedGraphBytes === null) {
     const descriptorStats = fstatSync(4);
     if (!descriptorStats.isFIFO() && !descriptorStats.isSocket()) reject();
-    retainedGraphBytes = await readBoundedRawDescriptor(4, MAX_BOOTSTRAP_GRAPH_BYTES);
+    retainedGraphBytes = await readExactRawDescriptor(4, exactByteLength); // Exact parent-owned frame only.
+  } else if (retainedGraphBytes.byteLength !== exactByteLength) {
+    reject();
   }
   const expectedDigest = process.env.AGENTMO_BUILDER_HOOK_GRAPH_DIGEST;
   if (!DIGEST_PATTERN.test(expectedDigest ?? "")
@@ -132,18 +137,25 @@ async function readAuthenticatedBootstrapGraph() {
   }
 }
 
-async function readBoundedRawDescriptor(descriptor, maxBytes) {
+function parseDeclaredBootstrapGraphByteLength(value) {
+  if (typeof value !== "string" || !/^[1-9]\d*$/u.test(value)) reject();
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed > MAX_BOOTSTRAP_GRAPH_BYTES) reject();
+  return parsed;
+}
+
+async function readExactRawDescriptor(descriptor, exactByteLength) {
   const chunks = [];
   let total = 0;
-  while (true) {
-    const length = Math.min(RAW_DESCRIPTOR_READ_BYTES, maxBytes - total + 1);
+  while (total < exactByteLength) {
+    const length = Math.min(RAW_DESCRIPTOR_READ_BYTES, exactByteLength - total);
     const buffer = Buffer.allocUnsafe(length);
     const bytesRead = await readRawDescriptor(descriptor, buffer, length);
-    if (bytesRead === 0) return Buffer.concat(chunks, total);
+    if (!Number.isSafeInteger(bytesRead) || bytesRead <= 0 || bytesRead > length) reject();
     total += bytesRead;
-    if (total > maxBytes) reject();
     chunks.push(bytesRead === length ? buffer : buffer.subarray(0, bytesRead));
   }
+  return Buffer.concat(chunks, exactByteLength);
 }
 
 function readRawDescriptor(descriptor, buffer, length) {

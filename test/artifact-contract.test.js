@@ -185,6 +185,12 @@ describe("operator-authored artifact contracts", () => {
       "rejected-option",
       "human-decision",
     ]);
+    for (const field of ["sourceRefs", "decisionRefs", "requirementRefs"]) {
+      assert.equal(
+        decision.jsonSchema.properties[field]["x-agentmo-byte-sorted-unique"],
+        true,
+      );
+    }
     assert.deepEqual(discovery.jsonSchema.required, [
       "schemaVersion",
       "agent_id",
@@ -223,6 +229,18 @@ describe("operator-authored artifact contracts", () => {
     const decisionHelp = await runCli(["help", "decision-ledger"]);
     assert.equal(decisionHelp.code, 0, decisionHelp.stderr);
     assert.match(decisionHelp.stdout, /artifact-contract decision-entry --json/u);
+    assert.match(decisionHelp.stdout, /canonicalize-entry --entry <draft-entry\.json> --out <absent-canonical-entry\.json>/u);
+    assert.match(decisionHelp.stdout, /--expected-head-digest sha256:<64hex>/u);
+    assert.match(decisionHelp.stdout, /--expected-head-sha256 is a Builder-only flag and is rejected here/u);
+    assert.match(
+      decisionHelp.stdout,
+      /not a same-UID concurrent filesystem transaction/u,
+    );
+
+    const rootHelp = await runCli(["--help"]);
+    assert.equal(rootHelp.code, 0, rootHelp.stderr);
+    assert.match(rootHelp.stdout, /decision-ledger canonicalize-entry --entry <draft-entry\.json> --out <absent-canonical-entry\.json>/u);
+    assert.match(rootHelp.stdout, /decision-ledger append --journal <ledger\.json> --entry <decision-entry\.json> --digest decision-entry=sha256:<64hex> \[--expected-head-digest sha256:<64hex>\]/u);
 
     const probeHelp = await runCli(["openclaw-probe", "--help"]);
     assert.equal(probeHelp.code, 0, probeHelp.stderr);

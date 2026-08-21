@@ -43,12 +43,13 @@ describe("Node 20 core runner fail-closed contract", () => {
     assert.doesNotMatch(helper, /\b(?:curl|wget|brew|apt|npx|npm install|npm add|npm exec)\b/iu);
   });
 
-  it("syntax-checks the Agent Idea Candidate production modules in the owned Node 20 batch", async () => {
+  it("syntax-checks the shipped Candidate and Decision Entry writer modules in the owned Node 20 batch", async () => {
     const { OWNED_COMMAND_MANIFEST } = await loadReceiptModule();
     const syntax = OWNED_COMMAND_MANIFEST.find(({ id }) => id === "syntax");
     assert.equal(syntax.files.includes("src/agent-idea-candidate-cli.js"), true);
     assert.equal(syntax.files.includes("src/agent-idea-candidate.js"), true);
-    assert.deepEqual(syntax.expected, { pass: 42, skip: 0, fail: 0, total: 42 });
+    assert.equal(syntax.files.includes("src/decision-entry-canonicalizer.js"), true);
+    assert.deepEqual(syntax.expected, { pass: 43, skip: 0, fail: 0, total: 43 });
   });
 
   it("requires every explicit provenance input and never searches PATH", async () => {
@@ -348,7 +349,7 @@ function receiptInput(commandSetDigest, coreCounts) {
     },
     commandSetDigest,
     batches: [
-      { id: "syntax", pass: 42, skip: 0, fail: 0, total: 42 },
+      { id: "syntax", pass: 43, skip: 0, fail: 0, total: 43 },
       { id: "core-contracts", ...coreCounts },
       { id: "stage-contracts", pass: 3, skip: 2, fail: 0, total: 5 },
     ],
