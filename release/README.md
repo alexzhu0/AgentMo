@@ -36,6 +36,7 @@ Release 记录按日期倒序维护（最新在前），不要按版本号排序
 
 | 日期 | 阶段 | 状态 | 记录 | GitHub Release |
 | --- | --- | --- | --- | --- |
+| 2026.08.28 | Stage 2 direct-loader closure + Node 20 evidence refresh | fixed design-plan loader cycle、完整 direct test ownership 与新 Node20 trusted receipt/post-publication consumer 已闭合；未批准 Plan、未提交、未集成、未发布 | [`2026.08.28.md`](./2026.08.28.md) | 未发布 |
 | 2026.08.19 | Plan Decision Entry canonical writer + Builder bootstrap exact-frame + Node 20 evidence closure | Plan canonical writer、公开排序/flag 合同、approved narrow same-UID boundary、Builder fd3/fd4 exact-frame contract 与新 Node20 trusted receipt/post-publication consumer 已闭合；未提交、未集成、未发布 | [`2026.08.19.md`](./2026.08.19.md) | 未发布 |
 | 2026.08.17 | 合并后 aggregate gate 收口 | continuation watchdog 合同与 immutable-successor 独立 lane 已闭合；五段 `npm run check` 自然 exit 0；未提交、未 push、未发布 | [`2026.08.17.md`](./2026.08.17.md) | 未发布 |
 | 2026.08.14 | Discover Agent Idea Candidate proposal contract + Node 20 evidence closure | Candidate 垂直切片、Node 20 trusted receipt/post-publication consumer 与四段 fail-fast npm check 已闭合；未提交、未集成、未发布 | [`2026.08.14.md`](./2026.08.14.md) | 未发布 |
@@ -70,11 +71,11 @@ Release 记录按日期倒序维护（最新在前），不要按版本号排序
 ## 当前恢复锚点
 
 - 当前项目：`$AGENTMO_REPO`
-- 当前短期恢复入口：先读 `docs/CURRENT_STATUS.md`，再读本索引与 `release/2026.08.06.md`。该页区分已验收的隔离白领 Research DB / OpenClaw POC、尚未提交的 Dashboard worktree，以及仍需独立证明的 Linux native / 生产化边界。
+- 当前短期恢复入口：先读 `docs/CURRENT_STATUS.md`，再读本索引与 `release/2026.08.28.md`。2026.08.28 是当前未提交的 Stage 2 direct-loader / Node 20 evidence closure；2026.08.19 及更早记录保留为历史证据。
 - Phase 4 maintained records：`release/2026.07.29.md` 至 `release/2026.08.04.md` 保留 deterministic package、Linux gate 与审计历史；它们不被 2026-08 POC 结果覆盖。`release/2026.08.05.md` 与 `release/2026.08.06.md` 记录独立 POC lane 与其边界。
 - 历史已记录的 published baseline：`v0.1.0`；当前日期记录不推断新的 tag、GitHub Release、npm publication 或 deployment。
-- 当前重点：隔离 POC 已能通过 Dashboard 与 DeepSeek 对本地 Research DB 对话；schedule、投递、默认 OpenClaw 安装、完整来源健康、领域质量与生产认证均未获授权或证明。Linux native evidence 仍是 Phase 4 的独立 future gate；Mac POC 不需要迁移到 Linux。
+- 当前重点：Stage 2 direct-loader closure 的最终 `npm run check` 已自然 exit 0，最终 independent review 已 READY（Critical 0 / Important 0）；仍等待用户明确的 commit/integration 授权。该机制 evidence 不批准 Plan/Produce；隔离 POC 的历史 acceptance、schedule、投递、默认 OpenClaw 安装、完整来源健康、领域质量与生产认证仍是独立边界。
 - 当前迁移规则：projected-v2 canonical receipt 不允许原位替换为 activated-v4；保留 genesis，并使用 immutable version-qualified lifecycle successor。`deactivate` 追加 tombstone，`reactivate` 追加 successor；不提供 purge、selector removal 或 physical delete。
 - 当前 UAT authority：`preview` 只读；`decide approve|reject` 仅 caller-reported 且 nonterminal。独立 external human decision authority 尚未实现，不得声称 11/11、domain 或 production certification。
 - 当前主线：继续只在 AgentMo 内维护，不把 sibling projects 的工作混入本仓库 commit。
-- 当前恢复入口：先读仓库根目录 `AGENTS.md` 与 `docs/SUPERPOWERS_WORKFLOW.md`，再读 `docs/CURRENT_STATUS.md`、本索引、`release/2026.08.06.md`、`README.md` 与 `docs/MVP_RUNBOOK.md`。Phase 4 历史从 `release/2026.07.29.md`–`2026.08.04.md` 追溯；不要把旧规划工作区当作当前指令来源。
+- 当前恢复入口：先读仓库根目录 `AGENTS.md` 与 `docs/SUPERPOWERS_WORKFLOW.md`，再读 `docs/CURRENT_STATUS.md`、本索引、`release/2026.08.28.md`、`README.md` 与 `docs/MVP_RUNBOOK.md`。Phase 4 历史从 `release/2026.07.29.md`–`2026.08.04.md` 追溯；不要把旧规划工作区当作当前指令来源。

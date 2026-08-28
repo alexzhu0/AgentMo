@@ -1,6 +1,6 @@
 # AgentMo 当前状态与恢复入口
 
-更新日期：2026-08-20
+更新日期：2026-08-28
 
 本页是短期恢复锚点。它只描述当前工作状态；历史决策、审计和发布证据保留在
 `release/`，不应被本页改写。旧规划工作区已移除，不是恢复权威。
@@ -28,35 +28,34 @@ Plan 消费、Runtime Adapter 或认证能力写成当前已交付能力。通�
 
 ## 当前分支与未提交收口
 
-当前 `main` 在 `origin/main` 之上已有 8 个本地、尚未 push 的 commits。它们记录了
-批准设计、proposal-only 的
-`agentmo.agent-idea-candidate.v1` artifact contract、公开校验、admission/report CLI
-及多轮 trust-boundary 加固，并已包含 Candidate CLI 拆分、OpenClaw runtime guard、
-Node 20 receipt/post-publication consumer 与此前 aggregate 修复；该 artifact 不包含
-human decision，也不授权 Plan。
+实测 `main` 与 `origin/main` 均为 `14d18c2`，ahead/behind 为 `0/0`，已经同步。
+当前仅有下述隔离 worktree 的未提交 closure；它不应被假设存在于其他 checkout。
+旧恢复记录中的“8 个本地、尚未 push 的 commits”已被上述实时 `0/0` 结果否定，
+不是当前事实；旧标签“当前 aggregate gate 收口批次 仍未 commit”也已由下述隔离
+worktree closure 描述取代。
 
-当前 worktree 仍有一个尚未 commit 的 aggregate gate 收口批次，包括：
+当前隔离 worktree 有一个尚未 commit 的 Stage 2 direct-loader 收口批次：
 
-- private continuation 的 15 秒边界观察窗口与 30 秒 child watchdog 合同；
-- immutable successor behavior 从 packed-behavior 拆分为独立、末端 fail-fast lane；
-- Plan decision entry canonical writer，以及 Builder bootstrap graph 的 exact-frame
-  fd3/fd4 delivery 和 supervisor PID readiness 修复；
-- 对应 package script、command-doc 回归与本日期 release 记录。
+- `loadDesignPlan` 作为 fresh process 的首个 AgentMo import 时不再触发 registry
+  initialization 的 cyclic TDZ read；schema、subject、digest 与 validation 规则未改变；
+- `test/design-plan.test.js` 以 real loader 覆盖 exact load、wrong digest/subject rejection、
+  timeout、output limit 与 retained-stdio bounded cleanup，共 24 pass / 0 skip / 0 fail /
+  24 total；
+- 完整 `test/design-plan.test.js` 已追加为固定 Node 20 core batch 的第六个成员，
+  post-publication consumer 与本日期 release 记录绑定新的 exact receipt。
 
-Node.js 20.20.2 Darwin arm64 可信 producer 的历史 receipt 与 post-publication
-consumer 已在当前 8 个本地 commits 中；当前未提交的 Plan canonical writer 与 Builder
-bootstrap graph exact-frame repair 批次以相同 repo-owned trust anchor 生成新的 current
-receipt：
-  `release/evidence/2026.08.19-node20-core-receipt.json`，receipt SHA-256 为
-  `c9cf7af677710482553fe3499591c6f65ee6126aa7ec245cadf8ab6d1721224a`，
-  command-set digest 为
-  `870fa5b804ed47e9071bad276016919e852ffd482dad10d2791418b0e51a15a8`。
-  精确 TAP 计数为 syntax `43/0/0/43`、core `62/1/0/63`、stage
-  `3/2/0/5`（pass/skip/fail/total），观察时间为 `2026-08-20T10:26:23.563Z`；它保留
-  已扩展的 owned syntax batch，未扩大 trust anchor、producer 或认证范围。2026.07.13
-  与 2026.08.14 receipt 均保留为旧 manifest 的历史字节证据。
+Node.js 20.20.2 Darwin arm64 trusted producer 使用相同 repo-owned trust anchor 和新 absent
+temporary target 生成 current receipt：
+`release/evidence/2026.08.28-node20-core-receipt.json`。receipt SHA-256 为
+`9dc5d97120dd8333211814def9127fde3758157ef1e87dba2c6f778bc25f2153`，
+command-set digest 为
+`b0329ca6fef4cda5bb7aa98030e57962f8c527a0d0202af212da6cc842bb60ae`。
+精确 TAP 计数为 syntax `43/0/0/43`、core `86/1/0/87`、stage
+`3/2/0/5`（pass/skip/fail/total），观察时间为 `2026-08-28T06:02:24.289Z`。
+2026.08.19、2026.08.14 与 2026.07.13 receipt 均保留为旧 manifest 的历史字节证据；
+本轮未扩大 trust anchor、producer 或认证范围，也不 approve Plan 或授权 Produce。
 
-这些本地 commits 与未提交收口均不应被假设存在于其他 checkout。Node20 receipt
+该未提交收口不应被假设存在于其他 checkout。Node20 receipt
 只证明受限机制与发行输入 provenance，不证明领域质量、生产就绪或更广泛
 OpenClaw 兼容。
 
@@ -82,27 +81,31 @@ Package Produce/containment 证据仍需相应 Linux gate。
 
 ## 当前验证与未完成项
 
-Node20 post-publication consumer 已通过 6/6、exit 0。2026-08-17 的唯一最终
+2026.08.28 Node20 post-publication consumer 已通过 6/6、exit 0。本轮最终
 `npm run check` 自然 exit 0，precheck、syntax 与五段 fail-fast test chain 均完整执行：
 
-- main：1052 tests / 996 pass / 56 skip / 0 fail；
-- durable-fs：2/2 pass，其中 86-member 为 `33361.146125ms`，producer crash 为
-  `20469.311292ms`；
-- packed-hook-chain：1/1 pass，`160726.065083ms`；
+- main：1069 tests / 1013 pass / 56 skip / 0 fail；
+- durable-fs：2/2 pass；
+- packed-hook-chain：1/1 pass；
 - packed-behavior：7 pass / 1 isolated-lane skip / 0 fail；
-- immutable-successor：1/1 pass，`342658.224667ms`。
+- immutable-successor：1/1 pass；
+- report lane 总耗时：`3613150.722ms`。
+
+首次 full 调用在测试启动前被 stale zero-byte single-flight lock 阻断；这是 orchestration
+precondition，不是代码或测试 failure。用户明确授权清理后，fresh full gate 只执行一次并
+自然 exit 0，以上为该次最终结果。
 
 这些结果只证明本次有界机制与测试集合通过，不认证领域质量、生产就绪或更广泛
-OpenClaw 兼容。分支上的 8 个本地 commits 仍未 push，当前 aggregate gate 收口批次
-仍未 commit；当前没有 push、PR、tag 或 GitHub Release，也没有 npm publication。
+OpenClaw 兼容。当前隔离 worktree closure 仍未 commit；当前没有 push、PR、tag 或 GitHub Release，
+也没有 npm publication 或 integration。
 
-下一步是最终独立复审；之后仍须等待用户明确授权，才能 commit 或 push。
-当前没有这些授权。
+最终独立复审已给出 READY（Critical 0 / Important 0）；仍须等待用户明确授权，
+才能 commit、integrate 或 push。当前没有这些授权。
 
 ## 新 session 最小恢复步骤
 
 1. 先读 `AGENTS.md`、`docs/SUPERPOWERS_WORKFLOW.md`、本页、
-   `release/README.md`、`release/2026.08.14.md`、`README.md`、
+   `release/README.md`、`release/2026.08.28.md`、`README.md`、
    `docs/MVP_RUNBOOK.md` 和 `docs/AGENT_BIRTH_GATE.md`。
 2. 在实际工作目录运行以下实时命令，并以输出为准：
 

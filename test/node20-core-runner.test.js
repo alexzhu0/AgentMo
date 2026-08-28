@@ -238,11 +238,20 @@ describe("Node 20 core runner fail-closed contract", () => {
       { id: "core-contracts", kind: "test" },
       { id: "stage-contracts", kind: "test" },
     ]);
-    assert.deepEqual(OWNED_COMMAND_MANIFEST.find(({ id }) => id === "core-contracts").expected, {
-      pass: 62,
+    const coreContracts = OWNED_COMMAND_MANIFEST.find(({ id }) => id === "core-contracts");
+    assert.deepEqual(coreContracts.files, [
+      "test/artifact-admission.test.js",
+      "test/persistability.test.js",
+      "test/runtime-compatibility.test.js",
+      "test/runtime-compatibility-seams.test.js",
+      "test/node20-core-lane.test.js",
+      "test/design-plan.test.js",
+    ]);
+    assert.deepEqual(coreContracts.expected, {
+      pass: 86,
       skip: 1,
       fail: 0,
-      total: 63,
+      total: 87,
     });
     assert.deepEqual(OWNED_COMMAND_MANIFEST.at(-1).expected, {
       pass: 3,
@@ -262,10 +271,10 @@ describe("Node 20 core runner fail-closed contract", () => {
       buildNode20Receipt,
     } = await loadReceiptModule();
     const receipt = buildNode20Receipt(receiptInput(COMMAND_SET_DIGEST, {
-      pass: 62,
+      pass: 86,
       skip: 1,
       fail: 0,
-      total: 63,
+      total: 87,
     }));
 
     assert.deepEqual(Object.keys(receipt), [
@@ -302,10 +311,10 @@ describe("Node 20 core runner fail-closed contract", () => {
       buildNode20Receipt,
     } = await loadReceiptModule();
     const receipt = buildNode20Receipt(receiptInput(COMMAND_SET_DIGEST, {
-      pass: 62,
+      pass: 86,
       skip: 1,
       fail: 0,
-      total: 63,
+      total: 87,
     }));
 
     assert.equal(assertNode20Receipt(receipt), receipt);

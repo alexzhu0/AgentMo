@@ -19,7 +19,7 @@
 ```json
 {
   "schemaVersion": "agentmo.runtime-compatibility-matrix.v1",
-  "observedAt": "2026-08-19",
+  "observedAt": "2026-08-28",
   "evidenceClasses": [
     "upstream-declared",
     "official-supported",
@@ -102,7 +102,7 @@
       "range": ">=20",
       "command": "npm run check:core:node20 -- --node-bin \"$NODE20_BIN\" --archive \"$NODE20_ARCHIVE\" --checksums \"$NODE20_CHECKSUMS\" --expected-version 20.20.2 --expected-arch arm64 --receipt \"$NODE20_RECEIPT\"",
       "status": "tested",
-      "evidenceRef": "receipt=release/evidence/2026.08.19-node20-core-receipt.json; receipt-sha256=c9cf7af677710482553fe3499591c6f65ee6126aa7ec245cadf8ab6d1721224a; command-set-sha256=870fa5b804ed47e9071bad276016919e852ffd482dad10d2791418b0e51a15a8; archive-sha256=466e05f3477c20dfb723054dfebffe55bc74660ee77f612166fca121dacb65b6; checksums-manifest-sha256=c6f74825d6ddf350ef06600c67fec6ea2f7996cf438a78c3cb2a89b29d4320ed; archive-member-sha256=38de4fc456c0c439bac48c727d378f749abb4e31f4116703bb1ee9a746fccbb6; executable-sha256=38de4fc456c0c439bac48c727d378f749abb4e31f4116703bb1ee9a746fccbb6; batches=syntax:43/0/0/43|core-contracts:62/1/0/63|stage-contracts:3/2/0/5",
+      "evidenceRef": "receipt=release/evidence/2026.08.28-node20-core-receipt.json; receipt-sha256=9dc5d97120dd8333211814def9127fde3758157ef1e87dba2c6f778bc25f2153; command-set-sha256=b0329ca6fef4cda5bb7aa98030e57962f8c527a0d0202af212da6cc842bb60ae; archive-sha256=466e05f3477c20dfb723054dfebffe55bc74660ee77f612166fca121dacb65b6; checksums-manifest-sha256=c6f74825d6ddf350ef06600c67fec6ea2f7996cf438a78c3cb2a89b29d4320ed; archive-member-sha256=38de4fc456c0c439bac48c727d378f749abb4e31f4116703bb1ee9a746fccbb6; executable-sha256=38de4fc456c0c439bac48c727d378f749abb4e31f4116703bb1ee9a746fccbb6; batches=syntax:43/0/0/43|core-contracts:86/1/0/87|stage-contracts:3/2/0/5",
       "remainingRisk": "Node.js 20 is end-of-life; this is compatibility and rejection evidence, not a production-runtime recommendation."
     },
     {
@@ -128,11 +128,11 @@
 
 ## 实际执行边界
 
-`scripts/node20-core-lane.sh` 不下载运行时、不搜索 `PATH`、不回退到 current-host `node`，也不修改或模拟 `process.versions.node`。它只接受显式 canonical executable、archive、checksum manifest、精确版本/架构和一个尚不存在的临时 receipt 目标；由所选 executable 启动的 helper 会核对 `realpath(process.execPath)`、repo-owned trust anchor、官方 archive checksum、archive member 与 executable bytes，再运行固定 producer command manifest。当前 manifest 的摘要为 `870fa5b804ed47e9071bad276016919e852ffd482dad10d2791418b0e51a15a8`，本次实际结果为 syntax 43 pass、core contracts 62 pass + 1 skip、Stage contracts 3 pass + 2 skip，零 fail。`test/runtime-evidence-consumers.test.js` 是发布后的消费者，不进入 producer manifest，也不接受历史 trust-marker 环境变量代替 receipt。
+`scripts/node20-core-lane.sh` 不下载运行时、不搜索 `PATH`、不回退到 current-host `node`，也不修改或模拟 `process.versions.node`。它只接受显式 canonical executable、archive、checksum manifest、精确版本/架构和一个尚不存在的临时 receipt 目标；由所选 executable 启动的 helper 会核对 `realpath(process.execPath)`、repo-owned trust anchor、官方 archive checksum、archive member 与 executable bytes，再运行固定 producer command manifest。当前 manifest 的摘要为 `b0329ca6fef4cda5bb7aa98030e57962f8c527a0d0202af212da6cc842bb60ae`，本次实际结果为 syntax 43 pass、core contracts 86 pass + 1 skip、Stage contracts 3 pass + 2 skip，零 fail；core batch 现直接拥有完整 `test/design-plan.test.js`，因此 fresh-process direct-loader、wrong digest/subject 和 bounded canary 合同都由 trusted Node 20 执行。`test/runtime-evidence-consumers.test.js` 是发布后的消费者，不进入 producer manifest，也不接受历史 trust-marker 环境变量代替 receipt。
 
-Node.js 20 临时运行时只从 Node.js 官方发布地址取得；执行前以官方 `SHASUMS256.txt` 条目和仓库内 [`scripts/node20-distribution-trust.json`](../scripts/node20-distribution-trust.json) 双重约束归档、manifest、member 与 executable。成功生成的临时 receipt 经逐字节核对后发布为 [`release/evidence/2026.08.19-node20-core-receipt.json`](../release/evidence/2026.08.19-node20-core-receipt.json)，只保存版本、架构、provenance/command 摘要、批次计数与三个 false certification booleans；receipt SHA-256 为 `c9cf7af677710482553fe3499591c6f65ee6126aa7ec245cadf8ab6d1721224a`，观察时间为 `2026-08-20T10:26:23.563Z`。历史 [`2026.07.13-node20-core-receipt.json`](../release/evidence/2026.07.13-node20-core-receipt.json)（SHA-256 `c06631d9ccb43ebb2b5cbf85a4f20cccc65421148d051cdb238fc96a1f1559bf`）和 [`2026.08.14-node20-core-receipt.json`](../release/evidence/2026.08.14-node20-core-receipt.json)（SHA-256 `64fd5deba66e05c94c176934a5472ecdebc15a85ac63d943257d1bc0480be538`）保留为各自旧 command manifest 的历史证据。三份 receipt 都不保存临时宿主路径、原始命令输出、payload、transcript 或 credential-bearing state。
+Node.js 20 临时运行时只从 Node.js 官方发布地址取得；执行前以官方 `SHASUMS256.txt` 条目和仓库内 [`scripts/node20-distribution-trust.json`](../scripts/node20-distribution-trust.json) 双重约束归档、manifest、member 与 executable。成功生成的临时 receipt 经逐字节核对后发布为 [`release/evidence/2026.08.28-node20-core-receipt.json`](../release/evidence/2026.08.28-node20-core-receipt.json)，只保存版本、架构、provenance/command 摘要、批次计数与三个 false certification booleans；receipt SHA-256 为 `9dc5d97120dd8333211814def9127fde3758157ef1e87dba2c6f778bc25f2153`，观察时间为 `2026-08-28T06:02:24.289Z`。历史 [`2026.08.19-node20-core-receipt.json`](../release/evidence/2026.08.19-node20-core-receipt.json)（SHA-256 `c9cf7af677710482553fe3499591c6f65ee6126aa7ec245cadf8ab6d1721224a`）、[`2026.08.14-node20-core-receipt.json`](../release/evidence/2026.08.14-node20-core-receipt.json)（SHA-256 `64fd5deba66e05c94c176934a5472ecdebc15a85ac63d943257d1bc0480be538`）和 [`2026.07.13-node20-core-receipt.json`](../release/evidence/2026.07.13-node20-core-receipt.json)（SHA-256 `c06631d9ccb43ebb2b5cbf85a4f20cccc65421148d051cdb238fc96a1f1559bf`）保留为各自旧 command manifest 的历史证据。四份 receipt 都不保存临时宿主路径、原始命令输出、payload、transcript 或 credential-bearing state。
 
-矩阵中的 boundary command、current-host `npm run check`、`24.18.0 arm64` 与 `448/448` 结果来自 2026.07.13 的历史 current-host/boundary evidence，本轮没有重跑这些命令；更新 `observedAt` 只表示 Node.js 20 current evidence row 在 2026.08.19 被新 receipt 替换，不把历史 current-host 事实冒充成本轮执行。
+矩阵中的较宽 boundary command，以及 current-host row 的 `24.18.0 arm64` 与 `448/448` facts，仍来自 2026.07.13 historical evidence，本轮未重跑该较宽 command，也不改写该 historical row。本轮另行重跑 current-host `npm run check` 并自然 exit 0：main 1069 tests / 1013 pass / 56 skip / 0 fail，durable-fs 2/2，packed-hook-chain 1/1，packed-behavior 7 pass / 1 skip / 0 fail，immutable-successor 1/1，report lane 总耗时 `3613150.722ms`。该新 full gate 不替换 matrix 的 historical current-host row，也不升级领域质量、生产、Plan/Produce 或更广 OpenClaw 认证。
 
 ## 非认证边界
 

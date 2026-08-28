@@ -103,4 +103,5 @@ fi
 # test/runtime-compatibility.test.js
 # test/runtime-compatibility-seams.test.js
 # test/node20-core-lane.test.js
+# test/design-plan.test.js
 # test/stage-contracts.test.js

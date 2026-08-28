@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { describe, it } from "node:test";
-import { access, mkdtemp, open, readFile, writeFile } from "node:fs/promises";
+import { access, mkdtemp, open, readFile, rm, writeFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -19,6 +19,10 @@ const REPO_ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const DISCOVERY_DB_FILE = fileURLToPath(new URL("../examples/fixtures/support-triage/prebuilt-discovery-db.json", import.meta.url));
 const DISCOVERY_MANIFEST_FILE = fileURLToPath(new URL("../examples/support-triage.discovery.json", import.meta.url));
 const USER_NEED_FILE = fileURLToPath(new URL("../examples/support-triage.need.json", import.meta.url));
+const STANDALONE_LOADER_TIMEOUT_MS = 2_000;
+const STANDALONE_LOADER_CLOSE_GRACE_MS = 500;
+const STANDALONE_LOADER_LATE_MARKER_DELAY_MS = 3_000;
+const STANDALONE_LOADER_OUTPUT_LIMIT = 1_024;
 
 async function loadJson(url) {
   return JSON.parse(await readFile(url, "utf8"));
@@ -152,6 +156,208 @@ function runCli(args) {
   });
 }
 
+async function standaloneDesignPlanFixture() {
+  const inputs = await supportInputs();
+  const plan = buildDesignPlan(inputs.discoveryDb, inputs.need, planOptions(inputs));
+  const root = await mkdtemp(path.join(tmpdir(), "agentmo-standalone-design-plan-loader-"));
+  const planPath = path.join(root, "agentmo-design-plan.json");
+  try {
+    await writeDesignPlan(planPath, plan);
+    return {
+      root,
+      planPath,
+      digest: digest(await readFile(planPath)),
+    };
+  } catch (error) {
+    await rm(root, { recursive: true, force: true });
+    throw error;
+  }
+}
+
+async function withStandaloneDesignPlanFixture(run) {
+  const fixture = await standaloneDesignPlanFixture();
+  try {
+    return await run(fixture);
+  } finally {
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+}
+
+function standaloneLoaderError(code) {
+  const error = new Error(code);
+  error.code = code;
+  return error;
+}
+
+function runStandaloneDesignPlanLoader({ planPath, expectedDigest, subject, mode = "load", markerPath = "" }) {
+  const source = `
+let openCount = 0;
+let response;
+try {
+  const { loadDesignPlan } = await import("./src/design-plan.js");
+  const { open } = await import("node:fs/promises");
+  if (process.argv[4] === "timeout-canary") {
+    await new Promise(() => setInterval(() => {}, 1000));
+  }
+  if (process.argv[4] === "output-canary") {
+    process.stdout.write("x".repeat(2048));
+    await new Promise(() => setInterval(() => {}, 1000));
+  }
+  if (process.argv[4] === "retained-stdio-canary") {
+    const { spawn } = await import("node:child_process");
+    spawn(process.execPath, [
+      "--eval",
+      "const fs = require('node:fs'); setTimeout(() => fs.writeFileSync(process.argv[1], 'late'), Number(process.argv[2]));",
+      process.argv[5],
+      process.argv[6],
+    ], { stdio: "inherit" });
+    await new Promise(() => setInterval(() => {}, 1000));
+  }
+  const value = await loadDesignPlan(process.argv[1], {
+    subject: process.argv[3],
+    expectedDigest: process.argv[2],
+    openInput: async (...args) => {
+      openCount += 1;
+      return open(...args);
+    },
+  });
+  response = {
+    outcome: "loaded",
+    code: null,
+    schemaVersion: value.schemaVersion,
+    targetRuntime: value.targetRuntime,
+    openCount,
+    importTdz: false,
+  };
+} catch (error) {
+  response = {
+    outcome: "rejected",
+    code: typeof error?.code === "string" ? error.code : null,
+    schemaVersion: null,
+    targetRuntime: null,
+    openCount,
+    importTdz: error instanceof ReferenceError
+      && error.message.includes("DESIGN_PLAN_SCHEMA_VERSION"),
+  };
+}
+process.stdout.write(JSON.stringify(response) + "\\n");
+`;
+  return new Promise((resolve, reject) => {
+    let child;
+    const usesDedicatedProcessGroup = process.platform !== "win32";
+    try {
+      child = spawn(process.execPath, [
+        "--input-type=module",
+        "--eval",
+        source,
+        planPath,
+        expectedDigest,
+        subject,
+        mode,
+        markerPath,
+        String(STANDALONE_LOADER_LATE_MARKER_DELAY_MS),
+      ], {
+        cwd: REPO_ROOT,
+        detached: usesDedicatedProcessGroup,
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+    } catch {
+      reject(standaloneLoaderError("AGENTMO_TEST_CHILD_SPAWN_FAILED"));
+      return;
+    }
+
+    const stdout = [];
+    const stderr = [];
+    let outputBytes = 0;
+    let failureCode = null;
+    let timeout = null;
+    let closeGrace = null;
+    let finished = false;
+
+    const killDirectChild = () => {
+      try {
+        if (!child.killed) child.kill("SIGKILL");
+      } catch {}
+    };
+    const killDedicatedProcessGroup = () => {
+      if (!usesDedicatedProcessGroup || !Number.isInteger(child.pid) || child.pid <= 0) return;
+      try {
+        process.kill(-child.pid, "SIGKILL");
+      } catch {}
+    };
+    const forceFinishAfterCloseGrace = () => {
+      if (finished) return;
+      failureCode = "AGENTMO_TEST_CHILD_CLOSE_GRACE_EXCEEDED";
+      killDedicatedProcessGroup();
+      killDirectChild();
+      child.stdout.destroy();
+      child.stderr.destroy();
+      finish(null);
+    };
+    const armCloseGrace = () => {
+      if (closeGrace || finished) return;
+      closeGrace = setTimeout(forceFinishAfterCloseGrace, STANDALONE_LOADER_CLOSE_GRACE_MS);
+      closeGrace.unref();
+    };
+    const stop = (code) => {
+      if (failureCode) return;
+      failureCode = code;
+      killDirectChild();
+      armCloseGrace();
+    };
+    const capture = (target, chunk) => {
+      if (failureCode) return;
+      const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      if (outputBytes + bytes.length > STANDALONE_LOADER_OUTPUT_LIMIT) {
+        stop("AGENTMO_TEST_CHILD_OUTPUT_LIMIT");
+        return;
+      }
+      outputBytes += bytes.length;
+      target.push(bytes);
+    };
+    const onStdout = (chunk) => capture(stdout, chunk);
+    const onStderr = (chunk) => capture(stderr, chunk);
+    const onError = () => stop("AGENTMO_TEST_CHILD_SPAWN_FAILED");
+    const cleanup = () => {
+      if (timeout) clearTimeout(timeout);
+      if (closeGrace) clearTimeout(closeGrace);
+      child.stdout.removeListener("data", onStdout);
+      child.stderr.removeListener("data", onStderr);
+      child.removeListener("error", onError);
+      child.removeListener("close", onClose);
+    };
+    const finish = (exitCode) => {
+      if (finished) return;
+      finished = true;
+      cleanup();
+      if (failureCode) {
+        reject(standaloneLoaderError(failureCode));
+        return;
+      }
+      if (exitCode !== 0) {
+        reject(standaloneLoaderError("AGENTMO_TEST_CHILD_EXIT_FAILED"));
+        return;
+      }
+      try {
+        resolve({
+          exitCode,
+          stderr: Buffer.concat(stderr).toString("utf8"),
+          ...JSON.parse(Buffer.concat(stdout).toString("utf8")),
+        });
+      } catch {
+        reject(standaloneLoaderError("AGENTMO_TEST_CHILD_INVALID_OUTPUT"));
+      }
+    };
+    const onClose = (exitCode) => finish(exitCode);
+
+    child.stdout.on("data", onStdout);
+    child.stderr.on("data", onStderr);
+    child.once("error", onError);
+    child.once("close", onClose);
+    timeout = setTimeout(() => stop("AGENTMO_TEST_CHILD_TIMEOUT"), STANDALONE_LOADER_TIMEOUT_MS);
+  });
+}
+
 async function digestFile(file) {
   return `sha256:${createHash("sha256").update(await readFile(file)).digest("hex")}`;
 }
@@ -245,6 +451,112 @@ function stage2DesignPlanArgs(fixture, outPath) {
 }
 
 describe("design plan", () => {
+  it("loads a standalone design-plan loader fixture after direct first import", async () => {
+    const result = await withStandaloneDesignPlanFixture((fixture) => (
+      runStandaloneDesignPlanLoader({
+        planPath: fixture.planPath,
+        expectedDigest: fixture.digest,
+        subject: "design-plan",
+      })
+    ));
+
+    assert.deepEqual(result, {
+      exitCode: 0,
+      stderr: "",
+      outcome: "loaded",
+      code: null,
+      schemaVersion: "agentmo.design-plan.v1",
+      targetRuntime: "openclaw",
+      openCount: 1,
+      importTdz: false,
+    });
+  });
+
+  it("rejects a wrong digest through the standalone design-plan loader", async () => {
+    const result = await withStandaloneDesignPlanFixture((fixture) => (
+      runStandaloneDesignPlanLoader({
+        planPath: fixture.planPath,
+        expectedDigest: `sha256:${"0".repeat(64)}`,
+        subject: "design-plan",
+      })
+    ));
+
+    assert.deepEqual(result, {
+      exitCode: 0,
+      stderr: "",
+      outcome: "rejected",
+      code: "AGENTMO_ARTIFACT_DIGEST_MISMATCH",
+      schemaVersion: null,
+      targetRuntime: null,
+      openCount: 1,
+      importTdz: false,
+    });
+  });
+
+  it("rejects a wrong subject through the standalone design-plan loader", async () => {
+    const result = await withStandaloneDesignPlanFixture((fixture) => (
+      runStandaloneDesignPlanLoader({
+        planPath: fixture.planPath,
+        expectedDigest: fixture.digest,
+        subject: "blueprint",
+      })
+    ));
+
+    assert.deepEqual(result, {
+      exitCode: 0,
+      stderr: "",
+      outcome: "rejected",
+      code: "AGENTMO_UNSUPPORTED_ARTIFACT",
+      schemaVersion: null,
+      targetRuntime: null,
+      openCount: 0,
+      importTdz: false,
+    });
+  });
+
+  it("times out a standalone design-plan loader canary", async () => {
+    await withStandaloneDesignPlanFixture((fixture) => assert.rejects(
+      () => runStandaloneDesignPlanLoader({
+        planPath: fixture.planPath,
+        expectedDigest: fixture.digest,
+        subject: "design-plan",
+        mode: "timeout-canary",
+      }),
+      (error) => error?.code === "AGENTMO_TEST_CHILD_TIMEOUT",
+    ));
+  });
+
+  it("bounds output from a standalone design-plan loader canary", async () => {
+    await withStandaloneDesignPlanFixture((fixture) => assert.rejects(
+      () => runStandaloneDesignPlanLoader({
+        planPath: fixture.planPath,
+        expectedDigest: fixture.digest,
+        subject: "design-plan",
+        mode: "output-canary",
+      }),
+      (error) => error?.code === "AGENTMO_TEST_CHILD_OUTPUT_LIMIT",
+    ));
+  });
+
+  it("bounds a retained-stdio standalone design-plan loader canary after child kill", async () => {
+    if (process.platform === "win32") return;
+    await withStandaloneDesignPlanFixture(async (fixture) => {
+      const lateMarker = path.join(fixture.root, "late-marker");
+      await assert.rejects(
+        () => runStandaloneDesignPlanLoader({
+          planPath: fixture.planPath,
+          expectedDigest: fixture.digest,
+          subject: "design-plan",
+          mode: "retained-stdio-canary",
+          markerPath: lateMarker,
+        }),
+        (error) => error?.code === "AGENTMO_TEST_CHILD_CLOSE_GRACE_EXCEEDED",
+      );
+      await new Promise((resolve) => setTimeout(resolve, 1_000));
+      await assert.rejects(() => access(lateMarker));
+    });
+  });
+
   it("does not accept an Agent Idea Candidate through direct Stage 2 authority APIs", async () => {
     const inputs = await supportInputs();
     const factId = inputs.discoveryDb.facts[0].id;

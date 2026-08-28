@@ -18,7 +18,7 @@ import {
 } from "./discovery-approval.js";
 import { DISCOVERY_DB_SCHEMA_VERSION, validateDiscoveryDb } from "./discovery-db.js";
 import { DISCOVERY_SCHEMA_VERSION, validateDiscoveryManifest } from "./discovery.js";
-import { DESIGN_PLAN_SCHEMA_VERSION, validateDesignPlan } from "./design-plan.js";
+import { validateDesignPlan } from "./design-plan.js";
 import {
   DOMAIN_CASES_SCHEMA_VERSION,
   DOMAIN_EVAL_SCHEMA_VERSION,
@@ -285,7 +285,8 @@ export const DURABLE_ARTIFACT_REGISTRY = Object.freeze([
   Object.freeze({
     subject: "design-plan",
     identity_field: "schemaVersion",
-    identity: DESIGN_PLAN_SCHEMA_VERSION,
+    // Do not reread a cyclic module's top-level constant during registry initialization.
+    identity: "agentmo.design-plan.v1",
     legacy_inspector: "unsupported",
     validate_canonical_input: validateCanonicalDesignPlan,
   }),

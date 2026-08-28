@@ -83,8 +83,8 @@ const CORE_TEST_FILES = [
   "test/runtime-compatibility.test.js",
   "test/runtime-compatibility-seams.test.js",
   "test/node20-core-lane.test.js",
+  "test/design-plan.test.js",
 ];
-
 export const OWNED_COMMAND_MANIFEST = deepFreeze([
   {
     id: "syntax",
@@ -96,7 +96,7 @@ export const OWNED_COMMAND_MANIFEST = deepFreeze([
     id: "core-contracts",
     kind: "test",
     files: CORE_TEST_FILES,
-    expected: { pass: 62, skip: 1, fail: 0, total: 63 },
+    expected: { pass: 86, skip: 1, fail: 0, total: 87 },
   },
   {
     id: "stage-contracts",
