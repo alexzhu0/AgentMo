@@ -45,7 +45,7 @@ const RELEASE_EVIDENCE_CLASSES = Object.freeze([
   "target-executed",
 ]);
 const RELEASE_STATUSES = Object.freeze(["tested", "failed", "untested"]);
-const RELEASE_INDEX_ROW = "| 2026.08.28 | Stage 2 direct-loader closure + Node 20 evidence refresh | fixed design-plan loader cycle、完整 direct test ownership 与新 Node20 trusted receipt/post-publication consumer 已闭合；未批准 Plan、未提交、未集成、未发布 | [`2026.08.28.md`](./2026.08.28.md) | 未发布 |";
+const RELEASE_INDEX_ROW = "| 2026.08.28 | Stage 2 direct-loader closure + Node 20 evidence refresh | fixed design-plan loader cycle、完整 direct test ownership 与新 Node20 trusted receipt/post-publication consumer 已闭合；未批准 Plan、本地已提交并集成、未 push/未发布 | [`2026.08.28.md`](./2026.08.28.md) | 未发布 |";
 const VERIFY_FLAG = "--verify-published-evidence";
 
 const verifyIndex = process.argv.indexOf(VERIFY_FLAG);

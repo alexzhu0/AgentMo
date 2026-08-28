@@ -26,15 +26,16 @@ Discover -> Plan -> Produce
 Plan 消费、Runtime Adapter 或认证能力写成当前已交付能力。通用架构和合同不得
 嵌入具体领域 POC。
 
-## 当前分支与未提交收口
+## 当前分支与本地集成状态
 
-实测 `main` 与 `origin/main` 均为 `14d18c2`，ahead/behind 为 `0/0`，已经同步。
-当前仅有下述隔离 worktree 的未提交 closure；它不应被假设存在于其他 checkout。
-旧恢复记录中的“8 个本地、尚未 push 的 commits”已被上述实时 `0/0` 结果否定，
-不是当前事实；旧标签“当前 aggregate gate 收口批次 仍未 commit”也已由下述隔离
-worktree closure 描述取代。
+本地 `main` 已通过 `--ff-only` 集成 Stage 2 direct-loader 实现与证据提交
+`1b3d1670880a2af53b686bd0235a45dcfbec990d`，本状态同步提交紧随其后。
+`origin/main` 仍为 `14d18c2ed459ca706bf775d0c8548626e6a5ac12`；本地集成完成后的
+ahead/behind 为 `2/0`。没有 push，因此该 closure 不应被假设存在于其他 checkout。
+旧恢复记录中的“8 个本地、尚未 push 的 commits”不是当前精确计数；旧标签
+“当前 aggregate gate 收口批次 仍未 commit”也已由本地集成事实取代。
 
-当前隔离 worktree 有一个尚未 commit 的 Stage 2 direct-loader 收口批次：
+本地 `main` 现在包含以下 Stage 2 direct-loader 收口批次：
 
 - `loadDesignPlan` 作为 fresh process 的首个 AgentMo import 时不再触发 registry
   initialization 的 cyclic TDZ read；schema、subject、digest 与 validation 规则未改变；
@@ -55,7 +56,7 @@ command-set digest 为
 2026.08.19、2026.08.14 与 2026.07.13 receipt 均保留为旧 manifest 的历史字节证据；
 本轮未扩大 trust anchor、producer 或认证范围，也不 approve Plan 或授权 Produce。
 
-该未提交收口不应被假设存在于其他 checkout。Node20 receipt
+该本地收口在 push 前不应被假设存在于其他 checkout。Node20 receipt
 只证明受限机制与发行输入 provenance，不证明领域质量、生产就绪或更广泛
 OpenClaw 兼容。
 
@@ -96,11 +97,12 @@ precondition，不是代码或测试 failure。用户明确授权清理后，fre
 自然 exit 0，以上为该次最终结果。
 
 这些结果只证明本次有界机制与测试集合通过，不认证领域质量、生产就绪或更广泛
-OpenClaw 兼容。当前隔离 worktree closure 仍未 commit；当前没有 push、PR、tag 或 GitHub Release，
-也没有 npm publication 或 integration。
+OpenClaw 兼容。实现与证据 closure 已在本地 commit 并集成到 `main`；当前
+没有 push、PR、tag 或 GitHub Release，也没有 npm publication 或 deployment。
 
-最终独立复审已给出 READY（Critical 0 / Important 0）；仍须等待用户明确授权，
-才能 commit、integrate 或 push。当前没有这些授权。
+最终独立复审已给出 READY（Critical 0 / Important 0）。用户只授权并已完成本地
+commit/integration；没有授权 push、PR、tag、GitHub Release、npm publication，亦没有
+授权任何 POC 的 Plan、Produce、Package、install、activation 或 runtime gate。
 
 ## 新 session 最小恢复步骤
 
