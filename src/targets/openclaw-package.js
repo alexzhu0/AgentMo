@@ -1,8 +1,13 @@
 import {
   computeNativePluginRecipeDigest,
+  validateBuildContract,
   validateNativePluginRecipe,
 } from "../build-contract.js";
 import { serializePersistableJson } from "../persistability.js";
+import { buildTargetFiles } from "../scaffold-files.js";
+import { validateBlueprint } from "../blueprint.js";
+import { isDeepStrictEqual } from "node:util";
+import { selectPackageCarriers } from "../package-carriers.js";
 
 const jsonBytes = (value, subject) => Buffer.from(
   serializePersistableJson(value, { subject: "openclaw-package-projection" }),
@@ -15,7 +20,38 @@ export function buildOpenClawPackageProjection({
   buildContract,
   carrierSelection,
   targetAdmission,
+  blueprint,
 }) {
+  if (buildContract?.execution_profile === "native-chat") {
+    if (!validateBuildContract(buildContract).ok || !validateBlueprint(blueprint).ok
+      || blueprint.execution_profile !== "native-chat" || blueprint.agent_id !== buildContract.agentId
+      || blueprint.native_model_profile !== buildContract.specification.runtimeBinding.modelProfile
+      || targetAdmission?.execution_profile !== "native-chat"
+      || targetAdmission?.carrier?.kind !== "native-runtime"
+      || targetAdmission?.carrier?.owner !== "openclaw"
+      || !isDeepStrictEqual(carrierSelection, selectPackageCarriers(buildContract))) {
+      throw new Error("AGENTMO_OPENCLAW_PACKAGE_AUTHORITY_INVALID");
+    }
+    const files = buildTargetFiles(blueprint, "openclaw");
+    return [
+      ...["AGENTS.md", "SOUL.md", "IDENTITY.md", "USER.md"].map((name) => ({
+        relativePath: `projections/openclaw/workspace/${name}`, mode: 0o644,
+        bytes: Buffer.from(files.get(`openclaw/workspace/${name}`), "utf8"),
+      })),
+      json("projections/openclaw/config-patch.json", {
+        schemaVersion: "agentmo.openclaw-native-config-intent.v1", execution_profile: "native-chat",
+        agentId: blueprint.agent_id, tools: { deny: ["*"] }, plugins: { enabled: false },
+        memory: { enabled: false }, skills: [], cron: { enabled: false }, hooks: { enabled: false },
+        fallbacks: [], retry: 0, proposalOnly: true,
+        ...(Object.hasOwn(blueprint, "native_model_profile") ? { modelProfile: blueprint.native_model_profile } : {}),
+      }),
+      json("projections/openclaw/runtime-binding.json", {
+        schemaVersion: "agentmo.openclaw-runtime-binding.v1", target: targetAdmission.target,
+        executionAuthorized: false, installed: false, runtimeVerified: false,
+        ...(Object.hasOwn(blueprint, "native_model_profile") ? { modelProfile: blueprint.native_model_profile } : {}),
+      }),
+    ].sort((a, b) => Buffer.from(a.relativePath).compare(Buffer.from(b.relativePath)));
+  }
   const recipe = buildContract?.nativePluginRecipe;
   const recipeValidation = validateNativePluginRecipe(recipe, buildContract?.targetRuntime);
   if (!recipeValidation.ok

@@ -298,7 +298,13 @@ describe("OpenClaw runtime compatibility seams", () => {
       { file: "src/builder-codex-host.js", count: 2 },
       { file: "src/builder-posix-effect.js", count: 1 },
       { file: "src/builder-probe.js", count: 1 },
+      // Isolated Course Wiki POC: OS document converter and closed native child.
+      // Their behavioral boundaries are covered by course-wiki-{documents,openclaw}.test.js;
+      // this inventory is not Node 20 distribution or AgentMo birth certification.
+      { file: "src/course-wiki-documents.js", count: 1 },
+      { file: "src/course-wiki-openclaw.js", count: 1 },
       { file: "src/native-build-capture.js", count: 1 },
+      { file: "src/native-chat-runtime.js", count: 3 },
       { file: "src/openclaw-official-action-runner.js", count: 1 },
       { file: "src/openclaw-probe.js", count: 1 },
       { file: "src/openclaw-process-supervisor.js", count: 1 },

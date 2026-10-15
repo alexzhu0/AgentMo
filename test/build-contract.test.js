@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
-import { access, mkdtemp, readFile } from "node:fs/promises";
+import { access, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
+import { admitBlueprint } from "./helpers/admitted-blueprint.js";
 import {
   BUILD_CONTRACT_SCHEMA_VERSION,
   buildBuildContract,
@@ -29,6 +30,57 @@ function contractOptions(inputs) {
 }
 
 describe("Agent Package build contract", () => {
+  it("rejects mixed native-chat and plugin Plan authority", async () => {
+    const inputs = await buildSupportContractInputs();
+    const blueprint = structuredClone(inputs.values.blueprint);
+    blueprint.execution_profile = "native-chat";
+    blueprint.tools = [];
+    blueprint.architecture.specialists = [];
+    const file = path.join(inputs.root, "native-chat.json");
+    await writeFile(file, JSON.stringify(blueprint));
+    const admission = await admitBlueprint(file);
+    assert.throws(() => buildBuildContract(
+      admission.value, inputs.values.designPlan, inputs.values.discoveryApproval,
+      inputs.values.decisionLedger, { ...contractOptions(inputs), admissions: { ...inputs.admissions, blueprint: admission } },
+    ), (error) => error.code === "AGENTMO_BUILD_CONTRACT_INPUT_MISMATCH");
+  });
+
+  it("admits native-chat without a recipe and rejects mixed authority", async () => {
+    const need = JSON.parse(await readFile(new URL("../examples/support-triage.need.json", import.meta.url)));
+    const inputs = await buildSupportContractInputs({ userNeed: { ...need, execution_profile: "native-chat" } });
+    const contract = buildBuildContract(
+      inputs.values.blueprint, inputs.values.designPlan, inputs.values.discoveryApproval,
+      inputs.values.decisionLedger, contractOptions(inputs),
+    );
+    assert.equal(contract.execution_profile, "native-chat");
+    assert.equal(contract.nativePluginRecipe, null);
+    assert.deepEqual(contract.specification.tools.declaredNames, []);
+    assert.deepEqual(contract.specification.tools.deny, ["*"]);
+    assert.equal(contract.resources.length, 22);
+    for (const kind of ["skills", "plugins", "memory", "rag", "schedules"]) {
+      assert.deepEqual(contract.specification[kind], { enabled: false });
+      assert.equal(contract.resources.find((r) => r.kind === kind).necessity, "disabled");
+    }
+    assert.equal(validateBuildContract(contract).ok, true);
+    const admitted = await admitBuildContract(inputs.root, contract);
+    assert.equal(admitted.value.execution_profile, "native-chat");
+    for (const mutate of [
+      (c) => { delete c.execution_profile; },
+      (c) => { c.execution_profile = null; },
+      (c) => { c.execution_profile = "unknown"; },
+      (c) => { c.nativePluginRecipe = {}; },
+      (c) => { c.specification.tools.declaredNames = ["exec"]; },
+      (c) => { c.specification.tools.deny = []; },
+      (c) => { c.specification.harness.owner = "caller"; },
+      (c) => { c.specification.loop.hooks = ["before-attempt"]; },
+      (c) => { c.resources.find((r) => r.kind === "schedules").necessity = "required"; },
+    ]) {
+      const changed = structuredClone(contract);
+      mutate(changed);
+      assert.equal(validateBuildContract(changed).ok, false);
+    }
+  });
+
   it("constructs deterministic exact-bound bytes from authentic Plan authority", async () => {
     const inputs = await buildSupportContractInputs();
     const first = buildBuildContract(

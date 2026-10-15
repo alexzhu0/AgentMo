@@ -451,6 +451,35 @@ function stage2DesignPlanArgs(fixture, outPath) {
 }
 
 describe("design plan", () => {
+  it("propagates native-chat without invented capabilities", async () => {
+    const inputs = await supportInputs();
+    const need = { ...inputs.need, execution_profile: "native-chat", problem: "整理会议文字，输出纪要和待办，不编造负责人或日期。" };
+    need.primary_tasks = need.primary_tasks.map((_, i) => `整理会议事项 ${i + 1}`);
+    need.hard_failures = need.hard_failures.map((_, i) => `不得编造会议内容 ${i + 1}`);
+    inputs.admissions.userNeed = await admitValue(need, "user-need");
+    inputs.need = inputs.admissions.userNeed.value;
+    const plan = buildDesignPlan(inputs.discoveryDb, inputs.need, planOptions(inputs));
+    assert.equal(plan.execution_profile, "native-chat");
+    assert.deepEqual(plan.architecturePlan.specialistPlans, []);
+    assert.deepEqual(plan.toolContractPlan.tools, []);
+    assert.equal(plan.userNeedSummary.problem, need.problem);
+    assert.deepEqual(plan.architecturePlan.routingModes, need.primary_tasks);
+    assert.equal(validateDesignPlan(plan).ok, true);
+    for (const mutate of [
+      (p) => { p.execution_profile = "unknown"; },
+      (p) => { p.execution_profile = null; },
+      (p) => { p.targetRuntime = "codex"; },
+      (p) => { p.architecturePlan.specialistPlans = [{ id: "fake" }]; },
+      (p) => { p.toolContractPlan.tools = [{ name: "fake" }]; },
+      (p) => { delete p.toolContractPlan.tools; },
+    ]) {
+      const candidate = structuredClone(plan);
+      mutate(candidate);
+      assert.equal(validateDesignPlan(candidate).ok, false);
+    }
+    assert.throws(() => buildDesignPlan(inputs.discoveryDb, inputs.need, planOptions(inputs, { target: "agentmo" })), /native-chat/u);
+  });
+
   it("loads a standalone design-plan loader fixture after direct first import", async () => {
     const result = await withStandaloneDesignPlanFixture((fixture) => (
       runStandaloneDesignPlanLoader({

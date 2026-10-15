@@ -2693,8 +2693,13 @@ describe("packed Codex Builder setup", { concurrency: false }, () => {
         kind, sourcePath, relativePath, destinationPath, digest, byteLength,
       })),
     );
-    assert.equal(first.assets.length, 117);
-    assert.equal(first.assets.filter((asset) => asset.kind === "runtime").length, 112);
+    assert.equal(first.assets.length, 127);
+    assert.equal(first.assets.filter((asset) => asset.kind === "runtime").length, 122);
+    assert.equal(first.assets.some((asset) => asset.sourcePath === "src/native-chat-files.js"), true);
+    const behaviorEvidence = first.assets.filter((asset) => asset.sourcePath === "src/behavior-evidence.js");
+    assert.equal(behaviorEvidence.length, 1);
+    assert.equal(behaviorEvidence[0].kind, "runtime");
+    assert.equal(behaviorEvidence[0].destinationPath, "plugins/agentmo/runtime/agentmo/src/behavior-evidence.js");
     assert.deepEqual(
       first.assets.map((asset) => asset.destinationPath),
       first.assets.map((asset) => asset.destinationPath).toSorted((left, right) => {

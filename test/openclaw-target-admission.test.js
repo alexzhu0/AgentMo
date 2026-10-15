@@ -37,7 +37,7 @@ import {
   buildOpenClawTargetDescriptor,
 } from "../src/openclaw-target-descriptor.js";
 import { serializePersistableJson } from "../src/persistability.js";
-import { buildSupportContractInputs } from "./helpers/build-contract-fixture.js";
+import { buildSupportContractInputs, buildNativeChatContractInputs } from "./helpers/build-contract-fixture.js";
 import { NATIVE_OPENCLAW_FS } from "./helpers/native-openclaw-fs.js";
 
 const sha256 = (bytes) => `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
@@ -100,8 +100,8 @@ function recipeCandidate() {
   return { ...recipe, recipeDigest: computeNativePluginRecipeDigest(recipe) };
 }
 
-async function exactAuthorityChain(root) {
-  const inputs = await buildSupportContractInputs();
+async function exactAuthorityChain(root, nativeChat = false) {
+  const inputs = await (nativeChat ? buildNativeChatContractInputs() : buildSupportContractInputs());
   const recipePath = path.join(root, "native-plugin-recipe.json");
   const recipeBytes = Buffer.from(serializePersistableJson(recipeCandidate(), {
     subject: "native-plugin-recipe",
@@ -119,8 +119,10 @@ async function exactAuthorityChain(root) {
     {
       target: "openclaw",
       admissions: inputs.admissions,
-      nativePluginRecipe: recipeAdmission.value,
-      nativePluginRecipeAdmission: recipeAdmission,
+      ...(nativeChat ? {} : {
+        nativePluginRecipe: recipeAdmission.value,
+        nativePluginRecipeAdmission: recipeAdmission,
+      }),
     },
   );
   const contractPath = path.join(root, "build-contract.json");
@@ -163,6 +165,59 @@ async function exactAuthorityChain(root) {
 }
 
 describe("OpenClaw exact target/carrier admission", () => {
+  it("admits only matching native authority with no recipe or hooks", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agentmo-native-admission-"));
+    const chain = await exactAuthorityChain(root, true);
+    const options = {
+      blueprint: chain.inputs.values.blueprint,
+      buildContract: chain.buildContractAdmission.value,
+      planApproval: chain.planApprovalAdmission.value,
+      admissions: {
+        blueprint: chain.inputs.blueprint, buildContract: chain.buildContractAdmission,
+        planApproval: chain.planApprovalAdmission, targetDescriptor: chain.inputs.targetDescriptor,
+      },
+      target: {
+        executablePath: chain.inputs.targetFiles.executablePath,
+        packageJsonPath: chain.inputs.targetFiles.packageJsonPath,
+        buildInfoPath: chain.inputs.targetFiles.buildInfoPath,
+        executableDigest: sha256(await readFile(chain.inputs.targetFiles.executablePath)),
+        packageJsonDigest: sha256(await readFile(chain.inputs.targetFiles.packageJsonPath)),
+        buildInfoDigest: sha256(await readFile(chain.inputs.targetFiles.buildInfoPath)),
+      },
+    };
+    const admission = await buildOpenClawTargetCarrierAdmission(options);
+    assert.equal(admission.execution_profile, "native-chat");
+    assert.deepEqual(admission.carrier, {
+      kind: "native-runtime", owner: "openclaw", implementationPathAccepted: false, mcp: false,
+    });
+    assert.equal(admission.authorities.nativePluginRecipeDigest, null);
+    assert.deepEqual(admission.hookMappings, []);
+    assert.equal(validateOpenClawTargetCarrierAdmission(admission).ok, true);
+    const context = { sources: options.admissions, targetDescriptor: options.admissions.targetDescriptor.value };
+    assert.equal(validateOpenClawTargetCarrierAdmission(admission, context).ok, true);
+    const changedTarget = structuredClone(admission);
+    changedTarget.target.sourceRevision = "a".repeat(40);
+    changedTarget.target.displayRevision = "a".repeat(7);
+    assert.equal(validateOpenClawTargetCarrierAdmission(changedTarget, context).ok, false);
+    for (const mutate of [
+      (a) => { delete a.execution_profile; },
+      (a) => { a.execution_profile = null; },
+      (a) => { a.carrier.owner = "agentmo-openclaw-harness"; },
+      (a) => { a.authorities.nativePluginRecipeDigest = sha256("recipe"); },
+      (a) => { a.hookMappings.push({}); },
+    ]) {
+      const changed = structuredClone(admission); mutate(changed);
+      assert.equal(validateOpenClawTargetCarrierAdmission(changed).ok, false);
+    }
+    for (const key of ["planApproval", "targetDescriptor"]) {
+      const sources = structuredClone(options.admissions);
+      sources[key].digest = sha256("stale");
+      assert.equal(validateOpenClawTargetCarrierAdmission(admission, { ...context, sources }).ok, false);
+    }
+    await assert.rejects(buildOpenClawTargetCarrierAdmission({
+      ...options, target: { ...options.target, executableDigest: sha256("stale") },
+    }));
+  });
   it("requires and re-admits the exact descriptor instead of caller target strings", async () => {
     assert.equal(typeof buildOpenClawTargetDescriptor, "function");
     assert.equal(

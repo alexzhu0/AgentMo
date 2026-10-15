@@ -1,6 +1,8 @@
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
+import { OPENCLAW_RESOURCE_KINDS } from "./package-contract.js";
+export { OPENCLAW_RESOURCE_KINDS } from "./package-contract.js";
 import {
   admittedArtifactProvenance,
   ArtifactAdmissionError,
@@ -22,30 +24,6 @@ import {
 } from "./openclaw-target-descriptor.js";
 
 export const BUILD_CONTRACT_SCHEMA_VERSION = "agentmo.build-contract.v1";
-export const OPENCLAW_RESOURCE_KINDS = Object.freeze([
-  "prompt",
-  "workspace-context",
-  "skills",
-  "tools",
-  "tool-policy",
-  "plugins",
-  "memory",
-  "rag",
-  "storage",
-  "schedules",
-  "harness",
-  "agent-loop",
-  "runtime-binding",
-  "permissions",
-  "trust-boundaries",
-  "secrets",
-  "install-transition",
-  "load-transition",
-  "execute-transition",
-  "recovery",
-  "acceptance-cases",
-  "evidence-obligations",
-]);
 
 const TARGET_RUNTIME_KEYS = Object.freeze([
   "id",
@@ -70,6 +48,7 @@ const PROJECTION_DISPOSITIONS = new Set([
 ]);
 const CONTRACT_KEYS = Object.freeze([
   "schemaVersion",
+  "execution_profile",
   "agentId",
   "status",
   "targetDescriptor",
@@ -86,7 +65,7 @@ const CONTRACT_KEYS = Object.freeze([
   "certificationBoundary",
 ]);
 const REQUIRED_CONTRACT_KEYS = Object.freeze(
-  CONTRACT_KEYS.filter((key) => !["targetDescriptor", "nativePluginRecipe"].includes(key)),
+  CONTRACT_KEYS.filter((key) => !["execution_profile", "targetDescriptor", "nativePluginRecipe"].includes(key)),
 );
 const NATIVE_PLUGIN_RECIPE_KEYS = Object.freeze([
   "schemaVersion",
@@ -201,12 +180,17 @@ export function buildBuildContract(
     options.admissions,
   );
   const planTrace = designPlan.traceGraph;
+  if (blueprint.execution_profile !== designPlan.execution_profile
+    || blueprint.native_model_profile !== designPlan.native_model_profile) {
+    throw new BuildContractError("AGENTMO_BUILD_CONTRACT_INPUT_MISMATCH");
+  }
+  const nativeChat = blueprint.execution_profile === "native-chat";
   const requirementIds = [...planTrace.requirementIds].sort();
   const sourceIds = [...planTrace.sourceIds].sort();
   const decisionIds = [...planTrace.decisionIds].sort();
   const capabilityIds = [...planTrace.capabilityIds].sort();
   const evalCaseIds = [...planTrace.evalCaseIds].sort();
-  const resources = buildResources(requirementIds, sourceIds, decisionIds);
+  const resources = buildResources(requirementIds, sourceIds, decisionIds, nativeChat);
   const permissions = resources.map((resource) => ({
     id: `permission:${resource.kind}`,
     resourceId: resource.id,
@@ -237,6 +221,7 @@ export function buildBuildContract(
   });
   const contract = {
     schemaVersion: BUILD_CONTRACT_SCHEMA_VERSION,
+    ...(nativeChat ? { execution_profile: "native-chat" } : {}),
     agentId: designPlan.agentId,
     status: "construction-intent",
     targetDescriptor: structuredClone(targetDescriptor),
@@ -245,7 +230,7 @@ export function buildBuildContract(
       ? null
       : structuredClone(options.nativePluginRecipe),
     bindings,
-    specification: buildSpecification(blueprint),
+    specification: nativeChat ? buildNativeChatSpecification(blueprint) : buildSpecification(blueprint),
     resources,
     permissions,
     acceptanceCases,
@@ -274,6 +259,11 @@ export function validateBuildContract(value) {
       return { ok: false, errors: ["build contract must contain only canonical fields."] };
     }
     if (value.schemaVersion !== BUILD_CONTRACT_SCHEMA_VERSION) errors.push("invalid schemaVersion.");
+    const nativeChat = value.execution_profile === "native-chat";
+    if (Object.hasOwn(value, "execution_profile") && !nativeChat) errors.push("invalid execution_profile.");
+    if (nativeChat && (value.nativePluginRecipe !== null || value.targetDescriptor === undefined)) {
+      errors.push("native-chat requires an exact target and no plugin recipe.");
+    }
     if (!ID_PATTERN.test(value.agentId ?? "")) errors.push("invalid agentId.");
     if (value.status !== "construction-intent") errors.push("invalid status.");
     validateTargetDescriptorBinding(value.targetDescriptor, value.targetRuntime, errors);
@@ -288,8 +278,15 @@ export function validateBuildContract(value) {
       && value.bindings?.targetDescriptor?.digest !== value.targetRuntime?.descriptorDigest) {
       errors.push("target descriptor provenance is stale.");
     }
-    validateSpecification(value.specification, errors);
-    validateResources(value.resources, errors);
+    if (nativeChat) {
+      const runtime = value.specification?.runtimeBinding;
+      const selected = { agent_id: value.agentId, execution_profile: "native-chat",
+        ...(runtime && Object.hasOwn(runtime, "modelProfile") ? { native_model_profile: runtime.modelProfile } : {}) };
+      if (!isDeepStrictEqual(value.specification, buildNativeChatSpecification(selected))) {
+        errors.push("native-chat specification must exactly match the no-tools native runtime contract.");
+      }
+    } else validateSpecification(value.specification, errors);
+    validateResources(value.resources, errors, nativeChat);
     validatePermissions(value.permissions, value.resources, errors);
     validateAcceptanceCases(value.acceptanceCases, errors);
     validateEvidenceObligations(value.evidenceObligations, value.resources, errors);
@@ -521,6 +518,41 @@ function admittedBindings(blueprint, designPlan, discoveryApproval, decisionLedg
     throw new BuildContractError("AGENTMO_BUILD_CONTRACT_STALE_INPUT");
   }
   return bindings;
+}
+
+function buildNativeChatSpecification(blueprint) {
+  if (!validNativeModelProfileSource(blueprint)) throw new BuildContractError("AGENTMO_NATIVE_MODEL_PROFILE_REJECTED");
+  const model = nativeChatModelProfile(blueprint.native_model_profile);
+  const prompt = buildSpecification(blueprint).prompt;
+  prompt.bootstrapFiles = prompt.bootstrapFiles.slice(0, 4);
+  prompt.precedence = prompt.precedence.slice(0, 4);
+  prompt.dynamicSections = ["runtime-line", "session-context"];
+  prompt.budgets.maximumBootstrapFiles = 4;
+  return {
+    prompt,
+    skills: { enabled: false },
+    tools: { declaredNames: [], deny: ["*"], toolsMdIsAuthority: false },
+    plugins: { enabled: false },
+    memory: { enabled: false },
+    rag: { enabled: false },
+    storage: { owner: "openclaw", scope: "isolated-native-session", databases: [], productionPathsPersisted: false },
+    schedules: { enabled: false },
+    harness: { id: "openclaw", owner: "openclaw", fallback: "fail-closed" },
+    loop: {
+      mechanism: "openclaw-native-chat", hooks: [], tools: [], fallbacks: [],
+      maximumAttempts: 1, automaticRetries: 0, thinking: "disabled",
+      compaction: { enabled: false }, automaticPromotion: false,
+    },
+    runtimeBinding: {
+      target: "openclaw", harness: "openclaw", provider: "budget-proxy",
+      model: model.model, channel: "native-chat", exactRevisionRequired: true,
+      ...(Object.hasOwn(blueprint, "native_model_profile") ? { modelProfile: blueprint.native_model_profile } : {}),
+    },
+    transitions: ["install", "activate", "stop"].map((transition) => ({
+      transition, approvalRequired: true, binding: "exact-native-target",
+    })),
+    recovery: { maximumRetries: 0, resumeRequiresExactContractDigest: true, unknownState: "fail-closed" },
+  };
 }
 
 function buildSpecification(blueprint) {
@@ -830,11 +862,11 @@ function promptFilePurpose(name) {
   }[name];
 }
 
-function buildResources(requirementRefs, sourceRefs, decisionRefs) {
+function buildResources(requirementRefs, sourceRefs, decisionRefs, nativeChat = false) {
   return OPENCLAW_RESOURCE_KINDS.map((kind) => ({
     id: `resource:${kind}`,
     kind,
-    necessity: resourceNecessity(kind),
+    necessity: nativeChat && disabledNativeResource(kind) ? "disabled" : resourceNecessity(kind),
     owner: "phase-3",
     lifecycle: {
       declared: "phase-3",
@@ -847,12 +879,19 @@ function buildResources(requirementRefs, sourceRefs, decisionRefs) {
     trustSemantics: "declaration-is-not-runtime-or-domain-proof",
     permissionSemantics: permissionAuthority(kind),
     failureSemantics: "fail-closed-when-missing-stale-or-unapproved",
-    projection: projectionFor(kind),
+    projection: projectionFor(kind, nativeChat),
     evidenceObligationRefs: [`evidence:${kind}`],
   }));
 }
 
-function projectionFor(kind) {
+function disabledNativeResource(kind) {
+  return ["skills", "plugins", "memory", "rag", "schedules"].includes(kind);
+}
+
+function projectionFor(kind, nativeChat = false) {
+  if (nativeChat && disabledNativeResource(kind)) {
+    return { disposition: "explicit-unsupported", target: `native-chat.disabled.${kind}` };
+  }
   if (kind === "plugins") {
     return {
       disposition: "explicit-unsupported",
@@ -1156,7 +1195,7 @@ function validateSpecification(value, errors) {
   }
 }
 
-function validateResources(value, errors) {
+function validateResources(value, errors, nativeChat = false) {
   if (!Array.isArray(value)
     || !sameArray(value.map((resource) => resource?.kind), OPENCLAW_RESOURCE_KINDS)
     || new Set(value.map((resource) => resource?.id)).size !== OPENCLAW_RESOURCE_KINDS.length) {
@@ -1172,6 +1211,7 @@ function validateResources(value, errors) {
         "projection", "evidenceObligationRefs",
       ])
       || resource.id !== `resource:${expectedKind}`
+      || (nativeChat && resource.necessity !== (disabledNativeResource(expectedKind) ? "disabled" : resourceNecessity(expectedKind)))
       || resource.owner !== "phase-3"
       || !sameObject(resource.lifecycle, {
         declared: "phase-3",
@@ -1186,8 +1226,8 @@ function validateResources(value, errors) {
       || !plainObject(resource.projection)
       || !hasExactKeys(resource.projection, ["disposition", "target"])
       || !PROJECTION_DISPOSITIONS.has(resource.projection.disposition)
-      || resource.projection.disposition !== projectionFor(expectedKind).disposition
-      || resource.projection.target !== projectionFor(expectedKind).target
+      || resource.projection.disposition !== projectionFor(expectedKind, nativeChat).disposition
+      || resource.projection.target !== projectionFor(expectedKind, nativeChat).target
       || !sameArray(resource.evidenceObligationRefs, [`evidence:${expectedKind}`])) {
       errors.push(`invalid resource projection ${expectedKind}.`);
     }
@@ -1415,3 +1455,4 @@ function plainObject(value) {
   const prototype = Object.getPrototypeOf(value);
   return prototype === Object.prototype || prototype === null;
 }
+import { nativeChatModelProfile, validNativeModelProfileSource } from "./native-chat-model-profile.js";

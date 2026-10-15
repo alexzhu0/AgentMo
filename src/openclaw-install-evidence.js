@@ -11,7 +11,7 @@ import {
 import {
   validateOpenClawSensitiveActionDecision,
 } from "./openclaw-install-approval.js";
-import { validateOpenClawInstallPlan } from "./openclaw-install-plan.js";
+import { validateOpenClawLegacyInstallPlan as validateOpenClawInstallPlan } from "./openclaw-install-plan.js";
 import {
   assertPersistable,
   serializePersistableJson,

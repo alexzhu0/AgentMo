@@ -72,8 +72,19 @@ async function createDecisionLedger(root) {
 }
 
 describe("cli mvp birth loop", () => {
-  it("runs support-triage through discover, need, design-plan, draft, handoff, run-eval, birth-report, domain-eval, and delivery-report", async () => {
+  for (const nativeChat of [false, true]) {
+  it(nativeChat ? "native-chat planning remains non-authoritative" : "runs support-triage through discover, need, design-plan, draft, handoff, run-eval, birth-report, domain-eval, and delivery-report", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agentmo-cli-mvp-"));
+    let needFile = NEED;
+    if (nativeChat) {
+      needFile = path.join(root, "native-chat.need.json");
+      const value = JSON.parse(await readFile(NEED, "utf8"));
+      value.execution_profile = "native-chat";
+      value.problem = "整理会议文字，输出纪要和待办，不编造负责人或日期。";
+      value.primary_tasks = value.primary_tasks.map((_, i) => `整理会议事项 ${i + 1}`);
+      value.hard_failures = value.hard_failures.map((_, i) => `不得编造会议内容 ${i + 1}`);
+      await writeFile(needFile, JSON.stringify(value));
+    }
     const discoveryOut = path.join(root, "discovery-pack");
     const discover = await runCli([
       "discover-pack",
@@ -90,9 +101,9 @@ describe("cli mvp birth loop", () => {
 
     const need = await runCli([
       "need-report",
-      NEED,
+      needFile,
       "--digest",
-      `user-need=${await digestFile(NEED)}`,
+      `user-need=${await digestFile(needFile)}`,
       "--json",
     ]);
     assert.equal(need.code, 0, need.stderr);
@@ -110,7 +121,7 @@ describe("cli mvp birth loop", () => {
       "--discovery-approval",
       approvalPath,
       "--need",
-      NEED,
+      needFile,
       "--decision-ledger",
       decisionLedger.journal,
       "--digest",
@@ -120,7 +131,7 @@ describe("cli mvp birth loop", () => {
       "--digest",
       `discovery-approval=${await digestFile(approvalPath)}`,
       "--digest",
-      `user-need=${await digestFile(NEED)}`,
+      `user-need=${await digestFile(needFile)}`,
       "--digest",
       `decision-ledger=${decisionLedger.headDigest}`,
       "--out",
@@ -139,13 +150,13 @@ describe("cli mvp birth loop", () => {
       "blueprint-draft",
       path.join(discoveryOut, "agentmo-discovery-db.json"),
       "--need",
-      NEED,
+      needFile,
       "--design-plan",
       designPlanPath,
       "--digest",
       `discovery-db=${await digestFile(discoveryDbPath)}`,
       "--digest",
-      `user-need=${await digestFile(NEED)}`,
+      `user-need=${await digestFile(needFile)}`,
       "--digest",
       `design-plan=${await digestFile(designPlanPath)}`,
       "--out",
@@ -195,6 +206,24 @@ describe("cli mvp birth loop", () => {
     assert.equal(scaffold.code, 0, scaffold.stderr);
     const buildStatePath = path.join(scaffoldOut, "agentmo-build-state.json");
     const buildStateDigest = await digestFile(buildStatePath);
+
+    if (nativeChat) {
+      const blueprint = JSON.parse(await readFile(blueprintPath, "utf8"));
+      assert.equal(blueprint.execution_profile, "native-chat");
+      assert.deepEqual(blueprint.tools, []);
+      assert.deepEqual(blueprint.architecture.specialists, []);
+      assert.equal(blueprint.design_contract.provenance.reviewed, false);
+      assert.equal(blueprint.stage2_planning.authority, "draft-non-authoritative");
+      const state = JSON.parse(await readFile(buildStatePath, "utf8"));
+      assert.equal(state.source.digest, blueprintDigest);
+      assert.equal(state.operations.some((operation) => /\/skills\/|\/memory\//u.test(operation.relativePath)), false);
+      blueprint.domain_genome.purpose += "已修改";
+      await writeFile(blueprintPath, JSON.stringify(blueprint));
+      const stale = await runCli(["validate", blueprintPath, "--digest", `blueprint=${blueprintDigest}`, "--json"]);
+      assert.equal(stale.code, 1);
+      assert.equal(JSON.parse(stale.stdout).code, "AGENTMO_ARTIFACT_DIGEST_MISMATCH");
+      return;
+    }
 
     const workspace = path.join(root, "workspace");
     const runtimeMessage = "Say exactly: ok";
@@ -342,4 +371,5 @@ describe("cli mvp birth loop", () => {
     assert.equal(deliveryJson.certificationBoundary.domainCertifiedByDeliveryReport, false);
     assert.equal((await readFile(path.join(handoffOut, "VERIFY.md"), "utf8")).includes("Birth-report must fail closed"), true);
   });
+  }
 });

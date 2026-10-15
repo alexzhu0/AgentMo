@@ -229,6 +229,7 @@ describe("artifact admission", () => {
         "birth-report",
         "domain-cases",
         "domain-eval",
+        "native-chat-acceptance",
         "delivery-report",
       ],
     );
@@ -296,6 +297,7 @@ describe("artifact admission", () => {
         "agentmo.birth-report.v1",
         "agentmo.domain-cases.v1",
         "agentmo.domain-eval.v1",
+        "agentmo.native-chat-acceptance.v1",
         "agentmo.delivery.v1",
       ],
     );
@@ -663,6 +665,7 @@ describe("artifact admission", () => {
       "birth-report": { schemaVersion: "agentmo.birth-report.v1" },
       "domain-cases": { schemaVersion: "agentmo.domain-cases.v1" },
       "domain-eval": { schemaVersion: "agentmo.domain-eval.v1" },
+      "native-chat-acceptance": { schemaVersion: "agentmo.native-chat-acceptance.v1" },
       "delivery-report": { schemaVersion: "agentmo.delivery.v1" },
     };
     for (const [subject, candidate] of Object.entries(identityOnly)) {

@@ -236,7 +236,8 @@ async function inspectArchiveSnapshot(archivePath, expectedArchiveDigest) {
 function buildInspectionCandidate(snapshot) {
   const { manifest } = snapshot;
   const carriers = structuredClone(manifest.capabilityLedger);
-  const sensitiveActions = carriers
+  const enabledCarriers = carriers.filter((entry) => manifest.execution_profile !== "native-chat" || entry.necessity !== "disabled");
+  const sensitiveActions = enabledCarriers
     .filter(({ approvalRequirement }) => approvalRequirement === "explicit-human-approval")
     .map((entry) => ({
       capabilityId: entry.capabilityId,
@@ -246,7 +247,7 @@ function buildInspectionCandidate(snapshot) {
       approvalRequirement: entry.approvalRequirement,
       failureSemantics: entry.failureSemantics,
     }));
-  const targetOperations = carriers.map((entry) => ({
+  const targetOperations = enabledCarriers.map((entry) => ({
     capabilityId: entry.capabilityId,
     target: entry.targetMapping.target,
     event: entry.targetMapping.event,
@@ -274,6 +275,7 @@ function buildInspectionCandidate(snapshot) {
     },
     manifest: {
       schemaVersion: manifest.schemaVersion,
+      ...(manifest.execution_profile === "native-chat" ? { execution_profile: "native-chat" } : {}),
       packageId: manifest.packageId,
       packageVersion: manifest.packageVersion,
       manifestDigest: hash(snapshot.manifestBytes),

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "agentmo.discovery.v1",
+  "agent_id": "meeting-text",
+  "source_inventory": [
+    {"id": "approved-native-chat-design", "type": "document", "trust_level": "derived", "evidence_class": "context", "description": "已通过的本机原生聊天设计，限定权限、预算、输入和验收边界。", "location": "docs/superpowers/specs/2026-09-29-native-chat-isolated-openclaw-design.md", "extraction_fields": ["会议文字助手目标", "独立状态与精确工件批准", "无工具及预算边界"]},
+    {"id": "native-chat-acceptance-contract", "type": "document", "trust_level": "derived", "evidence_class": "context", "description": "Task 6 固定材料、独立评审记录和分阶段批准顺序；当前仍是未执行的验收计划。", "location": "docs/poc/native-chat/acceptance.md", "extraction_fields": ["四类输出及未知事实", "纠正、会话隔离和重启", "输入、模型失败与预算恢复"]}
+  ],
+  "database_outputs": ["会议助手需求与运行限制", "未执行验收用例与证据缺口"],
+  "retrieval_outputs": ["提供给 Plan 的有界设计来源"],
+  "user_need_inputs": ["从用户会议文字生成四类内容", "未知事实写未说明", "原生多轮聊天和独立会话"],
+  "refresh_policy": {"cadence": "规格或运行目标变化时", "owner": "AgentMo 本机操作人", "stale_after": "每次新的安装或运行预览前"},
+  "forbidden_data_handling": ["不得保存真实会议正文、凭据或 provider 原始输出到证据", "不得把设计、模拟或声明证据当成真实原生验收", "不得重新初始化累计预算或接管旧状态"]
+}

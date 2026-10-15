@@ -36,6 +36,19 @@ Release 记录按日期倒序维护（最新在前），不要按版本号排序
 
 | 日期 | 阶段 | 状态 | 记录 | GitHub Release |
 | --- | --- | --- | --- | --- |
+| 2026.10.15 | 交付状态与跨电脑接续维护 | M3与旧DeepSeek验收分开说明，恢复入口/实施进度/待推送清单同步；98源码冻结不变，激活及提交/push未获批 | [`2026.10.15.md`](./2026.10.15.md) | 未发布 |
+| 2026.10.14 | 国内MiniMax M3离线适配 | 正式来源、预算代理与SDK合成集成通过；独立审阅及最终五段检查完成；M3实际安装complete，激活与只读页面预览待批准；付费验收仍逐门禁 | [`2026.10.14.md`](./2026.10.14.md) | 未发布 |
+| 2026.10.13 | 会议文字助手验收与MiniMax M3切换提案 | 真实首例502后按规则停止；国内M3设计待审阅，未改代码或调用M3，交付PARTIAL | [`2026.10.13.md`](./2026.10.13.md) | 未发布 |
+| 2026.10.12 | Native-chat 精确交付证据与整批审阅 | Task 6 审阅修复、Node20 与完整五段回归通过；真实 UI 和付费验收待精确批准 | [`2026.10.12.md`](./2026.10.12.md) | 未发布 |
+| 2026.10.10 | Native-chat 首次初始化与安装验证 | 单 Agent 合成注册、Stage 2、发布闭包、Node20 及完整五段检查通过；未激活 | [`2026.10.10.md`](./2026.10.10.md) | 未发布 |
+| 2026.10.09 | Native-chat 安装绑定与原生探测 | 公开 probe、隔离无模型探测及完整五段检查通过；安装及聊天入口仍未完成 | [`2026.10.09.md`](./2026.10.09.md) | 未发布 |
+| 2026.09.29 | I/O 恢复与 native-chat 正式 Package | 修改前五段检查通过；新打包批次聚焦验证与 Node20 通过，安装及运行待实施 | [`2026.09.29.md`](./2026.09.29.md) | 未发布 |
+| 2026.09.28 | Native-chat 基础支持 + Course Wiki 历史原生证据 | 无工具规划/精简 scaffold 已实现；Node20 已验证，全量检查阻塞；原生交付仍未完成 | [`2026.09.28.md`](./2026.09.28.md) | 未发布 |
+| 2026.09.25 | Course Wiki turn / acceptance integration | code-only checkpoint；历史验收结果保留 | [`2026.09.25.md`](./2026.09.25.md) | 未发布 |
+| 2026.09.20 | Course Wiki recovery + reviewed behavior evidence | 实施与验收中；Node20 fresh receipt 已生成，POC 完整原生验收和全量检查尚未完成 | [`2026.09.20.md`](./2026.09.20.md) | 未发布 |
+| 2026.09.16 | Course Wiki 升级兼容与通道恢复 | 原生3项真实问答通过；资料外问题格式失败，仍 PARTIAL；全量检查中 | [`2026.09.16.md`](./2026.09.16.md) | 未发布 |
+| 2026.09.15 | Course Wiki 确定性引用摘取 | 离线69项/独立审查通过；真实Wiki+5道固定题通过；全项目检查中 | [`2026.09.15.md`](./2026.09.15.md) | 未发布 |
+| 2026.09.14 | Course Wiki / OpenClaw 隔离文档 POC | 真实 Wiki、重启读取与资料外拒答通过；UI 已修复；正向问答/最终验收仍 PARTIAL | [`2026.09.14.md`](./2026.09.14.md) | 未发布 |
 | 2026.08.28 | Stage 2 direct-loader closure + Node 20 evidence refresh | fixed design-plan loader cycle、完整 direct test ownership 与新 Node20 trusted receipt/post-publication consumer 已闭合；未批准 Plan、本地已提交并集成、未 push/未发布 | [`2026.08.28.md`](./2026.08.28.md) | 未发布 |
 | 2026.08.19 | Plan Decision Entry canonical writer + Builder bootstrap exact-frame + Node 20 evidence closure | Plan canonical writer、公开排序/flag 合同、approved narrow same-UID boundary、Builder fd3/fd4 exact-frame contract 与新 Node20 trusted receipt/post-publication consumer 已闭合；未提交、未集成、未发布 | [`2026.08.19.md`](./2026.08.19.md) | 未发布 |
 | 2026.08.17 | 合并后 aggregate gate 收口 | continuation watchdog 合同与 immutable-successor 独立 lane 已闭合；五段 `npm run check` 自然 exit 0；未提交、未 push、未发布 | [`2026.08.17.md`](./2026.08.17.md) | 未发布 |

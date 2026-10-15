@@ -4,6 +4,10 @@
 落地什么、下一步向哪里走”。它是导航页，不替代各日期 release 的精确证据、哈希和
 非认证边界。
 
+维护日期：2026-10-15。当前工作是会议文字助手的国内MiniMax-M3交付与跨电脑代码接续；
+源电脑实际安装complete，激活和真实验收尚未获批，整体交付PARTIAL。Pi仍是选型讨论。
+恢复入口是[当前状态](../docs/CURRENT_STATUS.md)及[跨电脑交接](../docs/handoffs/2026-10-14-cross-computer.md)。
+
 ## 北极星目标
 
 AgentMo 要解决的不是“写一段 Prompt”，而是把领域 Agent 做成可复现的软件产物：
@@ -43,6 +47,9 @@ AgentMo 通过 Runtime Adapter 将通用 Agent 规范投影到 OpenClaw、Pi、H
 | 2026.07.29–08.04 | deterministic Package、D-42 archive、生命周期与 Linux native containment | Package/安装机制得到严格建模；Linux native gate 仍独立存在 | `2026.07.29.md`–`2026.08.04.md` |
 | 2026.08.05–06 | 白领 Research DB、受限真实采集、DeepSeek/OpenClaw 问答、Dashboard 入口 | 首次端到端 POC 验收；仍不是默认安装、自动日程或生产服务 | `2026.08.05.md`、`2026.08.06.md` |
 | 2026.08.12 | 收敛 Data Connector、Agent Idea、Evaluation/Test Dataset、Coding Agent 与 Runtime Adapter 权威架构 | 明确长期产品边界；新增适配器与自动 Idea 发现尚未宣称已实现 | `2026.08.12.md` |
+| 2026.08.14–09.29 | Candidate/Plan权威与发布闭包加固，隔离Course Wiki及native-chat实现 | 保留原Discover → Plan → Produce机制及精确授权；历史POC不代替原生聊天验收 | `2026.08.14.md`–`2026.09.29.md` |
+| 2026.10.09–14 | 原生安装/激活机制、受治理预算代理、固定国内M3来源与正式Package | 完整检查和独立审阅通过；M3真实安装complete，激活/付费/领域质量未完成 | `2026.10.09.md`–`2026.10.14.md` |
+| 2026.10.15 | 当前状态、验收口径与跨电脑恢复入口维护 | 源码冻结不变；旧批准和预算不能随Git当作新机器运行权威 | [`2026.10.15.md`](./2026.10.15.md) |
 
 ## 当前已具备的能力
 
@@ -56,6 +63,8 @@ AgentMo 通过 Runtime Adapter 将通用 Agent 规范投影到 OpenClaw、Pi、H
   brief 能跨进程恢复；OpenClaw/DeepSeek 只基于本地证据回答，并在证据不足时拒答。
 - 隔离 Dashboard：`agentmo poc dashboard` 建立独立 Profile、DeepSeek provider/model
   catalog 和精确 Agent 会话；不改默认 `~/.openclaw`，不自动发布或投递。
+- 会议文字助手原生链：固定M3模型选择贯穿正式来源、Package、预算代理和生命周期，
+  真实安装仅完成源电脑的受限注册；当前无M3原生页面或模型成功证据。
 
 ## 当前严格边界
 
@@ -72,20 +81,23 @@ AgentMo 通过 Runtime Adapter 将通用 Agent 规范投影到 OpenClaw、Pi、H
 
 ## 下一阶段方向
 
-1. **固化当前成果。** 审阅并分组提交 Dashboard、POC、测试和 release 文档；随后
-   才决定是否 push 与触发 Linux CI。
-2. **把 Discover 做成机会发现能力。** 增加经过授权的数据连接器，在 Research DB
+1. **固化可迁移的代码检查点。** 核对当前源码及交接清单，提交/push按明确授权执行；
+   新电脑先离线恢复，再规划原预算账本的迁移/共用和本机生命周期，不重置额度。
+2. **完成当前M3受限交付。** 激活、只读页面检查和真实/模拟验收逐一预览批准；
+   15项来源缺口、19类真实观察及费用/领域质量仍待验证。
+3. **把 Discover 做成机会发现能力。** 增加经过授权的数据连接器，在 Research DB
    上识别趋势、痛点与可 Agent 化任务，生成有证据和判断边界的 Agent Idea 供人确认。
-3. **走完人机共创的 Plan。** 为确认后的 Idea 同时形成 Agent 设计、Evaluation
+4. **走完人机共创的 Plan。** 为确认后的 Idea 同时形成 Agent 设计、Evaluation
    Contract、Test Dataset、Acceptance Criteria 和 hard failures。
-4. **让 Coding Agent 完成真实实现与验收。** Codex 先行，随后适配 Cursor、Claude
+5. **让 Coding Agent 完成真实实现与验收。** Codex 先行，随后适配 Cursor、Claude
    Code、Kimi Code；Produce 必须执行 Plan 阶段预声明的数据集并记录有界证据。
-5. **建立多 Runtime Adapter。** 保持 target-neutral specification + runtime-native
+6. **建立多 Runtime Adapter。** 保持 target-neutral specification + runtime-native
    projection；OpenClaw 先行，未来可面向 Pi、Hermes 或业务方 Agent 架构规范。
 
 ## 如何使用本目录
 
-- 要恢复当前工作：先读 `docs/CURRENT_STATUS.md`，再读最新 `2026.08.06.md`。
+- 要恢复当前工作：先读 `docs/CURRENT_STATUS.md`，再按`release/README.md`读取最新维护与对应实现记录；
+  当前为`2026.10.15.md`及`2026.10.14.md`。`2026.08.06.md`是历史Research POC记录。
 - 要了解产品方向：读本页。
 - 要证明某项历史事实：回到对应日期 release，不以本页替代其哈希、命令和限定语。
 - 要开始改动：始终以实时 `git status`、当前 branch 和源码/测试为准；不要将旧

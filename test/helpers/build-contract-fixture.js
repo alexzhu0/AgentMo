@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { loadAdmittedArtifact } from "../../src/artifact-admission.js";
@@ -23,18 +23,24 @@ const DB_FILE = new URL("../../examples/fixtures/support-triage/prebuilt-discove
 const NEED_FILE = new URL("../../examples/support-triage.need.json", import.meta.url);
 let publicationFixturePromise;
 
+export async function buildNativeChatContractInputs() {
+  const need = JSON.parse(await readFile(NEED_FILE, "utf8"));
+  return buildSupportContractInputs({ userNeed: { ...need, execution_profile: "native-chat" } });
+}
+
 export function getOpenClawFsPublicationFixture() {
   publicationFixturePromise ??= buildOpenClawFsPublicationFixture();
   return publicationFixturePromise;
 }
 
 export async function buildSupportContractInputs(options = {}) {
-  const root = await mkdtemp(path.join(tmpdir(), "agentmo-build-contract-fixture-"));
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), "agentmo-build-contract-fixture-")));
   const publication = await getOpenClawFsPublicationFixture();
   const targetRoot = path.join(root, "openclaw-target");
-  const targetExecutablePath = path.join(targetRoot, "openclaw.mjs");
-  const targetPackageJsonPath = path.join(targetRoot, "package.json");
-  const targetBuildInfoPath = path.join(targetRoot, "dist", "build-info.json");
+  const targetExecutablePath = options.targetFiles?.executablePath ?? path.join(targetRoot, "openclaw.mjs");
+  const targetPackageJsonPath = options.targetFiles?.packageJsonPath ?? path.join(targetRoot, "package.json");
+  const targetBuildInfoPath = options.targetFiles?.buildInfoPath ?? path.join(targetRoot, "dist", "build-info.json");
+  if (!options.targetFiles) {
   await mkdir(path.dirname(targetBuildInfoPath), { recursive: true });
   await writeFile(
     targetExecutablePath,
@@ -53,6 +59,7 @@ export async function buildSupportContractInputs(options = {}) {
     commit: "0790d9f593ad30c940ed93b5872a8cf6d6f3cf8c",
     builtAt: "2026-07-28T00:00:00.000Z",
   }, null, 2)}\n`);
+  }
   const targetDescriptorCandidate = await buildOpenClawTargetDescriptor({
     executablePath: targetExecutablePath,
     packageJsonPath: targetPackageJsonPath,
@@ -64,28 +71,13 @@ export async function buildSupportContractInputs(options = {}) {
     },
   });
   const targetDescriptorPath = path.join(root, "openclaw-target-descriptor.json");
-  if (NATIVE_OPENCLAW_FS) {
-    await writeOpenClawTargetDescriptor(
-      targetDescriptorPath,
-      targetDescriptorCandidate,
-      publication,
-    );
-  } else {
-    await writeFile(
-      targetDescriptorPath,
-      Buffer.from(serializePersistableJson(targetDescriptorCandidate, {
-        subject: "openclaw-target-descriptor",
-      }), "utf8"),
-      { flag: "wx", mode: 0o600 },
-    );
-  }
-  const targetDescriptor = await admitFile(
-    targetDescriptorPath,
-    "openclaw-target-descriptor",
-  );
-  const discoveryManifest = await admitFile(MANIFEST_FILE, "discovery-manifest");
-  const discoveryDb = await admitFile(DB_FILE, "discovery-db");
-  const userNeed = await admitFile(NEED_FILE, "user-need");
+  const discoveryManifest = options.userNeed === undefined ? await admitFile(MANIFEST_FILE, "discovery-manifest")
+    : await admitValue(root, { ...JSON.parse(await readFile(MANIFEST_FILE, "utf8")), agent_id: options.userNeed.agent_id }, "discovery-manifest");
+  const discoveryDb = options.userNeed === undefined ? await admitFile(DB_FILE, "discovery-db")
+    : await admitValue(root, { ...JSON.parse(await readFile(DB_FILE, "utf8")), agentId: options.userNeed.agent_id }, "discovery-db");
+  const userNeed = options.userNeed === undefined
+    ? await admitFile(NEED_FILE, "user-need")
+    : await admitValue(root, options.userNeed, "user-need");
 
   const discoveryApprovalInputs = {
     admissions: { discoveryManifest, discoveryDb },
@@ -158,6 +150,16 @@ export async function buildSupportContractInputs(options = {}) {
   const blueprintPath = path.join(root, "blueprint.json");
   await writeBlueprintDraft(blueprintPath, blueprintCandidate);
   const blueprint = await admitFile(blueprintPath, "blueprint");
+
+  if (blueprint.value.execution_profile === "native-chat" || NATIVE_OPENCLAW_FS) {
+    await writeOpenClawTargetDescriptor(targetDescriptorPath, targetDescriptorCandidate,
+      blueprint.value.execution_profile === "native-chat" ? { blueprintAdmission: blueprint } : publication);
+  } else {
+    await writeFile(targetDescriptorPath, Buffer.from(serializePersistableJson(targetDescriptorCandidate, {
+      subject: "openclaw-target-descriptor",
+    }), "utf8"), { flag: "wx", mode: 0o600 });
+  }
+  const targetDescriptor = await admitFile(targetDescriptorPath, "openclaw-target-descriptor");
 
   return {
     root,

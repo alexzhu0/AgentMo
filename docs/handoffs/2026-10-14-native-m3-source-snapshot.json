@@ -1,0 +1,410 @@
+{
+  "schemaVersion": "agentmo.handoff-source-snapshot.v1",
+  "date": "2026-10-14",
+  "historicalBaseHead": "b95dc43839845ad8304e40768787e946d0e4657b",
+  "branch": "codex/course-wiki",
+  "algorithm": "sha256(JSON.stringify(files)) with exact ordered path/sha256 rows",
+  "sourceFreezeSha256": "f0c045f8a940020ca1732ba92e91217431013a4adb3a7763a515634934bb4b10",
+  "files": [
+    {
+      "path": "package.json",
+      "sha256": "c59620ee6080fda0933c3b53ee6ca5bd27126862a0b7e7a47033114b5c8a0e62"
+    },
+    {
+      "path": "scripts/course-wiki-acceptance.mjs",
+      "sha256": "e6610aa3f4781e989ed647c2e88b7864fb64dac55dd5f3fc8650766af8263954"
+    },
+    {
+      "path": "scripts/course-wiki-poc.mjs",
+      "sha256": "527bbe451bc0fa9bf71cc60e14563e8cb61e1245c0e208228b132b055cd4308a"
+    },
+    {
+      "path": "scripts/node20-core-receipt.js",
+      "sha256": "7da71740eb26651a2d3d2c6436c25d3b39aa0753292470fbe96527d2ca388028"
+    },
+    {
+      "path": "src/artifact-admission.js",
+      "sha256": "212a0e22a85c91b52c85293800c8b38e1cde000c2432f69a929364b006410fdf"
+    },
+    {
+      "path": "src/artifact-contract.js",
+      "sha256": "07c2558e90c003e879675f876cc1c584fb64ae1b5992e47f52616800484a4d65"
+    },
+    {
+      "path": "src/artifact-registry.js",
+      "sha256": "c870c450f114c551782a85b21b1b44107a5d228bf1fc8b6b74b26a7a9cfd74c9"
+    },
+    {
+      "path": "src/artifact-subjects.js",
+      "sha256": "eb1a1a6f9e9bd8c7e445606aaf1ce213c67d5efd9eaeb6f0895b2aeadc4cdb3c"
+    },
+    {
+      "path": "src/behavior-evidence.js",
+      "sha256": "03ccef2548ac3dc4bd8605e59e304ae8ec23480ec912561b2bf6d7801bc2aa1b"
+    },
+    {
+      "path": "src/blueprint-draft.js",
+      "sha256": "28b98d6443c3990de436b6a3e54e331564372432f4fad7dce18b9185deeec7be"
+    },
+    {
+      "path": "src/blueprint.js",
+      "sha256": "d8b5ba5f1846e4f0d81783f1339155d3c3612d943a94baeab83653b22de13298"
+    },
+    {
+      "path": "src/build-contract.js",
+      "sha256": "fc32b484846f39a13e4db13bc6038a6806a68ab4b609958cdb2e2f048f90e304"
+    },
+    {
+      "path": "src/builder-package.js",
+      "sha256": "d609ce129eea1063858d4d9145f3c7ce5a9549c232ae3b0b7c839ec6fb4b7f5f"
+    },
+    {
+      "path": "src/cli-help.js",
+      "sha256": "58d18ae5fece003cd4f17885f1e89702b53d155237a59925831a0227c12922e4"
+    },
+    {
+      "path": "src/cli.js",
+      "sha256": "ad4466a03cc6e873332cc9f5730c58af989a49128e4e96b3ec42d623cae4ab9e"
+    },
+    {
+      "path": "src/course-wiki-answer.js",
+      "sha256": "47102cf3f11bf37c070f783007ca2d01d364752b342bc3a25edd4d7e06fe93ca"
+    },
+    {
+      "path": "src/course-wiki-budget.js",
+      "sha256": "d7f04feeef58e3ce8981b5f3392335eb5206ecc8f7409a7707609f0355b7e7f7"
+    },
+    {
+      "path": "src/course-wiki-corpus.js",
+      "sha256": "c712661fa060d938a4fcf4989e0c1fd724a04ab63a93f5760fccc56a261de024"
+    },
+    {
+      "path": "src/course-wiki-documents.js",
+      "sha256": "de64a317c1c7d7001cf125b1ee6612a53d36cd393b6950a6ae5b81da49aeae3b"
+    },
+    {
+      "path": "src/course-wiki-gateway.js",
+      "sha256": "73e631d197d678caa2920c96a5c6dee095b2bd4ecc2aa6fef73f104eb96b55b6"
+    },
+    {
+      "path": "src/course-wiki-openclaw.js",
+      "sha256": "226ad707b606266c861a088dcece0eb6c5e3efea99c40a651479dc7897ba52d2"
+    },
+    {
+      "path": "src/course-wiki-server.js",
+      "sha256": "1b4f03a43baf851d20346e2e02aca22ca1e70613415056eab977b7a8fa375d65"
+    },
+    {
+      "path": "src/course-wiki-turn.js",
+      "sha256": "e757afb57eb76544570bf32f9917f1cfe47894c7478116c02d4c839488ecbdd0"
+    },
+    {
+      "path": "src/delivery-report.js",
+      "sha256": "2a2763dfb9b8f954ad2024a9cfede8658ffea5fed33dd2d8d1dcb9a6941288a0"
+    },
+    {
+      "path": "src/design-plan.js",
+      "sha256": "4c76a59da485ffeb4f03fa9dc80066988174c87ec88eab52249c783165963d31"
+    },
+    {
+      "path": "src/javascript-static-analysis.js",
+      "sha256": "110928374599934bf095b2a8fdaa42681354afbdadc270a6ac9489f187bf122d"
+    },
+    {
+      "path": "src/native-chat-authority.js",
+      "sha256": "92ae7b42ac1130bffbc323b7ef87092ae77230153420030f096d740d4f9f97ca"
+    },
+    {
+      "path": "src/native-chat-cli.js",
+      "sha256": "786255a8c1257128a1149823f584bb907c727ac6a073f4e1ed4c72d316808e53"
+    },
+    {
+      "path": "src/native-chat-files.js",
+      "sha256": "1d34074b58721d397641807fd1aa90bbfe508cdcd3af027343f970cd5148575f"
+    },
+    {
+      "path": "src/native-chat-install-cli.js",
+      "sha256": "24616f7d3a17fac4704975d209769a74687a78e45d231900ba09f4d2c253ee93"
+    },
+    {
+      "path": "src/native-chat-model-profile.js",
+      "sha256": "f3ec9bf802aac6971914ff63f30bfe7700fc089d1017c71de9af75b20b59d07c"
+    },
+    {
+      "path": "src/native-chat-proxy.js",
+      "sha256": "858befc4c5ad4649c0987f52a65fe81c962297d4b1d7bbf74e3de9a389636637"
+    },
+    {
+      "path": "src/native-chat-runtime.js",
+      "sha256": "5ac26f6adae72e761e51159163d54cbf8528aa6ebc2a850822aaa12dc819e98e"
+    },
+    {
+      "path": "src/openclaw-authority-consumption.js",
+      "sha256": "5336f89f90d5404c318257332db89d524396fb4531d6455ff537f6359c2438ba"
+    },
+    {
+      "path": "src/openclaw-install-approval.js",
+      "sha256": "4e4cd3c331ed127b5822ca83effcb4294041ba89cc74416f27ded4531283b50a"
+    },
+    {
+      "path": "src/openclaw-install-evidence.js",
+      "sha256": "1108b0699d8c9f145ca99bd7fdbec91031ad8f4fd972272be784309c25712d84"
+    },
+    {
+      "path": "src/openclaw-install-plan.js",
+      "sha256": "67e4a3c5bb51355a75ee285c7c2d487e4d4a714041ef0632b653c1b7a5ead379"
+    },
+    {
+      "path": "src/openclaw-install-receipt.js",
+      "sha256": "d43eb1410f0fc5afc0916bd603955f5bc750fe05ec9bd7ea0610a89f594b5c69"
+    },
+    {
+      "path": "src/openclaw-install-transaction.js",
+      "sha256": "eb672361862c246be76c99c53592e541d3b823b6554116d1cea2cf7d58bdc969"
+    },
+    {
+      "path": "src/openclaw-probe-contract.js",
+      "sha256": "f52931588694b8f86d9c8a640e07da26e2ed4d1af195c6302c37a7deb1984d54"
+    },
+    {
+      "path": "src/openclaw-probe.js",
+      "sha256": "0fcdcae0858b687594b3ea159082d850a4e2fdfb8041e9504d46d978fda1de5f"
+    },
+    {
+      "path": "src/openclaw-target-admission.js",
+      "sha256": "ea39b17d89a49c9c7a3015c6db6737fd1f9e2fa3bfce28f853ed9b651524ab05"
+    },
+    {
+      "path": "src/openclaw-target-descriptor.js",
+      "sha256": "6610542b5c3d5bfd36bf5760749c93286b549920f0eb9f6482c601730146112a"
+    },
+    {
+      "path": "src/package-carriers.js",
+      "sha256": "0fb9a4d2df510132bfafd416d73adfb6b3dabd37fedcf947cbaac9078e1ce0f2"
+    },
+    {
+      "path": "src/package-contract.js",
+      "sha256": "2a516775f1e68a34ce01d0064dac0b9201f7f87a3facd7c6cd88919b8319b380"
+    },
+    {
+      "path": "src/package-inspect.js",
+      "sha256": "0ba9ff0054349eb39fa0fc5b231a5f7024b1462f54b18c457e58a78cb6dbde84"
+    },
+    {
+      "path": "src/package-produce.js",
+      "sha256": "31935c82af0ad9de73c5d1353085b04ff9b040b97367b338a7a438f89f5c8bfe"
+    },
+    {
+      "path": "src/runtime-plan.js",
+      "sha256": "9f9a4d64cb10b6793f3a98d04e882ede9bcbb12a3d9f31165a7c775eaaef53ad"
+    },
+    {
+      "path": "src/scaffold-files.js",
+      "sha256": "10ad0083b83b267b18567160f73a0ea7ad809813c44bcb6ab1ae8ed53a8c806e"
+    },
+    {
+      "path": "src/scaffold.js",
+      "sha256": "93536df0a498b75327affd5c67be4bb245bfe6faa7444ad7af127d2efc3edc13"
+    },
+    {
+      "path": "src/targets/openclaw-package.js",
+      "sha256": "6d84cc6bb9ce866a888537bd4d13bbc3d9afe87e5546fe88c6d9dcb1e8d31ac1"
+    },
+    {
+      "path": "src/user-need.js",
+      "sha256": "cd7ae202fc8b3ce5c93b96eb56331af482fe6346e08c28007fa4b440aceb359b"
+    },
+    {
+      "path": "test/artifact-admission.test.js",
+      "sha256": "85e76c105f1a755e5858efdc797ab380c491fba4c02aa05743a3736cf292e4d3"
+    },
+    {
+      "path": "test/artifact-contract.test.js",
+      "sha256": "f7f49ad37ae1e22fb8733fd79bd8bcec23075a74e8f97900d5502cfd0515946a"
+    },
+    {
+      "path": "test/artifact-surface-coverage.test.js",
+      "sha256": "104f8941c4a39b0c97db037cff0703ffce57a591459ebe78f01e8f2620e23a4b"
+    },
+    {
+      "path": "test/behavior-evidence.test.js",
+      "sha256": "0b032bf9386f8141a8efd2f73aa72ac4cce556d714aea0a75f898bdce9d20bc4"
+    },
+    {
+      "path": "test/blueprint-draft.test.js",
+      "sha256": "5d857757f9468e2eefb55a8db3d612d77b6fa6fe46902f1ef8d85aca3c12a09d"
+    },
+    {
+      "path": "test/blueprint.test.js",
+      "sha256": "358078c1e458124b36875a5c5fd7fd1bf2fb8e2f7104d55292fa965e94c7cdef"
+    },
+    {
+      "path": "test/build-contract.test.js",
+      "sha256": "bc90868aee7e8a9b4c271074d465fd88be6b3549ff910a0451f9c44b01e26dba"
+    },
+    {
+      "path": "test/builder-hook-supervisor.test.js",
+      "sha256": "28dcce88d99128103b2cec7d614ff34be420833be1e9315b96f10fa9a6af630d"
+    },
+    {
+      "path": "test/builder-package-security.test.js",
+      "sha256": "17241db18868ee9e6ac99b61d068bb566d2d28be709dd09898e12a336266be65"
+    },
+    {
+      "path": "test/builder-packed-install.test.js",
+      "sha256": "6005ae38d5e927811e184658bfc6ecc1b24ef72241afb646134b07e336ffa20a"
+    },
+    {
+      "path": "test/cli-mvp.test.js",
+      "sha256": "d07fa7316991b0e71fc8f640b8d5304765292370e171f268dc35b0617ae059a1"
+    },
+    {
+      "path": "test/course-wiki-acceptance.test.js",
+      "sha256": "a0a17be1500ed2402191e7ac676beb1954c3db348568424179651a396b85f7b0"
+    },
+    {
+      "path": "test/course-wiki-answer.test.js",
+      "sha256": "077ada0e6533d564cd17fa8bf131ac3473deff17f35d4da4f6b59652566c26d8"
+    },
+    {
+      "path": "test/course-wiki-budget.test.js",
+      "sha256": "c28dc5a9fde246af0915582cfea6f33b10b224bb0e25486f6324809a6b73b588"
+    },
+    {
+      "path": "test/course-wiki-corpus.test.js",
+      "sha256": "6cf0f6bc44d10c01036be4a59a35fbacbc6e1ccc7956cf9b5907fa9f5128c8be"
+    },
+    {
+      "path": "test/course-wiki-documents.test.js",
+      "sha256": "b06d3a16701599926a0ab6b65a1b1b5ac2d95a5d7dadb19442849e33be96b66e"
+    },
+    {
+      "path": "test/course-wiki-gateway.test.js",
+      "sha256": "7d557fc29456d433dd469a7396eb3600a782107a0269e32fb430d18734ca9903"
+    },
+    {
+      "path": "test/course-wiki-generations.test.js",
+      "sha256": "183643eb3c2e5c741acf27ace0b2f486237960d6bc5e97716402076c80240047"
+    },
+    {
+      "path": "test/course-wiki-launch.test.js",
+      "sha256": "fd66767d8cfb7af25f99fd4b61173872ec48fecb17364b40e66341d292991acf"
+    },
+    {
+      "path": "test/course-wiki-openclaw.test.js",
+      "sha256": "1eb7113a651eef537224791fed8a07fc1ce2a2599a491ca26532fe928f6336a3"
+    },
+    {
+      "path": "test/course-wiki-server.test.js",
+      "sha256": "789d40e4e64ecd9fb1c2b36d3b464f22dc0e30e3092b3aafabc34441f03475d5"
+    },
+    {
+      "path": "test/course-wiki-turn.test.js",
+      "sha256": "f3d06f84976d8a64cf42d33b768ecdbb2919f435b8cc17a1069de3880fda480d"
+    },
+    {
+      "path": "test/design-plan.test.js",
+      "sha256": "997da948178c111dbe0fe6c0d682ba10776cd819929998245f7027d72287336a"
+    },
+    {
+      "path": "test/helpers/build-contract-fixture.js",
+      "sha256": "3411612010638d540b453e5faae859b2c31a0a7430479353465ab202c81d0759"
+    },
+    {
+      "path": "test/helpers/io-surface-inventory.js",
+      "sha256": "5fd7a28746c5fb4e096a9fbea60aaeae85d4b70ad548495024d6b3eea1b132e1"
+    },
+    {
+      "path": "test/helpers/native-chat-fixture.js",
+      "sha256": "cdfa984565caa79dcdd55b963004e5268916d92e7aef0076639c561d6e42c7ea"
+    },
+    {
+      "path": "test/helpers/package-produce-fixture.js",
+      "sha256": "c79d3c9a45c680f41aecef9efc3a9adaebffd0e5a6a96f930cc449398e08bdd9"
+    },
+    {
+      "path": "test/native-chat-acceptance.test.js",
+      "sha256": "9862482512b63f6317635803b7bba94f3ff1d65813a36095e9adf5a4cd7c19b6"
+    },
+    {
+      "path": "test/native-chat-cli.test.js",
+      "sha256": "90f48b3037172b04da98b7b5b627d57a2fd98f59427bc20539383d3e31d50d2a"
+    },
+    {
+      "path": "test/native-chat-files.test.js",
+      "sha256": "6645b76387773cbd1888f498687324119dfa0def38d6ff33561c65450de006fe"
+    },
+    {
+      "path": "test/native-chat-install.test.js",
+      "sha256": "11ea22b3c5b55bf1eee63cc226d92b9085dc36705c7081479afdcae4ef10907b"
+    },
+    {
+      "path": "test/native-chat-minimax.test.js",
+      "sha256": "b3985e2000d77972c96de283666893770037b2ba3b34074d3ec56c0dab77545e"
+    },
+    {
+      "path": "test/native-chat-proxy.test.js",
+      "sha256": "6901b07efa3212ae45c674376c1bb3eeb9226c49ce6e94f706edc44dea141bfb"
+    },
+    {
+      "path": "test/native-chat-runtime.test.js",
+      "sha256": "12b3356177f52d4acddb30c8914f2d5a400986a6051cbea986edeb94fea95e93"
+    },
+    {
+      "path": "test/node20-core-runner.test.js",
+      "sha256": "d360148613189cb124833bb9c6a2d6197ba5d3f930bdda1d87bed7c01b950c29"
+    },
+    {
+      "path": "test/openclaw-install-plan.test.js",
+      "sha256": "7bb2dedfe06858044b31221b10b4c5644cc3996a94288e2d447898f672796e54"
+    },
+    {
+      "path": "test/openclaw-probe.test.js",
+      "sha256": "86c13d9d6a7c9d3a120c9995c25d862477d20b3ebf859ea65c5a72765a05589e"
+    },
+    {
+      "path": "test/openclaw-target-admission.test.js",
+      "sha256": "932b06f8fad46124188de7a538883ec8f253d29fd2431a8a39aea7230aea07a2"
+    },
+    {
+      "path": "test/package-carriers.test.js",
+      "sha256": "af98c56a214a9a1ebc7386a9da61ea90eda26b7c2a0471e05c39a0a8f9c1f209"
+    },
+    {
+      "path": "test/package-contract.test.js",
+      "sha256": "903972e83ae15b841dd0f4bb7ec31a5c215df6a140e5573f84b70be7567ff321"
+    },
+    {
+      "path": "test/package-inspect.test.js",
+      "sha256": "4462d7536160f70eec8970e005751cbefec3fd89a866d6b2c500b08a3f5479e2"
+    },
+    {
+      "path": "test/package-produce.test.js",
+      "sha256": "9fc0429930a31c12fd3dfe820127cfe2dbd4deb95e6c8d4ff97a7b1ad55a8376"
+    },
+    {
+      "path": "test/runtime-compatibility-seams.test.js",
+      "sha256": "2e8483e3fdb9b220fc0ab020af1741e5c052bc7a2b641bf2eef41409e45358fc"
+    },
+    {
+      "path": "test/runtime-evidence-consumers.test.js",
+      "sha256": "1ef67ffda15a58c1338f23be42f8721d0914951c8242ba7444d5bd58810d2c25"
+    },
+    {
+      "path": "test/scaffold.test.js",
+      "sha256": "3ae204fa444511a31a1d8d51d8b7317451d59edd2657f1c031d323d746a40715"
+    },
+    {
+      "path": "test/user-need.test.js",
+      "sha256": "42d14110a407a3dcdaa53e199b91a969b729c16f08cda37624a43cb57c7ccf1d"
+    }
+  ],
+  "certificationBoundary": {
+    "historicalSourceSnapshotOnly": true,
+    "remotePushVerified": false,
+    "newComputerInstalled": false,
+    "runtime": false,
+    "domain": false,
+    "production": false
+  }
+}

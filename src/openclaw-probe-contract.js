@@ -113,7 +113,8 @@ const BOUNDARY_KEYS = Object.freeze([
 export function validateOpenClawProbe(value, context) {
   const errors = [];
   try {
-    if (!plainObject(value) || !sameKeys(value, TOP_LEVEL_KEYS)) {
+    const native = value?.execution_profile === "native-chat";
+    if (!plainObject(value) || !sameKeys(value, native ? [...TOP_LEVEL_KEYS, "execution_profile"] : TOP_LEVEL_KEYS)) {
       return result(["probe artifact must contain only canonical fields"]);
     }
     if (value.schemaVersion !== OPENCLAW_PROBE_SCHEMA_VERSION
@@ -128,7 +129,7 @@ export function validateOpenClawProbe(value, context) {
       || value.producer.freshObservation !== true) {
       errors.push("probe producer must identify a fresh AgentMo observation");
     }
-    validateSourceBindings(value.sourceBindings, context, errors);
+    validateSourceBindings(value.sourceBindings, context, errors, native);
     if (value.sourceBindings?.archive?.digest !== value.archive?.archiveDigest
       || value.sourceBindings?.packageManifest?.digest !== value.archive?.manifestDigest
       || value.sourceBindings?.targetCarrierAdmission?.digest
@@ -148,9 +149,9 @@ export function validateOpenClawProbe(value, context) {
       errors.push("archive facts are not closed and digest-bound");
     }
     validateTarget(value.target, errors);
-    validateCli(value.cli, errors);
-    validateRequired(value.required, value.cli, errors);
-    validateIsolation(value.isolation, errors);
+    validateCli(value.cli, errors, native);
+    validateRequired(value.required, value.cli, errors, native);
+    validateIsolation(value.isolation, errors, native);
     validateCompatibility(value.compatibility, value, errors);
     validateBoundary(value.certificationBoundary, errors);
     if (!plainObject(value.runtime)
@@ -169,7 +170,7 @@ export function validateOpenClawProbe(value, context) {
   return result(errors);
 }
 
-function validateSourceBindings(value, context, errors) {
+function validateSourceBindings(value, context, errors, native) {
   if (!plainObject(value) || !sameKeys(value, SOURCE_KEYS)) {
     errors.push("probe source bindings must name the complete exact source set");
     return;
@@ -187,7 +188,8 @@ function validateSourceBindings(value, context, errors) {
     }
   }
   if (!plainObject(context)
-    || !sameKeys(context, ["sources"])
+    || !sameKeys(context, native ? ["sources", "execution_profile"] : ["sources"])
+    || (native && context.execution_profile !== "native-chat")
     || !plainObject(context.sources)
     || !sameKeys(context.sources, SOURCE_KEYS)
     || !isDeepStrictEqual(value, context.sources)) {
@@ -224,7 +226,7 @@ function validateTarget(value, errors) {
   }
 }
 
-function validateCli(value, errors) {
+function validateCli(value, errors, native) {
   if (!plainObject(value)
     || !sameKeys(value, CLI_KEYS)
     || !DIGEST_PATTERN.test(value.executableDigest ?? "")
@@ -234,9 +236,14 @@ function validateCli(value, errors) {
     errors.push("CLI observations must contain the three bounded commands");
     return;
   }
-  const expected = ["version", "skill-eligibility", "config-validation"];
+  const expected = ["version", native ? "agent-registration-command" : "skill-eligibility", "config-validation"];
   if (!isDeepStrictEqual(value.observations.map(({ id }) => id), expected)) {
     errors.push("CLI observations are incomplete or out of order");
+  }
+  if (native && (!isDeepStrictEqual(value.observations.map(({ argv }) => argv), [
+    ["--version"], ["setup", "--help"], ["config", "validate", "--json"],
+  ]) || value.contractDigest !== hashJson(value.observations))) {
+    errors.push("native probe commands must match the fixed read-only contract");
   }
   for (const observation of value.observations) {
     if (!plainObject(observation)
@@ -266,8 +273,8 @@ function validateCli(value, errors) {
   }
 }
 
-function validateRequired(value, cli, errors) {
-  const expected = ["version", "skill-eligibility", "config-validation"];
+function validateRequired(value, cli, errors, native) {
+  const expected = ["version", native ? "agent-registration-command" : "skill-eligibility", "config-validation"];
   const satisfied = Array.isArray(cli?.observations)
     ? cli.observations
       .filter(({ exitCode, signal, timedOut }) => exitCode === 0 && signal === null && timedOut === false)
@@ -282,11 +289,11 @@ function validateRequired(value, cli, errors) {
   }
 }
 
-function validateIsolation(value, errors) {
+function validateIsolation(value, errors, native) {
   const expected = {
     disposableSyntheticHome: true,
     explicitStateConfigWorkspace: true,
-    privateExecutableCopy: true,
+    privateExecutableCopy: !native,
     privateWorkingDirectory: true,
     retainedSourceHandles: true,
     sourceRevalidatedBetweenObservations: true,
@@ -295,9 +302,10 @@ function validateIsolation(value, errors) {
     syntheticHomeDiscarded: false,
     operatorHomeObserved: false,
     operatorStateMutated: false,
+    ...(native ? { boundary: "state-process-only" } : {}),
   };
   if (!plainObject(value)
-    || !sameKeys(value, ISOLATION_KEYS)
+    || !sameKeys(value, native ? [...ISOLATION_KEYS, "boundary"] : ISOLATION_KEYS)
     || Object.entries(expected).some(([key, expectedValue]) => value[key] !== expectedValue)) {
     errors.push("probe isolation facts are incomplete");
   }
@@ -333,6 +341,7 @@ function validateBoundary(value, errors) {
 function fingerprintBasis(value) {
   return {
     schemaVersion: "agentmo.openclaw-probe-fingerprint-basis.v1",
+    ...(value.execution_profile === "native-chat" ? { execution_profile: "native-chat" } : {}),
     status: value.status,
     producer: value.producer,
     sourceBindings: value.sourceBindings,

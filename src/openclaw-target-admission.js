@@ -11,6 +11,7 @@ import {
   digestRawBytes,
 } from "./artifact-admission.js";
 import { validateBuildContract } from "./build-contract.js";
+import { writeNativeChatFile } from "./native-chat-files.js";
 import { assertApprovedHookCarrierConsistency } from "./package-carriers.js";
 import { publishOpenClawSafeFsObject } from "./openclaw-safe-fs.js";
 import { validatePlanApproval } from "./plan-approval.js";
@@ -109,9 +110,11 @@ export async function buildOpenClawTargetCarrierAdmission(options = {}) {
     planApproval,
     admissions,
   );
+  const nativeChat = buildContract.execution_profile === "native-chat";
   if (!validateBuildContract(buildContract).ok
-    || buildContract.nativePluginRecipe === null
-    || buildContract.nativePluginRecipe === undefined) {
+    || blueprint.execution_profile !== buildContract.execution_profile
+    || (!nativeChat && (buildContract.nativePluginRecipe === null
+      || buildContract.nativePluginRecipe === undefined))) {
     throw new OpenClawTargetAdmissionError("AGENTMO_OPENCLAW_RECIPE_AUTHORITY_REQUIRED");
   }
   const targetDescriptor = sources.targetDescriptor.value;
@@ -155,34 +158,20 @@ export async function buildOpenClawTargetCarrierAdmission(options = {}) {
   if (!isDeepStrictEqual(observedDescriptor, targetDescriptor)) {
     throw new OpenClawTargetAdmissionError("AGENTMO_OPENCLAW_TARGET_MISMATCH");
   }
-  const memberDigest = (role) => (
-    targetDescriptor.members.find((member) => member.role === role)?.sha256
-  );
-
   const admission = {
     schemaVersion: OPENCLAW_TARGET_CARRIER_ADMISSION_SCHEMA_VERSION,
-    decision: "admit-exact-target-and-native-plugin-recipe",
-    target: {
-      id: targetDescriptor.target.id,
-      version: targetDescriptor.target.version,
-      sourceRevision: targetDescriptor.target.sourceRevision,
-      displayRevision: targetDescriptor.target.displayRevision,
-      nodeRange: targetDescriptor.target.nodeRange,
-      descriptorDigest: sources.targetDescriptor.digest,
-      executableDigest: memberDigest("executable"),
-      packageJsonDigest: memberDigest("package-json"),
-      buildInfoDigest: memberDigest("build-info"),
-      targetRootDigest: targetDescriptor.targetRoot.memberClosureDigest,
-    },
+    ...(nativeChat ? { execution_profile: "native-chat" } : {}),
+    decision: nativeChat ? "admit-exact-target-and-native-runtime" : "admit-exact-target-and-native-plugin-recipe",
+    target: admissionTarget(targetDescriptor, sources.targetDescriptor.digest),
     authorities: {
       blueprintDigest: sources.blueprint.digest,
       buildContractDigest: sources.buildContract.digest,
       planApprovalDigest: sources.planApproval.digest,
-      nativePluginRecipeDigest: carrier.recipe.recipeDigest,
+      nativePluginRecipeDigest: carrier.recipe?.recipeDigest ?? null,
       targetDescriptorDigest: sources.targetDescriptor.digest,
     },
     carrier: {
-      kind: "native-plugin",
+      kind: carrier.carrier,
       owner: carrier.owner,
       implementationPathAccepted: false,
       mcp: false,
@@ -211,11 +200,13 @@ export async function buildOpenClawTargetCarrierAdmission(options = {}) {
 export function validateOpenClawTargetCarrierAdmission(value, context) {
   const errors = [];
   try {
-    if (!plainObject(value) || !hasExactKeys(value, TOP_LEVEL_KEYS)) {
+    const nativeChat = value?.execution_profile === "native-chat";
+    const keys = nativeChat ? [...TOP_LEVEL_KEYS, "execution_profile"] : TOP_LEVEL_KEYS;
+    if (!plainObject(value) || !hasExactKeys(value, keys)) {
       return { ok: false, errors: ["admission must contain only canonical fields."] };
     }
     if (value.schemaVersion !== OPENCLAW_TARGET_CARRIER_ADMISSION_SCHEMA_VERSION
-      || value.decision !== "admit-exact-target-and-native-plugin-recipe") {
+      || value.decision !== (nativeChat ? "admit-exact-target-and-native-runtime" : "admit-exact-target-and-native-plugin-recipe")) {
       errors.push("invalid target/carrier admission identity.");
     }
     if (!plainObject(value.target)
@@ -236,19 +227,21 @@ export function validateOpenClawTargetCarrierAdmission(value, context) {
     }
     if (!plainObject(value.authorities)
       || !hasExactKeys(value.authorities, AUTHORITY_KEYS)
-      || Object.values(value.authorities).some((digest) => !DIGEST_PATTERN.test(digest))) {
+      || Object.entries(value.authorities).some(([key, digest]) => (
+        nativeChat && key === "nativePluginRecipeDigest" ? digest !== null : !DIGEST_PATTERN.test(digest)
+      ))) {
       errors.push("invalid exact source authority digests.");
     }
     if (!plainObject(value.carrier)
       || !hasExactKeys(value.carrier, CARRIER_KEYS)
-      || value.carrier.kind !== "native-plugin"
-      || value.carrier.owner !== "agentmo-openclaw-harness"
+      || value.carrier.kind !== (nativeChat ? "native-runtime" : "native-plugin")
+      || value.carrier.owner !== (nativeChat ? "openclaw" : "agentmo-openclaw-harness")
       || value.carrier.implementationPathAccepted !== false
       || value.carrier.mcp !== false) {
       errors.push("invalid least-trust carrier admission.");
     }
     if (!Array.isArray(value.hookMappings)
-      || value.hookMappings.length !== EXPECTED_HOOKS.length) {
+      || value.hookMappings.length !== (nativeChat ? 0 : EXPECTED_HOOKS.length)) {
       errors.push("hook mapping closure is incomplete.");
     } else {
       for (const [index, mapping] of value.hookMappings.entries()) {
@@ -295,11 +288,18 @@ export async function writeOpenClawTargetCarrierAdmission(
   if (typeof filePath !== "string" || filePath.length === 0 || filePath.includes("\0")) {
     throw new PersistabilityError("AGENTMO_PERSISTABILITY_INVALID_OUTPUT_PATH");
   }
-  assertPublicationAuthority(publicationAuthority);
   assertPublicationHooks(hooks);
   const bytes = serializePersistableJson(admission, {
     subject: "openclaw-target-carrier-admission",
   });
+  if (admission.execution_profile === "native-chat") {
+    if (publicationAuthority !== undefined || Object.keys(hooks).length !== 0) {
+      throw new PersistabilityError("AGENTMO_PERSISTABILITY_PUBLICATION_AUTHORITY_REQUIRED");
+    }
+    await writeNativeChatFile({ filePath: path.resolve(filePath), bytes: Buffer.from(bytes, "utf8") });
+    return filePath;
+  }
+  assertPublicationAuthority(publicationAuthority);
   const expectedDigest = digestRawBytes(Buffer.from(bytes, "utf8"));
   const outputPath = path.resolve(filePath);
   const stagePath = `${outputPath}.agentmo-stage-${process.pid}-${randomUUID()}`;
@@ -620,6 +620,22 @@ function validateContext(value, context, errors) {
   for (const [key, digest] of Object.entries(expected)) {
     if (value.authorities?.[key] !== digest) errors.push(`${key} is stale.`);
   }
+  if (value.execution_profile === "native-chat"
+    && (!validateOpenClawTargetDescriptor(context.targetDescriptor).ok
+      || !isDeepStrictEqual(value.target, admissionTarget(context.targetDescriptor, expected.targetDescriptorDigest)))) {
+    errors.push("target facts do not match the exact descriptor.");
+  }
+}
+
+function admissionTarget(descriptor, descriptorDigest) {
+  const memberDigest = (role) => descriptor.members.find((member) => member.role === role)?.sha256;
+  return {
+    id: descriptor.target.id, version: descriptor.target.version,
+    sourceRevision: descriptor.target.sourceRevision, displayRevision: descriptor.target.displayRevision,
+    nodeRange: descriptor.target.nodeRange, descriptorDigest,
+    executableDigest: memberDigest("executable"), packageJsonDigest: memberDigest("package-json"),
+    buildInfoDigest: memberDigest("build-info"), targetRootDigest: descriptor.targetRoot.memberClosureDigest,
+  };
 }
 
 function plainObject(value) {

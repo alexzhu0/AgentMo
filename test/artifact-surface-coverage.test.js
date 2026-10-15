@@ -137,6 +137,55 @@ describe("artifact/output surface inventory", () => {
     );
   });
 
+  it("exactly inventories synchronous reservation and copied-vault primitives through aliases and namespaces", () => {
+    const source = [
+      'import { openSync as openFile, fsyncSync as syncFile, closeSync as closeFile, copyFile as copy } from "node:fs";',
+      'import * as fs from "node:fs";',
+      'import * as fsp from "node:fs/promises";',
+      'const fd = openFile("synthetic", "wx", 0o600);',
+      'syncFile(fd);',
+      'closeFile(fd);',
+      'copy("source", "destination");',
+      'const other = fs.openSync("synthetic-other", "wx", 0o600);',
+      'fs.fsyncSync(other);',
+      'fs.closeSync(other);',
+      'await fsp.copyFile("source", "destination-other");',
+    ].join("\n");
+    assert.deepEqual(inventoryJavaScriptSource(source).map(({ line, kind, callee }) => ({ line, kind, callee })), [
+      { line: 4, kind: "filesystem-open", callee: "fs.openSync" },
+      { line: 5, kind: "filesystem-lifecycle", callee: "fs.fsyncSync" },
+      { line: 6, kind: "filesystem-lifecycle", callee: "fs.closeSync" },
+      { line: 7, kind: "filesystem-lifecycle", callee: "fs.copyFile" },
+      { line: 8, kind: "filesystem-open", callee: "fs.openSync" },
+      { line: 9, kind: "filesystem-lifecycle", callee: "fs.fsyncSync" },
+      { line: 10, kind: "filesystem-lifecycle", callee: "fs.closeSync" },
+      { line: 11, kind: "filesystem-lifecycle", callee: "fs.copyFile" },
+    ]);
+  });
+
+  it("keeps unknown filesystem methods and dynamic loader or method expressions rejected", () => {
+    for (const source of [
+      'import * as fs from "node:fs"; fs.unsupportedReservationOperation("synthetic");',
+      'import * as fs from "node:fs"; const method = "openSync"; fs[method]("synthetic", "wx");',
+      'import { copyFile as copy } from "node:fs/promises"; const escaped = copy; await escaped("source", "destination");',
+      'const modulePath = "/synthetic/operator.mjs"; await import(modulePath);',
+    ]) assert.throws(() => inventoryJavaScriptSource(source),
+      (error) => error?.code === "AGENTMO_JAVASCRIPT_STATIC_ANALYSIS_REJECTED");
+  });
+
+  it("classifies synchronous descriptor writes without dropping aliases or namespace calls", () => {
+    const source = [
+      'import { writeSync as write } from "node:fs";',
+      'import * as fs from "node:fs";',
+      'write(fd, "event");',
+      'fs.writeSync(fd, "event");',
+    ].join("\n");
+    assert.deepEqual(inventoryJavaScriptSource(source).map(({ line, kind, callee }) => ({ line, kind, callee })), [
+      { line: 3, kind: "filesystem", callee: "fs.writeSync" },
+      { line: 4, kind: "filesystem", callee: "fs.writeSync" },
+    ]);
+  });
+
   it("classifies whole-file URL, regex, template-expression, multiline, alias, and computed I/O", () => {
     const source = [
       'import { writeFile as wf } from "node:fs/promises";',
@@ -210,7 +259,7 @@ describe("artifact/output surface inventory", () => {
       assert.match(id, /^(?:src|bin|scripts|plugin)\//u);
       assert.match(
         classification.owner,
-        /^(?:phase-01\.1-plan-(?:0[2-9]|1[0-3])|phase-01\.2-plan-(?:04|05|06|11|12)|phase-02-plan-(?:02|03|04|06|07|08|09|11|12|13|14|15|16|17|18|19|20|21|22|23)|phase-03-plan-(?:01|03|04|05)|phase-04-plan-(?:03|04|05|07|08|09|12|13|14|15|16|17|19))$/u,
+        /^(?:phase-01\.1-plan-(?:0[2-9]|1[0-3])|phase-01\.2-plan-(?:04|05|06|11|12)|phase-02-plan-(?:02|03|04|06|07|08|09|11|12|13|14|15|16|17|18|19|20|21|22|23)|phase-03-plan-(?:01|03|04|05)|phase-04-plan-(?:03|04|05|07|08|09|12|13|14|15|16|17|19)|course-wiki-poc-2026-09-14|native-chat-package-2026-09-29|native-chat-probe-2026-10-09|native-chat-authority-2026-10-09|native-chat-install-2026-10-10|native-chat-budget-2026-10-12|native-chat-activation-2026-10-12|native-chat-delivery-2026-10-12)$/u,
       );
       assert.match(
         classification.status,
@@ -483,6 +532,59 @@ describe("artifact/output surface inventory", () => {
     );
   });
 
+  it("ships shared budget and behavior evidence without private Course Wiki runtime or state", async () => {
+    const sourcePath = "src/behavior-evidence.js";
+    const privateRuntimePaths = [
+      "scripts/course-wiki-poc.mjs",
+      "scripts/course-wiki-acceptance.mjs",
+      "src/course-wiki-answer.js",
+      "src/course-wiki-corpus.js",
+      "src/course-wiki-documents.js",
+      "src/course-wiki-gateway.js",
+      "src/course-wiki-openclaw.js",
+      "src/course-wiki-server.js",
+    ];
+    const privateStateMarkers = [
+      ".agentmo/",
+      ".superpowers/",
+      "docs/poc/course-wiki/",
+    ];
+    const packageJson = JSON.parse(await readFile(
+      path.join(REPO_ROOT, "package.json"),
+      "utf8",
+    ));
+    const releaseSources = BUILDER_RELEASE_ASSET_INVENTORY
+      .map((entry) => entry.sourcePath);
+
+    assert.equal(packageJson.files.includes(sourcePath), true);
+    assert.equal(releaseSources.includes(sourcePath), true);
+    assert.equal(BUILDER_NPM_TARBALL_INVENTORY.includes(sourcePath), true);
+    assert.match(
+      packageJson.scripts.check,
+      new RegExp(`node --check ${sourcePath.replaceAll(".", "\\.")}(?: |$)`, "u"),
+    );
+
+    for (const sharedPath of ["src/course-wiki-budget.js", "src/native-chat-install-cli.js", "src/native-chat-model-profile.js"]) {
+      assert.equal(packageJson.files.includes(sharedPath), true, sharedPath);
+      assert.equal(releaseSources.includes(sharedPath), true, sharedPath);
+      assert.equal(BUILDER_NPM_TARBALL_INVENTORY.includes(sharedPath), true, sharedPath);
+    }
+    for (const privatePath of privateRuntimePaths) {
+      assert.equal(packageJson.files.includes(privatePath), false, privatePath);
+      assert.equal(releaseSources.includes(privatePath), false, privatePath);
+      assert.equal(BUILDER_NPM_TARBALL_INVENTORY.includes(privatePath), false, privatePath);
+    }
+    for (const marker of privateStateMarkers) {
+      assert.equal(packageJson.files.some((entry) => entry.includes(marker)), false, marker);
+      assert.equal(releaseSources.some((entry) => entry.includes(marker)), false, marker);
+      assert.equal(
+        BUILDER_NPM_TARBALL_INVENTORY.some((entry) => entry.includes(marker)),
+        false,
+        marker,
+      );
+    }
+  });
+
   it("keeps Decision Entry canonicalization I/O confined to private staging and create-only publication", async () => {
     const surfaces = (await scanIoSurfaces(REPO_ROOT))
       .filter((item) => item.file === "src/decision-entry-canonicalizer.js")
@@ -651,6 +753,7 @@ describe("artifact/output surface inventory", () => {
       "openclaw-install-preview": "artifact",
       "openclaw-install-approve": "artifact",
       "openclaw-install-apply": "artifact",
+      "openclaw-native": "non-artifact",
       "openclaw-fs-kernel-build": "artifact",
       handoff: "artifact",
       status: "artifact",

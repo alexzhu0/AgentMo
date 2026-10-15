@@ -1,8 +1,13 @@
 import { BIRTH_REPORT_SCHEMA_VERSION, validateBirthReportArtifact } from "./birth-report.js";
 import { BUILD_STATE_SCHEMA_VERSION, validateBuildStateArtifact } from "./build-state.js";
 import { validateBlueprint } from "./blueprint.js";
+import { nativeChatModelProfile } from "./native-chat-model-profile.js";
 import { DOMAIN_EVAL_SCHEMA_VERSION, validateDomainEvalArtifact } from "./domain-eval.js";
 import { assertPersistable } from "./persistability.js";
+import { NATIVE_CHAT_CASES, validateNativeChatAcceptanceArtifact, behaviorEvidenceDigest } from "./behavior-evidence.js";
+import { validateAgentPackageManifest } from "./package-contract.js";
+import { buildOpenClawInstallPlan, validateOpenClawInstallPlan } from "./openclaw-install-plan.js";
+import { validateOpenClawInstallReceipt } from "./openclaw-install-receipt.js";
 import {
   RUN_EVAL_SCHEMA_VERSION,
   RUN_STATE_SCHEMA_VERSION,
@@ -57,6 +62,8 @@ export const DELIVERY_REPORT_REQUIRED_CHECK_IDS = Object.freeze({
 });
 
 export async function buildDeliveryReport(blueprint, options = {}) {
+  if (blueprint?.execution_profile === "native-chat") return buildNativeDeliveryReport(blueprint, options);
+  if (Object.hasOwn(options, "nativeChat")) throw deliveryError("AGENTMO_DELIVERY_REPORT_INVALID");
   const buildState = options.buildState;
   const runState = options.runState;
   const runEval = options.runEval;
@@ -137,6 +144,7 @@ export async function buildDeliveryReport(blueprint, options = {}) {
 }
 
 export function validateDeliveryReportArtifact(report, options = {}) {
+  if (report?.execution_profile === "native-chat") return validateNativeDeliveryReport(report, options);
   const errors = [];
   try {
     assertPersistable(report, { subject: "delivery-report" });
@@ -186,6 +194,7 @@ export function validateDeliveryReportArtifact(report, options = {}) {
 }
 
 export function formatDeliveryReport(report) {
+  if (report.execution_profile === "native-chat") return `AgentMo native entry: ${report.agentId}\nStatus: ${report.status}\nGlobal delivery/domain/production promotion: no\n${report.checks.map(c=>`${c.pass?'PASS':'FAIL'} ${c.id}`).join('\n')}\n`;
   const lines = [
     `AgentMo delivery report: ${report.agentId ?? "unknown"}`,
     `Status: ${report.ok ? "pass" : "fail"}`,
@@ -441,4 +450,85 @@ function deliveryError(code) {
   const error = new Error("Delivery report artifact operation failed.");
   error.code = code;
   return error;
+}
+
+const NATIVE_SOURCE_SUBJECTS={blueprint:'blueprint',packageManifest:'package-manifest',activationPlan:'openclaw-install-plan',installReceipt:'openclaw-install-receipt',acceptance:'native-chat-acceptance'};
+const NATIVE_CHECKS=freezeCheckContract([
+  ['source_bindings','the native package, installed receipt and activation plan bind the exact blueprint'],
+  ['native_acceptance_complete','all fixed cases independently pass for the exact native entry'],
+  ['evidence_fresh','native entry observations are current at assessment time'],
+]);
+async function buildNativeDeliveryReport(blueprint, options) {
+  if (!hasExactKeys(options.nativeChat,['packageManifest','activationPlan','installReceipt','acceptance'])
+    || !hasExactKeys(options.admissions,Object.keys(NATIVE_SOURCE_SUBJECTS))
+    || Object.keys(options).some(k=>!['nativeChat','admissions','now'].includes(k))) throw deliveryError('AGENTMO_DELIVERY_REPORT_INVALID');
+  const {admittedArtifactProvenance}=await import('./artifact-admission.js');
+  const sources={};
+  for(const [key,subject] of Object.entries(NATIVE_SOURCE_SUBJECTS)){
+    const value=key==='blueprint'?blueprint:options.nativeChat[key];
+    if(key==='acceptance'&&value===null){if(options.admissions.acceptance!==null)throw deliveryError('AGENTMO_DELIVERY_OPTIONAL_INPUT_INVALID');sources[key]=null;}
+    else sources[key]=admittedArtifactProvenance(options.admissions[key],{subject,value});
+  }
+  const assessedAt=options.now??Date.now();
+  const assessment=nativeDeliveryAssessment({blueprint,nativeChat:options.nativeChat,sources,now:assessedAt});
+  const report={schemaVersion:DELIVERY_REPORT_SCHEMA_VERSION,execution_profile:'native-chat',agentId:blueprint.agent_id,assessedAt,
+    status:assessment.verified?'entry-verified':'partial',ok:assessment.verified,nativeEntryVerified:assessment.verified,
+    domainCertified:false,runtimePromotionEligible:false,deliveryReady:false,productionApproved:false,
+    sources,checks:assessment.checks,caseResults:assessment.caseResults,
+    certificationBoundary:{boundedEntryObservationsOnly:true,reviewerAuthentication:false,domain:false,delivery:false,production:false},
+    nextActions:assessment.verified?['Use the separately approved native entry; this report grants no broader certification.']:['Collect the missing exact native UI, model, input, recovery and budget observations with independent review.']};
+  if(!validateNativeDeliveryReport(report,{blueprint,nativeChat:options.nativeChat,sources}).ok)throw deliveryError('AGENTMO_DELIVERY_REPORT_INVALID');
+  return report;
+}
+
+function nativeDeliveryAssessment({blueprint,nativeChat,sources,now}){
+  const {packageManifest:manifest,activationPlan:plan,installReceipt:receipt,acceptance}=nativeChat;
+  if(!Number.isSafeInteger(now)||now<0||!validateBlueprint(blueprint).ok||blueprint.execution_profile!=='native-chat'
+    ||!validateAgentPackageManifest(manifest).ok||manifest.execution_profile!=='native-chat'
+    ||!validateOpenClawInstallPlan(plan).ok||plan.execution_profile!=='native-chat'||plan.lifecycle!=='activate'
+    ||!validateOpenClawInstallReceipt(receipt).ok||receipt.execution_profile!=='native-chat')throw deliveryError('AGENTMO_DELIVERY_REPORT_INVALID');
+  const original=buildOpenClawInstallPlan({execution_profile:'native-chat',lifecycle:'install',...Object.fromEntries(['archiveBinding','target','nativeBinding','authorityRootBinding','officialConfigDryRun'].map(k=>[k,plan[k]]))});
+  const sourceMatch=manifest.packageId===blueprint.agent_id&&plan.nativeBinding.agentId===blueprint.agent_id
+    &&blueprint.native_model_profile===plan.nativeBinding.modelProfile
+    &&manifest.sourceBindings.blueprintDigest===sources.blueprint.digest&&sources.packageManifest.digest===plan.archiveBinding.manifestDigest
+    &&manifest.inventoryDigest===plan.archiveBinding.inventoryDigest&&manifest.targetCompatibility.some(t=>t.target==='openclaw'&&t.version===plan.target.targetVersion&&t.sourceRevision===plan.target.targetRevision)
+    &&receipt.status==='complete'&&receipt.installPlanDigest===original.installPlanDigest&&plan.predecessor.installPlanDigest===original.installPlanDigest
+    &&receipt.archiveDigest===plan.archiveBinding.archiveSha256&&plan.predecessor.installReceiptDigest===sources.installReceipt.digest
+    &&sameJson(receipt.binding,plan.nativeBinding)&&sameJson(receipt.rootIdentity,plan.predecessor.rootIdentity);
+  let evidence={entryVerified:false,results:[]},fresh=false;
+  if(acceptance!==null){
+    evidence=validateNativeChatAcceptanceArtifact(acceptance);if(!evidence.ok)throw deliveryError('AGENTMO_DELIVERY_REPORT_INVALID');
+    const runtime=acceptance.runtime;
+    if(runtime.blueprintDigest!==sources.blueprint.digest||runtime.packageArchiveDigest!==plan.archiveBinding.archiveSha256
+      ||runtime.installReceiptDigest!==sources.installReceipt.digest||runtime.activationPlanDigest!==plan.installPlanDigest
+      ||runtime.nativeBindingDigest!==behaviorEvidenceDigest(plan.nativeBinding)||runtime.targetDescriptorDigest!==plan.nativeBinding.targetDescriptorDigest
+      ||runtime.agentId!==blueprint.agent_id||runtime.targetVersion!==plan.target.targetVersion
+      ||runtime.model!==nativeChatModelProfile(plan.nativeBinding.modelProfile).nativeModel)throw deliveryError('AGENTMO_DELIVERY_REPORT_INVALID');
+    fresh=acceptance.observedAt<=now&&now-acceptance.observedAt<=3_600_000;
+  }
+  const checks=buildChecksFromContract(NATIVE_CHECKS,[sourceMatch,evidence.entryVerified,fresh]);
+  return {verified:checks.every(c=>c.pass),checks,caseResults:evidence.results};
+}
+
+function validateNativeDeliveryReport(report, options){
+  try{
+    assertPersistable(report,{subject:'delivery-report'});
+    if(!hasExactKeys(report,['schemaVersion','execution_profile','agentId','assessedAt','status','ok','nativeEntryVerified','domainCertified','runtimePromotionEligible','deliveryReady','productionApproved','sources','checks','caseResults','certificationBoundary','nextActions'])
+      ||report.schemaVersion!==DELIVERY_REPORT_SCHEMA_VERSION||report.execution_profile!=='native-chat'||!nonEmptyString(report.agentId)||!Number.isSafeInteger(report.assessedAt)||report.assessedAt<0
+      ||[report.domainCertified,report.runtimePromotionEligible,report.deliveryReady,report.productionApproved].some(v=>v!==false)
+      ||!sameJson(report.certificationBoundary,{boundedEntryObservationsOnly:true,reviewerAuthentication:false,domain:false,delivery:false,production:false})
+      ||!hasExactKeys(report.sources,Object.keys(NATIVE_SOURCE_SUBJECTS))||!Array.isArray(report.checks)||report.checks.length!==NATIVE_CHECKS.length
+      ||!Array.isArray(report.caseResults)||report.caseResults.length>NATIVE_CHAT_CASES.length||!stringArray(report.nextActions))throw new Error();
+    for(const [key,subject] of Object.entries(NATIVE_SOURCE_SUBJECTS)){
+      const p=report.sources[key];if(key==='acceptance'&&p===null)continue;
+      if(!hasExactKeys(p,['identity','subject','digest'])||p.subject!==subject||!nonEmptyString(p.identity)||!SHA256_DIGEST_PATTERN.test(p.digest))throw new Error();
+    }
+    for(const [i,c] of report.checks.entries())if(!hasExactKeys(c,['id','message','pass'])||c.id!==NATIVE_CHECKS[i].id||c.message!==NATIVE_CHECKS[i].message||typeof c.pass!=='boolean')throw new Error();
+    const ids=new Set();for(const c of report.caseResults){if(!hasExactKeys(c,['id','passed','evidenceRefs'])||ids.has(c.id)||!NATIVE_CHAT_CASES.some(s=>s.id===c.id)||typeof c.passed!=='boolean'||!stringArray(c.evidenceRefs))throw new Error();ids.add(c.id);}
+    const verified=report.checks.every(c=>c.pass);
+    if(report.nativeEntryVerified!==verified||report.ok!==verified||report.status!==(verified?'entry-verified':'partial')
+      ||verified&&(report.sources.acceptance===null||report.caseResults.length!==NATIVE_CHAT_CASES.length||report.caseResults.some(c=>!c.passed)))throw new Error();
+    if(options?.nativeChat){const a=nativeDeliveryAssessment({...options,now:report.assessedAt});if(report.agentId!==options.blueprint.agent_id||!sameJson(report.sources,options.sources)||!sameJson(report.checks,a.checks)||!sameJson(report.caseResults,a.caseResults)||verified!==a.verified)throw new Error();}
+    return {ok:true,errors:[]};
+  }catch{return {ok:false,errors:['native_delivery_invalid']};}
 }

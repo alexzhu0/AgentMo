@@ -1,0 +1,44 @@
+{
+  "purpose": "Local source excerpts for a proposed course Wiki and grounded Q&A POC; not stage approval or runtime evidence.",
+  "source": {
+    "repository": "https://github.com/GITenberg/An-English-Grammar_14006",
+    "commit": "891d5cfd88fb33bdadb2cee5646fa79870316f90",
+    "url": "https://raw.githubusercontent.com/GITenberg/An-English-Grammar_14006/891d5cfd88fb33bdadb2cee5646fa79870316f90/14006-0.txt",
+    "sha256": "7c7d74d236f7408df2875ffea2b8dffbba9a18d6a2e3ae9954333f4149c1496a",
+    "bytes": 580834,
+    "retrievedAt": "2026-09-14T12:13:53.521Z"
+  },
+  "transformation": "Contiguous excerpts, CRLF to LF, trailing excerpt blank lines removed, provenance header and full embedded license appended.",
+  "files": [
+    {
+      "file": "01-nouns.txt",
+      "sections": "§§ 1–10",
+      "sourceStartLine": 398,
+      "sourceEndLine": 554,
+      "bodyStartLine": 13,
+      "bodyEndLine": 169,
+      "bytes": 24032,
+      "sha256": "d8e81ee21a4e769ebaac19686d1640fa3fb63fbd65e352c5de54f6c9251f2045"
+    },
+    {
+      "file": "02-adjectives.txt",
+      "sections": "§§ 139–142",
+      "sourceStartLine": 4237,
+      "sourceEndLine": 4310,
+      "bodyStartLine": 13,
+      "bodyEndLine": 86,
+      "bytes": 20849,
+      "sha256": "28e754b8d60c1ccb6fb2097760ef7b8418904de5a843df6a1c8084a23309edd1"
+    },
+    {
+      "file": "03-sentence-analysis.txt",
+      "sections": "§§ 335–341",
+      "sourceStartLine": 10510,
+      "sourceEndLine": 10647,
+      "bodyStartLine": 13,
+      "bodyEndLine": 150,
+      "bytes": 22410,
+      "sha256": "2d2ce917752a6504e63904f9850791855cde74350333d6bced015a7eed2fb5ff"
+    }
+  ]
+}

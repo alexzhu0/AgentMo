@@ -10,6 +10,10 @@ coverage/
 
 .omx/
 
+# Machine-local planning evidence and isolated checkouts.
+.superpowers/
+.worktrees/
+
 # Local AgentMo install/runtime authority and interrupted staging state.
 .agentmo/
 .agentmo-append-only-lineage/

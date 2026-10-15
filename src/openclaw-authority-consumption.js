@@ -12,7 +12,7 @@ import {
   validateOpenClawInstallApproval,
   validateOpenClawSensitiveActionDecision,
 } from "./openclaw-install-approval.js";
-import { validateOpenClawInstallPlan } from "./openclaw-install-plan.js";
+import { validateOpenClawLegacyInstallPlan as validateOpenClawInstallPlan } from "./openclaw-install-plan.js";
 import { openOpenClawSafeFsSession } from "./openclaw-safe-fs.js";
 import {
   validateOpenClawTargetDescriptor,

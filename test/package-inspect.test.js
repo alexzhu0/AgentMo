@@ -27,6 +27,24 @@ import {
 const CLI = path.resolve("bin/agentmo.js");
 
 describe("offline Agent Package inspection", () => {
+  it("does not hide legacy plugin operations or approvals labelled disabled", async () => {
+    const fixture = await buildApprovedPackageFixture();
+    const root = path.join(fixture.root, "legacy-disabled");
+    const archivePath = path.join(fixture.root, "legacy-disabled.d42");
+    const produced = await produceAgentPackageFixture(packageProduceOptions(fixture, root, archivePath));
+    const before = await inspectAgentPackage({ packagePath: archivePath, expectedArchiveDigest: produced.archiveDigest });
+    const archive = JSON.parse(await readFile(archivePath, "utf8"));
+    const manifest = JSON.parse(Buffer.from(archive.manifestContentBase64, "base64").toString("utf8"));
+    for (const entry of manifest.capabilityLedger) if (entry.carrier === "native-plugin") entry.necessity = "disabled";
+    const manifestBytes = Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`);
+    archive.manifestContentBase64 = manifestBytes.toString("base64");
+    archive.manifestDigest = digestBytes(manifestBytes);
+    const bytes = Buffer.from(`${JSON.stringify(archive, null, 2)}\n`);
+    await writeFile(archivePath, bytes);
+    const after = await inspectAgentPackage({ packagePath: archivePath, expectedArchiveDigest: digestBytes(bytes) });
+    assert.deepEqual(after.targetOperations, before.targetOperations);
+    assert.deepEqual(after.sensitiveActions, before.sensitiveActions);
+  });
   it("returns one frozen value-blind candidate for directory, archive, human, and JSON views", async () => {
     const fixture = await buildApprovedPackageFixture();
     const packageRoot = path.join(fixture.root, "package");

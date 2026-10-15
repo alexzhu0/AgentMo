@@ -32,6 +32,18 @@ async function loadSupportNeed() {
 }
 
 describe("user need", () => {
+  it("accepts explicit native-chat but rejects unknown or null profiles", async () => {
+    const need = await loadSupportNeed();
+    assert.equal(validateUserNeed(need).ok, true);
+    need.execution_profile = "native-chat";
+    assert.equal(validateUserNeed(need).ok, true);
+    for (const value of ["native-caht", null, "", false]) {
+      assert.equal(validateUserNeed({ ...need, execution_profile: value }).ok, false);
+    }
+    need.problem = "api_key=secret-value-123456";
+    assert.equal(validateUserNeed(need).ok, false);
+  });
+
   it("loads exact user-need bytes once under the canonical subject", async () => {
     const bytes = await readFile(SUPPORT_NEED);
     let openCount = 0;

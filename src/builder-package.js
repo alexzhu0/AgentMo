@@ -1013,6 +1013,7 @@ function buildBuilderReleaseAssetInventory() {
     "src/artifact-migration.js",
     "src/artifact-registry.js",
     "src/artifact-subjects.js",
+    "src/behavior-evidence.js",
     "src/birth-report.js",
     "src/blueprint-draft.js",
     "src/blueprint.js",
@@ -1040,6 +1041,7 @@ function buildBuilderReleaseAssetInventory() {
     "src/builders/codex.js",
     "src/builders/contract.js",
     "src/builders/registry.js",
+    "src/cli-help.js",
     "src/cli.js",
     "src/collectors/arxiv.js",
     "src/collectors/github.js",
@@ -1059,7 +1061,13 @@ function buildBuilderReleaseAssetInventory() {
     "src/handoff.js",
     "src/javascript-static-analysis.js",
     "src/migration-filesystem.js",
-    "src/native-build-capture.js",
+    "src/native-build-capture.js", "src/native-chat-authority.js", "src/native-chat-files.js",
+    "src/native-chat-runtime.js",
+    "src/native-chat-install-cli.js",
+    "src/native-chat-cli.js",
+    "src/native-chat-model-profile.js",
+    "src/native-chat-proxy.js",
+    "src/course-wiki-budget.js",
     "src/observation.js",
     "src/openclaw-authority-consumption.js",
     "src/openclaw-authority-root-binding.js",
@@ -1369,6 +1377,7 @@ function validateBuilderExecutableClosure(assets) {
     "runtime/agentmo/scripts/verify-codex-uat-candidate.js",
     "runtime/agentmo/src/builder-hook-bridge.js",
     "runtime/agentmo/src/openclaw-credential-handoff.js",
+    "runtime/agentmo/src/behavior-evidence.js",
   ];
   if (roots.some((relativePath) => !releaseAssets.has(relativePath))) {
     fail("AGENTMO_BUILDER_PACKAGE_IMPORT_UNLISTED");

@@ -66,6 +66,13 @@ export class PackageCarrierError extends Error {
 export function assertApprovedHookCarrierConsistency(buildContract) {
   assertContractBasis(buildContract);
   const targetVersion = targetVersionFor(buildContract);
+  if (buildContract.execution_profile === "native-chat") {
+    return deepFreeze({
+      target: "openclaw", targetVersion, carrier: "native-runtime", owner: "openclaw",
+      recipe: null, hooks: [], unsupportedBehavior: ["automatic-external-plugin-install"],
+      phase3ReapprovalRequired: true,
+    });
+  }
   if (buildContract.nativePluginRecipe !== null
     && buildContract.nativePluginRecipe !== undefined) {
     if (!validateBuildContract(buildContract).ok) {
@@ -145,6 +152,7 @@ export function selectPackageCarriers(buildContract) {
   entries.sort((left, right) => left.capabilityId.localeCompare(right.capabilityId));
   const result = {
     schemaVersion: "agentmo.package-carrier-selection.v1",
+    ...(buildContract.execution_profile === "native-chat" ? { execution_profile: "native-chat" } : {}),
     target: "openclaw",
     targetVersion: hookConsistency.targetVersion,
     entries,
@@ -163,6 +171,12 @@ export function selectPackageCarriers(buildContract) {
 }
 
 function assertContractBasis(buildContract) {
+  if (buildContract?.execution_profile === "native-chat") {
+    if (!validateBuildContract(buildContract).ok) {
+      throw new PackageCarrierError("AGENTMO_PACKAGE_BUILD_CONTRACT_INVALID");
+    }
+    return;
+  }
   if (buildContract?.schemaVersion !== BUILD_CONTRACT_SCHEMA_VERSION
     || buildContract?.targetRuntime?.id !== "openclaw"
     || typeof buildContract?.targetRuntime?.observedVersion !== "string"
@@ -270,6 +284,17 @@ function validateRecipe(recipe, errors) {
 }
 
 function selectionForResource(kind, hookConsistency) {
+  if (hookConsistency.carrier === "native-runtime") {
+    const runtime = ["harness", "agent-loop", "runtime-binding"].includes(kind);
+    return {
+      carrier: runtime ? "native-runtime" : "workspace-content",
+      owner: runtime ? "openclaw" : "agent-package",
+      necessity: ["skills", "plugins", "memory", "rag", "schedules"].includes(kind)
+        ? "disabled" : "portable-declarative-resource",
+      trust: runtime ? "runtime-owned" : "workspace-content",
+      rationale: "Native chat uses the existing runtime without package executable capabilities.",
+    };
+  }
   if (kind === "skills") {
     return {
       carrier: "skill",

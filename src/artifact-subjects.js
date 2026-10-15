@@ -117,6 +117,7 @@ export const DURABLE_COMMAND_SUBJECTS = Object.freeze({
 });
 
 export const OPTIONAL_DURABLE_COMMAND_SUBJECTS = Object.freeze({
+  "openclaw-target-describe": BLUEPRINT_SUBJECTS,
   "build-contract": BUILD_CONTRACT_OPTIONAL_SUBJECTS,
   "blueprint-draft": BLUEPRINT_DRAFT_OPTIONAL_SUBJECTS,
   report: REPORT_OPTIONAL_SUBJECTS,

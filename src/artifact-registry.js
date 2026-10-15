@@ -1,4 +1,7 @@
 import { createHash } from "node:crypto";
+import { validateBuildContract } from "./build-contract.js";
+import { validateOpenClawTargetCarrierAdmission } from "./openclaw-target-admission.js";
+import { validatePlanApproval } from "./plan-approval.js";
 import {
   AGENT_IDEA_CANDIDATE_SCHEMA_VERSION,
   validateAgentIdeaCandidate,
@@ -11,6 +14,7 @@ import {
   validateBuildStateArtifact,
 } from "./build-state.js";
 import { BIRTH_REPORT_SCHEMA_VERSION, validateBirthReportArtifact } from "./birth-report.js";
+import { NATIVE_CHAT_ACCEPTANCE_SCHEMA_VERSION, validateNativeChatAcceptanceArtifact } from "./behavior-evidence.js";
 import { DELIVERY_REPORT_SCHEMA_VERSION, validateDeliveryReportArtifact } from "./delivery-report.js";
 import {
   DISCOVERY_APPROVAL_SCHEMA_VERSION,
@@ -576,6 +580,13 @@ export const DURABLE_ARTIFACT_REGISTRY = Object.freeze([
     validate_canonical_input: (value) => validateSafely(() => validateDomainEvalArtifact(value).ok),
   }),
   Object.freeze({
+    subject: "native-chat-acceptance",
+    identity_field: "schemaVersion",
+    identity: NATIVE_CHAT_ACCEPTANCE_SCHEMA_VERSION,
+    legacy_inspector: "unsupported",
+    validate_canonical_input: value => validateSafely(() => validateNativeChatAcceptanceArtifact(value).ok),
+  }),
+  Object.freeze({
     subject: "delivery-report",
     identity_field: "schemaVersion",
     identity: DELIVERY_REPORT_SCHEMA_VERSION,
@@ -926,6 +937,11 @@ export function listDurableArtifactDescriptors() {
 }
 
 export function companionSubjectsForDurableArtifact(subject, value) {
+  if (subject === "openclaw-install-receipt" && value?.execution_profile === "native-chat") return null;
+  if (subject === "delivery-report" && value?.execution_profile === "native-chat") return Object.freeze([
+    "blueprint", "package-manifest", "openclaw-install-plan", "openclaw-install-receipt",
+    ...(value.sources?.acceptance === null ? [] : ["native-chat-acceptance"]),
+  ]);
   const descriptor = DURABLE_DESCRIPTOR_BY_SUBJECT.get(subject);
   if (!descriptor?.required_companion_subjects) return null;
   const subjects = [...descriptor.required_companion_subjects];
@@ -1075,6 +1091,9 @@ function validateCanonicalDesignPlan(value) {
 }
 
 function validateCanonicalBuildContract(value) {
+  if (Object.hasOwn(value ?? {}, "execution_profile")) {
+    return validateSafely(() => validateBuildContract(value).ok);
+  }
   return validateSafely(() => (
     isObject(value)
     && (hasExactKeys(value, [
@@ -1246,6 +1265,23 @@ function validateCanonicalPlanApproval(value) {
 }
 
 function validateCanonicalOpenClawTargetCarrierAdmission(value, context) {
+  if (Object.hasOwn(value ?? {}, "execution_profile")) {
+    return validateSafely(() => (
+      value.execution_profile === "native-chat"
+      && context?.blueprint?.execution_profile === "native-chat"
+      && context?.buildContract?.execution_profile === "native-chat"
+      && validateBuildContract(context.buildContract).ok
+      && validatePlanApproval(context.planApproval, {
+        blueprint: context.blueprint, buildContract: context.buildContract,
+        sources: { blueprint: context.sources.blueprint, buildContract: context.sources.buildContract },
+      }).ok
+      && context.buildContract.targetRuntime.descriptorDigest === context.sources.targetDescriptor.digest
+      && validateOpenClawTargetCarrierAdmission(value, { targetDescriptor: context.targetDescriptor, sources: {
+        blueprint: context.sources.blueprint, buildContract: context.sources.buildContract,
+        planApproval: context.sources.planApproval, targetDescriptor: context.sources.targetDescriptor,
+      } }).ok
+    ));
+  }
   return validateSafely(() => (
     isObject(value)
     && hasExactKeys(value, [

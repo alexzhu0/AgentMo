@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Course Wiki · 文档管理</title>
+  <style>
+    :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", sans-serif; color: #10243a; background: #f7fafc; }
+    * { box-sizing: border-box; }
+    body { min-width: 320px; min-height: 100vh; margin: 0; display: grid; grid-template-rows: auto 1fr auto; }
+    header { display: flex; align-items: center; gap: 22px; min-height: 82px; padding: 18px 30px; border-bottom: 1px solid #d9e2ea; background: #fff; }
+    .brand { font-size: 29px; font-weight: 750; }
+    .subtitle { color: #607286; }
+    .native-chat { margin-left: auto; border-radius: 7px; padding: 11px 17px; color: #fff; background: #007c83; text-decoration: none; font-weight: 650; }
+    main { min-height: 0; display: grid; grid-template-columns: minmax(320px, 38%) minmax(480px, 62%); }
+    section { min-width: 0; padding: 30px; }
+    section + section { border-left: 1px solid #d9e2ea; background: #fff; }
+    h1, h2 { margin: 0; line-height: 1.35; }
+    h1 { font-size: 27px; }
+    h2 { font-size: 20px; }
+    button, input { font: inherit; }
+    button { border: 0; border-radius: 7px; padding: 11px 18px; color: #fff; background: #007c83; cursor: pointer; }
+    button:disabled { cursor: not-allowed; opacity: .5; }
+    .drop { min-height: 132px; margin-top: 18px; border: 1px dashed #a9bac8; border-radius: 9px; display: grid; place-content: center; gap: 7px; text-align: center; cursor: pointer; color: #607286; background: #fff; }
+    .drop.dragging { border-color: #007c83; background: #edfafa; }
+    .drop[aria-disabled="true"] { cursor: not-allowed; opacity: .55; }
+    .drop strong { color: #007c83; font-size: 18px; }
+    #file-input { position: absolute; width: 1px; height: 1px; clip: rect(0 0 0 0); overflow: hidden; }
+    .caption, .status { color: #607286; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+    .status { min-height: 21px; margin: 9px 0; }
+    .status.error { color: #a1382a; }
+    .preview { margin-top: 22px; padding: 19px; border: 1px solid #d9e2ea; border-radius: 9px; background: #fff; }
+    .preview-head, .wiki-head { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+    .preview-list, .document-list { margin: 12px 0; padding: 0; list-style: none; }
+    .preview-list li, .document-list li { padding: 11px 0; border-bottom: 1px solid #e1e8ee; overflow-wrap: anywhere; }
+    .digest { display: block; margin-top: 4px; color: #607286; font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .consent { margin: 13px 0; padding: 11px 13px; border-left: 3px solid #007c83; color: #40566c; background: #f0f8f8; font-size: 13px; line-height: 1.6; }
+    .topic-tabs { display: flex; gap: 17px; min-height: 47px; margin-top: 18px; border-bottom: 1px solid #d9e2ea; overflow-x: auto; }
+    .topic-tabs button { flex: 0 0 auto; border-radius: 0; padding: 8px 8px 12px; color: #607286; background: transparent; }
+    .topic-tabs button[aria-selected="true"] { color: #007c83; border-bottom: 3px solid #007c83; }
+    .topic-body { min-height: 310px; padding: 28px 0; line-height: 1.75; white-space: pre-wrap; }
+    .empty { display: grid; place-content: center; color: #738397; text-align: center; }
+    .sources { padding-top: 20px; border-top: 1px solid #d9e2ea; }
+    .citation-list { display: flex; flex-wrap: wrap; gap: 9px; margin: 13px 0; }
+    .citation-list button { padding: 7px 10px; border: 1px solid #bdcbd6; color: #007c83; background: #fff; font-size: 13px; }
+    .source-view { max-height: 280px; overflow: auto; padding-left: 12px; border-left: 3px solid #007c83; color: #40566c; }
+    .source-view pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
+    details { margin: 11px 0; }
+    summary { cursor: pointer; color: #007c83; }
+    footer { padding: 17px 30px; border-top: 1px solid #d9e2ea; color: #607286; background: #fff; font-size: 13px; text-align: center; }
+    button:focus-visible, a:focus-visible, .drop:focus-visible { outline: 3px solid #91dfe2; outline-offset: 2px; }
+    @media (max-width: 820px) {
+      header { flex-wrap: wrap; padding: 18px 20px; }
+      .native-chat { margin-left: 0; }
+      main { display: block; }
+      section { padding: 25px 20px; }
+      section + section { border-top: 1px solid #d9e2ea; border-left: 0; }
+      .topic-body { min-height: 220px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">Course Wiki</div>
+    <div class="subtitle">文档管理与知识 Wiki</div>
+    <a id="native-chat-link" class="native-chat" href="http://127.0.0.1:18789/chat/course-wiki" target="_blank" rel="noopener noreferrer">在 OpenClaw 中提问</a>
+  </header>
+  <main>
+    <section aria-labelledby="documents-title">
+      <h1 id="documents-title">资料版本</h1>
+      <label class="drop" id="drop-zone" for="file-input" tabindex="0">
+        <strong>选择完整资料集</strong>
+        <span>拖入或选择 DOCX、Markdown、UTF-8 TXT</span>
+        <span class="caption">本地预览上限：1–10 份；每份不超过 2 MiB；提取正文合计不超过 100,000 字符</span>
+      </label>
+      <input id="file-input" type="file" accept=".docx,.md,.txt" multiple>
+      <p class="caption">上传只在本机整理预览，不会授权或调用模型，也不会替换当前 Wiki。</p>
+      <p class="caption">生成与问答另受模型上下文限制；本地预览通过不代表可以生成或问答。所需正文或对话过大时会明确拒绝，不会截断内容后继续。</p>
+      <p id="upload-status" class="status" role="status"></p>
+
+      <div class="preview" aria-labelledby="preview-title">
+        <div class="preview-head">
+          <h2 id="preview-title">待确认版本</h2>
+          <button id="confirm-button" type="button" disabled>确认生成并发布</button>
+        </div>
+        <p id="preview-status" class="status" role="status">尚未选择新资料。</p>
+        <p id="preview-summary" class="caption"></p>
+        <ul id="preview-list" class="preview-list" aria-label="待确认资料"></ul>
+        <p class="consent">确认仅适用于上方精确资料摘要：提供商 <strong>DeepSeek</strong>，用途 <code>wiki-and-qa</code>。生成会使用累计 100 CNY 项目预算的预留额度。</p>
+      </div>
+
+      <h2 style="margin-top:24px">当前已发布资料</h2>
+      <ul id="document-list" class="document-list" aria-label="当前已发布资料"></ul>
+      <p id="budget-status" class="status" role="status"></p>
+    </section>
+
+    <section aria-labelledby="wiki-title">
+      <div class="wiki-head"><h1 id="wiki-title">当前知识 Wiki</h1></div>
+      <p id="wiki-status" class="status" role="status"></p>
+      <div id="topic-tabs" class="topic-tabs" role="tablist" aria-label="Wiki 主题"></div>
+      <article id="topic-body" class="topic-body empty">尚无已发布 Wiki。上传资料后先核对预览，再明确确认。</article>
+      <div class="sources">
+        <h2>原文引用</h2>
+        <p class="caption">主题和原文读取都固定到页面显示的资料版本。</p>
+        <div id="wiki-citations" class="citation-list"></div>
+        <div id="source-view" class="source-view" aria-live="polite"></div>
+      </div>
+    </section>
+  </main>
+  <footer>本页面只管理文档与 Wiki；问答使用 OpenClaw 原生聊天。</footer>
+
+  <script>
+    const byId = (id) => document.getElementById(id);
+    const state = { corpus: { active: null, pending: [], access: {} }, preview: null, busy: false, topicRequest: 0, sourceRequest: 0 };
+    const errorText = (error) => ({
+      COURSE_WIKI_CONSENT_INVALID: "确认内容与当前预览不一致，请重新选择资料。",
+      COURSE_WIKI_CONSENT_REJECTED: "确认内容与当前预览不一致，请重新选择资料。",
+      COURSE_WIKI_OPERATION_BUSY: "当前有资料生成或问答正在进行。完成后可再次明确操作；页面不会自动重试。",
+      COURSE_WIKI_EVIDENCE_TOO_LARGE: "所需正文或对话超过模型上下文限制，本次操作已拒绝，不会截断内容。请减少资料或缩短对话后明确操作；页面不会自动重试。",
+      COURSE_WIKI_ALLOWANCE_EXHAUSTED: "累计项目预算已用尽，未发起新的模型请求。",
+      COURSE_WIKI_BUDGET_REJECTED: "累计项目预算检查未通过，未发起新的模型请求。",
+      COURSE_WIKI_NATIVE_FAILED: "本地处理未完成，旧 Wiki 保持可用；页面不会自动重试。",
+      COURSE_WIKI_NATIVE_SPAWN_FAILED: "本地处理未能启动，旧 Wiki 保持可用；页面不会自动重试。",
+      COURSE_WIKI_NATIVE_EXIT_FAILED: "本地处理异常退出，旧 Wiki 保持可用；页面不会自动重试。",
+      COURSE_WIKI_NATIVE_TIMEOUT: "本地处理超时，旧 Wiki 保持可用；页面不会自动重试。",
+      COURSE_WIKI_NATIVE_OUTPUT_INVALID: "本地处理结果未通过校验，旧 Wiki 保持可用。",
+      COURSE_WIKI_UPSTREAM_NETWORK: "连接 DeepSeek 失败，旧 Wiki 保持可用；页面不会自动重试。",
+      COURSE_WIKI_UPSTREAM_RATE_LIMIT: "DeepSeek 暂时限流，旧 Wiki 保持可用；页面不会自动重试。",
+      COURSE_WIKI_UPSTREAM_UNAVAILABLE: "DeepSeek 暂时不可用，旧 Wiki 保持可用；页面不会自动重试。",
+      COURSE_WIKI_UPSTREAM_DENIED: "DeepSeek 拒绝请求，旧 Wiki 保持可用；页面不会自动重试。",
+      COURSE_WIKI_UPSTREAM_RESPONSE_INVALID: "DeepSeek 返回未通过校验，旧 Wiki 保持可用。",
+      COURSE_WIKI_UPSTREAM_TIMEOUT: "等待 DeepSeek 超时，旧 Wiki 保持可用；页面不会自动重试。",
+    }[error.code] || `请求失败（${error.code || "COURSE_WIKI_SERVER_FAILURE"}）`);
+
+    async function request(path, options) {
+      const response = await fetch(path, options);
+      const value = await response.json();
+      if (!response.ok) throw Object.assign(new Error("request failed"), { code: value.error?.code });
+      return value;
+    }
+
+    function setStatus(id, message, error = false) {
+      const element = byId(id);
+      element.textContent = message;
+      element.classList.toggle("error", error);
+    }
+
+    function setBusy(busy) {
+      state.busy = busy;
+      const uploads = state.corpus.access?.uploads !== false;
+      byId("file-input").disabled = busy || !uploads;
+      byId("drop-zone").setAttribute("aria-disabled", String(byId("file-input").disabled));
+      byId("drop-zone").setAttribute("tabindex", byId("file-input").disabled ? "-1" : "0");
+      byId("confirm-button").disabled = busy || !state.preview || state.preview.status === "active";
+    }
+
+    function appendSource(list, source) {
+      const item = document.createElement("li");
+      item.textContent = source.name;
+      const digest = document.createElement("span");
+      digest.classList.add("digest");
+      digest.textContent = source.sourceDigest;
+      item.append(digest);
+      list.append(item);
+    }
+
+    function renderPreview(preview) {
+      state.preview = preview;
+      const list = byId("preview-list");
+      list.replaceChildren();
+      if (!preview) {
+        setStatus("preview-status", "尚未选择新资料。");
+        byId("preview-summary").textContent = "";
+        setBusy(state.busy);
+        return;
+      }
+      for (const source of preview.sources || []) appendSource(list, source);
+      setStatus("preview-status", `${preview.status}${preview.duplicate ? " · cached" : ""}`);
+      byId("preview-summary").textContent = `${preview.sources?.length || 0} 份资料 · 提取 ${preview.totalCharacters || 0} 字符 · DeepSeek · wiki-and-qa`;
+      setBusy(state.busy);
+    }
+
+    function publishedCorpus() {
+      if (Object.hasOwn(state.corpus, "active")) return state.corpus.active;
+      return state.corpus.access?.uploads === false && Array.isArray(state.corpus.sources) && Array.isArray(state.corpus.topics)
+        ? state.corpus : null;
+    }
+
+    function renderActive() {
+      const active = publishedCorpus();
+      const list = byId("document-list");
+      list.replaceChildren();
+      for (const source of active?.sources || []) appendSource(list, source);
+      renderTopics(active);
+      setStatus("wiki-status", active ? active === state.corpus ? "旧版资料 · 只读" : `active · ${active.generationId}` : "当前没有已发布版本。");
+    }
+
+    function renderTopics(active) {
+      state.topicRequest += 1;
+      state.sourceRequest += 1;
+      const tabs = byId("topic-tabs");
+      const body = byId("topic-body");
+      tabs.replaceChildren();
+      byId("wiki-citations").replaceChildren();
+      byId("source-view").replaceChildren();
+      body.classList.add("empty");
+      if (!active?.topics?.length) {
+        body.textContent = "尚无已发布 Wiki。上传资料后先核对预览，再明确确认。";
+        return;
+      }
+      body.textContent = "正在读取主题…";
+      active.topics.forEach((topic, index) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = topic.title;
+        button.setAttribute("aria-selected", String(index === 0));
+        button.addEventListener("click", () => selectTopic(topic.id, active.generationId, button));
+        tabs.append(button);
+      });
+      void selectTopic(active.topics[0].id, active.generationId, tabs.firstElementChild);
+    }
+
+    async function selectTopic(id, generationId, selectedButton) {
+      const requestId = ++state.topicRequest;
+      state.sourceRequest += 1;
+      byId("wiki-citations").replaceChildren();
+      byId("source-view").replaceChildren();
+      for (const button of byId("topic-tabs").children) button.setAttribute("aria-selected", String(button === selectedButton));
+      try {
+        const query = generationId === undefined ? "" : `?generationId=${encodeURIComponent(generationId)}`;
+        const topic = await request(`/api/topics/${encodeURIComponent(id)}${query}`);
+        if (requestId !== state.topicRequest) return;
+        const body = byId("topic-body");
+        body.classList.remove("empty");
+        body.textContent = topic.body;
+        renderCitations(topic.citations, generationId);
+      } catch (error) {
+        if (requestId === state.topicRequest) setStatus("wiki-status", errorText(error), true);
+      }
+    }
+
+    function renderCitations(citations, generationId) {
+      const target = byId("wiki-citations");
+      target.replaceChildren();
+      for (const citation of citations || []) {
+        const button = document.createElement("button");
+        button.type = "button";
+        const source = publishedCorpus()?.sources.find((item) => item.sourceDigest === citation.sourceDigest);
+        button.textContent = `${source?.name || "资料"} · 正文第 ${citation.fromLine}–${citation.toLine} 行`;
+        button.addEventListener("click", () => showSource(citation, generationId));
+        target.append(button);
+      }
+    }
+
+    async function showSource(citation, generationId) {
+      const requestId = ++state.sourceRequest;
+      const view = byId("source-view");
+      view.textContent = "正在读取原文…";
+      try {
+        const query = generationId === undefined ? "" : `?generationId=${encodeURIComponent(generationId)}`;
+        const source = await request(`/api/documents/${encodeURIComponent(citation.sourceDigest)}${query}`);
+        if (requestId !== state.sourceRequest) return;
+        const heading = document.createElement("strong");
+        heading.textContent = `${source.name} · 正文第 ${citation.fromLine}–${citation.toLine} 行`;
+        const quote = document.createElement("pre");
+        quote.textContent = citation.quote;
+        view.replaceChildren(heading, quote, disclosure("查看完整原文", source.originalText), disclosure("查看来源说明", source.provenanceText), disclosure("查看许可证", source.licenseText));
+      } catch (error) {
+        if (requestId === state.sourceRequest) view.textContent = errorText(error);
+      }
+    }
+
+    function disclosure(label, text) {
+      const details = document.createElement("details");
+      const summary = document.createElement("summary");
+      const body = document.createElement("pre");
+      summary.textContent = label;
+      body.textContent = text || "当前资料未提供此项。";
+      details.append(summary, body);
+      return details;
+    }
+
+    function updateBudgetAndAccess() {
+      const budget = state.corpus.budget;
+      const remainingCny = Number.isFinite(budget?.remainingCny)
+        ? budget.remainingCny
+        : Number.isSafeInteger(budget?.remainingFen) ? budget.remainingFen / 100 : null;
+      byId("budget-status").textContent = budget
+        ? `累计项目预算上限 ${budget.capCny ?? 100} CNY；已预留 ${budget.reservedCny ?? 0} CNY${remainingCny === null ? "" : `；剩余可预留 ${remainingCny} CNY`}。这不是账单。`
+        : "累计项目预算上限 100 CNY；此处显示预留额度，不是账单。";
+      const nativeChatUrl = state.corpus.access?.nativeChatUrl;
+      if (typeof nativeChatUrl === "string") byId("native-chat-link").href = nativeChatUrl;
+      setBusy(state.busy);
+    }
+
+    async function refreshBudgetAndAccess() {
+      try {
+        const current = await request("/api/corpus");
+        state.corpus = { ...state.corpus, budget: current.budget, access: current.access };
+        updateBudgetAndAccess();
+      } catch {
+        state.corpus = { ...state.corpus, budget: null };
+        byId("budget-status").textContent = "预算状态暂时不可用；旧额度数字已隐藏，请稍后刷新页面。";
+      }
+    }
+
+    async function loadCorpus() {
+      try {
+        state.corpus = await request("/api/corpus");
+        renderActive();
+        updateBudgetAndAccess();
+        if (!state.preview && state.corpus.pending?.length) renderPreview(state.corpus.pending.at(-1));
+      } catch (error) {
+        setStatus("wiki-status", "资料状态读取失败；未把错误显示为空资料。", true);
+      }
+    }
+
+    function toBase64(file) {
+      return file.arrayBuffer().then((buffer) => {
+        const bytes = new Uint8Array(buffer);
+        let binary = "";
+        for (let offset = 0; offset < bytes.length; offset += 32_768) binary += String.fromCharCode(...bytes.subarray(offset, offset + 32_768));
+        return btoa(binary);
+      });
+    }
+
+    async function importFiles(files) {
+      if (state.busy || state.corpus.access?.uploads === false || !files.length) return;
+      renderPreview(null);
+      setBusy(true);
+      setStatus("upload-status", "正在本机验证资料并生成预览…");
+      try {
+        if (files.length > 10) throw Object.assign(new Error("too many"), { code: "COURSE_WIKI_DOCUMENT_BATCH_INVALID" });
+        if (files.some((file) => !Number.isSafeInteger(file.size) || file.size < 0 || file.size > 2 * 1024 * 1024)) {
+          throw Object.assign(new Error("too large"), { code: "COURSE_WIKI_DOCUMENT_TOO_LARGE" });
+        }
+        const documents = [];
+        for (const file of files) documents.push({ name: file.name, base64: await toBase64(file) });
+        const preview = await request("/api/documents", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ documents }) });
+        renderPreview(preview);
+        setStatus("upload-status", preview.status === "active" ? "此资料版本已发布；未调用模型。" : "本机预览已就绪；尚未授权模型使用。", false);
+        if (preview.status === "active") await loadCorpus();
+      } catch (error) {
+        setStatus("upload-status", errorText(error), true);
+      } finally {
+        byId("file-input").value = "";
+        setBusy(false);
+      }
+    }
+
+    byId("file-input").addEventListener("change", (event) => importFiles([...event.target.files]));
+    const drop = byId("drop-zone");
+    for (const type of ["dragenter", "dragover"]) drop.addEventListener(type, (event) => { event.preventDefault(); drop.classList.add("dragging"); });
+    for (const type of ["dragleave", "drop"]) drop.addEventListener(type, (event) => { event.preventDefault(); drop.classList.remove("dragging"); });
+    drop.addEventListener("drop", (event) => importFiles([...event.dataTransfer.files]));
+    drop.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") byId("file-input").click(); });
+
+    byId("confirm-button").addEventListener("click", async () => {
+      const preview = state.preview;
+      if (state.busy || !preview || preview.status === "active") return;
+      setBusy(true);
+      setStatus("preview-status", "generating");
+      try {
+        await request(`/api/generations/${encodeURIComponent(preview.generationId)}/activate`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ version: 1, corpusDigest: preview.corpusDigest, provider: "deepseek", purpose: "wiki-and-qa", confirmed: true }),
+        });
+        preview.status = "active";
+        setStatus("preview-status", `active${preview.duplicate ? " · cached" : ""}`);
+        setStatus("upload-status", "此资料集合的模型使用已确认；完整 Wiki 已发布。", false);
+        await loadCorpus();
+      } catch (error) {
+        preview.status = "failed";
+        setStatus("preview-status", `failed · ${errorText(error)}`, true);
+      } finally {
+        await refreshBudgetAndAccess();
+        setBusy(false);
+      }
+    });
+
+    void loadCorpus();
+  </script>
+</body>
+</html>

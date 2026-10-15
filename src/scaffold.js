@@ -37,7 +37,7 @@ export async function scaffoldAgent(blueprint, outputDir, options = {}) {
   const operations = preflightScaffoldOperations(plan.operations);
   const stateText = serializeBuildState(state);
 
-  await assertTargetWritable(root, options.force === true);
+  await assertTargetWritable(root, options.force === true, blueprint.execution_profile === "native-chat");
   await assertNoExistingSymlink(root, [...operations.map((operation) => operation.relativePath), BUILD_STATE_FILENAME]);
 
   for (const operation of operations) {
@@ -133,13 +133,16 @@ function normalizeOutputRoot(outputDir) {
   return path.resolve(outputDir);
 }
 
-async function assertTargetWritable(outputDir, force) {
+async function assertTargetWritable(outputDir, force, nativeChat) {
   let entries = [];
   try {
     entries = await readdir(outputDir);
   } catch (error) {
     if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") return;
     throw error;
+  }
+  if (entries.length > 0 && nativeChat) {
+    throw new Error("Native-chat requires an empty output directory, even with --force. Existing files were preserved.");
   }
   if (entries.length > 0 && !force) {
     throw new Error(`Refusing to scaffold into non-empty directory: ${outputDir}. Pass --force to overwrite generated files.`);

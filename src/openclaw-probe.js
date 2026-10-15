@@ -17,6 +17,7 @@ import {
   loadAdmittedArtifact,
 } from "./artifact-admission.js";
 import { inspectAgentPackage } from "./package-inspect.js";
+import { probeNativeChatTarget } from "./native-chat-runtime.js";
 import {
   assertPersistable,
   serializePersistableJson,
@@ -118,6 +119,16 @@ export async function probeOpenClawTarget(options = {}) {
     retainedTarget = await retainTargetMembers(targetRoot, descriptor, admission);
 
     stage = "PRIVATE_EXECUTION";
+    const native = sourceAdmissions.blueprint.value.execution_profile === "native-chat";
+    let cliObservations = [];
+    if (native) {
+      privateRoot = await realpath(await mkdtemp(path.join(tmpdir(), "agentmo-native-probe-")));
+      await chmod(privateRoot, 0o700);
+      cliObservations = await probeNativeChatTarget({ descriptor,
+        executablePath: retainedTarget.members.find(({ role }) => role === "executable").absolutePath,
+        probeRoot: path.join(privateRoot, "probe"),
+        ...Object.hasOwn(sourceAdmissions.blueprint.value, "native_model_profile") ? { modelProfile: sourceAdmissions.blueprint.value.native_model_profile } : {} });
+    } else {
     const executionTransport = retainedExecutionTransport();
     privateRoot = await mkdtemp(path.join(tmpdir(), "agentmo-openclaw-probe-"));
     await chmod(privateRoot, 0o700);
@@ -172,7 +183,6 @@ export async function probeOpenClawTarget(options = {}) {
       OPENCLAW_WORKSPACE_DIR: syntheticWorkspace,
       TMPDIR: privateRoot,
     });
-    const cliObservations = [];
     for (const command of PROBE_COMMANDS) {
       await revalidateExecutionAuthority(
         retainedTarget,
@@ -190,6 +200,7 @@ export async function probeOpenClawTarget(options = {}) {
         descriptor,
         retainedExecution,
       );
+    }
     }
 
     stage = "RESULT";
@@ -231,7 +242,12 @@ export async function probeOpenClawTarget(options = {}) {
       observations: cliObservations,
       contractDigest: hashJson(cliObservations),
     };
-    const surfaces = {
+    const surfaces = native ? {
+      workspace: "package-only-not-installed",
+      agentRegistration: observationDigest(cliObservations, "agent-registration-command"),
+      config: observationDigest(cliObservations, "config-validation"),
+      tools: "declared-deny-all-not-runtime-certified",
+    } : {
       workspace: observationDigest(cliObservations, "skill-eligibility"),
       skills: observationDigest(cliObservations, "skill-eligibility"),
       plugins: "manifest-only-no-runtime-load",
@@ -247,7 +263,7 @@ export async function probeOpenClawTarget(options = {}) {
       ))
       .map(({ id }) => id);
     const required = {
-      observationIds: PROBE_COMMANDS.map(({ id }) => id),
+      observationIds: native ? ["version", "agent-registration-command", "config-validation"] : PROBE_COMMANDS.map(({ id }) => id),
       satisfiedObservationIds,
       allSatisfied: satisfiedObservationIds.length === PROBE_COMMANDS.length,
     };
@@ -272,6 +288,7 @@ export async function probeOpenClawTarget(options = {}) {
       operatorHomeObserved: false,
       operatorStateMutated: false,
     };
+    if (native) { isolation.boundary = "state-process-only"; isolation.privateExecutableCopy = false; }
     const compatibility = {
       exactArchiveMatch: true,
       exactTargetMatch: true,
@@ -296,6 +313,7 @@ export async function probeOpenClawTarget(options = {}) {
     };
     const basis = {
       schemaVersion: "agentmo.openclaw-probe-fingerprint-basis.v1",
+      ...(native ? { execution_profile: "native-chat" } : {}),
       status,
       producer,
       sourceBindings,
@@ -311,6 +329,7 @@ export async function probeOpenClawTarget(options = {}) {
     };
     const candidate = {
       schemaVersion: OPENCLAW_PROBE_SCHEMA_VERSION,
+      ...(native ? { execution_profile: "native-chat" } : {}),
       status,
       fingerprintDigest: hashJson(basis),
       producer,
@@ -329,7 +348,7 @@ export async function probeOpenClawTarget(options = {}) {
         "Installation, runtime behavior, domain quality, and production readiness require separate evidence.",
       ],
     };
-    const validation = validateOpenClawProbe(candidate, { sources: sourceBindings });
+    const validation = validateOpenClawProbe(candidate, { sources: sourceBindings, ...(native ? { execution_profile: "native-chat" } : {}) });
     if (!validation.ok) fail("AGENTMO_OPENCLAW_PROBE_RESULT_INVALID");
     assertPersistable(candidate, { subject: "openclaw-probe" });
     return deepFreeze(candidate);
@@ -345,7 +364,9 @@ export async function probeOpenClawTarget(options = {}) {
 }
 
 function assertArchiveSourceClosure(manifest, sources, carrier) {
-  if (manifest?.sourceBindings?.blueprintDigest !== sources.blueprint.digest
+  const profile = sources.blueprint.value.execution_profile;
+  if (manifest.execution_profile !== profile || sources["build-contract"].value.execution_profile !== profile || carrier.execution_profile !== profile
+    || manifest?.sourceBindings?.blueprintDigest !== sources.blueprint.digest
     || manifest?.sourceBindings?.buildContractDigest !== sources["build-contract"].digest
     || manifest?.sourceBindings?.planApprovalDigest !== sources["plan-approval"].digest
     || carrier?.authorities?.blueprintDigest !== sources.blueprint.digest

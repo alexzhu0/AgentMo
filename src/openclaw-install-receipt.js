@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { open, readFile } from "node:fs/promises";
 import path from "node:path";
+import { validateNativeChatBinding } from "./openclaw-install-plan.js";
 import {
   isAdmittedOpenClawInstallFinalizationEvidence,
   isAdmittedOpenClawInstallPostStateEvidence,
@@ -122,6 +123,7 @@ const POST_EFFECT_EVIDENCE_KEYS = [
 ];
 
 export function validateOpenClawInstallReceipt(value, context = undefined) {
+  if (value?.execution_profile === "native-chat") return validateNativeInstallReceipt(value, context);
   const errors = [];
   if (!plainObject(value) || !sameKeys(value, RECEIPT_KEYS)) {
     return result(["shape"]);
@@ -170,6 +172,35 @@ export function validateOpenClawInstallReceipt(value, context = undefined) {
     }
   }
   return result(errors);
+}
+
+function validateNativeInstallReceipt(value, context) {
+  const fail = () => result(["native-install-receipt"]);
+  if (!sameKeys(value, ["schemaVersion", "execution_profile", "lifecycle", "status", "installPlanDigest", "archiveDigest", "binding",
+    "authorityBindingDigest", "consumptionDigest", "rootIdentity", "managedFiles", "commandResults", "failureCode", "certificationBoundary"])
+    || value.schemaVersion !== OPENCLAW_INSTALL_RECEIPT_SCHEMA_VERSION || value.lifecycle !== "install"
+    || !["complete", "incomplete"].includes(value.status) || !validateNativeChatBinding(value.binding)
+    || [value.installPlanDigest, value.archiveDigest, value.authorityBindingDigest, value.consumptionDigest].some(v => !DIGEST_PATTERN.test(v ?? ""))
+    || (value.rootIdentity !== null && (!sameKeys(value.rootIdentity, ["device", "inode", "birthtimeNs"])
+      || Object.values(value.rootIdentity).some(v => typeof v !== "string" || !/^(0|[1-9][0-9]*)$/u.test(v))))
+    || !Array.isArray(value.managedFiles) || !Array.isArray(value.commandResults) || value.commandResults.length > 3) return fail();
+  const actions = ["process:native-setup-baseline", "process:native-agents-list", "process:native-config-validate"];
+  if (value.commandResults.some((r, i) => !sameKeys(r, ["actionId", "actionDigest", "stdoutDigest", "stderrDigest"])
+    || r.actionId !== actions[i] || [r.actionDigest, r.stdoutDigest, r.stderrDigest].some(d => !DIGEST_PATTERN.test(d ?? "")))) return fail();
+  const files = [`${value.binding.agentDir}/settings.json`, "config.json", "workspace/AGENTS.md", "workspace/IDENTITY.md", "workspace/SOUL.md", "workspace/USER.md"].sort();
+  if (value.managedFiles.some(r => !sameKeys(r, ["path", "digest"]) || !files.includes(r.path) || !DIGEST_PATTERN.test(r.digest ?? ""))) return fail();
+  const complete = value.status === "complete";
+  if (!sameKeys(value.certificationBoundary, ["installed", "active", "runtime", "domain", "birth", "delivery", "production"])
+    || value.certificationBoundary.installed !== complete
+    || ["active", "runtime", "domain", "birth", "delivery", "production"].some(k => value.certificationBoundary[k] !== false)
+    || (complete ? value.rootIdentity === null || value.failureCode !== null || value.commandResults.length !== 3
+      || JSON.stringify(value.managedFiles.map(r => r.path)) !== JSON.stringify(files)
+      : value.failureCode !== "AGENTMO_NATIVE_INSTALL_INCOMPLETE" || value.managedFiles.length !== 0)) return fail();
+  // Native receipts need their own live-state admission; never pass legacy companion closures.
+  if (context !== undefined) return fail();
+  try { assertPersistable(value, { subject: "openclaw-install-receipt" }); }
+  catch { return fail(); }
+  return result([]);
 }
 
 export function validateOpenClawInstallJournal(value) {

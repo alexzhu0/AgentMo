@@ -43,13 +43,25 @@ describe("Node 20 core runner fail-closed contract", () => {
     assert.doesNotMatch(helper, /\b(?:curl|wget|brew|apt|npx|npm install|npm add|npm exec)\b/iu);
   });
 
-  it("syntax-checks the shipped Candidate and Decision Entry writer modules in the owned Node 20 batch", async () => {
+  it("syntax-checks every newly shipped generic contract in the owned Node 20 batch", async () => {
     const { OWNED_COMMAND_MANIFEST } = await loadReceiptModule();
     const syntax = OWNED_COMMAND_MANIFEST.find(({ id }) => id === "syntax");
     assert.equal(syntax.files.includes("src/agent-idea-candidate-cli.js"), true);
     assert.equal(syntax.files.includes("src/agent-idea-candidate.js"), true);
+    assert.equal(syntax.files.includes("src/behavior-evidence.js"), true);
     assert.equal(syntax.files.includes("src/decision-entry-canonicalizer.js"), true);
-    assert.deepEqual(syntax.expected, { pass: 43, skip: 0, fail: 0, total: 43 });
+    assert.equal(syntax.files.includes("src/artifact-contract.js"), true);
+    assert.equal(syntax.files.includes("src/build-contract.js"), true);
+    assert.equal(syntax.files.includes("src/native-chat-files.js"), true);
+    assert.equal(syntax.files.includes("src/native-chat-authority.js"), true);
+    assert.equal(syntax.files.includes("src/cli-help.js"), true);
+    assert.equal(syntax.files.includes("src/native-chat-runtime.js"), true);
+    assert.equal(syntax.files.includes("src/native-chat-install-cli.js"), true);
+    assert.equal(syntax.files.includes("src/native-chat-cli.js"), true);
+    assert.equal(syntax.files.includes("src/native-chat-proxy.js"), true);
+    assert.equal(syntax.files.includes("src/native-chat-model-profile.js"), true);
+    assert.equal(syntax.files.includes("src/course-wiki-budget.js"), true);
+    assert.deepEqual(syntax.expected, { pass: 55, skip: 0, fail: 0, total: 55 });
   });
 
   it("requires every explicit provenance input and never searches PATH", async () => {
@@ -246,12 +258,14 @@ describe("Node 20 core runner fail-closed contract", () => {
       "test/runtime-compatibility-seams.test.js",
       "test/node20-core-lane.test.js",
       "test/design-plan.test.js",
+      "test/native-chat-acceptance.test.js",
+      "test/native-chat-minimax.test.js",
     ]);
     assert.deepEqual(coreContracts.expected, {
-      pass: 86,
-      skip: 1,
+      pass: 90,
+      skip: 7,
       fail: 0,
-      total: 87,
+      total: 97,
     });
     assert.deepEqual(OWNED_COMMAND_MANIFEST.at(-1).expected, {
       pass: 3,
@@ -271,10 +285,10 @@ describe("Node 20 core runner fail-closed contract", () => {
       buildNode20Receipt,
     } = await loadReceiptModule();
     const receipt = buildNode20Receipt(receiptInput(COMMAND_SET_DIGEST, {
-      pass: 86,
-      skip: 1,
+      pass: 90,
+      skip: 7,
       fail: 0,
-      total: 87,
+      total: 97,
     }));
 
     assert.deepEqual(Object.keys(receipt), [
@@ -311,10 +325,10 @@ describe("Node 20 core runner fail-closed contract", () => {
       buildNode20Receipt,
     } = await loadReceiptModule();
     const receipt = buildNode20Receipt(receiptInput(COMMAND_SET_DIGEST, {
-      pass: 86,
-      skip: 1,
+      pass: 90,
+      skip: 7,
       fail: 0,
-      total: 87,
+      total: 97,
     }));
 
     assert.equal(assertNode20Receipt(receipt), receipt);
@@ -358,7 +372,7 @@ function receiptInput(commandSetDigest, coreCounts) {
     },
     commandSetDigest,
     batches: [
-      { id: "syntax", pass: 43, skip: 0, fail: 0, total: 43 },
+      { id: "syntax", pass: 55, skip: 0, fail: 0, total: 55 },
       { id: "core-contracts", ...coreCounts },
       { id: "stage-contracts", pass: 3, skip: 2, fail: 0, total: 5 },
     ],

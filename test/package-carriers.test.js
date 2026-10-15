@@ -11,7 +11,7 @@ import {
   selectPackageCarriers,
 } from "../src/package-carriers.js";
 import { serializePersistableJson } from "../src/persistability.js";
-import { buildSupportContractInputs } from "./helpers/build-contract-fixture.js";
+import { buildSupportContractInputs, buildNativeChatContractInputs } from "./helpers/build-contract-fixture.js";
 
 const ABSTRACT_HOOKS = [
   "after-attempt",
@@ -91,6 +91,30 @@ async function reapprovedSuccessor() {
 }
 
 describe("lowest-trust package carrier selection", () => {
+  it("selects native runtime without plugin, skill, hook or MCP authority", async () => {
+    const inputs = await buildNativeChatContractInputs();
+    const contract = buildBuildContract(inputs.values.blueprint, inputs.values.designPlan,
+      inputs.values.discoveryApproval, inputs.values.decisionLedger,
+      { target: "openclaw", admissions: inputs.admissions });
+    const carrier = assertApprovedHookCarrierConsistency(contract);
+    assert.equal(carrier.carrier, "native-runtime");
+    assert.equal(carrier.owner, "openclaw");
+    assert.equal(carrier.recipe, null);
+    assert.deepEqual(carrier.hooks, []);
+    const selection = selectPackageCarriers(contract);
+    assert.equal(selection.execution_profile, "native-chat");
+    assert.equal(selection.entries.length, 22);
+    assert.equal(selection.mcpCarrierCount, 0);
+    assert.equal(selection.entries.some((e) => ["skill", "native-plugin", "mcp"].includes(e.carrier)), false);
+    for (const kind of ["harness", "agent-loop", "runtime-binding"]) {
+      const entry = selection.entries.find((e) => e.resourceId === `resource:${kind}`);
+      assert.equal(entry.carrier, "native-runtime");
+      assert.equal(entry.owner, "openclaw");
+    }
+    const mixed = structuredClone(contract);
+    delete mixed.execution_profile;
+    assert.throws(() => selectPackageCarriers(mixed));
+  });
   it("fails the current exact Phase 3 contract because no bundled hook owner is approved", async () => {
     const contract = await currentContract();
     assert.equal(validateBuildContract(contract).ok, true);

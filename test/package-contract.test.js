@@ -153,6 +153,46 @@ function packageFixture() {
 }
 
 describe("canonical Agent Package contract", () => {
+  it("requires a complete native profile and rejects elevated or mixed carriers", () => {
+    const manifest = packageFixture();
+    manifest.execution_profile = "native-chat";
+    const kinds = ["prompt", "workspace-context", "skills", "tools", "tool-policy", "plugins",
+      "memory", "rag", "storage", "schedules", "harness", "agent-loop", "runtime-binding",
+      "permissions", "trust-boundaries", "secrets", "install-transition", "load-transition",
+      "execute-transition", "recovery", "acceptance-cases", "evidence-obligations"].sort();
+    const base = manifest.capabilityLedger[2];
+    manifest.members = kinds.map((kind) => member(`resources/${kind}.json`, "{}\n"));
+    manifest.capabilityLedger = kinds.map((kind, index) => {
+      const runtime = ["harness", "agent-loop", "runtime-binding"].includes(kind);
+      return {
+        ...structuredClone(base), capabilityId: `resource:${kind}`, resourceId: `resource:${kind}`,
+        carrier: runtime ? "native-runtime" : "workspace-content",
+        owner: runtime ? "openclaw" : "agent-package", trust: runtime ? "runtime-owned" : "workspace-content",
+        necessity: ["skills", "plugins", "memory", "rag", "schedules"].includes(kind) ? "disabled" : "portable-declarative-resource",
+        memberPaths: [manifest.members[index].relativePath],
+      };
+    });
+    manifest.capabilityIds = manifest.capabilityLedger.map((e) => e.capabilityId);
+    manifest.inventoryDigest = inventoryDigest(manifest.members);
+    manifest.ownership.managedMemberPaths = manifest.members.map((m) => m.relativePath);
+    assert.deepEqual(validateAgentPackageManifest(manifest), { ok: true, errors: [] });
+    for (const mutate of [
+      (m) => { delete m.execution_profile; },
+      (m) => { m.execution_profile = null; },
+      (m) => { m.capabilityLedger[1].owner = "agentmo-openclaw-harness"; },
+      (m) => { m.capabilityLedger[1].carrier = "workspace-content"; },
+      (m) => { m.capabilityLedger[1].recipeDigest = sha256("recipe"); },
+      (m) => { m.capabilityLedger[1].targetMapping.event = "agent_end"; },
+      (m) => { m.capabilityLedger.find((e) => e.resourceId === "resource:skills").carrier = "skill"; },
+      (m) => { m.capabilityLedger.find((e) => e.resourceId === "resource:plugins").necessity = "required"; },
+      (m) => { m.capabilityIds.pop(); m.capabilityLedger.pop(); },
+    ]) {
+      const changed = structuredClone(manifest); mutate(changed);
+      assert.equal(validateAgentPackageManifest(changed).ok, false);
+    }
+    const relabeled = packageFixture(); relabeled.execution_profile = "native-chat";
+    assert.equal(validateAgentPackageManifest(relabeled).ok, false);
+  });
   it("validates a target-neutral manifest, capability ledger, and D-42 member closure", () => {
     const manifest = packageFixture();
     assert.equal(AGENT_PACKAGE_SCHEMA_VERSION, "agentmo.package-manifest.v1");

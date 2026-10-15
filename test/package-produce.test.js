@@ -25,6 +25,112 @@ import {
   packageProduceOptions,
 } from "./helpers/package-produce-fixture.js";
 import { NATIVE_OPENCLAW_FS } from "./helpers/native-openclaw-fs.js";
+import { inspectAgentPackage } from "../src/package-inspect.js";
+
+describe("native-chat formal package", () => {
+  it("rejects rehashed admission target drift before publishing any output", async () => {
+    const need = JSON.parse(await readFile(new URL("../examples/support-triage.need.json", import.meta.url)));
+    const fixture = await buildApprovedPackageFixture({ userNeed: { ...need, execution_profile: "native-chat" } });
+    const admissionPath = fixture.paths["openclaw-target-carrier-admission"];
+    const original = JSON.parse(await readFile(admissionPath, "utf8"));
+    for (const [field, replacement] of Object.entries({
+      version: "9999.1.0", nodeRange: ">=99", executableDigest: digestBytes("different executable"),
+      packageJsonDigest: digestBytes("different package"), buildInfoDigest: digestBytes("different build"),
+      targetRootDigest: digestBytes("different closure"),
+    })) {
+      const changed = structuredClone(original);
+      changed.target[field] = replacement;
+      const bytes = Buffer.from(`${JSON.stringify(changed, null, 2)}\n`);
+      await writeFile(admissionPath, bytes);
+      fixture.digests["openclaw-target-carrier-admission"] = digestBytes(bytes);
+      const options = packageProduceOptions(fixture, path.join(fixture.root, `drift-${field}`), path.join(fixture.root, `drift-${field}.d42`));
+      await assert.rejects(produceAgentPackage(options), { code: "AGENTMO_UNSUPPORTED_ARTIFACT" });
+      await assert.rejects(access(options.outputRoot));
+      await assert.rejects(access(options.archivePath));
+    }
+  });
+  it("uses public native describe, admit and Produce commands without Linux authority", async () => {
+    const need = JSON.parse(await readFile(new URL("../examples/support-triage.need.json", import.meta.url)));
+    const fixture = await buildApprovedPackageFixture({ userNeed: { ...need, execution_profile: "native-chat" } });
+    const run = (args) => spawnSync(process.execPath, ["bin/agentmo.js", ...args, "--json"], {
+      cwd: path.resolve("."), encoding: "utf8", env: { PATH: process.env.PATH, TZ: "UTC", LANG: "C" },
+    });
+    const targets = [];
+    for (const [flag, key, subject] of [["--target-executable", "executablePath", "target-executable"],
+      ["--target-package-json", "packageJsonPath", "target-package-json"], ["--target-build-info", "buildInfoPath", "target-build-info"]]) {
+      targets.push(flag, fixture.inputs.targetFiles[key], "--digest", `${subject}=${digestBytes(await readFile(fixture.inputs.targetFiles[key]))}`);
+    }
+    const described = run(["openclaw-target-describe", ...targets, "--blueprint", fixture.paths.blueprint,
+      "--digest", `blueprint=${fixture.digests.blueprint}`, "--out", path.join(fixture.root, "described.json")]);
+    assert.equal(described.status, 0, described.stderr || described.stdout);
+    const admitted = run(["openclaw-target-admit", fixture.paths.blueprint, ...targets,
+      "--build-contract", fixture.paths["build-contract"], "--plan-approval", fixture.paths["plan-approval"],
+      "--target-descriptor", fixture.paths["openclaw-target-descriptor"],
+      ...["blueprint", "build-contract", "plan-approval", "openclaw-target-descriptor"].flatMap((s) => ["--digest", `${s}=${fixture.digests[s]}`]),
+      "--out", path.join(fixture.root, "admitted.json")]);
+    assert.equal(admitted.status, 0, admitted.stderr || admitted.stdout);
+    const produced = run(["package-produce", fixture.paths.blueprint,
+      ...["design-plan", "discovery-approval", "decision-ledger", "build-contract", "plan-approval"].flatMap((s) => [`--${s}`, fixture.paths[s]]),
+      "--target-descriptor", fixture.paths["openclaw-target-descriptor"],
+      "--target-carrier-admission", fixture.paths["openclaw-target-carrier-admission"],
+      ...Object.entries(fixture.digests).flatMap(([s, digest]) => ["--digest", `${s}=${digest}`]),
+      "--out", path.join(fixture.root, "cli-package"), "--archive", path.join(fixture.root, "cli.d42")]);
+    assert.equal(produced.status, 0, produced.stderr || produced.stdout);
+    assert.equal(JSON.parse(produced.stdout).certificationBoundary.runtime, false);
+  });
+  it("packages distinct Chinese blueprints deterministically without plugin or domain boilerplate", async () => {
+    const baseNeed = JSON.parse(await readFile(new URL("../examples/support-triage.need.json", import.meta.url)));
+    for (const [id, purpose, failure] of [
+      ["meeting-notes", "把会议文字整理成摘要、决策、待办和未决问题", "禁止编造负责人和日期"],
+      ["writing-coach", "帮助用户把中文段落改写得简洁清楚", "不得改变原文事实"],
+    ]) {
+      const fixture = await buildApprovedPackageFixture({ userNeed: {
+        ...baseNeed, agent_id: id, execution_profile: "native-chat", problem: purpose,
+        primary_tasks: [purpose], success_criteria: ["保留原始事实"], hard_failures: [failure],
+      } });
+      const root = path.join(fixture.root, "native-package");
+      const archivePath = path.join(fixture.root, "native.d42");
+      const options = packageProduceOptions(fixture, root, archivePath);
+      const result = await produceAgentPackage(options);
+      const second = await produceAgentPackage(packageProduceOptions(fixture,
+        path.join(fixture.root, "second"), path.join(fixture.root, "second.d42")));
+      assert.equal(second.archiveDigest, result.archiveDigest);
+      assert.deepEqual(await readFile(second.archivePath), await readFile(archivePath));
+      const manifest = JSON.parse(await readFile(path.join(root, "agentmo.package.json"), "utf8"));
+      assert.equal(manifest.execution_profile, "native-chat");
+      assert.equal(manifest.members.some((m) => /SKILL\.md|MEMORY\.md|\/plugins\/|\/hooks\/|schedule-proposals/u.test(m.relativePath)), false);
+      const instructions = await readFile(path.join(root, "projections/openclaw/workspace/AGENTS.md"), "utf8");
+      assert.ok(instructions.includes(purpose));
+      assert.ok(instructions.includes(failure));
+      assert.equal(instructions.includes("support-triage"), false);
+      assert.equal(instructions.includes(fixture.root), false);
+      const inspection = await inspectAgentPackage({ packagePath: archivePath, expectedArchiveDigest: result.archiveDigest });
+      assert.equal(inspection.manifest.execution_profile, "native-chat");
+      assert.equal(inspection.targetOperations.some((o) => ["resource:plugins", "resource:schedules"].includes(o.capabilityId)), false);
+      assert.equal(result.certificationBoundary.installed, false);
+      await assert.rejects(produceAgentPackage(options));
+      const invalid = packageProduceOptions(fixture, path.join(fixture.root, "bad"), path.join(fixture.root, "bad.d42"));
+      await assert.rejects(produceAgentPackage({ ...invalid, ...fixture.publication }));
+      await assert.rejects(access(invalid.outputRoot));
+      invalid.artifacts.planApproval.expectedDigest = digestBytes(Buffer.from("stale"));
+      await assert.rejects(produceAgentPackage(invalid));
+      await assert.rejects(access(invalid.outputRoot));
+    }
+  });
+  it("retains an interrupted native publication without producing an installable archive", async () => {
+    const need = JSON.parse(await readFile(new URL("../examples/support-triage.need.json", import.meta.url)));
+    const fixture = await buildApprovedPackageFixture({ userNeed: { ...need, execution_profile: "native-chat" } });
+    const root = path.join(fixture.root, "interrupted");
+    const archive = path.join(fixture.root, "interrupted.d42");
+    const options = packageProduceOptions(fixture, root, archive);
+    await assert.rejects(produceAgentPackage(options, { afterArchiveBuild: () => { throw new Error("injected interruption"); } }), /injected interruption/u);
+    const before = await readFile(path.join(root, "agentmo.package.json"));
+    await assert.rejects(access(archive));
+    await assert.rejects(produceAgentPackage(options));
+    assert.deepEqual(await readFile(path.join(root, "agentmo.package.json")), before);
+    await assert.rejects(readPackageArchiveInventory({ archivePath: archive, expectedArchiveDigest: digestBytes(before) }));
+  });
+});
 
 describe("exact approved package Produce", {
   skip: !NATIVE_OPENCLAW_FS,

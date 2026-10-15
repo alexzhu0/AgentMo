@@ -332,6 +332,14 @@ function buildSourceValidationContext(subject, value, companions, actualDigest) 
       },
     };
   }
+  if (subject === "delivery-report" && value.execution_profile === "native-chat") {
+    const acceptance = requiredSubjects.includes("native-chat-acceptance");
+    return {
+      blueprint: valueFor("blueprint"),
+      nativeChat: { packageManifest: valueFor("package-manifest"), activationPlan: valueFor("openclaw-install-plan"), installReceipt: valueFor("openclaw-install-receipt"), acceptance: acceptance ? valueFor("native-chat-acceptance") : null },
+      sources: { blueprint: provenanceFor("blueprint"), packageManifest: provenanceFor("package-manifest"), activationPlan: provenanceFor("openclaw-install-plan"), installReceipt: provenanceFor("openclaw-install-receipt"), acceptance: acceptance ? provenanceFor("native-chat-acceptance") : null },
+    };
+  }
   if (subject === "delivery-report") {
     const hasDomainEval = requiredSubjects.includes("domain-eval");
     return {
@@ -372,6 +380,7 @@ function buildSourceValidationContext(subject, value, companions, actualDigest) 
     const targetDescriptor = provenanceFor("openclaw-target-descriptor");
     const carrierValue = valueFor("openclaw-target-carrier-admission");
     return {
+      ...(carrierValue?.execution_profile === "native-chat" ? { execution_profile: "native-chat" } : {}),
       sources: {
         archive: {
           identity: "agentmo.package-archive.v1",

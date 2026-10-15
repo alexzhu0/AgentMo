@@ -5,6 +5,7 @@ import {
   open,
 } from "node:fs/promises";
 import path from "node:path";
+import { writeNativeChatFile } from "./native-chat-files.js";
 import { publishOpenClawSafeFsObject } from "./openclaw-safe-fs.js";
 import {
   PersistabilityError,
@@ -280,11 +281,21 @@ export async function writeOpenClawTargetDescriptor(
   if (typeof filePath !== "string" || filePath.length === 0 || filePath.includes("\0")) {
     throw new PersistabilityError("AGENTMO_PERSISTABILITY_INVALID_OUTPUT_PATH");
   }
-  assertPublicationAuthority(publicationAuthority);
   assertPublicationHooks(hooks);
   const bytes = serializePersistableJson(descriptor, {
     subject: "openclaw-target-descriptor",
   });
+  if (plainObject(publicationAuthority) && hasExactKeys(publicationAuthority, ["blueprintAdmission"])) {
+    const admission = publicationAuthority.blueprintAdmission;
+    const { admittedArtifactProvenance } = await import("./artifact-admission.js");
+    admittedArtifactProvenance(admission, { subject: "blueprint", value: admission?.value });
+    if (admission.value.execution_profile !== "native-chat" || Object.keys(hooks).length !== 0) {
+      throw new PersistabilityError("AGENTMO_PERSISTABILITY_PUBLICATION_AUTHORITY_REQUIRED");
+    }
+    await writeNativeChatFile({ filePath: path.resolve(filePath), bytes: Buffer.from(bytes, "utf8") });
+    return filePath;
+  }
+  assertPublicationAuthority(publicationAuthority);
   const expectedDigest = digestRawBytes(Buffer.from(bytes, "utf8"));
   const outputPath = path.resolve(filePath);
   const stagePath = `${outputPath}.agentmo-stage-${process.pid}-${randomUUID()}`;

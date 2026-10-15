@@ -140,6 +140,40 @@ function runCli(args) {
 }
 
 describe("blueprint draft", () => {
+  it("propagates native-chat and Chinese requirements without invented capabilities", async () => {
+    const inputs = await supportApprovedPlanInputs();
+    const need = { ...inputs.userNeed.value, execution_profile: "native-chat", problem: "整理会议文字，输出纪要和待办，不编造负责人或日期。" };
+    need.primary_tasks = need.primary_tasks.map((_, i) => `整理会议事项 ${i + 1}`);
+    need.hard_failures = need.hard_failures.map((_, i) => `不得编造会议内容 ${i + 1}`);
+    inputs.userNeed = await admitValue(need, "user-need");
+    const plan = buildApprovedDesignPlan(inputs);
+    const designPlan = await admitValue(plan, "design-plan");
+    const blueprint = draftBlueprint(inputs.discoveryDb.value, inputs.userNeed.value, {
+      target: "openclaw", designPlan: designPlan.value,
+      admissions: { discoveryDb: inputs.discoveryDb, userNeed: inputs.userNeed, designPlan },
+    });
+    assert.equal(blueprint.execution_profile, "native-chat");
+    assert.deepEqual(blueprint.tools, []);
+    assert.deepEqual(blueprint.architecture.specialists, []);
+    assert.deepEqual(blueprint.domain_genome.task_classes, need.primary_tasks);
+    assert.deepEqual(blueprint.domain_genome.hard_failures, need.hard_failures);
+    assert.deepEqual(blueprint.eval.hard_failures, need.hard_failures);
+    assert.equal(blueprint.domain_genome.purpose, need.problem);
+    assert.equal(blueprint.design_contract.provenance.reviewed, false);
+    assert.equal(blueprint.stage2_planning.authority, "draft-non-authoritative");
+    assert.equal(validateBlueprint(blueprint).ok, true);
+    const root = await mkdtemp(path.join(tmpdir(), "agentmo-native-chat-draft-"));
+    await writeBlueprintDraft(path.join(root, "draft.json"), blueprint);
+    assert.equal((await admitFile(path.join(root, "draft.json"), "blueprint")).value.execution_profile, "native-chat");
+    const legacyPlan = structuredClone(plan);
+    delete legacyPlan.execution_profile;
+    assert.throws(() => draftBlueprint(inputs.discoveryDb.value, inputs.userNeed.value, { target: "openclaw", designPlan: legacyPlan }), /execution_profile/u);
+    const legacyNeed = { ...need };
+    delete legacyNeed.execution_profile;
+    assert.throws(() => draftBlueprint(inputs.discoveryDb.value, legacyNeed, { target: "openclaw", designPlan: plan }), /execution_profile/u);
+    assert.throws(() => draftBlueprint(inputs.discoveryDb.value, need, { target: "agentmo" }), /native-chat/u);
+  });
+
   it("drafts a valid blueprint from discovery db plus user need", async () => {
     const admissions = await supportAdmissions();
     const discoveryDb = admissions.discoveryDb.value;

@@ -9,6 +9,7 @@ import {
   AGENT_IDEA_CANDIDATE_SCHEMA_VERSION,
   AGENT_IDEA_CANDIDATE_TEXT_PATTERN_SOURCE,
 } from "./agent-idea-candidate.js";
+import { NATIVE_CHAT_ACCEPTANCE_SCHEMA_VERSION, NATIVE_CHAT_CASES } from "./behavior-evidence.js";
 import { createHash } from "node:crypto";
 import { AGENT_PACKAGE_SCHEMA_VERSION } from "./package-contract.js";
 import { OPENCLAW_PROBE_SCHEMA_VERSION } from "./openclaw-probe-contract.js";
@@ -333,6 +334,8 @@ const USER_NEED_CONTRACT = deepFreeze({
     ],
     properties: {
       schemaVersion: { const: "agentmo.user-need.v1" },
+      execution_profile: { enum: ["native-chat"] },
+      native_model_profile: { const: "minimax-m3-cn-v1" },
       agent_id: NON_EMPTY_STRING,
       domain: NON_EMPTY_STRING,
       problem: NON_EMPTY_STRING,
@@ -423,13 +426,25 @@ const OPENCLAW_TARGET_CARRIER_ADMISSION_CONTRACT = deepFreeze({
     ],
     properties: {
       schemaVersion: { const: "agentmo.openclaw-target-carrier-admission.v1" },
-      decision: { const: "admit-exact-target-and-native-plugin-recipe" },
+      execution_profile: { const: "native-chat" },
+      decision: { enum: ["admit-exact-target-and-native-plugin-recipe", "admit-exact-target-and-native-runtime"] },
       target: { type: "object", additionalProperties: false },
       authorities: { type: "object", additionalProperties: false },
       carrier: { type: "object", additionalProperties: false },
-      hookMappings: { type: "array", minItems: 4, maxItems: 4 },
+      hookMappings: { type: "array", maxItems: 4 },
       certificationBoundary: { type: "object", additionalProperties: false },
     },
+    allOf: [{
+      if: { required: ["execution_profile"] },
+      then: { properties: {
+        decision: { const: "admit-exact-target-and-native-runtime" },
+        hookMappings: { maxItems: 0 },
+      } },
+      else: { properties: {
+        decision: { const: "admit-exact-target-and-native-plugin-recipe" },
+        hookMappings: { minItems: 4 },
+      } },
+    }],
   },
   minimalTemplate: {
     schemaVersion: "agentmo.openclaw-target-carrier-admission.v1",
@@ -510,6 +525,7 @@ const PACKAGE_MANIFEST_CONTRACT = deepFreeze({
     ],
     properties: {
       schemaVersion: { const: AGENT_PACKAGE_SCHEMA_VERSION },
+      execution_profile: { const: "native-chat" },
       packageId: { type: "string", pattern: "^[a-z0-9][a-z0-9._:-]{0,127}$" },
       packageVersion: {
         type: "string",
@@ -582,7 +598,7 @@ const PACKAGE_MANIFEST_CONTRACT = deepFreeze({
           properties: {
             capabilityId: { type: "string", pattern: "^[a-z0-9][a-z0-9._:-]{0,127}$" },
             resourceId: { type: "string", pattern: "^[a-z0-9][a-z0-9._:-]{0,127}$" },
-            carrier: { enum: ["workspace-content", "skill", "native-plugin", "mcp"] },
+            carrier: { enum: ["workspace-content", "skill", "native-plugin", "mcp", "native-runtime"] },
             owner: { type: "string", pattern: "^[a-z0-9][a-z0-9._:-]{0,127}$" },
             necessity: { type: "string", minLength: 1, maxLength: 512 },
             trust: { type: "string", minLength: 1, maxLength: 512 },
@@ -703,6 +719,7 @@ const OPENCLAW_PROBE_CONTRACT = deepFreeze({
     ],
     properties: {
       schemaVersion: { const: OPENCLAW_PROBE_SCHEMA_VERSION },
+      execution_profile: { const: "native-chat" },
       status: { enum: ["compatible", "incompatible"] },
       fingerprintDigest: { type: "string", pattern: "^sha256:[a-f0-9]{64}$" },
       producer: { type: "object" },
@@ -722,7 +739,7 @@ const OPENCLAW_PROBE_CONTRACT = deepFreeze({
   minimalTemplate: openClawProbeMinimalTemplate(),
 });
 
-const OPENCLAW_INSTALL_RECEIPT_CONTRACT = deepFreeze({
+const LEGACY_OPENCLAW_INSTALL_RECEIPT_CONTRACT = deepFreeze({
   schemaVersion: "agentmo.artifact-contract.v1",
   subject: "openclaw-install-receipt",
   identity: OPENCLAW_INSTALL_RECEIPT_SCHEMA_VERSION,
@@ -773,6 +790,32 @@ const OPENCLAW_INSTALL_RECEIPT_CONTRACT = deepFreeze({
   minimalTemplate: openClawInstallReceiptMinimalTemplate(),
 });
 
+const OPENCLAW_INSTALL_RECEIPT_CONTRACT = deepFreeze({
+  ...LEGACY_OPENCLAW_INSTALL_RECEIPT_CONTRACT,
+  jsonSchema: {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    title: "AgentMo OpenClaw Install Receipt",
+    oneOf: [LEGACY_OPENCLAW_INSTALL_RECEIPT_CONTRACT.jsonSchema, {
+      type: "object", additionalProperties: false,
+      required: ["schemaVersion", "execution_profile", "lifecycle", "status", "installPlanDigest", "archiveDigest", "binding",
+        "authorityBindingDigest", "consumptionDigest", "rootIdentity", "managedFiles", "commandResults", "failureCode", "certificationBoundary"],
+      properties: {
+        schemaVersion: { const: OPENCLAW_INSTALL_RECEIPT_SCHEMA_VERSION }, execution_profile: { const: "native-chat" },
+        lifecycle: { const: "install" }, status: { enum: ["complete", "incomplete"] },
+        ...Object.fromEntries(["installPlanDigest", "archiveDigest", "authorityBindingDigest", "consumptionDigest"].map(k => [k, { type: "string", pattern: "^sha256:[a-f0-9]{64}$" }])),
+        binding: { type: "object" }, rootIdentity: { type: ["object", "null"] },
+        managedFiles: { type: "array", maxItems: 6 }, commandResults: { type: "array", maxItems: 3 },
+        failureCode: { enum: [null, "AGENTMO_NATIVE_INSTALL_INCOMPLETE"] },
+        certificationBoundary: {
+          type: "object", additionalProperties: false,
+          required: ["installed", "active", "runtime", "domain", "birth", "delivery", "production"],
+          properties: { installed: { type: "boolean" }, ...Object.fromEntries(["active", "runtime", "domain", "birth", "delivery", "production"].map(k => [k, { const: false }])) },
+        },
+      },
+    }],
+  },
+});
+
 const OPENCLAW_INSTALL_PRIVATE_JOURNAL_CONTRACT = lifecycleContract(
   "openclaw-install-private-journal",
   OPENCLAW_INSTALL_PRIVATE_JOURNAL_SCHEMA_VERSION,
@@ -807,12 +850,51 @@ const OPENCLAW_ABSENT_GENESIS_CONTRACT = lifecycleContract(
   "AgentMo OpenClaw Verified Absent Genesis",
   LIFECYCLE_TEMPLATES.genesis,
 );
-const OPENCLAW_INSTALL_PLAN_CONTRACT = lifecycleContract(
-  "openclaw-install-plan",
-  OPENCLAW_INSTALL_PLAN_SCHEMA_VERSION,
-  "AgentMo OpenClaw Install Plan",
-  LIFECYCLE_TEMPLATES.plan,
-);
+const OPENCLAW_INSTALL_PLAN_CONTRACT = deepFreeze({
+  ...lifecycleContract("openclaw-install-plan", OPENCLAW_INSTALL_PLAN_SCHEMA_VERSION,
+    "AgentMo OpenClaw Install Plan", LIFECYCLE_TEMPLATES.plan),
+  jsonSchema: {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    title: "AgentMo OpenClaw Install Plan",
+    type: "object", additionalProperties: false,
+    required: Object.keys(LIFECYCLE_TEMPLATES.plan),
+    properties: {
+      ...Object.fromEntries(Object.keys(LIFECYCLE_TEMPLATES.plan).map((key) => [key, {}])),
+      schemaVersion: { const: OPENCLAW_INSTALL_PLAN_SCHEMA_VERSION },
+      execution_profile: { const: "native-chat" },
+      nativeBinding: {
+        type: "object", additionalProperties: false,
+        required: ["agentId", "stateRootDigest", "workspace", "agentDir", "gatewayPort", "proxyPort", "budgetReference", "targetDescriptorDigest"],
+        properties: {
+          agentId: { type: "string", pattern: "^[a-z][a-z0-9-]{0,63}$" },
+          stateRootDigest: { type: "string", pattern: "^sha256:[a-f0-9]{64}$" },
+          workspace: { const: "workspace" }, agentDir: { type: "string" },
+          gatewayPort: { type: "integer", minimum: 1024, maximum: 65535 },
+          proxyPort: { type: "integer", minimum: 1024, maximum: 65535 },
+          modelProfile: { const: "minimax-m3-cn-v1" },
+          budgetReference: { type: "object" },
+          targetDescriptorDigest: { type: "string", pattern: "^sha256:[a-f0-9]{64}$" },
+        },
+      },
+    },
+    if: { required: ["execution_profile"] },
+    then: { required: ["nativeBinding"], properties: { lifecycle: { enum: ["install", "activate"] }, authorityRootBinding: {
+      type: "object", additionalProperties: false,
+      required: ["schemaVersion", "rootDigest", "anchorDigest", "rootIdentity", "anchorIdentity", "journalIdentity"],
+      properties: {
+        schemaVersion: { const: "agentmo.native-authority-binding.v1" },
+        rootDigest: { type: "string", pattern: "^sha256:[a-f0-9]{64}$" },
+        anchorDigest: { type: "string", pattern: "^sha256:[a-f0-9]{64}$" },
+        ...Object.fromEntries(["rootIdentity", "anchorIdentity", "journalIdentity"].map((key) => [key, {
+          type: "object", additionalProperties: false, required: ["device", "inode", "birthtimeNs"],
+          properties: Object.fromEntries(["device", "inode", "birthtimeNs"].map((field) => [field,
+            { type: "string", pattern: "^(0|[1-9][0-9]*)$" }])),
+        }])),
+      },
+    } } },
+    else: { not: { required: ["nativeBinding"] } },
+  },
+});
 const OPENCLAW_INSTALL_APPROVAL_CONTRACT = lifecycleContract(
   "openclaw-install-approval",
   OPENCLAW_INSTALL_APPROVAL_SCHEMA_VERSION,
@@ -832,7 +914,35 @@ const OPENCLAW_CONFLICT_APPROVAL_CONTRACT = lifecycleContract(
   LIFECYCLE_TEMPLATES.conflict,
 );
 
+const NATIVE_CHAT_ACCEPTANCE_CONTRACT = deepFreeze({
+  schemaVersion: "agentmo.artifact-contract.v1", subject: "native-chat-acceptance", identity: NATIVE_CHAT_ACCEPTANCE_SCHEMA_VERSION,
+  jsonSchema: {
+    $schema: "https://json-schema.org/draft/2020-12/schema", title: "Bounded Native Chat Acceptance", type: "object", additionalProperties: false,
+    required: ["schemaVersion", "runtime", "observedAt", "cases"],
+    properties: {
+      schemaVersion: { const: NATIVE_CHAT_ACCEPTANCE_SCHEMA_VERSION }, observedAt: { type: "integer", minimum: 0 },
+      runtime: { type: "object", additionalProperties: false,
+        required: ["agentId", "targetVersion", "model", "mainSessionKey", "freshSessionKey", "blueprintDigest", "packageArchiveDigest", "installReceiptDigest", "activationPlanDigest", "nativeBindingDigest", "targetDescriptorDigest"],
+        properties: {
+          ...Object.fromEntries(["agentId", "targetVersion", "mainSessionKey", "freshSessionKey"].map(k=>[k,{type:"string",minLength:1,maxLength:160}])),
+          model: { enum: ["deepseek/deepseek-v4-flash", "minimax-cn/MiniMax-M3"] },
+          ...Object.fromEntries(["blueprintDigest", "packageArchiveDigest", "installReceiptDigest", "activationPlanDigest", "nativeBindingDigest", "targetDescriptorDigest"].map(k=>[k,{type:"string",pattern:"^sha256:[a-f0-9]{64}$"}])),
+        },
+      },
+      cases: { type: "array", maxItems: NATIVE_CHAT_CASES.length, items: { type: "object", additionalProperties: false, required: ["caseId", "configuration", "observation"],
+        properties: { caseId: { enum: NATIVE_CHAT_CASES.map(c=>c.id) }, configuration: { type: "object" }, observation: { type: "object" } },
+      } },
+    },
+  },
+  minimalTemplate: { schemaVersion: NATIVE_CHAT_ACCEPTANCE_SCHEMA_VERSION, observedAt: 0, cases: [],
+    runtime: { agentId: "meeting-preview", targetVersion: "2026.9.4", model: "deepseek/deepseek-v4-flash", mainSessionKey: "agent:meeting-preview:main", freshSessionKey: "agent:meeting-preview:fresh",
+      ...Object.fromEntries(["blueprintDigest", "packageArchiveDigest", "installReceiptDigest", "activationPlanDigest", "nativeBindingDigest", "targetDescriptorDigest"].map(k=>[k,`sha256:${"0".repeat(64)}`])),
+    },
+  },
+});
+
 const CONTRACTS = new Map([
+  [NATIVE_CHAT_ACCEPTANCE_CONTRACT.subject, NATIVE_CHAT_ACCEPTANCE_CONTRACT],
   [AGENT_IDEA_CANDIDATE_CONTRACT.subject, AGENT_IDEA_CANDIDATE_CONTRACT],
   [DECISION_ENTRY_CONTRACT.subject, DECISION_ENTRY_CONTRACT],
   [DISCOVERY_MANIFEST_CONTRACT.subject, DISCOVERY_MANIFEST_CONTRACT],

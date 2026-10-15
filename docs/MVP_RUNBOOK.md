@@ -1,5 +1,123 @@
 # AgentMo MVP Runbook
 
+## Native-chat exact delivery evidence (2026-10-12)
+
+The explicit native `delivery-report` branch consumes exact Blueprint, archive,
+activate plan, native installation receipt, and optional native acceptance
+path/digest pairs. See `agentmo delivery-report --help` and
+[fixed acceptance and approval order](poc/native-chat/acceptance.md). It rejects
+legacy build/run/birth source substitution, scope/version/session drift, copied
+admissions, weakened definitions, missing cases, raw contents and stale evidence.
+Missing acceptance is a valid partial report with exit 1.
+
+`agentmo.native-chat-acceptance.v1` uses the existing behavior-case adapter and
+19 fixed cases. Every output and independent review is digest-bound to its exact
+definition and observation. Mock or CLI observations cannot satisfy live native
+UI/semantic cases. Full exact observations yield `nativeEntryVerified: true` /
+`entry-verified`; global delivery/domain/production promotion remains false.
+The adapter validates attestations and cannot authenticate reviewers or infer
+semantic correctness from hashes. Actual approved observation and independent
+review remain necessary.
+
+New tests are `node --test test/native-chat-acceptance.test.js
+test/delivery-report.test.js test/behavior-evidence.test.js`. The Node20 owned
+core manifest includes the pure acceptance contract; its two OpenClaw-target
+integration cases explicitly skip on an incompatible actual runtime. Consumers
+stay outside the producer manifest. Real demo artifacts are prepared as staged
+previews; source or plan approval is never fabricated to skip a gate.
+
+## Native-chat activation and owned stop (2026-10-12)
+
+`openclaw-install-preview --execution-profile native-chat --lifecycle activate`
+uses the installation preview source/archive/probe/request pairs and roots below,
+plus `--install-receipt` / `--install-receipt-sha256` and
+`--native-authority-root`. It binds the exact installation plan, receipt bytes and
+root identity. Review and approve this activation plan separately; installation
+approvals cannot authorize activation.
+
+`openclaw-native serve` uses those exact source/archive/probe pairs,
+`--execution-profile native-chat --lifecycle activate`, the activation
+`--install-plan` / `--install-plan-sha256`, ordinary/conflict approval pairs,
+three sensitive decision pairs in plan order, all four roots, and
+`--install-receipt` / `--install-receipt-sha256`. Replace `--out` with
+`--runtime-env-file <private-file>`; only DEEPSEEK_API_KEY reaches the in-process
+budget proxy. See `agentmo openclaw-native --help` for the command boundary.
+
+Serve installs signal handling before startup and cancels readiness/health through
+its owned cleanup, without emitting an entry. It metadata-checks nested runtime
+trees (4096-entry cap per tree), rejecting symlinks, hardlinks, special files and
+foreign owners before approval consumption; it does not read session contents.
+Serve rechecks the original independent consumption, receipt, private root and
+runtime directories, exact config/settings/workspace, target descriptor, archive,
+and shared budget. Ambient dotenv files are rejected by metadata without reading
+their contents. The proxy starts before the loopback token-authenticated gateway.
+The foreground process retains its child handles and prints only agent/session/URL
+metadata. The private 0600 `native-chat-gateway-token` file supplies native UI
+authentication; its contents never appear in command output or URLs.
+
+`openclaw-native stop --install-plan <activate-plan.json>
+--install-plan-sha256 sha256:<64hex> --target-root <isolated-root> [--json]`
+requests authenticated shutdown from that live supervisor. It does not kill a
+saved PID, take over ports, or install a system service. A clean restart needs
+fresh exact decisions and preserves the same token, sessions, attempt claims and
+budget. Unknown control remnants or changed files fail closed; do not delete them
+as an automatic recovery step. Updated config policy requires a fresh authorized
+installation when an older installed config no longer matches.
+
+The isolated config disables browser, mDNS, updates, heartbeat, cron, hooks,
+plugins, bundled skills, memory search/flush and proactive compaction; tool
+policy denies all tools and provider retry is zero. Synthetic installed-runtime
+verification uses `AGENTMO_TEST_NATIVE_OPENCLAW=1 node --test
+test/native-chat-runtime.test.js test/native-chat-install.test.js
+test/native-chat-cli.test.js` and mocks every provider request. It covers
+multiturn history, restored sessions, fresh sessions, 429/500/timeout and owned
+shutdown. Native UI and paid model acceptance remain separate Task 6 work; these
+checks do not certify domain quality, production readiness or delivered access.
+
+## Native-chat shared budget boundary (2026-10-12)
+
+The native runtime exports `startNativeChatProxy`, accepting a digest-bound native
+binding and separately verified `stateRoot` / `budgetRoot`, an in-memory provider key,
+and a local proxy token. It never initializes a budget or chooses another upstream.
+Installation creates the private `native-chat-attempts` directory; missing attempt
+storage is an error, not permission to recreate it. Never remove a claim to retry.
+The serve/stop implementation above composes this library; real UI delivery remains pending.
+Run `node --test test/native-chat-proxy.test.js test/course-wiki-budget.test.js
+test/course-wiki-gateway.test.js`; the opt-in installed-runtime envelope check is
+`AGENTMO_TEST_NATIVE_OPENCLAW=1 node --test test/native-chat-install.test.js`.
+All these tests use synthetic inputs and mock upstreams, not paid model calls.
+
+## Native-chat isolated installation (2026-10-10)
+
+The existing `openclaw-install-preview` / `openclaw-install-apply` commands accept
+`--execution-profile native-chat --lifecycle install`. This is an explicit native
+branch, not a Linux transaction or activation authority. All paths must be canonical
+absolute paths; outputs and the agent root must be absent.
+
+Both commands require archive, blueprint, build-contract, plan-approval,
+target-descriptor, target-carrier-admission and native probe path/SHA-256 pairs,
+`--target-root`, `--openclaw-target-root`, `--budget-root`, and `--out`.
+Preview also requires `--request`/`--request-sha256`; the request contains exactly
+`target`, `nativeBinding`, and `authorityRootBinding`. Apply instead requires
+install-plan, ordinary-approval, conflict-approval path/digest pairs, exactly three
+sensitive-decision path/digest pairs in plan order, and `--native-authority-root`.
+Do not pass legacy fs-helper, predecessor, absent-genesis, or attempt-id options.
+
+An independently approved authority store and existing shared budget binding must
+already exist. Neither command provisions them. The installer consumes the five
+exact decisions itself; callers cannot submit an “already consumed” claim.
+It renders the sole `agents.entries` entry from approved package/binding inputs and
+runs only `setup --baseline --json`, `agents list --json`, and `config validate --json`
+in closed temporary-user state. The baseline must report config unchanged; config
+and packaged workspace bytes must remain exact. The prior `agents add` action is
+not accepted as a baseline approval. No gateway, onboarding wizard, model request,
+plugin/service install, or host config mutation is performed.
+
+An incomplete receipt retains consumed authority and cannot be retried; it is not
+activation/runtime/domain evidence. Native receipts are structurally validated,
+but later activation must independently re-admit exact live state. This checkpoint
+does not authorize actual provisioning or provide a chat entry.
+
 This runbook executes the support-triage MVP as a composed vertical demo of AgentMo's three artifact contracts. It is not the only valid AgentMo path.
 
 ```text
@@ -607,6 +725,57 @@ Stop here when the goal is only a sanitized Discovery Contract. Do not infer blu
 
 ### Stage 2 only: plan and draft from contract artifacts
 
+#### Explicit no-tool planning (native-chat)
+
+An optional `execution_profile: "native-chat"` on the user-need selects a
+single OpenClaw agent with no declared tools or specialists. Plan and Blueprint
+preserve that selection and the original task/hard-failure text, including
+Chinese. Omitting the field retains the existing planning behavior; unknown
+values and conflicting Blueprint capabilities are rejected.
+
+The scaffold is an offline, digest-bound workspace preview: no generated skills,
+memory directory, channel binding or plugin. Its config fragment does **not**
+enforce effective runtime tool denial. Formal `build-contract` now supports an
+exact matching native-chat Blueprint/Plan with no recipe, no hooks and all 22
+resource categories retained. Disabled skills/plugins/memory/RAG/schedules do
+not produce executable capabilities. No installation, activation or runtime
+authority follows from validation, scaffold generation or offline packaging.
+Native install plans now bind a state-root digest, fixed relative workspace/agent
+directories, ports, budget reference and target descriptor digest. The actual
+root is passed separately and checked before effects; it must be absent with no
+symlink ancestors. Native plans are refused by the old Linux transaction and
+evidence consumers. This is a library-level preflight only: native public CLI
+dispatch, installation receipts, activation and real chat acceptance remain pending. Do not use manual
+registration to present this partial path as an end-to-end AgentMo delivery.
+Native-chat requires an empty output directory even with `--force`; existing
+assets are preserved instead of silently carrying old capabilities forward.
+
+Continue to use the exact Discovery, decision-ledger and Plan/Draft commands below;
+an execution profile does not replace any source digest or approval.
+
+For the native-chat-only publication branch, `openclaw-target-describe` takes
+`--blueprint <blueprint.json> --digest blueprint=sha256:<64hex>` in place of all
+three `--fs-helper*` options. The descriptor remains a profile-neutral identity
+observation; only the admitted native Blueprint selects this create-only writer.
+`openclaw-target-admit` and `package-produce` select the same branch from their
+exact admitted authority chain and reject any Linux helper arguments. Legacy
+profiles still require the complete helper/receipt tuple. Use absent, normalized
+absolute output paths with no symlink ancestors; incomplete publication is
+retained, never overwritten or automatically resumed. Package inspection remains
+offline and cannot authorize installation. Target facts are checked against the
+approved descriptor, not just an admission file's newly computed digest.
+
+The existing `openclaw-probe` command now selects native-chat only from that
+admitted package chain. It rechecks the exact target members before and after
+each fixed command: version, registration help, and synthetic config validation.
+It uses a new private state/config/home, a closed environment, bounded output and
+timeout, and publishes digest-only observations to an absent output path.
+This is state/process isolation, not an OS sandbox. Registration help is not
+registration evidence. Native install preview/apply, receipts, activation and
+chat acceptance are not yet delivered; legacy install commands reject native plans.
+
+#### Existing Stage 2 command sequence
+
 Point `DISCOVERY_DB` at any existing valid `agentmo.discovery-db.v1` artifact and `DISCOVERY_MANIFEST` at its exact approved source inventory. This command does not invoke Stage 1 or require workspace sidecars. Do not use a workspace DB when `validation.ok` is false or `safety.workspaceOk` is false.
 
 ```bash
@@ -884,3 +1053,15 @@ node --test test/design-plan.test.js test/user-need.test.js test/blueprint-draft
 npm run check
 git diff --check
 ```
+
+## Native-chat 固定国内 MiniMax M3
+
+原生User Need可显式选择`native_model_profile: "minimax-m3-cn-v1"`；仅native-chat支持，缺省保留DeepSeek。不要通过环境或CLI任意切换模型/域名。正式Plan、Blueprint、Build Contract与Package必须保留同一来源选择；安装/激活nativeBinding的`modelProfile`进入完整批准与回执摘要，归档与请求错配必须在消费批准前拒绝。
+
+M3固定国内按量地址、MINIMAX_API_KEY变量、standard、thinking关闭、max_completion_tokens2048和n1。真实key只在另行获准的代理运行期间从runtime-env-file加载到内存，SDK仅持有本机代理token。不读取或复制.env作证据；不恢复环境文件launcher别名。旧CNY100项目预算、claim和失败会话保留，无新额度、自动retry或退款。
+
+离线/SDK合成结果不证明真实凭据、模型语义或费用；新Discover/Plan/Produce来源与真实初始化/安装/激活/十九类验收仍按精确预览逐阶段批准。价格与费用假设在付费预览前复核。
+
+直接调用installNativeChat/preflightNativeChatInstall/startNativeChat/preflightNativeChatActivation时，必须传入同一模块真实加载的blueprintAdmission与buildContractAdmission；缺失或克隆引用不能当成可信来源。共用预检核对Package来源、父Blueprint/目标摘要和模型声明，新的安装决策不能代替M3 Plan批准。公共CLI继续使用原有Blueprint/Build Contract文件与摘要选项，不新增切换或绕过参数。
+
+原生聊天Package发布使用现有native-chat专用文件发布路径。该路径不接受Linux `--fs-helper`/receipt授权；不要为macOS原生聊天构建Linux filesystem kernel。通用native-plugin的Linux helper流程保持独立，不能混入native-chat发布。

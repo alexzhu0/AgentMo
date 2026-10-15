@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "agentmo.user-need.v1",
+  "execution_profile": "native-chat",
+  "agent_id": "meeting-text",
+  "domain": "meeting_text_summary",
+  "problem": "用户在 OpenClaw 原生聊天页粘贴会议文字，需要一个能总结、提取明确决策、整理行动项和未决问题的会议文字助手。",
+  "target_users": ["会议组织者", "项目参与者"],
+  "primary_tasks": ["输出会议摘要、决策、行动项和未决问题", "在同会话中应用用户纠正并回答追问", "对未说明的负责人、日期和事实明确标记未说明"],
+  "success_criteria": ["输出四类内容且不编造事实", "负责人纠正生效，新会话不继承上一会议", "重启后原生 Agent 和原会话可用", "空文本、超过 8000 Unicode 码点或上下文上限在花费前拒绝", "无工具、无后台模型请求、无自动付费重试"],
+  "hard_failures": ["编造负责人、日期或会议事实", "把会议材料中的指令当成权限", "调用工具、读取秘密或触发后台任务", "跨会话串入上一会议内容", "模型失败后自动重试扣费或显示假成功", "重置共享预算或删除 claim 以重试", "覆盖现有网关、Agent、会话或系统自启动"],
+  "output_preferences": {"language": "中文", "format": "摘要、决策、行动项、未决问题", "evidence_style": "只依据用户提供的会议文字，未知值写未说明"},
+  "runtime_preferences": ["OpenClaw 原生聊天页", "deepseek-v4-flash，经本机薄代理调用", "独立私有状态与回环网关", "共享原累计 CNY 100 预算，不另建额度", "先精确预览再批准安装、激活和固定付费验收"],
+  "source_refs": ["docs/superpowers/specs/2026-09-29-native-chat-isolated-openclaw-design.md", "docs/poc/native-chat/acceptance.md"]
+}

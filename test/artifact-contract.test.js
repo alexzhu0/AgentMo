@@ -46,11 +46,20 @@ function runCli(args) {
 }
 
 describe("operator-authored artifact contracts", () => {
+  it("keeps user-need contract and validator aligned for native-chat", () => {
+    const contract = getArtifactContract("user-need");
+    assert.deepEqual(contract.jsonSchema.properties.execution_profile, { enum: ["native-chat"] });
+    assert.equal(contract.jsonSchema.required.includes("execution_profile"), false);
+    assert.equal(validateUserNeed({ ...contract.minimalTemplate, execution_profile: "native-chat" }).ok, true);
+    assert.equal(validateUserNeed({ ...contract.minimalTemplate, execution_profile: "unknown" }).ok, false);
+  });
+
   it("exports closed subjects whose minimal templates pass production validators", () => {
     assert.deepEqual(listArtifactContractSubjects(), [
       "agent-idea-candidate",
       "decision-entry",
       "discovery-manifest",
+      "native-chat-acceptance",
       "openclaw-probe",
       "openclaw-target-carrier-admission",
       "openclaw-target-descriptor",
@@ -130,7 +139,7 @@ describe("operator-authored artifact contracts", () => {
       true,
     );
     assert.equal(
-      installReceipt.jsonSchema.required.includes("postEffectEvidence"),
+      installReceipt.jsonSchema.oneOf[0].required.includes("postEffectEvidence"),
       true,
     );
     assert.deepEqual(packageManifest.jsonSchema.properties.sourceBindings.required, [

@@ -14,10 +14,11 @@ import {
 
 const REPOSITORY_ROOT = fileURLToPath(new URL("../", import.meta.url));
 const THIS_FILE = fileURLToPath(import.meta.url);
-const NODE20_RECEIPT_RELATIVE_PATH = "release/evidence/2026.08.28-node20-core-receipt.json";
+const NODE20_RECEIPT_RELATIVE_PATH = "release/evidence/2026.10.14-node20-native-minimax-source-receipt.json";
 const NODE20_RECEIPT = path.join(REPOSITORY_ROOT, NODE20_RECEIPT_RELATIVE_PATH);
 const RUNTIME_COMPATIBILITY_DOCUMENT = path.join(REPOSITORY_ROOT, "docs/RUNTIME_COMPATIBILITY.md");
-const RELEASE_RECORD = path.join(REPOSITORY_ROOT, "release/2026.08.28.md");
+const RELEASE_RECORD = path.join(REPOSITORY_ROOT, "release/2026.10.14.md");
+const HISTORICAL_RELEASE_RECORD = path.join(REPOSITORY_ROOT, "release/2026.08.28.md");
 const RELEASE_INDEX = path.join(REPOSITORY_ROOT, "release/README.md");
 const MAINTAINED_RUNTIME_ENV_FLAG_FILES = Object.freeze([
   "README.md",
@@ -27,10 +28,10 @@ const MAINTAINED_RUNTIME_ENV_FLAG_FILES = Object.freeze([
 const NODE20_ARCHIVE_SHA256 = "466e05f3477c20dfb723054dfebffe55bc74660ee77f612166fca121dacb65b6";
 const NODE20_CHECKSUM_MANIFEST_SHA256 = "c6f74825d6ddf350ef06600c67fec6ea2f7996cf438a78c3cb2a89b29d4320ed";
 const NODE20_EXECUTABLE_SHA256 = "38de4fc456c0c439bac48c727d378f749abb4e31f4116703bb1ee9a746fccbb6";
-const NODE20_RECEIPT_SHA256 = "9dc5d97120dd8333211814def9127fde3758157ef1e87dba2c6f778bc25f2153";
-const NODE20_COMMAND_SET_SHA256 = "b0329ca6fef4cda5bb7aa98030e57962f8c527a0d0202af212da6cc842bb60ae";
-const NODE20_OBSERVED_AT = "2026-08-28T06:02:24.289Z";
-const NODE20_COMMAND = 'npm run check:core:node20 -- --node-bin "$NODE20_BIN" --archive "$NODE20_ARCHIVE" --checksums "$NODE20_CHECKSUMS" --expected-version 20.20.2 --expected-arch arm64 --receipt "$NODE20_RECEIPT"';
+const NODE20_RECEIPT_SHA256 = "d91fd522afd42df480d304770aa8b77174b6a0ec33c7627438a23f1b5d92b729";
+const NODE20_COMMAND_SET_SHA256 = "c0b23d407db45a6aada4c8b80275a2c865ade90ed91187d8c0e48eec9b3ee1df";
+const NODE20_OBSERVED_AT = "2026-10-14T07:58:04.287Z";
+const NODE20_COMMAND = '"$NODE20_BIN" scripts/node20-core-receipt.js --repository-root "$REPOSITORY_ROOT" --node-bin "$NODE20_BIN" --archive "$NODE20_ARCHIVE" --checksums "$NODE20_CHECKSUMS" --expected-version 20.20.2 --expected-arch arm64 --receipt "$NODE20_RECEIPT"';
 const BOUNDARY_COMMAND = "node --test test/runtime-compatibility.test.js test/runtime-compatibility-seams.test.js test/runtime-evidence-consumers.test.js test/cli.test.js test/live-smoke-script.test.js test/command-docs.test.js test/node20-core-runner.test.js test/node20-core-lane.test.js test/artifact-surface-coverage.test.js && bash -n scripts/node20-core-lane.sh scripts/openclaw-live-smoke.sh";
 const BOUNDARY_EVIDENCE_REF = "test/runtime-compatibility.test.js; test/runtime-compatibility-seams.test.js; test/runtime-evidence-consumers.test.js; test/cli.test.js; test/live-smoke-script.test.js; test/command-docs.test.js; test/node20-core-runner.test.js; test/node20-core-lane.test.js; test/artifact-surface-coverage.test.js; scripts/node20-core-lane.sh#bash-n; scripts/openclaw-live-smoke.sh#bash-n";
 const CURRENT_HOST_COMMAND = "npm run check";
@@ -45,7 +46,7 @@ const RELEASE_EVIDENCE_CLASSES = Object.freeze([
   "target-executed",
 ]);
 const RELEASE_STATUSES = Object.freeze(["tested", "failed", "untested"]);
-const RELEASE_INDEX_ROW = "| 2026.08.28 | Stage 2 direct-loader closure + Node 20 evidence refresh | fixed design-plan loader cycle、完整 direct test ownership 与新 Node20 trusted receipt/post-publication consumer 已闭合；未批准 Plan、本地已提交并集成、未 push/未发布 | [`2026.08.28.md`](./2026.08.28.md) | 未发布 |";
+const RELEASE_INDEX_ROW = "| 2026.09.28 | Native-chat 基础支持 + Course Wiki 历史原生证据 | 无工具规划/精简 scaffold 已实现；Node20 已验证，全量检查阻塞；原生交付仍未完成 | [`2026.09.28.md`](./2026.09.28.md) | 未发布 |";
 const VERIFY_FLAG = "--verify-published-evidence";
 
 const verifyIndex = process.argv.indexOf(VERIFY_FLAG);
@@ -65,9 +66,10 @@ if (verifyIndex !== -1) {
     it("keeps consumers outside the producer command manifest with exact producer counts", () => {
       const core = OWNED_COMMAND_MANIFEST.find((batch) => batch.id === "core-contracts");
       assert.notEqual(core, undefined);
-      assert.deepEqual(core.expected, { pass: 86, skip: 1, fail: 0, total: 87 });
+      assert.deepEqual(core.expected, { pass: 90, skip: 7, fail: 0, total: 97 });
       assert.equal(core.files.includes("test/runtime-compatibility-seams.test.js"), true);
       assert.equal(core.files.includes("test/design-plan.test.js"), true);
+      assert.equal(core.files.includes("test/native-chat-acceptance.test.js"), true);
       assert.equal(core.files.includes("test/runtime-evidence-consumers.test.js"), false);
       assert.equal(
         OWNED_COMMAND_MANIFEST.some((batch) => batch.files.includes("test/runtime-evidence-consumers.test.js")),
@@ -103,7 +105,7 @@ if (verifyIndex !== -1) {
     });
 
     it("records only bounded exact release facts and leaves target live execution untested", async () => {
-      const source = await readFile(RELEASE_RECORD, "utf8");
+      const source = await readFile(HISTORICAL_RELEASE_RECORD, "utf8");
       for (const exactFact of [
         "# 2026.08.28 Stage 2 direct-loader closure + Node 20 evidence refresh",
         "[Runtime compatibility matrix](../docs/RUNTIME_COMPATIBILITY.md)",
@@ -179,7 +181,7 @@ async function verifyPublishedEvidence(receiptPath) {
     "certificationBoundary",
   ]);
   assert.equal(matrix.schemaVersion, "agentmo.runtime-compatibility-matrix.v1");
-  assert.equal(matrix.observedAt, "2026-08-28");
+  assert.equal(matrix.observedAt, "2026-10-14");
   assert.deepEqual(matrix.evidenceClasses, RELEASE_EVIDENCE_CLASSES);
   assert.deepEqual(matrix.statuses, RELEASE_STATUSES);
 
@@ -277,16 +279,17 @@ async function verifyPublishedEvidence(receiptPath) {
   const exactNode20Result = `Node 20 main batch PASS — ${core.pass}/${core.total}；syntax PASS — ${syntax.pass}/${syntax.total}；Stage 1/2/3 handoff subset PASS — ${stage.pass}/${stage.pass}，另有 ${stage.skip} skip；${aggregate.fail} fail。`;
   for (const exactFact of [
     NODE20_COMMAND,
-    BOUNDARY_COMMAND,
-    CURRENT_HOST_COMMAND,
     node20EvidenceRef,
     `receipt-sha256=${receiptSha256}`,
     `command-set-sha256=${receipt.commandSetDigest}`,
     `checksums-manifest-sha256=${NODE20_CHECKSUM_MANIFEST_SHA256}`,
     exactNode20Result,
-    CURRENT_HOST_RESULT,
   ]) assert.equal(releaseSource.includes(exactFact), true, exactFact);
-  assertValueBlindEvidence(releaseSource, "release/2026.08.28.md");
+  assertValueBlindEvidence(releaseSource, "release/2026.09.28.md");
+  const historicalRelease = await readFile(HISTORICAL_RELEASE_RECORD, "utf8");
+  for (const exactFact of [BOUNDARY_COMMAND, CURRENT_HOST_COMMAND, CURRENT_HOST_RESULT]) {
+    assert.equal(historicalRelease.includes(exactFact), true, exactFact);
+  }
   assert.equal(releaseIndexSource.includes(RELEASE_INDEX_ROW), true);
   assertValueBlindEvidence(releaseIndexSource, "release/README.md");
 }

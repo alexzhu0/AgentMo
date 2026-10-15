@@ -22,6 +22,7 @@ const SHA256_DIGEST_PATTERN = /^sha256:[a-f0-9]{64}$/u;
 const TRANSIENT_PATH_KIND = "TransientPathRef";
 
 export async function buildRuntimePlan(blueprint, options = {}) {
+  if (blueprint?.execution_profile === "native-chat") throw new Error("Native chat requires the approved openclaw-native serve lifecycle.");
   const validation = validateBlueprint(blueprint);
   if (!validation.ok) {
     throw new Error(`Cannot build runtime plan for invalid blueprint:\n${validation.errors.map((error) => `- ${error}`).join("\n")}`);

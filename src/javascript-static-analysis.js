@@ -4,6 +4,7 @@ const FS_WRITERS = new Set([
   "createWriteStream",
   "writeFile",
   "writeFileSync",
+  "writeSync",
 ]);
 const FS_READERS = new Set([
   "access",
@@ -21,6 +22,9 @@ const FS_READERS = new Set([
 ]);
 const FS_LIFECYCLE = new Set([
   "chmod",
+  "closeSync",
+  "copyFile",
+  "fsyncSync",
   "link",
   "mkdir",
   "mkdtemp",
@@ -896,8 +900,8 @@ function classifyFsMethod(surfaces, file, line, method, localName) {
     surfaces.push(surface(file, line, "non-artifact-intake", `fs.${method}`));
   } else if (FS_READERS.has(method)) {
     surfaces.push(surface(file, line, "filesystem-read", `fs.${method}`));
-  } else if (method === "open") {
-    surfaces.push(surface(file, line, "filesystem-open", "fs.open"));
+  } else if (method === "open" || method === "openSync") {
+    surfaces.push(surface(file, line, "filesystem-open", `fs.${method}`));
   } else if (FS_LIFECYCLE.has(method)) {
     surfaces.push(surface(file, line, "filesystem-lifecycle", `fs.${method}`));
   } else if (FS_WRITERS.has(method)) {

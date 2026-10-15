@@ -12,6 +12,62 @@ async function loadExample() {
 }
 
 describe("scaffold", () => {
+  it("scaffolds native-chat without invented runtime capabilities", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agentmo-native-chat-scaffold-"));
+    const blueprint = structuredClone((await loadExample()).value);
+    blueprint.execution_profile = "native-chat";
+    blueprint.runtime = "openclaw";
+    blueprint.tools = [];
+    blueprint.architecture.specialists = [];
+    blueprint.domain_genome.purpose = "整理会议文字，输出纪要和待办。";
+    blueprint.domain_genome.hard_failures = ["不得编造负责人或日期"];
+    const input = path.join(root, "blueprint.json");
+    await writeFile(input, JSON.stringify(blueprint));
+    const admission = await admitBlueprint(input);
+    const out = path.join(root, "scaffold");
+    const result = await scaffoldAgent(admission.value, out, { admission, target: "openclaw" });
+    assert.equal(result.files.some((file) => /\/skills\/|\/memory\/|channel-bindings/u.test(file)), false);
+    for (const name of ["AGENTS", "SOUL", "IDENTITY"]) {
+      assert.equal(result.files.includes(`openclaw/workspace/${name}.md`), true);
+    }
+    const config = JSON.parse(await readFile(path.join(out, "openclaw/config/openclaw.agent.patch.json"), "utf8"));
+    assert.equal("bindings" in config, false);
+    assert.equal("skills" in config.agents.list[0], false);
+    const agents = await readFile(path.join(out, "openclaw/workspace/AGENTS.md"), "utf8");
+    assert.match(agents, /整理会议文字，输出纪要和待办。/u);
+    assert.match(agents, /不得编造负责人或日期/u);
+    assert.match(agents, /not installed or activated/u);
+    assert.match(agents, /does not enforce runtime tool permissions/u);
+    const runbook = await readFile(path.join(out, "openclaw/RUNBOOK.md"), "utf8");
+    assert.doesNotMatch(runbook, /agents add|--live|agents bind/u);
+    const state = JSON.parse(await readFile(result.stateFile, "utf8"));
+    assert.equal(state.agentId, blueprint.agent_id);
+    assert.equal(state.source.digest, admission.digest);
+    assert.deepEqual(state.operations.map((operation) => operation.relativePath), result.files);
+  });
+
+  it("refuses native-chat conversion of an existing scaffold even with force", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agentmo-native-chat-force-"));
+    const legacy = await loadExample();
+    const out = path.join(root, "scaffold");
+    const old = await scaffoldAgent(legacy.value, out, { admission: legacy, target: "openclaw" });
+    const files = [...old.files, BUILD_STATE_FILENAME];
+    const before = await Promise.all(files.map((file) => readFile(path.join(out, file), "utf8")));
+    const blueprint = structuredClone(legacy.value);
+    blueprint.execution_profile = "native-chat";
+    blueprint.runtime = "openclaw";
+    blueprint.tools = [];
+    blueprint.architecture.specialists = [];
+    const input = path.join(root, "blueprint.json");
+    await writeFile(input, JSON.stringify(blueprint));
+    const admission = await admitBlueprint(input);
+    await assert.rejects(
+      scaffoldAgent(admission.value, out, { admission, target: "openclaw", force: true }),
+      /Native-chat requires an empty output directory/u,
+    );
+    assert.deepEqual(await Promise.all(files.map((file) => readFile(path.join(out, file), "utf8"))), before);
+  });
+
   it("generates a domain-agent harness from a valid blueprint", async () => {
     const admission = await loadExample();
     const blueprint = admission.value;

@@ -6,6 +6,7 @@ import {
   lstat,
   mkdtemp,
   readFile,
+  symlink,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -19,6 +20,7 @@ import {
   validateOpenClawProbe,
 } from "../src/openclaw-probe.js";
 import { loadAdmittedArtifact } from "../src/artifact-admission.js";
+import { produceAgentPackage } from "../src/package-produce.js";
 import {
   admitNativePluginRecipe,
   buildBuildContract,
@@ -49,6 +51,86 @@ const sha256 = (bytes) => (
 );
 
 describe("read-only OpenClaw capability probe", () => {
+  it("probes native-chat in isolated state without claiming Linux containment", async () => {
+    const need = JSON.parse(await readFile(new URL("../examples/support-triage.need.json", import.meta.url)));
+    const fixture = await buildApprovedPackageFixture({
+      userNeed: { ...need, execution_profile: "native-chat" },
+      targetExecutableSource: `#!/usr/bin/env node
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import path from 'node:path';
+const root=process.cwd();
+assert.equal(process.env.HOME,path.join(root,'home'));
+assert.equal(process.env.OPENCLAW_STATE_DIR,path.join(root,'state'));
+assert.equal(process.env.OPENCLAW_CONFIG_PATH,path.join(root,'config.json'));
+assert.equal(process.env.DEEPSEEK_API_KEY,undefined);
+const args=process.argv.slice(2);
+process.stderr.write('synthetic diagnostic');
+if(JSON.stringify(args)===JSON.stringify(['--version'])) console.log('2026.7.1-2');
+else if(JSON.stringify(args)===JSON.stringify(['setup','--help'])) console.log('--baseline --json');
+else if(JSON.stringify(args)===JSON.stringify(['config','validate','--json'])) {
+ const c=JSON.parse(readFileSync(process.env.OPENCLAW_CONFIG_PATH));
+ assert.deepEqual(c.agents.entries,{});
+ assert.deepEqual(c.tools.deny,['*']);
+ assert.deepEqual(c.agents.defaults.model.fallbacks,[]);
+ assert.equal(c.plugins.enabled,false);
+ console.log(JSON.stringify({valid:true}));
+} else process.exit(64);
+`,
+    });
+    const archivePath = path.join(fixture.root, "native-probe.d42");
+    const produced = await produceAgentPackage(packageProduceOptions(fixture, path.join(fixture.root, "native-probe-package"), archivePath));
+    const options = probeOptions(fixture, archivePath, produced.archiveDigest);
+    const probe = await probeOpenClawTarget(options);
+    assert.equal(probe.execution_profile, "native-chat");
+    assert.equal(probe.status, "compatible");
+    assert.equal(probe.isolation.boundary, "state-process-only");
+    assert.equal(probe.isolation.privateExecutableCopy, false);
+    assert.equal(probe.isolation.inheritedEnvironment, false);
+    assert.deepEqual(probe.required.observationIds, ["version", "agent-registration-command", "config-validation"]);
+    assert.equal(probe.certificationBoundary.installed, false);
+    assert.equal(probe.certificationBoundary.runtime, false);
+    assert.equal(probe.cli.observations[0].standardErrorFacts.byteLength, 20);
+    assert.equal(JSON.stringify(probe).includes("synthetic diagnostic"), false);
+    assert.equal(validateOpenClawProbe(probe, { sources: probe.sourceBindings, execution_profile: "native-chat" }).ok, true);
+    assert.equal(JSON.stringify(probe).includes(fixture.root), false);
+    assert.equal(validateOpenClawProbe({ ...probe, execution_profile: "plugin" }, { sources: probe.sourceBindings }).ok, false);
+    const changedCommand = structuredClone(probe);
+    changedCommand.cli.observations[1].argv = ["agents", "delete", "main"];
+    changedCommand.cli.contractDigest = sha256(Buffer.from(`${JSON.stringify(changedCommand.cli.observations, null, 2)}\n`));
+    const { fingerprintDigest: _digest, remainingRisks: _risks, ...changedBasis } = changedCommand;
+    changedBasis.schemaVersion = "agentmo.openclaw-probe-fingerprint-basis.v1";
+    changedCommand.fingerprintDigest = sha256(Buffer.from(`${JSON.stringify(changedBasis, null, 2)}\n`));
+    assert.equal(validateOpenClawProbe(changedCommand, { sources: probe.sourceBindings, execution_profile: "native-chat" }).ok, false);
+    const outPath = path.join(fixture.root, "native-probe.json");
+    const args = [CLI, "openclaw-probe", "--archive", archivePath, "--archive-sha256", produced.archiveDigest,
+      "--target-root", options.targetRoot, "--out", outPath, "--json"];
+    for (const [flag, subject] of [["blueprint", "blueprint"], ["build-contract", "build-contract"], ["plan-approval", "plan-approval"], ["target-carrier-admission", "openclaw-target-carrier-admission"], ["target-descriptor", "openclaw-target-descriptor"]]) {
+      args.push(`--${flag}`, fixture.paths[subject], `--${flag}-sha256`, fixture.digests[subject]);
+    }
+    const cliResult = spawnSync(process.execPath, args, { env: { LANG: "C", LC_ALL: "C" }, encoding: "utf8" });
+    assert.equal(cliResult.status, 0, cliResult.stderr);
+    const companions = {};
+    for (const subject of ["blueprint", "build-contract", "plan-approval", "openclaw-target-descriptor"]) companions[subject] = await admitFile(fixture.paths[subject], subject);
+    companions["openclaw-target-carrier-admission"] = await admitFile(fixture.paths["openclaw-target-carrier-admission"], "openclaw-target-carrier-admission", companions);
+    companions["package-manifest"] = await admitFile(path.join(fixture.root, "native-probe-package", "agentmo.package.json"), "package-manifest");
+    const admitted = await admitFile(outPath, "openclaw-probe", {
+      "package-manifest": companions["package-manifest"],
+      "openclaw-target-carrier-admission": companions["openclaw-target-carrier-admission"],
+      "openclaw-target-descriptor": companions["openclaw-target-descriptor"],
+    });
+    assert.equal(admitted.value.execution_profile, "native-chat");
+    assert.deepEqual(admitted.value, JSON.parse(cliResult.stdout));
+    const link = path.join(fixture.root, "linked-output");
+    await symlink(fixture.root, link);
+    const linkedArgs = [...args];
+    linkedArgs[linkedArgs.indexOf("--out") + 1] = path.join(link, "must-not-publish.json");
+    assert.notEqual(spawnSync(process.execPath, linkedArgs, { env: { LANG: "C", LC_ALL: "C" }, encoding: "utf8" }).status, 0);
+    await assert.rejects(lstat(path.join(fixture.root, "must-not-publish.json")), { code: "ENOENT" });
+    await writeFile(fixture.inputs.targetFiles.executablePath, "throw new Error('drift');\n");
+    await assert.rejects(probeOpenClawTarget(options), boundedProbeError);
+  });
+
   it("binds the exact archive and target authority without touching operator state", {
     skip: process.platform !== "linux",
   }, async () => {

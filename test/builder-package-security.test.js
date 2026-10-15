@@ -1190,6 +1190,19 @@ describe("Builder package trust boundaries", () => {
     await expectPackageRejection(broadened, "AGENTMO_BUILDER_PACKAGE_FILES_INVALID");
   });
 
+  it("admits the owned behavior evidence library and recursively rejects its unlisted dependency", async (t) => {
+    const root = await mkdtemp(path.join(tmpdir(), "agentmo-behavior-library-closure-"));
+    t.after(() => rm(root, { recursive: true, force: true }));
+    const packageRoot = await copyPackage(path.join(root, "package"));
+    const release = await loadBuilderPackage({ packageRoot });
+    assert.equal(release.assets.some((asset) => asset.relativePath === "runtime/agentmo/src/behavior-evidence.js"), true);
+    assert.deepEqual(release.assets.filter((asset) => /(?:src|scripts)\/course-wiki-/u.test(asset.sourcePath)).map((asset) => asset.sourcePath), ["src/course-wiki-budget.js"]);
+
+    const library = path.join(packageRoot, "src", "behavior-evidence.js");
+    await writeFile(library, `${await readFile(library, "utf8")}\nimport "./unlisted-behavior-dependency.js";\n`, "utf8");
+    await expectPackageRejection(packageRoot, "AGENTMO_BUILDER_PACKAGE_IMPORT_UNLISTED");
+  });
+
   it("walks the hook import, I/O, and adjacent-launcher closure from the plugin entrypoint", async () => {
     const admitted = await copyPackage(path.join(
       await mkdtemp(path.join(tmpdir(), "agentmo-hook-closure-admitted-")),

@@ -455,6 +455,13 @@ rules, and the boundary that AgentMo work must not touch `pi`, `AgentHarness`,
 or `openclaw` unless explicitly requested. The archived
 `docs/OMX_SESSION_MIGRATION.md` is historical and non-executable.
 
+For the current meeting-text MiniMax M3 work and a move to another computer,
+read [the cross-computer checkpoint](docs/handoffs/2026-10-14-cross-computer.md)
+and [the native acceptance status](docs/poc/native-chat/acceptance.md).
+M3 is installed on the source computer and remains inactive. Git carries code
+and public evidence; local credentials, runtime state, approval stores and the
+existing budget require their own handling before real work on another host.
+
 Local agent instructions live in:
 
 ```text

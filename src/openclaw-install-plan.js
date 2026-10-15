@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
-import { lstat, open, readFile } from "node:fs/promises";
+import { lstat, open, readFile, realpath } from "node:fs/promises";
 import path from "node:path";
+import { assertNativeChatAbsentRoot } from "./native-chat-files.js";
+import { validateNativeAuthorityBinding } from "./native-chat-authority.js";
 import {
   assertPersistable,
   PersistabilityError,
@@ -177,6 +179,14 @@ export function validateOpenClawAbsentGenesisAuthority(value) {
 }
 
 export function buildOpenClawInstallPlan(options = {}) {
+  if (options?.execution_profile === "native-chat") {
+    const basis = nativeInstallBasis(options);
+    const plan = freeze({ ...basis,
+      installPlanDigest: digestJson(basis, "openclaw-install-plan-basis") });
+    if (!validateOpenClawInstallPlan(plan).ok) fail();
+    ADMITTED_INSTALL_PLANS.add(plan);
+    return plan;
+  }
   if (!plainObject(options)
     || Object.keys(options).some((key) => !INPUT_KEYS.includes(key))
     || !sameKeysForLifecycle(options)) {
@@ -231,6 +241,18 @@ export function buildOpenClawInstallPlan(options = {}) {
 }
 
 export function validateOpenClawInstallPlan(value) {
+  if (value?.execution_profile === "native-chat") {
+    if (!sameKeys(value, [...PLAN_KEYS, "execution_profile", "nativeBinding"])) return result(["shape"]);
+    try {
+      const basis = nativeInstallBasis({ execution_profile: value.execution_profile,
+        lifecycle: value.lifecycle, archiveBinding: value.archiveBinding, target: value.target,
+        nativeBinding: value.nativeBinding, authorityRootBinding: value.authorityRootBinding,
+        officialConfigDryRun: value.officialConfigDryRun,
+        ...(value.lifecycle === "activate" ? { predecessor: value.predecessor } : {}) });
+      const expected = { ...basis, installPlanDigest: digestJson(basis, "openclaw-install-plan-basis") };
+      return persistableResult(value, sameJson(value, expected) ? [] : ["nativeBinding"], "openclaw-install-plan");
+    } catch { return result(["nativeBinding"]); }
+  }
   const errors = [];
   if (!plainObject(value) || !sameKeys(value, PLAN_KEYS)) return result(["shape"]);
   if (value.schemaVersion !== OPENCLAW_INSTALL_PLAN_SCHEMA_VERSION
@@ -292,6 +314,129 @@ export function validateOpenClawInstallPlan(value) {
     }
   }
   return persistableResult(value, errors, "openclaw-install-plan");
+}
+
+export function validateNativeChatBinding(value) {
+  return sameKeys(value, ["agentId", "stateRootDigest", "workspace", "agentDir",
+    "gatewayPort", "proxyPort", "budgetReference", "targetDescriptorDigest", ...value && Object.hasOwn(value, "modelProfile") ? ["modelProfile"] : []])
+    && (!Object.hasOwn(value, "modelProfile") || value.modelProfile === MINIMAX_M3_PROFILE)
+    && /^[a-z][a-z0-9-]{0,63}$/u.test(value.agentId ?? "")
+    && DIGEST_PATTERN.test(value.stateRootDigest ?? "")
+    && value.workspace === "workspace"
+    && value.agentDir === `agents/${value.agentId}/agent`
+    && [value.gatewayPort, value.proxyPort].every((port) => Number.isInteger(port) && port >= 1024 && port <= 65535)
+    && value.gatewayPort !== value.proxyPort
+    && DIGEST_PATTERN.test(value.targetDescriptorDigest ?? "")
+    && sameKeys(value.budgetReference, ["version", "rootDigest", "policyDigest", "inventoryDigest"])
+    && value.budgetReference.version === 1
+    && ["rootDigest", "policyDigest", "inventoryDigest"].every((key) => DIGEST_PATTERN.test(value.budgetReference[key] ?? ""));
+}
+
+export function validateOpenClawLegacyInstallPlan(value) {
+  return value && Object.hasOwn(value, "execution_profile")
+    ? result(["execution_profile"]) : validateOpenClawInstallPlan(value);
+}
+
+export async function verifyOpenClawNativeInstallRoot(options = {}) {
+  try {
+    if (!sameKeys(options, ["plan", "stateRoot"])
+      || options.plan?.execution_profile !== "native-chat" || options.plan.lifecycle !== "install"
+      || !validateOpenClawInstallPlan(options.plan).ok
+      || typeof options.stateRoot !== "string"
+      || options.plan.nativeBinding.stateRootDigest !== digestBytes(Buffer.from(options.stateRoot))) fail();
+    await assertNativeChatAbsentRoot(options.stateRoot);
+    return Object.freeze({
+      workspace: path.join(options.stateRoot, options.plan.nativeBinding.workspace),
+      agentDir: path.join(options.stateRoot, options.plan.nativeBinding.agentDir),
+    });
+  } catch { throw new OpenClawInstallPlanError("AGENTMO_OPENCLAW_NATIVE_ROOT_REJECTED"); }
+}
+
+export async function verifyOpenClawNativeRuntimeRoot({ plan, stateRoot }) {
+  try {
+    if (plan?.execution_profile !== "native-chat" || plan.lifecycle !== "activate" || !validateOpenClawInstallPlan(plan).ok
+      || typeof stateRoot !== "string" || !path.isAbsolute(stateRoot) || path.resolve(stateRoot) !== stateRoot
+      || plan.nativeBinding.stateRootDigest !== digestBytes(Buffer.from(stateRoot)) || await realpath(stateRoot) !== stateRoot) fail();
+    let current = path.parse(stateRoot).root;
+    for (const part of stateRoot.slice(current.length).split(path.sep).filter(Boolean)) {
+      current = path.join(current, part);
+      const stat = await lstat(current, { bigint: true });
+      if (!stat.isDirectory() || stat.isSymbolicLink()) fail();
+      if (current === stateRoot && (stat.uid !== BigInt(process.getuid()) || (stat.mode & 0o777n) !== 0o700n
+        || !sameJson({ device: String(stat.dev), inode: String(stat.ino), birthtimeNs: String(stat.birthtimeNs) }, plan.predecessor.rootIdentity))) fail();
+    }
+  } catch { throw new OpenClawInstallPlanError("AGENTMO_OPENCLAW_NATIVE_ROOT_REJECTED"); }
+}
+
+function nativeInstallBasis(options) {
+  if (!sameKeys(options, ["execution_profile", "lifecycle", "archiveBinding", "target",
+    "nativeBinding", "authorityRootBinding", "officialConfigDryRun",
+    ...(options.lifecycle === "activate" ? ["predecessor"] : [])])
+    || options.execution_profile !== "native-chat" || !["install", "activate"].includes(options.lifecycle)
+    || !validArchiveBinding(options.archiveBinding) || !validTarget(options.target)
+    || options.target.scope !== "project" || !validateNativeChatBinding(options.nativeBinding)
+    || !validateNativeAuthorityBinding(options.authorityRootBinding)
+    || options.authorityRootBinding.rootDigest === options.nativeBinding.stateRootDigest
+    || !validOfficialConfigDryRun(options.officialConfigDryRun)) fail();
+  const binding = options.nativeBinding;
+  const model = nativeChatModelProfile(binding.modelProfile);
+  if (options.lifecycle === "activate") {
+    const predecessor = options.predecessor;
+    if (!sameKeys(predecessor, ["kind", "installPlanDigest", "installReceiptDigest", "rootIdentity"])
+      || predecessor.kind !== "installed-native-root"
+      || ![predecessor.installPlanDigest, predecessor.installReceiptDigest].every(d => DIGEST_PATTERN.test(d ?? ""))
+      || !sameKeys(predecessor.rootIdentity, ["device", "inode", "birthtimeNs"])
+      || Object.values(predecessor.rootIdentity).some(v => typeof v !== "string" || !/^(0|[1-9][0-9]*)$/u.test(v))) fail();
+    const environmentNames = ["AGENTMO_NATIVE_PROXY_TOKEN", "HOME", "LANG", "LC_ALL", "NODE_DISABLE_COMPILE_CACHE",
+      "OPENCLAW_CONFIG_PATH", "OPENCLAW_GATEWAY_TOKEN", "OPENCLAW_NO_RESPAWN", "OPENCLAW_STATE_DIR",
+      "PATH", "TMPDIR", "XDG_CACHE_HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME"];
+    return {
+      schemaVersion: OPENCLAW_INSTALL_PLAN_SCHEMA_VERSION, execution_profile: "native-chat", lifecycle: "activate",
+      archiveBinding: clone(options.archiveBinding), authorityRootBinding: clone(options.authorityRootBinding),
+      target: clone(options.target), nativeBinding: clone(binding),
+      operations: [{ operation: "create-or-verify-private-token", path: "native-chat-gateway-token" },
+        { operation: "own-authenticated-control", path: "native-chat-control.json" }],
+      sensitiveActions: [
+        { actionId: "network:native-budget-proxy", kind: "network", executable: "agentmo",
+          argv: ["native-chat-proxy", model.endpoint], cwd: ".", scope: "project",
+          target: `${model.provider}:${model.model}`, timeoutMs: 90_000, environmentNames: [model.envName] },
+        ...[["gateway", ["gateway", "run", "--port", String(binding.gatewayPort), "--bind", "loopback", "--auth", "token"]],
+          ["health", ["gateway", "health", "--port", String(binding.gatewayPort), "--json", "--timeout", "10000"]]]
+          .map(([name, argv]) => ({ actionId: `process:native-${name}`, kind: "process", executable: "openclaw", argv,
+            cwd: ".", scope: "project", target: `openclaw:agent:${binding.agentId}`, timeoutMs: 30_000, environmentNames })),
+      ],
+      conflicts: [], predecessor: clone(predecessor), officialConfigDryRun: clone(options.officialConfigDryRun),
+      certificationBoundary: { proposalOnly: true, installed: false, runtime: false, domain: false, birth: false, delivery: false, production: false },
+    };
+  }
+  const prefix = "projections/openclaw/workspace/";
+  const files = options.archiveBinding.members.filter((member) => member.relativePath.startsWith(prefix));
+  if (files.length !== 4 || files.some((member) => !["AGENTS.md", "SOUL.md", "IDENTITY.md", "USER.md"].includes(member.relativePath.slice(prefix.length)))) fail();
+  const operations = files.map((member) => ({ operation: "copy-workspace",
+    path: `${binding.workspace}/${member.relativePath.slice(prefix.length)}`,
+    sourcePath: member.relativePath, desiredDigest: member.sha256, mode: 0o600 }));
+  operations.push({ operation: "create-config", path: "config.json" },
+    { operation: "create-agent-settings", path: `${binding.agentDir}/settings.json` });
+  const commands = [
+    ["setup-baseline", ["setup", "--baseline", "--json"]],
+    ["agents-list", ["agents", "list", "--json"]],
+    ["config-validate", ["config", "validate", "--json"]],
+  ];
+  return {
+    schemaVersion: OPENCLAW_INSTALL_PLAN_SCHEMA_VERSION,
+    execution_profile: "native-chat", lifecycle: "install",
+    archiveBinding: clone(options.archiveBinding), authorityRootBinding: clone(options.authorityRootBinding),
+    target: clone(options.target), nativeBinding: clone(binding), operations,
+    sensitiveActions: commands.map(([name, argv]) => ({ actionId: `process:native-${name}`,
+      kind: "process", executable: "openclaw", argv, cwd: ".", scope: "project",
+      target: `openclaw:agent:${binding.agentId}`, timeoutMs: 30_000,
+      environmentNames: ["AGENTMO_NATIVE_PROXY_TOKEN", "HOME", "LANG", "LC_ALL", "OPENCLAW_CONFIG_PATH", "OPENCLAW_STATE_DIR",
+        "PATH", "TMPDIR", "XDG_CACHE_HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME"] })),
+    conflicts: [], predecessor: { kind: "new-native-root", stateRootDigest: binding.stateRootDigest },
+    officialConfigDryRun: clone(options.officialConfigDryRun),
+    certificationBoundary: { proposalOnly: true, installed: false, runtime: false,
+      domain: false, birth: false, delivery: false, production: false },
+  };
 }
 
 export async function writeOpenClawAbsentGenesisAuthority(
@@ -884,3 +1029,4 @@ function result(errors) {
 function fail(code = "AGENTMO_OPENCLAW_INSTALL_PLAN_INVALID") {
   throw new OpenClawInstallPlanError(code);
 }
+import { MINIMAX_M3_PROFILE, nativeChatModelProfile } from "./native-chat-model-profile.js";

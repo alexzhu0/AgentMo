@@ -1,4 +1,5 @@
 import path from "node:path";
+import { validNativeModelProfileSource } from "./native-chat-model-profile.js";
 import {
   admittedArtifactProvenance,
   ArtifactAdmissionError,
@@ -91,6 +92,9 @@ export function buildDesignPlan(discoveryDb, userNeed, options = {}) {
     throw new ArtifactAdmissionError("AGENTMO_ARTIFACT_ADMISSION_RESULT_INVALID");
   }
   const targetRuntime = resolveRuntime(options.target, options.runtime);
+  if (userNeed.execution_profile === "native-chat" && targetRuntime !== "openclaw") {
+    throw new Error("native-chat requires target runtime openclaw.");
+  }
   const sourceIds = collectSourceIds(discoveryDb);
   const factIds = collectFactIds(discoveryDb);
   const sourceRefValidation = validateSourceRefs(userNeed.source_refs ?? [], {
@@ -123,6 +127,8 @@ export function buildDesignPlan(discoveryDb, userNeed, options = {}) {
   );
   const plan = {
     schemaVersion: DESIGN_PLAN_SCHEMA_VERSION,
+    ...(userNeed.execution_profile === "native-chat" ? { execution_profile: "native-chat" } : {}),
+    ...(Object.hasOwn(userNeed, "native_model_profile") ? { native_model_profile: userNeed.native_model_profile } : {}),
     ok: validation.ok,
     agentId: sanitizeId(userNeed.agent_id),
     domain: sanitizeString(userNeed.domain),
@@ -168,6 +174,16 @@ export function validateDesignPlan(plan) {
   if (!isObject(plan)) return { ok: false, errors: ["Design plan must be a JSON object."], warnings, gates: [] };
 
   if (plan.schemaVersion !== DESIGN_PLAN_SCHEMA_VERSION) errors.push(`schemaVersion must be ${DESIGN_PLAN_SCHEMA_VERSION}`);
+  if ("execution_profile" in plan && plan.execution_profile !== "native-chat") {
+    errors.push("execution_profile must be native-chat when supplied.");
+  }
+  if (!validNativeModelProfileSource(plan)) errors.push("native_model_profile must select the fixed native-chat model.");
+  if (plan.execution_profile === "native-chat"
+    && (plan.targetRuntime !== "openclaw"
+      || !Array.isArray(plan.architecturePlan?.specialistPlans) || plan.architecturePlan.specialistPlans.length !== 0
+      || !Array.isArray(plan.toolContractPlan?.tools) || plan.toolContractPlan.tools.length !== 0)) {
+    errors.push("native-chat requires target runtime openclaw and empty specialist/tool plans.");
+  }
   if (typeof plan.ok !== "boolean") errors.push("ok must be a boolean.");
   requireString(plan, "agentId", errors);
   requireString(plan, "domain", errors);
@@ -783,12 +799,13 @@ function summarizeDiscoveryDb(discoveryDb) {
 }
 
 function buildArchitecturePlan(userNeed, targetRuntime) {
-  const routingModes = userNeed.primary_tasks.map(slug).filter(nonEmptyString);
+  const nativeChat = userNeed.execution_profile === "native-chat";
+  const routingModes = userNeed.primary_tasks.map(nativeChat ? sanitizeString : slug).filter(nonEmptyString);
   return {
     mainAgent: `${sanitizeId(userNeed.agent_id)}-main`,
     targetRuntime,
     routingModes,
-    specialistPlans: userNeed.primary_tasks.slice(0, 4).map((task) => ({
+    specialistPlans: nativeChat ? [] : userNeed.primary_tasks.slice(0, 4).map((task) => ({
       id: `${sanitizeId(userNeed.agent_id)}-${slug(task).slice(0, 32)}`.replace(/-+$/u, ""),
       purpose: sanitizeString(task),
     })),
@@ -799,7 +816,7 @@ function buildArchitecturePlan(userNeed, targetRuntime) {
 function buildToolContractPlan(userNeed) {
   return {
     policy: "Tool contracts must cite bounded fact refs or disclose missing evidence before user-facing claims.",
-    tools: userNeed.primary_tasks.slice(0, 6).map((task) => ({
+    tools: userNeed.execution_profile === "native-chat" ? [] : userNeed.primary_tasks.slice(0, 6).map((task) => ({
       name: `${sanitizeId(userNeed.agent_id)}_${slug(task).replaceAll("-", "_")}`.replace(/_+$/u, ""),
       purpose: `Support the workflow task: ${sanitizeString(task)}`,
       allowedWhen: [sanitizeString(task)],

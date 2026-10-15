@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { cp, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, readFile, realpath, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import {
@@ -91,7 +91,7 @@ export function canonicalNativePluginRecipe() {
 }
 
 export async function buildApprovedPackageFixture(options = {}) {
-  const root = await mkdtemp(path.join(tmpdir(), "agentmo-package-produce-fixture-"));
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), "agentmo-package-produce-fixture-")));
   const inputs = await buildSupportContractInputs(options);
   const paths = {
     blueprint: path.join(root, "blueprint.json"),
@@ -129,8 +129,10 @@ export async function buildApprovedPackageFixture(options = {}) {
     {
       target: "openclaw",
       admissions: inputs.admissions,
-      nativePluginRecipe: recipeAdmission.value,
-      nativePluginRecipeAdmission: recipeAdmission,
+      ...(inputs.values.blueprint.execution_profile === "native-chat" ? {} : {
+        nativePluginRecipe: recipeAdmission.value,
+        nativePluginRecipeAdmission: recipeAdmission,
+      }),
     },
   );
   await writeBuildContract(paths["build-contract"], contract);
@@ -184,11 +186,11 @@ export async function buildApprovedPackageFixture(options = {}) {
       buildInfoDigest: digestBytes(await readFile(inputs.targetFiles.buildInfoPath)),
     },
   });
-  if (NATIVE_OPENCLAW_FS) {
+  if (inputs.values.blueprint.execution_profile === "native-chat" || NATIVE_OPENCLAW_FS) {
     await writeOpenClawTargetCarrierAdmission(
       paths["openclaw-target-carrier-admission"],
       targetAdmission,
-      inputs.publication,
+      inputs.values.blueprint.execution_profile === "native-chat" ? undefined : inputs.publication,
     );
   } else {
     await writeCanonical(
@@ -233,9 +235,11 @@ export function packageProduceOptions(fixture, outputRoot, archivePath) {
     },
     outputRoot,
     archivePath,
-    helperPath: fixture.publication.helperPath,
-    receiptPath: fixture.publication.receiptPath,
-    receiptDigest: fixture.publication.receiptDigest,
+    ...(fixture.contract.execution_profile === "native-chat" ? {} : {
+      helperPath: fixture.publication.helperPath,
+      receiptPath: fixture.publication.receiptPath,
+      receiptDigest: fixture.publication.receiptDigest,
+    }),
   };
 }
 

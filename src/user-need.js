@@ -24,6 +24,10 @@ export function validateUserNeed(need) {
   if (!isObject(need)) return { ok: false, errors: ["User-need must be a JSON object."], warnings };
 
   if (need.schemaVersion !== USER_NEED_SCHEMA_VERSION) errors.push(`schemaVersion must be ${USER_NEED_SCHEMA_VERSION}`);
+  if ("execution_profile" in need && need.execution_profile !== "native-chat") {
+    errors.push("execution_profile must be native-chat when supplied.");
+  }
+  if (!validNativeModelProfileSource(need)) errors.push("native_model_profile must select the fixed native-chat model.");
   requireString(need, "agent_id", errors);
   requireString(need, "domain", errors);
   requireString(need, "problem", errors);
@@ -170,3 +174,4 @@ function isObject(value) {
 function nonEmptyString(value) {
   return typeof value === "string" && value.trim().length > 0;
 }
+import { validNativeModelProfileSource } from "./native-chat-model-profile.js";

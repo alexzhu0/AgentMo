@@ -29,7 +29,15 @@ export function draftBlueprint(discoveryDb, userNeed, options = {}) {
   const designPlan = options.designPlan ?? null;
   const agentId = sanitizeAgentId(userNeed.agent_id ?? discoveryDb.agentId);
   const runtime = resolveRuntime(options.target, options.runtime);
-  if (designPlan !== null) assertDesignPlanForDraft(designPlan, { agentId, domain: userNeed.domain, runtime });
+  const nativeChat = userNeed.execution_profile === "native-chat";
+  if (nativeChat && runtime !== "openclaw") throw new Error("native-chat requires target runtime openclaw.");
+  if (designPlan !== null) {
+    assertDesignPlanForDraft(designPlan, { agentId, domain: userNeed.domain, runtime });
+    if (designPlan.execution_profile !== userNeed.execution_profile
+      || designPlan.native_model_profile !== userNeed.native_model_profile) {
+      throw new Error("design-plan execution_profile must match user-need execution_profile.");
+    }
+  }
   const admittedInputs = options.admissions === undefined
     ? null
     : admittedBlueprintInputs(discoveryDb, userNeed, designPlan, options.admissions);
@@ -37,13 +45,13 @@ export function draftBlueprint(discoveryDb, userNeed, options = {}) {
   const sourceDescriptions = Array.isArray(discoveryDb.sources)
     ? discoveryDb.sources.map((source) => `${source.id}: ${source.description}`).filter(nonEmptyString)
     : [];
-  const taskClasses = userNeed.primary_tasks.map((task) => slug(task)).filter(nonEmptyString);
-  const hardFailures = userNeed.hard_failures.map((failure) => slug(failure)).filter(nonEmptyString);
-  const specialists = userNeed.primary_tasks.slice(0, 4).map((task) => ({
+  const taskClasses = nativeChat ? [...userNeed.primary_tasks] : userNeed.primary_tasks.map(slug).filter(nonEmptyString);
+  const hardFailures = nativeChat ? [...userNeed.hard_failures] : userNeed.hard_failures.map(slug).filter(nonEmptyString);
+  const specialists = nativeChat ? [] : userNeed.primary_tasks.slice(0, 4).map((task) => ({
     id: `${agentId}-${slug(task).slice(0, 32)}`.replace(/-+$/u, ""),
     purpose: task,
   }));
-  const tools = userNeed.primary_tasks.slice(0, 6).map((task) => ({
+  const tools = nativeChat ? [] : userNeed.primary_tasks.slice(0, 6).map((task) => ({
     name: `${agentId}_${slug(task).replaceAll("-", "_")}`.replace(/_+$/u, ""),
     purpose: `Support the workflow task: ${task}`,
     allowed_when: [task],
@@ -54,6 +62,8 @@ export function draftBlueprint(discoveryDb, userNeed, options = {}) {
 
   const blueprint = {
     [BLUEPRINT_IDENTITY_FIELD]: BLUEPRINT_SCHEMA_VERSION,
+    ...(nativeChat ? { execution_profile: "native-chat" } : {}),
+    ...(Object.hasOwn(userNeed, "native_model_profile") ? { native_model_profile: userNeed.native_model_profile } : {}),
     agent_id: agentId,
     runtime,
     status: "draft",
@@ -67,10 +77,10 @@ export function draftBlueprint(discoveryDb, userNeed, options = {}) {
     },
     architecture: {
       main_agent: `${agentId}-main`,
-      specialists: specialists.length > 0 ? specialists : [{ id: `${agentId}-specialist`, purpose: userNeed.problem }],
+      specialists: nativeChat || specialists.length > 0 ? specialists : [{ id: `${agentId}-specialist`, purpose: userNeed.problem }],
       routing_modes: taskClasses.length > 0 ? taskClasses : ["default_route"],
     },
-    tools: tools.length > 0 ? tools : [defaultTool(agentId, userNeed)],
+    tools: nativeChat || tools.length > 0 ? tools : [defaultTool(agentId, userNeed)],
     evidence: {
       stores: ["agentmo-discovery-db.json", "facts.jsonl", "coverage.json", "agentmo-birth-report.json"],
       required_artifacts: ["discovery pack", "user-need report", "blueprint validation", "handoff package", "birth report"],

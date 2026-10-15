@@ -36,7 +36,7 @@ import {
 } from "./openclaw-install-evidence.js";
 import {
   validateOpenClawAbsentGenesisAuthority,
-  validateOpenClawInstallPlan,
+  validateOpenClawLegacyInstallPlan as validateOpenClawInstallPlan,
 } from "./openclaw-install-plan.js";
 import {
   deriveOpenClawInstallReceiptEvidence,

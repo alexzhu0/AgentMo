@@ -55,6 +55,10 @@ export function buildOpenClawInstallReview(plan) {
     predecessor: clone(plan.predecessor),
     officialConfigDryRun: clone(plan.officialConfigDryRun),
     certificationBoundary: clone(plan.certificationBoundary),
+    ...(plan.execution_profile === "native-chat" ? {
+      execution_profile: plan.execution_profile,
+      nativeBinding: clone(plan.nativeBinding),
+    } : {}),
   };
   assertPersistable(model, { subject: "openclaw-install-review" });
   return freeze({

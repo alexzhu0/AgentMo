@@ -28,6 +28,30 @@ async function loadSupportExample() {
 }
 
 describe("blueprint validation", () => {
+  it("accepts explicit native-chat and rejects conflicting capabilities", async () => {
+    const blueprint = await loadSupportExample();
+    blueprint.execution_profile = "native-chat";
+    blueprint.runtime = "openclaw";
+    blueprint.tools = [];
+    blueprint.architecture.specialists = [];
+    assert.equal(validateBlueprint(blueprint).ok, true);
+    assert.equal(evaluateQualityGates(blueprint).every((gate) => gate.status === "pass"), true);
+    for (const change of [
+      (b) => { delete b.tools; },
+      (b) => { b.tools = null; },
+      (b) => { b.tools = [{ name: "fake", purpose: "fake", allowed_when: [], forbidden_when: [], evidence_policy: "bounded" }]; },
+      (b) => { b.architecture.specialists = [{ id: "fake", purpose: "fake" }]; },
+      (b) => { b.execution_profile = "native-caht"; },
+      (b) => { b.execution_profile = null; },
+      (b) => { b.runtime = "codex"; },
+      (b) => { delete b.execution_profile; },
+    ]) {
+      const candidate = structuredClone(blueprint);
+      change(candidate);
+      assert.equal(validateBlueprint(candidate).ok, false, JSON.stringify(candidate));
+    }
+  });
+
   it("admits exact blueprint bytes once and returns authentic provenance input", async () => {
     const bytes = await readFile(WIN9_BLUEPRINT);
     let opens = 0;

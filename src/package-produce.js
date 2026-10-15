@@ -39,6 +39,7 @@ import {
   serializePersistableJson,
 } from "./persistability.js";
 import { buildOpenClawPackageProjection } from "./targets/openclaw-package.js";
+import { publishNativeChatFiles, writeNativeChatFile } from "./native-chat-files.js";
 
 const DIGEST_PATTERN = /^sha256:[a-f0-9]{64}$/u;
 const RESOURCE_PATHS = Object.freeze({
@@ -76,15 +77,13 @@ export class PackageProduceError extends Error {
 }
 
 export async function produceAgentPackage(options = {}, hooks = {}) {
+  const publicationKeys = ["helperPath", "receiptPath", "receiptDigest"];
   assertExactObject(options, [
     "artifacts",
     "outputRoot",
     "archivePath",
-    "helperPath",
-    "receiptPath",
-    "receiptDigest",
+    ...publicationKeys.filter((key) => Object.hasOwn(options, key)),
   ]);
-  assertPublicationAuthority(options);
   assertExactObject(options.artifacts, [
     "blueprint",
     "designPlan",
@@ -123,14 +122,20 @@ export async function produceAgentPackage(options = {}, hooks = {}) {
     targetDescriptor,
     targetAdmission,
   });
+  const nativeChat = buildContract.execution_profile === "native-chat";
+  if (nativeChat) {
+    if (publicationKeys.some((key) => Object.hasOwn(options, key))) {
+      throw new PackageProduceError("AGENTMO_PACKAGE_PUBLICATION_AUTHORITY_INVALID");
+    }
+  } else assertPublicationAuthority(options);
 
   const carrierSelection = selectPackageCarriers(buildContract);
   const ownership = new Map();
   const files = new Map();
   for (const resource of buildContract.resources) {
-    const relativePath = RESOURCE_PATHS[resource.kind];
+    const relativePath = nativeChat ? `resources/${resource.kind}.json` : RESOURCE_PATHS[resource.kind];
     if (!relativePath) throw new PackageProduceError("AGENTMO_PACKAGE_RESOURCE_UNSUPPORTED");
-    const bytes = resourceText(resource.kind)
+    const bytes = !nativeChat && resourceText(resource.kind)
       ? productText(resourceText(resource.kind), relativePath)
       : jsonBytes(resourcePayload(resource, buildContract), relativePath);
     addFile(files, ownership, relativePath, 0o644, bytes, resource.id);
@@ -139,6 +144,7 @@ export async function produceAgentPackage(options = {}, hooks = {}) {
     buildContract,
     carrierSelection,
     targetAdmission,
+    blueprint,
   })) {
     const capabilityId = projectionCapability(entry.relativePath);
     if (entry.relativePath.endsWith(".md") || entry.relativePath.endsWith(".js")) {
@@ -194,12 +200,34 @@ export async function produceAgentPackage(options = {}, hooks = {}) {
       production: false,
     },
     remainingRisks: [...buildContract.remainingRisks].sort(),
+    ...(nativeChat ? { execution_profile: "native-chat" } : {}),
   };
   const manifestValidation = validateAgentPackageManifest(manifest, { observedMembers: members });
   if (!manifestValidation.ok) {
     throw new PackageProduceError("AGENTMO_PACKAGE_MANIFEST_INVALID", manifestValidation.errors);
   }
   const manifestBytes = jsonBytes(manifest, "package-manifest");
+  if (nativeChat) {
+    await publishNativeChatFiles({ root: outputRoot, files: [
+      ...[...files].map(([relativePath, file]) => ({ relativePath, ...file })),
+      { relativePath: "agentmo.package.json", bytes: manifestBytes, mode: 0o644 },
+    ] });
+    const archive = await buildPackageArchive({ packageRoot: outputRoot });
+    await hooks.afterArchiveBuild?.(Object.freeze({
+      stageRoot: outputRoot, archiveDigest: archive.archiveDigest,
+      manifestDigest: archive.manifestDigest, inventoryDigest: archive.inventoryDigest,
+    }));
+    await assertPackageDirectoryClosure(outputRoot, { archive, members, manifestDigest: hash(manifestBytes), inventoryDigest });
+    await writeNativeChatFile({ filePath: archivePath, bytes: archive.bytes });
+    await hooks.afterArchivePublication?.(Object.freeze({ archiveDigest: archive.archiveDigest }));
+    const closure = await readPackageArchiveInventory({ archivePath, expectedArchiveDigest: archive.archiveDigest });
+    if (!isDeepStrictEqual(closure.members, members) || closure.manifestDigest !== hash(manifestBytes)
+      || closure.inventoryDigest !== inventoryDigest) {
+      throw new PackageProduceError("AGENTMO_PACKAGE_ARCHIVE_VERIFICATION_FAILED");
+    }
+    await assertPackageDirectoryClosure(outputRoot, { archive, members, manifestDigest: hash(manifestBytes), inventoryDigest });
+    return packageResult(outputRoot, archivePath, archive, inventoryDigest);
+  }
   const stageRoot = `${outputRoot}.agentmo-stage-${process.pid}-${randomUUID()}`;
   const archiveStagePath = `${archivePath}.agentmo-stage-${process.pid}-${randomUUID()}`;
   let stageIdentity;
@@ -347,20 +375,7 @@ export async function produceAgentPackage(options = {}, hooks = {}) {
       manifestDigest: hash(manifestBytes),
       inventoryDigest,
     });
-    return Object.freeze({
-      schemaVersion: "agentmo.package-produce-result.v1",
-      outputRoot,
-      archivePath,
-      archiveDigest: archive.archiveDigest,
-      manifestDigest: archive.manifestDigest,
-      inventoryDigest,
-      certificationBoundary: Object.freeze({
-        installed: false,
-        runtime: false,
-        domain: false,
-        production: false,
-      }),
-    });
+    return packageResult(outputRoot, archivePath, archive, inventoryDigest);
   } catch (error) {
     if (!directorySourceConsumed && stageIdentity !== undefined
       && await pathIsAbsent(stageRoot)) {
@@ -478,9 +493,11 @@ function revalidateAuthority(context) {
     admitted, blueprint, buildContract, planApproval, targetDescriptor, targetAdmission,
   } = context;
   const recipe = buildContract.nativePluginRecipe;
+  const nativeChat = buildContract.execution_profile === "native-chat";
   const recipeValidation = validateNativePluginRecipe(recipe, buildContract.targetRuntime);
   const contractValidation = validateBuildContract(buildContract);
   const targetValidation = validateOpenClawTargetCarrierAdmission(targetAdmission, {
+    targetDescriptor,
     sources: {
       blueprint: provenance(admitted.blueprint, blueprint),
       buildContract: provenance(admitted.buildContract, buildContract),
@@ -503,14 +520,17 @@ function revalidateAuthority(context) {
     throw new PackageProduceError("AGENTMO_PACKAGE_CARRIER_AUTHORITY_INVALID", error?.errors);
   }
   if (!contractValidation.ok || !recipeValidation.ok || !targetValidation.ok || !approvalValidation.ok
-    || computeNativePluginRecipeDigest(recipe) !== recipe.recipeDigest
-    || carrier.recipe.recipeDigest !== recipe.recipeDigest
+    || blueprint.execution_profile !== buildContract.execution_profile
+    || admitted.designPlan.value.execution_profile !== buildContract.execution_profile
+    || targetAdmission.execution_profile !== buildContract.execution_profile
+    || (!nativeChat && (computeNativePluginRecipeDigest(recipe) !== recipe.recipeDigest
+      || carrier.recipe.recipeDigest !== recipe.recipeDigest))
     || targetAdmission.authorities.blueprintDigest !== admitted.blueprint.digest
     || targetAdmission.authorities.buildContractDigest !== admitted.buildContract.digest
     || targetAdmission.authorities.planApprovalDigest !== admitted.planApproval.digest
     || targetAdmission.authorities.targetDescriptorDigest !== admitted.targetDescriptor.digest
     || targetAdmission.target.descriptorDigest !== admitted.targetDescriptor.digest
-    || targetAdmission.authorities.nativePluginRecipeDigest !== recipe.recipeDigest
+    || targetAdmission.authorities.nativePluginRecipeDigest !== (recipe?.recipeDigest ?? null)
     || buildContract.bindings.blueprint?.digest !== admitted.blueprint.digest
     || buildContract.bindings.designPlan?.digest !== admitted.designPlan.digest
     || buildContract.bindings.discoveryApproval?.digest !== admitted.discoveryApproval.digest
@@ -523,6 +543,14 @@ function revalidateAuthority(context) {
       ...approvalValidation.errors,
     ]);
   }
+}
+
+function packageResult(outputRoot, archivePath, archive, inventoryDigest) {
+  return Object.freeze({
+    schemaVersion: "agentmo.package-produce-result.v1", outputRoot, archivePath,
+    archiveDigest: archive.archiveDigest, manifestDigest: archive.manifestDigest, inventoryDigest,
+    certificationBoundary: Object.freeze({ installed: false, runtime: false, domain: false, production: false }),
+  });
 }
 
 function provenance(admission, value) {

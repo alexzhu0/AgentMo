@@ -8,6 +8,13 @@ import {
   mkdtemp,
   open,
   readFile,
+  realpath,
+  readdir,
+  rename,
+  rm,
+  link,
+  appendFile,
+  symlink,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -16,6 +23,7 @@ import { fileURLToPath } from "node:url";
 import { it } from "node:test";
 import { NATIVE_OPENCLAW_FS } from "./helpers/native-openclaw-fs.js";
 import { getArtifactContract } from "../src/artifact-contract.js";
+import { loadAdmittedArtifact } from "../src/artifact-admission.js";
 import { produceAgentPackage } from "../src/package-produce.js";
 import { serializePersistableJson } from "../src/persistability.js";
 import { probeOpenClawTarget } from "../src/openclaw-probe.js";
@@ -30,6 +38,16 @@ import {
   writeOpenClawInstallPlan,
 } from "../src/openclaw-install-plan.js";
 import { openOpenClawSafeFsSession } from "../src/openclaw-safe-fs.js";
+import {
+  buildOpenClawInstallApproval,
+  buildOpenClawInstallReview,
+  buildOpenClawConflictApproval,
+  buildOpenClawSensitiveActionDecision,
+  validateOpenClawInstallApproval,
+} from "../src/openclaw-install-approval.js";
+import { reserveOpenClawAuthoritySet } from "../src/openclaw-authority-consumption.js";
+import * as installPlans from "../src/openclaw-install-plan.js";
+import * as nativeAuthority from "../src/native-chat-authority.js";
 import {
   buildOpenClawAuthorityRootBinding,
   createOpenClawAuthorityRootBinding,
@@ -46,6 +64,20 @@ const digest = (value, subject = "install-plan-test") => (
     .update(Buffer.from(serializePersistableJson(value, { subject }), "utf8"))
     .digest("hex")}`
 );
+
+it("loads lifecycle entry modules independently without registry initialization cycles", async () => {
+  for (const name of ["openclaw-install-plan", "openclaw-install-approval", "openclaw-install-evidence"]) {
+    const url = new URL(`../src/${name}.js`, import.meta.url).href;
+    const result = await new Promise((resolve) => {
+      const child = spawn(process.execPath, ["--input-type=module", "-e", `await import(${JSON.stringify(url)})`],
+        { env: {}, stdio: ["ignore", "pipe", "pipe"] });
+      let stderr = "";
+      child.stderr.on("data", (chunk) => { stderr += chunk; });
+      child.once("close", (code) => resolve({ code, stderr }));
+    });
+    assert.equal(result.code, 0, `${name}: ${result.stderr}`);
+  }
+});
 
 function runCli(args) {
   return new Promise((resolveResult) => {
@@ -323,6 +355,388 @@ function planOptions(lifecycle = "install", scope = "project") {
   }
   return options;
 }
+
+function nativeOptions() {
+  const archive = archiveBinding();
+  for (const name of ["IDENTITY.md", "SOUL.md", "USER.md"]) {
+    archive.members.push({ relativePath: `projections/openclaw/workspace/${name}`,
+      type: "file", mode: 0o644, byteLength: 23, sha256: digest(name) });
+  }
+  archive.members.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+  archive.inventoryDigest = digest(archive.members);
+  return {
+    execution_profile: "native-chat",
+    lifecycle: "install",
+    archiveBinding: archive,
+    authorityRootBinding: {
+      schemaVersion: "agentmo.native-authority-binding.v1",
+      rootDigest: digest("separate-authority-root"),
+      anchorDigest: digest("authority-anchor"),
+      rootIdentity: { device: "1", inode: "2", birthtimeNs: "3" },
+      anchorIdentity: { device: "1", inode: "7", birthtimeNs: "8" },
+      journalIdentity: { device: "1", inode: "4", birthtimeNs: "5" },
+    },
+    target: target(),
+    nativeBinding: {
+      agentId: "meeting-notes",
+      stateRootDigest: digest("new-private-root"),
+      workspace: "workspace",
+      agentDir: "agents/meeting-notes/agent",
+      gatewayPort: 17893,
+      proxyPort: 17894,
+      budgetReference: {
+        version: 1,
+        rootDigest: digest("existing-project-budget"),
+        policyDigest: digest("budget-policy"),
+        inventoryDigest: digest("budget-inventory"),
+      },
+      targetDescriptorDigest: digest("native-target-descriptor"),
+    },
+    officialConfigDryRun: {
+      commandDigest: digest("native-config-command"),
+      resultDigest: digest("native-config-result"),
+      accepted: true,
+    },
+  };
+}
+
+async function nativeAuthorityFixture(t) {
+  const parent = await realpath(await mkdtemp(path.join(tmpdir(), "native-authority-")));
+  t.after(() => rm(parent, { recursive: true, force: true }));
+  const authorityRoot = path.join(parent, "authority");
+  const stateRoot = path.join(parent, "agent");
+  const binding = await nativeAuthority.createNativeAuthorityStore({ authorityRoot, stateRoot });
+  const options = nativeOptions();
+  options.authorityRootBinding = binding;
+  options.nativeBinding.stateRootDigest = digestBytes(Buffer.from(stateRoot));
+  const plan = buildOpenClawInstallPlan(options);
+  return { parent, authorityRoot, stateRoot, plan, ...nativeDecisions(plan) };
+}
+
+function nativeDecisions(plan, suffix = "first", expired = false) {
+  const common = { plan, decision: "approve", issuedAt: new Date(Date.now() - 60_000).toISOString(),
+    expiresAt: new Date(Date.now() + (expired ? -30_000 : 600_000)).toISOString() };
+  return {
+    ordinaryApproval: buildOpenClawInstallApproval({ ...common, useNonce: `ordinary-${suffix}` }),
+    sensitiveDecisions: plan.sensitiveActions.map((action, i) => buildOpenClawSensitiveActionDecision({
+      ...common, action, useNonce: `sensitive-${i}-${suffix}` })),
+    conflictApproval: buildOpenClawConflictApproval({ ...common, conflicts: [], useNonce: `conflict-${suffix}` }),
+  };
+}
+
+function consumptionOptions(fixture) {
+  const { authorityRoot, stateRoot, plan, ordinaryApproval, sensitiveDecisions, conflictApproval } = fixture;
+  return { authorityRoot, stateRoot, plan, ordinaryApproval, sensitiveDecisions, conflictApproval };
+}
+
+it("keeps native one-use authority outside deleted Agent state and across process restart", async (t) => {
+  const f = await nativeAuthorityFixture(t);
+  const options = consumptionOptions(f);
+  const result = await nativeAuthority.consumeNativeAuthoritySet(options);
+  assert.equal(result.decisionCount, 5);
+  assert.equal(result.installPlanDigest, f.plan.installPlanDigest);
+  await mkdir(f.stateRoot);
+  await rm(f.stateRoot, { recursive: true });
+  const input = path.join(f.parent, "request.json");
+  await writeFile(input, JSON.stringify(options));
+  const moduleUrl = new URL("../src/native-chat-authority.js", import.meta.url).href;
+  const exitCode = await new Promise((resolve) => {
+    const child = spawn(process.execPath, ["--input-type=module", "-e", `
+      import { readFile } from 'node:fs/promises';
+      import { consumeNativeAuthoritySet } from ${JSON.stringify(moduleUrl)};
+      try { await consumeNativeAuthoritySet(JSON.parse(await readFile(process.argv[1], 'utf8'))); process.exitCode = 2; }
+      catch (e) { process.exitCode = e.code === 'AGENTMO_NATIVE_AUTHORITY_REJECTED' ? 0 : 3; }
+    `, input], { env: {}, stdio: "ignore" });
+    child.on("close", resolve);
+  });
+  assert.equal(exitCode, 0, "a new process must reject already consumed authority");
+  const bytes = await readFile(path.join(f.authorityRoot, "consumption.jsonl"), "utf8");
+  assert.equal(bytes.includes(f.parent), false);
+  assert.equal(bytes.includes("ordinary-first"), false);
+  assert.equal(bytes.split("\n").filter(Boolean).length, 2);
+});
+
+it("rejects missing, replaced, partial or aliased native authority state without resetting it", async (t) => {
+  for (const mutation of ["root-missing", "root-replaced", "journal-missing", "journal-replaced",
+    "journal-partial", "journal-empty", "journal-oversized", "anchor-missing", "anchor-replaced", "lock", "symlink", "hardlink", "mode", "root-mode"]) {
+    const f = await nativeAuthorityFixture(t);
+    const journal = path.join(f.authorityRoot, "consumption.jsonl");
+    if (mutation === "root-missing") await rm(f.authorityRoot, { recursive: true });
+    if (mutation === "root-replaced") {
+      await rename(f.authorityRoot, `${f.authorityRoot}-old`);
+      await nativeAuthority.createNativeAuthorityStore({ authorityRoot: f.authorityRoot, stateRoot: f.stateRoot });
+    }
+    if (mutation === "journal-missing") await rm(journal);
+    if (mutation === "journal-replaced") {
+      const bytes = await readFile(journal);
+      await rename(journal, `${journal}.old`);
+      await writeFile(journal, bytes, { mode: 0o600 });
+    }
+    if (mutation === "journal-partial") await appendFile(journal, '{"partial":');
+    if (mutation === "journal-empty") await writeFile(journal, "");
+    if (mutation === "journal-oversized") await appendFile(journal, "x".repeat(1024 * 1024 + 1));
+    if (mutation === "anchor-missing") await rm(path.join(f.authorityRoot, "identity.json"));
+    if (mutation === "anchor-replaced") {
+      const anchor = path.join(f.authorityRoot, "identity.json");
+      const bytes = await readFile(anchor);
+      await rename(anchor, `${anchor}.old`);
+      await writeFile(anchor, bytes, { mode: 0o600 });
+    }
+    if (mutation === "lock") await writeFile(path.join(f.authorityRoot, "consume.lock"), "", { mode: 0o600 });
+    if (mutation === "symlink") { await rename(journal, `${journal}.old`); await symlink(`${journal}.old`, journal); }
+    if (mutation === "hardlink") await link(journal, `${journal}.link`);
+    if (mutation === "mode") await chmod(journal, 0o644);
+    if (mutation === "root-mode") await chmod(f.authorityRoot, 0o755);
+    await assert.rejects(nativeAuthority.consumeNativeAuthoritySet(consumptionOptions(f)),
+      { code: "AGENTMO_NATIVE_AUTHORITY_REJECTED" }, mutation);
+    if (mutation === "root-missing") await assert.rejects(access(f.authorityRoot));
+    if (mutation === "journal-missing") await assert.rejects(access(journal));
+  }
+});
+
+it("validates all native approvals before writes and shares nonce uniqueness across decision families", async (t) => {
+  for (const mutation of ["expired", "duplicate", "stale", "missing-action", "changed-root", "extra-option"]) {
+    const f = await nativeAuthorityFixture(t);
+    const options = consumptionOptions(f);
+    const journal = path.join(f.authorityRoot, "consumption.jsonl");
+    const before = await readFile(journal);
+    if (mutation === "expired") Object.assign(options, nativeDecisions(f.plan, "expired", true));
+    if (mutation === "duplicate") options.conflictApproval = buildOpenClawConflictApproval({ plan: f.plan,
+      conflicts: [], decision: "approve", issuedAt: f.ordinaryApproval.issuedAt,
+      expiresAt: f.ordinaryApproval.expiresAt, useNonce: f.ordinaryApproval.useNonce });
+    if (mutation === "stale") options.ordinaryApproval = { ...f.ordinaryApproval, installPlanDigest: digest("stale") };
+    if (mutation === "missing-action") options.sensitiveDecisions = f.sensitiveDecisions.slice(1);
+    if (mutation === "changed-root") options.stateRoot = path.join(f.parent, "other-agent");
+    if (mutation === "extra-option") options.now = f.ordinaryApproval.issuedAt;
+    await assert.rejects(nativeAuthority.consumeNativeAuthoritySet(options), { code: "AGENTMO_NATIVE_AUTHORITY_REJECTED" }, mutation);
+    assert.deepEqual(await readFile(journal), before, mutation);
+    assert.deepEqual((await readdir(f.authorityRoot)).sort(), ["consumption.jsonl", "identity.json"]);
+  }
+});
+
+it("allows only one concurrent native consumption and never reuses a nonce for another decision family", async (t) => {
+  const f = await nativeAuthorityFixture(t);
+  const results = await Promise.allSettled([1, 2].map(() => nativeAuthority.consumeNativeAuthoritySet(consumptionOptions(f))));
+  assert.equal(results.filter((r) => r.status === "fulfilled").length, 1);
+  assert.equal(results.filter((r) => r.status === "rejected").length, 1);
+  const next = nativeDecisions(f.plan, "second");
+  next.conflictApproval = buildOpenClawConflictApproval({ plan: f.plan, conflicts: [], decision: "approve",
+    issuedAt: next.ordinaryApproval.issuedAt, expiresAt: next.ordinaryApproval.expiresAt,
+    useNonce: f.ordinaryApproval.useNonce });
+  await assert.rejects(nativeAuthority.consumeNativeAuthoritySet({ ...consumptionOptions(f), ...next }),
+    { code: "AGENTMO_NATIVE_AUTHORITY_REJECTED" });
+  const success = await nativeAuthority.consumeNativeAuthoritySet({ ...consumptionOptions(f), ...nativeDecisions(f.plan, "third") });
+  assert.equal(success.decisionCount, 5);
+});
+
+it("only explicitly provisions absent disjoint native authority roots", async (t) => {
+  const f = await nativeAuthorityFixture(t);
+  await assert.rejects(nativeAuthority.createNativeAuthorityStore({ authorityRoot: f.authorityRoot, stateRoot: f.stateRoot }),
+    { code: "AGENTMO_NATIVE_AUTHORITY_REJECTED" });
+  for (const [authorityRoot, stateRoot] of [[f.stateRoot, f.stateRoot],
+    [`${path.join(f.parent, "trailing-store")}/`, f.stateRoot],
+    [path.join(f.stateRoot, "authority"), f.stateRoot], [path.join(f.parent, "new-store"), path.join(f.parent, "new-store", "agent")]]) {
+    await assert.rejects(nativeAuthority.createNativeAuthorityStore({ authorityRoot, stateRoot }),
+      { code: "AGENTMO_NATIVE_AUTHORITY_REJECTED" });
+    await assert.rejects(access(authorityRoot));
+  }
+});
+
+it("rejects non-canonical parent spellings before native authority consumption", async (t) => {
+  const f = await nativeAuthorityFixture(t);
+  const aliasRoot = path.join(f.parent, "AUTHORITY");
+  try { await access(aliasRoot); } catch { t.skip("case-sensitive filesystem"); return; }
+  const options = nativeOptions();
+  const stateRoot = path.join(aliasRoot, "agent");
+  options.authorityRootBinding = f.plan.authorityRootBinding;
+  options.nativeBinding.stateRootDigest = digestBytes(Buffer.from(stateRoot));
+  const plan = buildOpenClawInstallPlan(options);
+  await assert.rejects(nativeAuthority.consumeNativeAuthoritySet({ authorityRoot: f.authorityRoot, stateRoot,
+    plan, ...nativeDecisions(plan) }), { code: "AGENTMO_NATIVE_AUTHORITY_REJECTED" });
+});
+
+it("does not let a trailing slash bypass replaced native authority directory identity", async (t) => {
+  const f = await nativeAuthorityFixture(t);
+  const authorityRoot = `${f.authorityRoot}/`;
+  const options = nativeOptions();
+  options.nativeBinding.stateRootDigest = f.plan.nativeBinding.stateRootDigest;
+  options.authorityRootBinding = { ...f.plan.authorityRootBinding, rootDigest: digestBytes(Buffer.from(authorityRoot)) };
+  const plan = buildOpenClawInstallPlan(options);
+  await rename(f.authorityRoot, `${f.authorityRoot}-old`);
+  await mkdir(f.authorityRoot, { mode: 0o700 });
+  for (const name of ["identity.json", "consumption.jsonl"]) {
+    await rename(path.join(`${f.authorityRoot}-old`, name), path.join(f.authorityRoot, name));
+  }
+  await assert.rejects(nativeAuthority.consumeNativeAuthoritySet({ authorityRoot, stateRoot: f.stateRoot,
+    plan, ...nativeDecisions(plan) }), { code: "AGENTMO_NATIVE_AUTHORITY_REJECTED" });
+});
+
+it("rejects an authority-root case alias that hides a contained Agent root", async (t) => {
+  const f = await nativeAuthorityFixture(t);
+  const authorityRoot = path.join(f.parent, "AUTHORITY");
+  try { await access(authorityRoot); } catch { t.skip("case-sensitive filesystem"); return; }
+  const stateRoot = path.join(f.authorityRoot, "agent");
+  const options = nativeOptions();
+  options.nativeBinding.stateRootDigest = digestBytes(Buffer.from(stateRoot));
+  options.authorityRootBinding = { ...f.plan.authorityRootBinding, rootDigest: digestBytes(Buffer.from(authorityRoot)) };
+  const plan = buildOpenClawInstallPlan(options);
+  await assert.rejects(nativeAuthority.consumeNativeAuthoritySet({ authorityRoot, stateRoot,
+    plan, ...nativeDecisions(plan) }), { code: "AGENTMO_NATIVE_AUTHORITY_REJECTED" });
+});
+
+it("binds native install review and approval to root digest, relative directories, ports and budget", () => {
+  const options = nativeOptions();
+  const plan = buildOpenClawInstallPlan(options);
+  assert.equal(validateOpenClawInstallPlan(plan).ok, true);
+  assert.deepEqual(plan.authorityRootBinding, options.authorityRootBinding);
+  assert.equal(plan.certificationBoundary.runtime, false);
+  const review = buildOpenClawInstallReview(plan);
+  assert.equal(review.jsonModel.execution_profile, "native-chat");
+  assert.deepEqual(review.humanModel.nativeBinding, options.nativeBinding);
+  const now = "2026-10-09T00:00:00.000Z";
+  const approval = buildOpenClawInstallApproval({ plan, decision: "approve",
+    issuedAt: now, expiresAt: "2026-10-10T00:00:00.000Z", useNonce: "native-install-test" });
+  assert.equal(validateOpenClawInstallApproval(approval, { plan, now }).ok, true);
+  for (const mutate of [
+    (p) => { p.nativeBinding.stateRootDigest = digest("another-root"); },
+    (p) => { p.nativeBinding.gatewayPort += 2; },
+    (p) => { p.nativeBinding.proxyPort += 2; },
+    (p) => { p.nativeBinding.targetDescriptorDigest = digest("new-target"); },
+    (p) => { p.nativeBinding.budgetReference.rootDigest = digest("new-budget"); },
+    (p) => { p.archiveBinding.archiveSha256 = digest("changed-archive"); },
+    (p) => { p.authorityRootBinding.anchorDigest = digest("replaced-authority"); },
+    (p) => { p.authorityRootBinding.journalIdentity.inode = "6"; },
+  ]) {
+    const changed = structuredClone(options);
+    mutate(changed);
+    const changedPlan = buildOpenClawInstallPlan(changed);
+    assert.notEqual(changedPlan.installPlanDigest, plan.installPlanDigest);
+    assert.equal(validateOpenClawInstallApproval(approval, { plan: changedPlan, now }).ok, false);
+  }
+  const oldPlan = buildOpenClawInstallPlan(planOptions());
+  assert.equal(validateOpenClawInstallApproval(approval, { plan: oldPlan, now }).ok, false);
+});
+
+it("binds native activation to the installed receipt and refuses reused install authority", async () => {
+  const options = nativeOptions(), installed = buildOpenClawInstallPlan(options);
+  const predecessor = { kind: "installed-native-root", installPlanDigest: installed.installPlanDigest,
+    installReceiptDigest: digest("exact-install-receipt"), rootIdentity: { device: "1", inode: "20", birthtimeNs: "30" } };
+  const activated = buildOpenClawInstallPlan({ ...options, lifecycle: "activate", predecessor });
+  assert.equal(validateOpenClawInstallPlan(activated).ok, true);
+  assert.equal(activated.lifecycle, "activate");
+  assert.deepEqual(activated.predecessor, predecessor);
+  assert.deepEqual(activated.sensitiveActions.map(a => a.actionId), ["network:native-budget-proxy", "process:native-gateway", "process:native-health"]);
+  assert.deepEqual(activated.sensitiveActions[1].argv, ["gateway", "run", "--port", "17893", "--bind", "loopback", "--auth", "token"]);
+  const old = nativeDecisions(installed);
+  assert.equal(validateOpenClawInstallApproval(old.ordinaryApproval, { plan: activated, now: new Date().toISOString() }).ok, false);
+  for (const field of ["installReceiptDigest", "installPlanDigest"]) {
+    const changed = buildOpenClawInstallPlan({ ...options, lifecycle: "activate", predecessor: { ...predecessor, [field]: digest("changed") } });
+    assert.notEqual(changed.installPlanDigest, activated.installPlanDigest);
+  }
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), "native-activate-plan-")));
+  const filePath = path.join(root, "plan.json"), written = await writeOpenClawInstallPlan(filePath, activated);
+  assert.deepEqual((await loadAdmittedArtifact({ filePath, expectedDigest: written.digest, subject: "openclaw-install-plan" })).value, activated);
+  const altered = structuredClone(activated); altered.sensitiveActions[1].argv.push("--force");
+  assert.equal(validateOpenClawInstallPlan(altered).ok, false);
+  assert.equal(getArtifactContract("openclaw-install-plan").jsonSchema.then.properties.lifecycle.enum.includes("activate"), true);
+});
+
+it("does not route native approvals into the legacy authority reservation writer", async () => {
+  const plan = buildOpenClawInstallPlan(nativeOptions());
+  const common = { plan, decision: "approve", issuedAt: "2026-10-09T00:00:00.000Z",
+    expiresAt: "2026-10-10T00:00:00.000Z" };
+  let writes = 0;
+  await assert.rejects(reserveOpenClawAuthoritySet({
+    session: { reserveMarker: async () => { writes++; throw new Error("unexpected legacy write"); },
+      observe: async () => { throw new Error("unexpected legacy observation"); } },
+    attemptId: "native-plan-test", plan,
+    probe: { fingerprintDigest: plan.target.probeFingerprintDigest, cli: { executableDigest: digest("executable") } },
+    ordinaryApproval: buildOpenClawInstallApproval({ ...common, useNonce: "ordinary" }),
+    sensitiveDecisions: plan.sensitiveActions.map((action, i) => buildOpenClawSensitiveActionDecision({
+      ...common, action, useNonce: `sensitive-${i}` })),
+    conflictApproval: buildOpenClawConflictApproval({ ...common, conflicts: [], useNonce: "conflict" }),
+    now: common.issuedAt,
+  }), { code: "AGENTMO_OPENCLAW_AUTHORITY_ARGUMENTS_REJECTED" });
+  assert.equal(writes, 0);
+});
+
+it("verifies the exact native root and refuses existing or aliased namespaces without writes", async () => {
+  const parent = await realpath(await mkdtemp(path.join(tmpdir(), "native-binding-")));
+  const stateRoot = path.join(parent, "new-root");
+  const options = nativeOptions();
+  options.nativeBinding.stateRootDigest = digestBytes(Buffer.from(stateRoot));
+  const plan = buildOpenClawInstallPlan(options);
+  const paths = await installPlans.verifyOpenClawNativeInstallRoot({ plan, stateRoot });
+  assert.equal(paths.workspace, path.join(stateRoot, "workspace"));
+  assert.equal(paths.agentDir, path.join(stateRoot, "agents/meeting-notes/agent"));
+  await assert.rejects(access(stateRoot));
+  await assert.rejects(installPlans.verifyOpenClawNativeInstallRoot({ plan, stateRoot: path.join(parent, "different") }),
+    { code: "AGENTMO_OPENCLAW_NATIVE_ROOT_REJECTED" });
+  await mkdir(stateRoot);
+  await writeFile(path.join(stateRoot, "keep.txt"), "unchanged");
+  await assert.rejects(installPlans.verifyOpenClawNativeInstallRoot({ plan, stateRoot }),
+    { code: "AGENTMO_OPENCLAW_NATIVE_ROOT_REJECTED" });
+  assert.equal(await readFile(path.join(stateRoot, "keep.txt"), "utf8"), "unchanged");
+  const alias = path.join(parent, "alias");
+  await symlink(stateRoot, alias);
+  const aliasedRoot = path.join(alias, "child");
+  options.nativeBinding.stateRootDigest = digestBytes(Buffer.from(aliasedRoot));
+  await assert.rejects(installPlans.verifyOpenClawNativeInstallRoot({
+    plan: buildOpenClawInstallPlan(options), stateRoot: aliasedRoot,
+  }), { code: "AGENTMO_OPENCLAW_NATIVE_ROOT_REJECTED" });
+  await assert.rejects(access(path.join(stateRoot, "child")));
+});
+
+it("publishes and admits the native plan without persisting a host root or accepting altered commands", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "native-plan-publication-"));
+  const filePath = path.join(root, "plan.json");
+  const plan = buildOpenClawInstallPlan(nativeOptions());
+  const written = await writeOpenClawInstallPlan(filePath, plan);
+  const admitted = await loadAdmittedArtifact({ filePath, expectedDigest: written.digest, subject: "openclaw-install-plan" });
+  assert.deepEqual(admitted.value, plan);
+  assert.equal((await readFile(filePath, "utf8")).includes(root), false);
+  const schema = getArtifactContract("openclaw-install-plan").jsonSchema;
+  assert.equal(schema.properties.execution_profile.const, "native-chat");
+  for (const change of [
+    (p) => { p.sensitiveActions[0].argv.push("--extra"); },
+    (p) => { p.operations[0].path = "state/config.json"; },
+    (p) => { p.authorityRootBinding = authorityRootBinding(); },
+    (p) => { delete p.execution_profile; },
+    (p) => { p.predecessor.verifiedAbsent = true; },
+  ]) {
+    const candidate = structuredClone(plan); change(candidate);
+    const { installPlanDigest: _, ...basis } = candidate;
+    candidate.installPlanDigest = digest(basis);
+    assert.equal(validateOpenClawInstallPlan(candidate).ok, false);
+  }
+});
+
+it("rejects native host paths, directory aliasing, invalid bindings and unsupported lifecycle before writing", () => {
+  for (const mutate of [
+    (p) => { p.nativeBinding.stateRoot = "/private/tmp/private-agent"; },
+    (p) => { p.nativeBinding.stateRootDigest = "/private/tmp/private-agent"; },
+    (p) => { p.nativeBinding.workspace = "../host"; },
+    (p) => { p.nativeBinding.workspace = "/private/tmp/workspace"; },
+    (p) => { p.nativeBinding.agentDir = "workspace"; },
+    (p) => { p.nativeBinding.agentId = "../host"; },
+    (p) => { p.nativeBinding.gatewayPort = p.nativeBinding.proxyPort; },
+    (p) => { p.nativeBinding.gatewayPort = 0; },
+    (p) => { p.nativeBinding.proxyPort = 65536; },
+    (p) => { p.nativeBinding.budgetReference.version = 0; },
+    (p) => { p.authorityRootBinding = null; },
+    (p) => { p.authorityRootBinding.rootDigest = p.nativeBinding.stateRootDigest; },
+    (p) => { p.authorityRootBinding.journalIdentity.inode = "-1"; },
+    (p) => { p.authorityRootBinding = authorityRootBinding(); },
+    (p) => { p.execution_profile = "plugin"; },
+    (p) => { p.lifecycle = "activate"; },
+    (p) => { p.lifecycle = "upgrade"; },
+  ]) {
+    const options = nativeOptions(); mutate(options);
+    assert.throws(() => buildOpenClawInstallPlan(options), {
+      code: "AGENTMO_OPENCLAW_INSTALL_PLAN_INVALID",
+    });
+  }
+});
 
 it("builds closed absent-genesis and lifecycle authorities for all four actions", () => {
   assert.equal(

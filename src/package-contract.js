@@ -6,6 +6,12 @@ import {
 } from "./persistability.js";
 
 export const AGENT_PACKAGE_SCHEMA_VERSION = "agentmo.package-manifest.v1";
+export const OPENCLAW_RESOURCE_KINDS = Object.freeze([
+  "prompt", "workspace-context", "skills", "tools", "tool-policy", "plugins",
+  "memory", "rag", "storage", "schedules", "harness", "agent-loop", "runtime-binding",
+  "permissions", "trust-boundaries", "secrets", "install-transition", "load-transition",
+  "execute-transition", "recovery", "acceptance-cases", "evidence-obligations",
+]);
 
 const DIGEST_PATTERN = /^sha256:[a-f0-9]{64}$/u;
 const ID_PATTERN = /^[a-z0-9][a-z0-9._:-]{0,127}$/u;
@@ -82,13 +88,14 @@ const CERTIFICATION_KEYS = Object.freeze([
   "domain",
   "production",
 ]);
-const CARRIERS = new Set(["workspace-content", "skill", "native-plugin", "mcp"]);
+const CARRIERS = new Set(["workspace-content", "skill", "native-plugin", "mcp", "native-runtime"]);
 const FIXED_FILE_MODES = new Set([0o644, 0o755]);
 
 export function validateAgentPackageManifest(value, context = {}) {
   const errors = [];
   try {
-    if (!plainObject(value) || !hasExactKeys(value, MANIFEST_KEYS)) {
+    const nativeChat = value?.execution_profile === "native-chat";
+    if (!plainObject(value) || !hasExactKeys(value, nativeChat ? [...MANIFEST_KEYS, "execution_profile"] : MANIFEST_KEYS)) {
       return result(["package manifest must contain only canonical fields."]);
     }
     if (value.schemaVersion !== AGENT_PACKAGE_SCHEMA_VERSION) {
@@ -110,6 +117,7 @@ export function validateAgentPackageManifest(value, context = {}) {
       capabilityIds: value.capabilityIds,
       members: value.members,
       allowMcp: false,
+      ...(nativeChat ? { execution_profile: "native-chat" } : {}),
     });
     errors.push(...ledger.errors);
     validateOwnership(value.ownership, value.members, errors);
@@ -145,10 +153,15 @@ export function validatePackageCapabilityLedger(value, context = {}) {
   try {
     if (!Array.isArray(value)
       || !plainObject(context)
-      || !hasOnlyKeys(context, ["capabilityIds", "members", "allowMcp"])) {
+      || !hasOnlyKeys(context, ["capabilityIds", "members", "allowMcp", "execution_profile"])
+      || (Object.hasOwn(context, "execution_profile") && context.execution_profile !== "native-chat")) {
       return result(["capability ledger or validation context is invalid."]);
     }
     const capabilityIds = context.capabilityIds;
+    const nativeChat = context.execution_profile === "native-chat";
+    if (nativeChat && !sameArray(capabilityIds, OPENCLAW_RESOURCE_KINDS.map((kind) => `resource:${kind}`).sort())) {
+      errors.push("native-chat must declare the complete resource graph without hooks.");
+    }
     const members = context.members;
     if (!sortedUniqueStrings(capabilityIds)
       || !Array.isArray(members)
@@ -162,6 +175,20 @@ export function validatePackageCapabilityLedger(value, context = {}) {
     const referencedPaths = [];
     for (const entry of value) {
       validateLedgerEntry(entry, memberPaths, context.allowMcp === true, errors);
+      if (nativeChat) {
+        const kind = entry?.resourceId?.replace(/^resource:/u, "");
+        const runtime = ["harness", "agent-loop", "runtime-binding"].includes(kind);
+        const disabled = ["skills", "plugins", "memory", "rag", "schedules"].includes(kind);
+        if (entry?.capabilityId !== entry?.resourceId
+          || entry?.carrier !== (runtime ? "native-runtime" : "workspace-content")
+          || entry?.owner !== (runtime ? "openclaw" : "agent-package")
+          || entry?.trust !== (runtime ? "runtime-owned" : "workspace-content")
+          || entry?.necessity !== (disabled ? "disabled" : "portable-declarative-resource")) {
+          errors.push("native-chat carrier must have exact ownership and no executable capability.");
+        }
+      } else if (entry?.carrier === "native-runtime") {
+        errors.push("native-runtime requires explicit native-chat authority.");
+      }
       if (Array.isArray(entry?.memberPaths)) referencedPaths.push(...entry.memberPaths);
     }
     if (memberPaths.size !== referencedPaths.length

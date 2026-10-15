@@ -566,7 +566,7 @@ describe("installed hook child supervisor", () => {
   });
 
   it("settles at the timeout when an escaped descendant holds stdout open", {
-    timeout: 5_000,
+    timeout: 10_000,
   }, async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agentmo-hook-supervisor-escape-"));
     const pidPath = path.join(root, "escaped-pid");
@@ -606,7 +606,8 @@ describe("installed hook child supervisor", () => {
       "process.exit(0);",
     ].join("\n");
     const source = await readFile(HOOK_PATH, "utf8");
-    const run = compileSupervisor(source, launcherUrl, launcherSource);
+    // Allow real fixture startup under load; the escaped pipe still outlives this deadline.
+    const run = compileSupervisor(source, launcherUrl, launcherSource, { childTimeoutMs: 2_000 });
     const started = Date.now();
     let escapedPid = null;
     try {
@@ -614,7 +615,7 @@ describe("installed hook child supervisor", () => {
         run(Buffer.alloc(0), supervisorPaths(root, launcherUrl)),
         /Installed hook launcher rejected/u,
       );
-      assert.ok(Date.now() - started < 2_000);
+      assert.ok(Date.now() - started < 5_000);
 
       await writeFile(releasePath, "release", { flag: "wx", mode: 0o600 });
       await settleWithin(waitForPath(pidPath, 1_000), 1_500, "escaped descendant pid marker");

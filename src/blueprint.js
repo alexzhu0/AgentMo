@@ -58,7 +58,8 @@ export const QUALITY_GATES = [
   {
     id: "tool_contracts_defined",
     label: "Tool contracts defined",
-    check: (blueprint) => Array.isArray(blueprint.tools) && blueprint.tools.length > 0 && blueprint.tools.every(isValidTool),
+    check: (blueprint) => isNativeChatBlueprint(blueprint)
+      || (blueprint.execution_profile === undefined && Array.isArray(blueprint.tools) && blueprint.tools.length > 0 && blueprint.tools.every(isValidTool)),
   },
   {
     id: "evidence_store_defined",
@@ -152,6 +153,14 @@ export function validateBlueprint(blueprint) {
     errors.push(`runtime must be one of: ${Array.from(VALID_RUNTIMES).join(", ")}`);
   }
 
+  if ("execution_profile" in blueprint && blueprint.execution_profile !== "native-chat") {
+    errors.push("execution_profile must be native-chat when supplied.");
+  }
+  if (!validNativeModelProfileSource(blueprint)) errors.push("native_model_profile must select the fixed native-chat model.");
+  if (blueprint.execution_profile === "native-chat" && !isNativeChatBlueprint(blueprint)) {
+    errors.push("native-chat requires runtime openclaw, tools: [], and architecture.specialists: [].");
+  }
+
   if (!VALID_STATUSES.has(blueprint.status)) {
     errors.push(`status must be one of: ${Array.from(VALID_STATUSES).join(", ")}`);
   }
@@ -160,7 +169,7 @@ export function validateBlueprint(blueprint) {
   validatePipeline(blueprint.pipeline, errors);
   validateRuntimeProfiles(blueprint, errors, warnings);
   validateArchitecture(blueprint.architecture, errors, warnings);
-  validateTools(blueprint.tools, errors);
+  validateTools(blueprint.tools, errors, blueprint.execution_profile === "native-chat");
   validateEvidence(blueprint.evidence, errors);
   validateEval(blueprint.eval, errors);
   validateGovernance(blueprint.governance, errors, warnings);
@@ -460,12 +469,19 @@ function validateArchitecture(value, errors, warnings) {
   }
 }
 
-function validateTools(value, errors) {
+function isNativeChatBlueprint(blueprint) {
+  return blueprint.execution_profile === "native-chat"
+    && blueprint.runtime === "openclaw"
+    && Array.isArray(blueprint.tools) && blueprint.tools.length === 0
+    && Array.isArray(blueprint.architecture?.specialists) && blueprint.architecture.specialists.length === 0;
+}
+
+function validateTools(value, errors, allowEmpty = false) {
   if (!Array.isArray(value)) {
     errors.push("tools must be an array.");
     return;
   }
-  if (value.length === 0) errors.push("tools must contain at least one tool contract.");
+  if (value.length === 0 && !allowEmpty) errors.push("tools must contain at least one tool contract.");
   for (const [index, tool] of value.entries()) {
     if (!isObject(tool)) {
       errors.push(`tools[${index}] must be an object.`);
@@ -612,3 +628,4 @@ function nonEmptyString(value) {
 function nonEmptyArray(value) {
   return Array.isArray(value) && value.length > 0;
 }
+import { validNativeModelProfileSource } from "./native-chat-model-profile.js";
