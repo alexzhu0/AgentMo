@@ -2,6 +2,8 @@
 
 日期2026-10-14；2026-10-15获明确授权按最新167文件清单创建检查点并push到origin/codex/course-wiki。
 本文件随该检查点提交，实际提交/push结果以Git分支为准；新电脑接班尚未完成。
+2026-10-15用户随后明确要求将codex/course-wiki合并到main并push，保留本交接文档。
+新电脑改从main接续；实际合并及推送状态以origin/main的Git引用为准。
 维护核对日期2026-10-15；恢复入口和验收口径已同步。10月14日的164文件推送清单是历史提案，
 本轮文档变化后需用新清单，不视为旧摘要已获批准。
 来源为 **AgentMo 原生聊天：接任与交付** (`01a12e5d-7217-79f0-909d-82798db5e4ec`)；
@@ -12,18 +14,19 @@
 若尚无项目checkout，在新电脑执行：
 
 ```bash
-git clone --branch codex/course-wiki git@github.com:alexzhu0/AgentMo.git
+git clone --branch main git@github.com:alexzhu0/AgentMo.git
 cd AgentMo
 git status --short
 git rev-parse HEAD
 ```
 
-已有checkout时先确认没有未保存改动，再获取并切换到该远端分支，不覆盖本机文件。
+已有checkout时先检查并保留未提交改动；工作区干净后获取origin，切换到main并仅快进更新，
+确认包含代码检查点b7bc297ccf100c70941536af575a8441d9b6a58e，不覆盖本机文件。
 将本文件交给新电脑的Codex，首轮可直接使用以下任务：
 
 > 接续AgentMo会议文字助手Task 6。先使用superpowers:using-superpowers并读取
 > AGENTS.md、docs/SUPERPOWERS_WORKFLOW.md、docs/CURRENT_STATUS.md和本交接文档。
-> 先只读核对codex/course-wiki的实际提交、98源码快照、本机OS/Node及SDK是否存在；
+> 先只读核对main的实际提交、98源码快照、本机OS/Node及SDK是否存在；
 > 回报缺失的私有工件/账本和首个离线动作。已有实现与离线验证已完成，不重复实现Task 5。
 > 不读取或上传.env、凭据或本机运行状态，不激活或调用模型，不重置100元预算。
 > 真实安装、激活及验收必须先准备适用于这台电脑的新预览并取得批准。
@@ -34,12 +37,12 @@ git rev-parse HEAD
 
 ## 代码与恢复入口
 
-远端为`git@github.com:alexzhu0/AgentMo.git`，拟推送分支`codex/course-wiki`，不合并main、不创建Release。
+远端为`git@github.com:alexzhu0/AgentMo.git`，当前获批目标为`main`，保留`codex/course-wiki`和本交接文档，不创建Release。
 10月14日准备时本地HEAD为`b95dc43839845ad8304e40768787e946d0e4657b`，只读观察到远端main为`14d18c2ed459ca706bf775d0c8548626e6a5ac12`，无同名远端分支；实际push前必须重查。
 该分支包含两个既有本地提交；本次授权将167个明确路径形成新的代码检查点再push。
 推送完成后的新提交ID以实际Git结果为准，不能把上述历史HEAD当作最新实现版本。
 
-在新电脑按该分支checkout；源电脑的实际目录是`$AGENTMO_REPO/.worktrees/course-wiki`，
+在新电脑按main checkout；源电脑的实际目录是`$AGENTMO_REPO/.worktrees/course-wiki`，
 新电脑可以直接在该分支的checkout根目录工作，不必复刻旧绝对路径。
 先使用`superpowers:using-superpowers`，阅读本文件、`docs/SUPERPOWERS_WORKFLOW.md`、
 `docs/CURRENT_STATUS.md`、`release/2026.10.14.md`、M3规格及实施计划。
@@ -69,7 +72,8 @@ profile=`minimax-m3-cn-v1`。Pi只是选型讨论，尚无迁移实施授权。
 激活计划身份`b4c43f5e43f5238fff794693ddeb095e71c434326d78ebd8fadc2b37ab195f41`仍未获批：
 用户对该问题改为询问跨电脑push，不能把这条回复当作激活批准。
 目前没有网关/预算代理/控制接口，没有M3模型调用或付费验收。
-本次只授权代码检查点提交及普通push，不合并main、不force、不创建PR/Release。
+先前只授权代码检查点提交及分支push；随后用户明确追加main合并及普通push授权。
+本次保留交接文档和源分支，不force、不创建PR/Release，不删除源工作树或本机资料。
 跨电脑代码交接不扩大安装、激活、付费或其他对外通信权限；不创建新聊天或归档旧聊天。
 
 Git不携带`.env`、`.agentmo/`、`.superpowers/`、凭据、SDK安装或本机会话/批准消费状态。
