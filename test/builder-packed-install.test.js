@@ -2693,9 +2693,11 @@ describe("packed Codex Builder setup", { concurrency: false }, () => {
         kind, sourcePath, relativePath, destinationPath, digest, byteLength,
       })),
     );
-    assert.equal(first.assets.length, 127);
-    assert.equal(first.assets.filter((asset) => asset.kind === "runtime").length, 122);
+    assert.equal(first.assets.length, 144);
+    assert.equal(first.assets.filter((asset) => asset.kind === "runtime").length, 139);
     assert.equal(first.assets.some((asset) => asset.sourcePath === "src/native-chat-files.js"), true);
+    for (const name of ["pi-sdk.js", "pi-session-host.js", "pi-chat-client.js", "pi-chat.html", "pi-chat.css"])
+      assert.equal(first.assets.some(asset => asset.sourcePath === `src/${name}`), true, name);
     const behaviorEvidence = first.assets.filter((asset) => asset.sourcePath === "src/behavior-evidence.js");
     assert.equal(behaviorEvidence.length, 1);
     assert.equal(behaviorEvidence[0].kind, "runtime");

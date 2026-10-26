@@ -95,7 +95,9 @@ export function validateAgentPackageManifest(value, context = {}) {
   const errors = [];
   try {
     const nativeChat = value?.execution_profile === "native-chat";
-    if (!plainObject(value) || !hasExactKeys(value, nativeChat ? [...MANIFEST_KEYS, "execution_profile"] : MANIFEST_KEYS)) {
+    const pi = value?.native_runtime === "pi";
+    const manifestKeys = nativeChat ? [...MANIFEST_KEYS, "execution_profile", ...(pi ? ["native_runtime"] : [])] : MANIFEST_KEYS;
+    if (!plainObject(value) || !hasExactKeys(value, manifestKeys)) {
       return result(["package manifest must contain only canonical fields."]);
     }
     if (value.schemaVersion !== AGENT_PACKAGE_SCHEMA_VERSION) {
@@ -104,7 +106,7 @@ export function validateAgentPackageManifest(value, context = {}) {
     if (!ID_PATTERN.test(value.packageId ?? "")) errors.push("invalid packageId.");
     if (!VERSION_PATTERN.test(value.packageVersion ?? "")) errors.push("invalid packageVersion.");
     validateSourceBindings(value.sourceBindings, errors);
-    validateTargetCompatibility(value.targetCompatibility, errors);
+    validateTargetCompatibility(value.targetCompatibility, errors, pi);
     validateMembers(value.members, errors);
     if (!DIGEST_PATTERN.test(value.inventoryDigest ?? "")
       || value.inventoryDigest !== digestInventory(value.members)) {
@@ -118,6 +120,7 @@ export function validateAgentPackageManifest(value, context = {}) {
       members: value.members,
       allowMcp: false,
       ...(nativeChat ? { execution_profile: "native-chat" } : {}),
+      ...(pi ? { native_runtime: "pi" } : {}),
     });
     errors.push(...ledger.errors);
     validateOwnership(value.ownership, value.members, errors);
@@ -153,7 +156,8 @@ export function validatePackageCapabilityLedger(value, context = {}) {
   try {
     if (!Array.isArray(value)
       || !plainObject(context)
-      || !hasOnlyKeys(context, ["capabilityIds", "members", "allowMcp", "execution_profile"])
+      || !hasOnlyKeys(context, ["capabilityIds", "members", "allowMcp", "execution_profile", "native_runtime"])
+      || (Object.hasOwn(context, "native_runtime") && (context.native_runtime !== "pi" || context.execution_profile !== "native-chat"))
       || (Object.hasOwn(context, "execution_profile") && context.execution_profile !== "native-chat")) {
       return result(["capability ledger or validation context is invalid."]);
     }
@@ -174,14 +178,14 @@ export function validatePackageCapabilityLedger(value, context = {}) {
     );
     const referencedPaths = [];
     for (const entry of value) {
-      validateLedgerEntry(entry, memberPaths, context.allowMcp === true, errors);
+      validateLedgerEntry(entry, memberPaths, context.allowMcp === true, errors, context.native_runtime === "pi" ? "pi" : "openclaw");
       if (nativeChat) {
         const kind = entry?.resourceId?.replace(/^resource:/u, "");
         const runtime = ["harness", "agent-loop", "runtime-binding"].includes(kind);
         const disabled = ["skills", "plugins", "memory", "rag", "schedules"].includes(kind);
         if (entry?.capabilityId !== entry?.resourceId
           || entry?.carrier !== (runtime ? "native-runtime" : "workspace-content")
-          || entry?.owner !== (runtime ? "openclaw" : "agent-package")
+          || entry?.owner !== (runtime ? (context.native_runtime === "pi" ? "pi" : "openclaw") : "agent-package")
           || entry?.trust !== (runtime ? "runtime-owned" : "workspace-content")
           || entry?.necessity !== (disabled ? "disabled" : "portable-declarative-resource")) {
           errors.push("native-chat carrier must have exact ownership and no executable capability.");
@@ -203,7 +207,7 @@ export function validatePackageCapabilityLedger(value, context = {}) {
   return result(errors);
 }
 
-function validateLedgerEntry(entry, memberPaths, allowMcp, errors) {
+function validateLedgerEntry(entry, memberPaths, allowMcp, errors, target) {
   if (!plainObject(entry) || !hasExactKeys(entry, LEDGER_KEYS)) {
     errors.push("capability ledger entries must contain only canonical fields.");
     return;
@@ -225,7 +229,7 @@ function validateLedgerEntry(entry, memberPaths, allowMcp, errors) {
   }
   if (!plainObject(entry.targetMapping)
     || !hasExactKeys(entry.targetMapping, TARGET_MAPPING_KEYS)
-    || entry.targetMapping.target !== "openclaw"
+    || entry.targetMapping.target !== target
     || !TARGET_VERSION_PATTERN.test(entry.targetMapping.versionRange ?? "")) {
     errors.push(`invalid target mapping for ${String(entry.capabilityId)}.`);
   }
@@ -260,7 +264,7 @@ function validateSourceBindings(value, errors) {
   }
 }
 
-function validateTargetCompatibility(value, errors) {
+function validateTargetCompatibility(value, errors, pi = false) {
   if (!Array.isArray(value)
     || value.length === 0
     || !sameArray(value.map((entry) => entry?.target), [...value.map((entry) => entry?.target)].sort())
@@ -270,10 +274,11 @@ function validateTargetCompatibility(value, errors) {
   }
   for (const entry of value) {
     if (!plainObject(entry)
-      || !hasExactKeys(entry, TARGET_COMPATIBILITY_KEYS)
+      || !hasExactKeys(entry, pi ? ["target", "version", "sdkClosureDigest", "exactRevisionRequired"] : TARGET_COMPATIBILITY_KEYS)
+      || (pi ? entry.target !== "pi" || value.length !== 1 : entry.target === "pi")
       || !ID_PATTERN.test(entry.target ?? "")
       || !nonEmptyString(entry.version)
-      || !/^[a-f0-9]{8,64}$/u.test(entry.sourceRevision ?? "")
+      || !(pi ? DIGEST_PATTERN.test(entry.sdkClosureDigest ?? "") : /^[a-f0-9]{8,64}$/u.test(entry.sourceRevision ?? ""))
       || entry.exactRevisionRequired !== true) {
       errors.push("invalid target compatibility entry.");
     }

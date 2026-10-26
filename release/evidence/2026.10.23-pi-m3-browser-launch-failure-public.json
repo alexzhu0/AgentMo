@@ -1,0 +1,223 @@
+{
+  "schemaVersion": "agentmo.pi-paid-browser-launch-failure.v1",
+  "observedOn": "2026-10-23",
+  "status": "failed-before-first-case",
+  "approvedProposalDigest": "sha256:8671772b76f71248bb2df9464b2df54e6f763e843f3e8b24378bdc6b64de8276",
+  "activationPlanDigest": "sha256:dc3ac493d10d0bd2d4975d3e96b6a2b6d82202dbd039d71210938af13a3f3a36",
+  "approvalConsumed": true,
+  "starts": 1,
+  "restarts": 0,
+  "browserLaunchApiAttempts": 1,
+  "browserHandleObtained": false,
+  "browserProcessStarted": "unknown",
+  "browserLoginReached": false,
+  "materialsSubmitted": 0,
+  "casesCompleted": 0,
+  "casesUnexecuted": [
+    "entry",
+    "correction",
+    "injection",
+    "fresh-session",
+    "restart"
+  ],
+  "providerModelAcceptancePassed": false,
+  "runtime": {
+    "publicReadyEntryObserved": true,
+    "proxyListenObserved": "passed",
+    "ownedPiChildPid": 70835,
+    "ownedPiChildExitCode": 0,
+    "cliExitCode": 0,
+    "startupDiagnosticRows": 7,
+    "actualSdkImport": "established by source-bound ready path; not a model response",
+    "providerKeyLoad": "Only existing approved runtime parent may load from .env in memory; source-bound ready path reached",
+    "browserFailure": {
+      "step": "launch-browser",
+      "category": "other",
+      "underlyingCause": "unknown; raw error and stack not retained"
+    },
+    "browserHelperTransport": "mcp__node_repl__js"
+  },
+  "stop": {
+    "receiptAwareGate": "authenticate-stop",
+    "publicAuthenticatedStopAttempts": 1,
+    "publicAuthenticatedStopSucceeded": true,
+    "durableStop": {
+      "status": "stopped",
+      "reason": "requested",
+      "ownChildExited": true
+    },
+    "cliSessionExited": true,
+    "portsReleased": [
+      19492,
+      19493
+    ],
+    "chromeAutomationPipeProcessCount": 0,
+    "chromeProcessCheckScope": "Read-only exact Chrome executable and automation-pipe pattern at post-check time; no signals sent, not whole-machine audit",
+    "cleanupWithin300Seconds": true,
+    "batchWithin45Minutes": true
+  },
+  "budget": {
+    "projectReservations": 26,
+    "totalReservedFen": 4774,
+    "remainingFen": 5226,
+    "capFen": 10000,
+    "newReservations": 0,
+    "newReservedFen": 0,
+    "caseClaims": 0,
+    "modelRequestClaims": 0,
+    "providerInvoice": "not queried",
+    "interpretation": "No observed budgeted model sends; no independent complete network audit"
+  },
+  "authority": {
+    "addedConsumptionRecords": 1,
+    "addedDecisions": 5,
+    "totalConsumptionRecords": 6,
+    "totalDecisions": 22,
+    "originalJournalPrefixPreserved": true,
+    "journalDigest": "sha256:cb7960662c543c53d0453499abc6e6840f3329d47b9246aa325eb433e3249c0e"
+  },
+  "preservation": {
+    "installedEntries": 36,
+    "previousEntries": 30,
+    "newAttemptFiles": 4,
+    "newSdkSessionDescriptors": 2,
+    "existingRegistrationFilesUnchanged": true,
+    "changedParentMetadata": [
+      "attempts",
+      "sessions/12068979-f315-4d5c-9a2a-60425768a680",
+      "sessions/612af241-1fae-462b-88eb-c7f8aaaf8ef3"
+    ],
+    "turnFiles": 0,
+    "oldInstalledEntries": 14,
+    "oldFailureReports": 16,
+    "protectedArtifacts": 12,
+    "syntheticMetadataEntries": 210,
+    "firstSyntheticFailureEntries": 16,
+    "priorM3FailedBatchFilesPreserved": 30,
+    "sourceFiles": 374,
+    "targetDescriptorUnchanged": true,
+    "previousFailuresRetained": true
+  },
+  "validation": {
+    "preRunLauncherCheck": "passed",
+    "preRunPreviewAssertions": "passed",
+    "postFailureSourceAndConsumptionCheck": "passed without SDK execution or service start",
+    "firstPostcheck": "preserved assertion failure: reused checker expected no session descriptors; actual ready path added two allowed sdk-session.json files",
+    "calibratedPostcheck": "passed exact six-file delta, permitted parent metadata changes and immutable original file hashes",
+    "pricingRecheck": "Official public page checked on 2026-10-23; standard M3 price remains within approved upper bound",
+    "pricingSource": "https://platform.minimax.cn/docs/pricing/overview",
+    "codeChanges": false,
+    "priorFullCheck": "Previous turn full five lanes passed; not repeated during this no-source-change execution"
+  },
+  "secretBoundary": {
+    "assistantProviderKeyRead": false,
+    "reviewerProviderKeyRead": false,
+    "browserHelperProviderKeyRead": false,
+    "browserHelperLocalLoginRead": false,
+    "rawProviderPayloadRetained": false,
+    "rawTranscriptRetainedInRepositoryEvidence": false,
+    "rawSdkTranscriptsRead": false,
+    "loginControlValuesEmitted": false
+  },
+  "reports": [
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/activation-operation/reports/browser-cleanup.json",
+      "digest": "sha256:fc39be46801bbf60ae639bf6a97c88f0bc4773a63e12a61ff0e35ade8c387a8a"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/activation-operation/reports/browser-process-check.json",
+      "digest": "sha256:3291b108507aede585c0f20f4d75405bfe923a8390b098ec420decf0780c7208"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/activation-operation/reports/browser-ready-run-0-failure.json",
+      "digest": "sha256:2a3b1bf322144061370f7b6d5a63de623a704234a8d1852efdc7717dd0ac8938"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/activation-operation/reports/cleanup-final.json",
+      "digest": "sha256:d40d3049337deb15bf4cabc54f607a56d7d97f7f0de24b4157826e774b6412d5"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/activation-operation/reports/cleanup-gate-0.json",
+      "digest": "sha256:fafc43260a97ec3273aabe1e2ee8f232f05d323d36cb5d0df951e95da8ca1b11"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/activation-operation/reports/execution-progress-final.json",
+      "digest": "sha256:fc442dcba410f114b909131282439b8d5051c34b7f6db9f0c695962ac33e9519"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/activation-operation/reports/execution-progress.json",
+      "digest": "sha256:c03b5e8b751005035ebe6c8a22d15e13e7df441c61a0208387fca4cd8010ebeb"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/activation-operation/reports/post-failure-baseline.json",
+      "digest": "sha256:279070a7f12f3227ace65797d2745fe5c04f1145c0d66e6695e80bd98972400c"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/activation-operation/reports/postcheck-first-result.json",
+      "digest": "sha256:ca4abf2bf9e65e5ac973e3296a397c194dad5888d8f36d030128d8663967077a"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/activation-operation/reports/pre-run-validation.json",
+      "digest": "sha256:9b0827c4ee3bc2cae8862b6e53346c3a1ec18b8ddae76bc264685015278bc9f8"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/activation-operation/reports/pricing-recheck.json",
+      "digest": "sha256:6c4f6a2a4c60301c45f32762104d82f23753e29e5ba78b224fe7f26f85cf8684"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/activation-operation/reports/public-stop-0.json",
+      "digest": "sha256:978ecf12f9382e6522a3422acb5e6e01ff4046126241dd669da8d542fb33d27b"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/activation-operation/reports/runtime-observations.json",
+      "digest": "sha256:1e4a24b5aad96acca33434eefbb60c205319d0ce45ca4b7a3c120fc037d8e5e9"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/activation-operation/human-approval.json",
+      "digest": "sha256:6616191c9686d999d5ea1f4bfef8f07f36fb080b21885ba49a58f1ad0958a99d"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/activation-operation/run-0/approval-bindings.json",
+      "digest": "sha256:24df2d0e7d1a67c3b18048a7a344f919399db8250f80a2231b7b3a8cc5de153f"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/activation-operation/run-0/startup-events.jsonl",
+      "digest": "sha256:dca3e6862e43fd63bcc169187ee8861bc067c1238c4f075acd37b928bf083dd9"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/activation-operation/post-failure-check.mjs",
+      "digest": "sha256:e22eb55b32b2f3ca1ab81658496f2d4ad55a7b533a713ac6f81f16bda870c381"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/activation-operation/post-failure-check-calibrated.mjs",
+      "digest": "sha256:99d31a8485ef51e5e4e7c7b73361e383a17441d70ae4037fa7c1e44dac8f80bd"
+    }
+  ],
+  "postFailureBaseline": {
+    "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/activation-operation/reports/post-failure-baseline.json",
+    "digest": "sha256:279070a7f12f3227ace65797d2745fe5c04f1145c0d66e6695e80bd98972400c"
+  },
+  "evidenceBoundary": "Runtime startup reached ready, then browser launch API failed before any login/material. This proves bounded startup and cleanup only, not five-case content acceptance or full 19-case certification. Historical startup and OpenClaw 502 causes remain unknown; this browser failure cannot be attributed to MiniMax.",
+  "remaining": {
+    "modelCasesUnexecuted": 5,
+    "otherCaseDefinitions": 14,
+    "piPlanSourceGaps": 11,
+    "legacySourceGaps": 15,
+    "task13WholeDeliveryReview": "pending",
+    "independentCurrentExecutionReview": "separate report; no content reviews were possible because no replies"
+  },
+  "retry": false,
+  "modelUpgradeStarted": false,
+  "nextWork": "Offline browser-launch diagnosis and a new specific preview/approval before any activation or model retry. Finish M3 acceptance before newer-model adaptation.",
+  "commit": false,
+  "push": false,
+  "publication": {
+    "schemaVersion": "agentmo.public-evidence-projection.v1",
+    "observedOn": "2026-10-26",
+    "originalDigest": "sha256:a6e7fadf46be53d006d8463b8dbaa19bdd78bdcbed7ba589aff5069ea1ebf565",
+    "scope": "publication copy; host paths made repository relative and reviewer identifiers generalized; no execution or new approval",
+    "originalRetainedLocally": true,
+    "originalExcludedFromGit": true,
+    "historicalApprovalDigestsUnchanged": true
+  }
+}

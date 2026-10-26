@@ -1,0 +1,106 @@
+{
+  "schemaVersion": "agentmo.pi-enter-plan-preparation.v1",
+  "observedAt": "2026-10-19T04:47:18.448Z",
+  "agentId": "meeting-text",
+  "executionProfile": "native-chat",
+  "nativeRuntime": "pi",
+  "modelProfile": "minimax-m3-cn-v1",
+  "status": "preview-prepared-not-approved",
+  "sources": {
+    "sourceCount": 4,
+    "ingested": 4,
+    "rejected": 0,
+    "declaredFields": 20,
+    "sourceChunks": 17,
+    "facts": 37,
+    "allTrustLevels": "derived",
+    "semanticCorrectnessCertified": false
+  },
+  "legacyGapCount": 15,
+  "piOutstandingAreaGroups": 6,
+  "piFormalPlanMechanicalGapCount": null,
+  "realAcceptanceCasesPending": 19,
+  "discoveryLimitations": {
+    "schemaVersion": "agentmo.pi-discovery-limitations.v1",
+    "sourceCount": 4,
+    "sourceChunkCount": 17,
+    "sourceCardPreviewTruncatedCount": 4,
+    "bodyTruncatedSourceIds": [
+      "approved-pi-design"
+    ],
+    "bodyTruncatedChunkCount": 1,
+    "pathLikeRedactedSourceIds": [
+      "approved-pi-design"
+    ],
+    "secretDetectionFailedChecks": 0,
+    "sourceBytesPreservedSeparately": true,
+    "semanticCorrectnessCertified": false,
+    "notes": [
+      "source-card truncated includes the normal400-character preview, not necessarily omitted body",
+      "approved-pi-design reaches the fixed8-chunk body cap; remaining source body is not retained in the DB",
+      "one approved source has a host-path-like string conservatively redacted; no secret-like source check failed",
+      "full source bytes and original hashes are sealed separately; Plan matching remains mechanical and nonsemantic"
+    ]
+  },
+  "inputs": {
+    "manifest": {
+      "subject": "discovery-manifest",
+      "digest": "sha256:7ffb3b2e0657a9e9f631a6525821c8fbaf55f29666ab7706d92d8c6c29edad08"
+    },
+    "db": {
+      "subject": "discovery-db",
+      "digest": "sha256:b2799ca05924ca38bf5d75788defc178fec6c8726d8719dae042bed02d4b3c4b"
+    },
+    "need": {
+      "subject": "user-need",
+      "digest": "sha256:5f29262e8e39d6dd634ce6a4dd2dccda84a60b5137756e9a02c21f721f1ebc6c"
+    },
+    "direction": {
+      "subject": "decision-entry",
+      "digest": "sha256:40b0123e3f2b0509e606e2ef99581e787883bd3e034299843033f62818648309"
+    },
+    "target": {
+      "subject": "pi-target-descriptor",
+      "digest": "sha256:f2ad84b3dd683244988786af2dc71d5b75fc3db80628461c7952c19fa1de3463"
+    }
+  },
+  "stage2Contracts": {
+    "pass": 83,
+    "fail": 0,
+    "logDigest": "sha256:eb66737a96e1a32f02057a291227b6f96257c81840ebb95bfb80b160b1b4d2db"
+  },
+  "originalRealBudget": {
+    "projectReservations": 26,
+    "totalReservedFen": 4774,
+    "remainingFen": 5226,
+    "capFen": 10000
+  },
+  "sourceSnapshotDigest": "sha256:ac2c69654f1fb8e4ea8769a2e8db3ca45b3c0c4e80f90182980602ddc340ed83",
+  "sourceFilesUnchanged": 374,
+  "priorSdkConformanceDigest": "sha256:0eb72b63eff9debd0bd58ffd883d52ab34cb425d04b873ed8861f40b31666e92",
+  "protectedFailureAndConformanceArtifacts": 12,
+  "syntheticSdkMetadataEntriesUnchanged": 210,
+  "actions": {
+    "approvalRecorded": false,
+    "decisionLedgerAppended": false,
+    "designPlanGenerated": false,
+    "blueprintGenerated": false,
+    "buildContractGenerated": false,
+    "packageGenerated": false,
+    "realAuthorityInitialized": false,
+    "realAgentInstalled": false,
+    "browserActivated": false,
+    "sdkReexecuted": false,
+    "realModelRequests": 0,
+    "newRealReservations": 0,
+    "credentialContentsRead": false,
+    "committed": false,
+    "pushed": false
+  },
+  "certificationBoundary": {
+    "sourceQualityCertified": false,
+    "domainCertified": false,
+    "deliveryReady": false,
+    "productionApproved": false
+  }
+}

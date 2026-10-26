@@ -9,11 +9,11 @@ async function loadExample() {
 }
 
 describe("target registry", () => {
-  it("lists AgentMo and OpenClaw targets in deterministic order", () => {
-    assert.deepEqual(listTargetIds(), ["agentmo", "openclaw"]);
+  it("lists AgentMo, OpenClaw and Pi targets in deterministic order", () => {
+    assert.deepEqual(listTargetIds(), ["agentmo", "openclaw", "pi"]);
     assert.deepEqual(
       listTargets().map((target) => target.id),
-      ["agentmo", "openclaw"],
+      ["agentmo", "openclaw", "pi"],
     );
   });
 
@@ -26,6 +26,7 @@ describe("target registry", () => {
       assert.equal(typeof adapter.supports, "function");
       assert.equal(typeof adapter.planOperations, "function");
       assert.equal(Array.isArray(adapter.verificationHints), true);
+      if (id === "pi") { assert.equal(adapter.supports(blueprint), false); continue; }
       assert.equal(adapter.supports(blueprint), true);
       const operations = adapter.planOperations(blueprint, {
         selectedTargetId: id,

@@ -22,13 +22,24 @@ const RUNTIME_REPORT_KEYS = [
 ];
 
 describe("runtime compatibility policy", () => {
+  it("observes the independent Pi range without loading an SDK", () => {
+    assert.equal(runtimeCompatibility.PI_TARGET_NODE_RANGE, ">=22.19.0");
+    for (const [version, supported] of [["20.19.0", false], ["22.18.99", false], ["22.19.0", true], ["23.0.0", true], ["24.0.0", true], ["24.0.0-rc.1", false]]) {
+      assert.equal(runtimeCompatibility.isPiTargetNodeSupported(version), supported);
+    }
+    assert.equal(runtimeCompatibility.observePiCurrentRuntime().target, "pi");
+    assert.throws(() => runtimeCompatibility.observePiCurrentRuntime({ version: "24.0.0" }));
+  });
   it("exports only the immutable core and OpenClaw target runtime contract", () => {
     assert.deepEqual(Object.keys(runtimeCompatibility).sort(), [
       "AGENTMO_CORE_NODE_RANGE",
       "OPENCLAW_TARGET_NODE_RANGE",
+      "PI_TARGET_NODE_RANGE",
       "assertCurrentOpenClawTargetRuntime",
       "isOpenClawTargetNodeSupported",
+      "isPiTargetNodeSupported",
       "observeCurrentRuntime",
+      "observePiCurrentRuntime",
     ].sort());
     assert.equal(AGENTMO_CORE_NODE_RANGE, ">=20");
     assert.equal(OPENCLAW_TARGET_NODE_RANGE, ">=22.19.0 <23 || >=23.11.0");

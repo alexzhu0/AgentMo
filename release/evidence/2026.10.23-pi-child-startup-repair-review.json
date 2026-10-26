@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "agentmo.pi-child-startup-repair-review.v1",
+  "observedAt": "2026-10-23T14:30:44.406Z",
+  "status": "scoped-source-control-and-plan-recovery-preview-reviewed",
+  "reviewerId": "pi-child-recovery-preview-review",
+  "counts": {
+    "critical": 0,
+    "important": 0,
+    "minor": 0
+  },
+  "sourceSnapshotDigest": "sha256:8ba314f015f284e0e79da622d23d6bff0a9e6c89814101c814e177dcb1d18312",
+  "proposalDigest": "sha256:78c2dc6561a9cbda0befecf0ad80543bda8ced638fb11b50a461b2b371e48cbc",
+  "humanDigest": "sha256:9613db59cfc723d9de42614065253356fb5532e01832192417e5caf2719ca4db",
+  "factsDigest": "sha256:ee4adfe7d97456d7da2e930bbcf10d249bf6f572af7cbfdcb58f035bd0a0d656",
+  "preparationDigest": "sha256:49b4c298b5baccbf4b00b8608379324e6d306af7f15985f7395cbf401bd9408b",
+  "publicationDigest": "sha256:eeacbab472d72168d90711c87c383b78e26782fc0463a0593e733c2dcbe0be81",
+  "scope": [
+    "Frozen source374 and seven changed paths",
+    "Private retention audit with physical identity explicitly unmatched",
+    "Interrupted global validation and failed continuation status",
+    "21 exact proposal input digests and canonical direction entry",
+    "Produce-free Plan direction recovery preview only"
+  ],
+  "closedFindings": {
+    "previousProductImportant": 4,
+    "currentPreparationImportant": 1,
+    "allClosed": true
+  },
+  "verified": {
+    "sourceFiles": 374,
+    "proposalInputs": 21,
+    "privateDirectoryMode": "0700",
+    "privateFileMode": "0600",
+    "fourFutureRootsAbsent": true,
+    "oldAuthorityAndLedgerRemainRejected": true,
+    "newDirectionRequiresCurrentHumanApproval": true,
+    "firstHeadMustBeNull": true,
+    "observeActualOutputsBeforeBinding": true,
+    "oldJournalHelpersCopied": false,
+    "artifactsKeepStrictPublicSerializer": true,
+    "actualSdkExecuted": false,
+    "providerKeyRead": false,
+    "modelRequests": 0
+  },
+  "evidenceLimits": {
+    "globalCheckPassed": false,
+    "originalCanonicalCommandFinalExitUnobserved": true,
+    "completedOriginalLanes": 3,
+    "packedBehavior": {
+      "exitCode": 1,
+      "forced": true,
+      "pass": 6,
+      "skip": 1,
+      "cancelled": 1
+    },
+    "immutableSuccessor": "not started",
+    "physicalIdentityMatched": false,
+    "node20OriginalTemporaryReceiptAvailable": false,
+    "node20CurrentVerification": "original published digest and historical exact-byte publication record"
+  },
+  "notCertified": [
+    "Actual SDK or MiniMax M3 recovery",
+    "Domain quality or production readiness",
+    "Task13 whole-delivery review",
+    "Future approved operation execution"
+  ],
+  "approvalScope": "Current human may approve new physical Plan direction registration and formal Plan/Produce preview generation only; actual lifecycle remains separately gated"
+}

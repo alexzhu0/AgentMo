@@ -157,8 +157,9 @@ export function validateBlueprint(blueprint) {
     errors.push("execution_profile must be native-chat when supplied.");
   }
   if (!validNativeModelProfileSource(blueprint)) errors.push("native_model_profile must select the fixed native-chat model.");
+  if (!validNativeRuntimeSource(blueprint)) errors.push("native_runtime must explicitly select Pi with the fixed native-chat M3 profile.");
   if (blueprint.execution_profile === "native-chat" && !isNativeChatBlueprint(blueprint)) {
-    errors.push("native-chat requires runtime openclaw, tools: [], and architecture.specialists: [].");
+    errors.push("native-chat requires the selected runtime, tools: [], and architecture.specialists: [].");
   }
 
   if (!VALID_STATUSES.has(blueprint.status)) {
@@ -471,7 +472,7 @@ function validateArchitecture(value, errors, warnings) {
 
 function isNativeChatBlueprint(blueprint) {
   return blueprint.execution_profile === "native-chat"
-    && blueprint.runtime === "openclaw"
+    && validNativeRuntimeSource(blueprint) && blueprint.runtime === nativeChatRuntime(blueprint)
     && Array.isArray(blueprint.tools) && blueprint.tools.length === 0
     && Array.isArray(blueprint.architecture?.specialists) && blueprint.architecture.specialists.length === 0;
 }
@@ -628,4 +629,4 @@ function nonEmptyString(value) {
 function nonEmptyArray(value) {
   return Array.isArray(value) && value.length > 0;
 }
-import { validNativeModelProfileSource } from "./native-chat-model-profile.js";
+import { validNativeModelProfileSource, validNativeRuntimeSource, nativeChatRuntime } from "./native-chat-model-profile.js";

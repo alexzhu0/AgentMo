@@ -1,3 +1,6 @@
+import { verifyPiDeliverySources, isPiChatAcceptanceAdmission, validatePiChatAcceptanceArtifact } from './pi-chat-acceptance.js';
+import { admittedArtifactProvenance as piProvenance } from './artifact-admission.js';
+const piAcceptanceProvenance = h => piProvenance(h,{subject:'pi-native-chat-acceptance',value:h.value});
 import { BIRTH_REPORT_SCHEMA_VERSION, validateBirthReportArtifact } from "./birth-report.js";
 import { BUILD_STATE_SCHEMA_VERSION, validateBuildStateArtifact } from "./build-state.js";
 import { validateBlueprint } from "./blueprint.js";
@@ -62,6 +65,7 @@ export const DELIVERY_REPORT_REQUIRED_CHECK_IDS = Object.freeze({
 });
 
 export async function buildDeliveryReport(blueprint, options = {}) {
+  if (blueprint?.native_runtime === "pi") return buildPiDeliveryReport(blueprint, options);
   if (blueprint?.execution_profile === "native-chat") return buildNativeDeliveryReport(blueprint, options);
   if (Object.hasOwn(options, "nativeChat")) throw deliveryError("AGENTMO_DELIVERY_REPORT_INVALID");
   const buildState = options.buildState;
@@ -144,6 +148,7 @@ export async function buildDeliveryReport(blueprint, options = {}) {
 }
 
 export function validateDeliveryReportArtifact(report, options = {}) {
+  if (report?.native_runtime === "pi") return validatePiDeliveryReport(report, options);
   if (report?.execution_profile === "native-chat") return validateNativeDeliveryReport(report, options);
   const errors = [];
   try {
@@ -531,4 +536,59 @@ function validateNativeDeliveryReport(report, options){
     if(options?.nativeChat){const a=nativeDeliveryAssessment({...options,now:report.assessedAt});if(report.agentId!==options.blueprint.agent_id||!sameJson(report.sources,options.sources)||!sameJson(report.checks,a.checks)||!sameJson(report.caseResults,a.caseResults)||verified!==a.verified)throw new Error();}
     return {ok:true,errors:[]};
   }catch{return {ok:false,errors:['native_delivery_invalid']};}
+}
+
+const PI_SOURCE_SUBJECTS={blueprint:'blueprint',packageManifest:'package-manifest',activationPlan:'pi-install-plan',installReceipt:'pi-install-receipt',acceptance:'pi-native-chat-acceptance'};
+const PI_LEGACY_GAPS=Object.freeze({status:'unresolved',count:15,evidencePath:'docs/poc/native-chat/acceptance.md'});
+const PI_BOUNDARY=Object.freeze({boundedEntryObservationsOnly:true,reviewerAuthentication:false,domain:false,delivery:false,production:false});
+function piDeliveryAssessment(blueprint,options,now) {
+  const a=options.admissions;
+  if(!hasExactKeys(options.nativeChat,['packageManifest','activationPlan','installReceipt','acceptance'])||!hasExactKeys(a,Object.keys(PI_SOURCE_SUBJECTS))
+    ||!Number.isSafeInteger(now)||now<0||blueprint!==a.blueprint?.value||!validateBlueprint(blueprint).ok)throw deliveryError('AGENTMO_DELIVERY_REPORT_INVALID');
+  for(const k of Object.keys(options.nativeChat))if(options.nativeChat[k] !== (a[k]?.value??null))throw deliveryError('AGENTMO_DELIVERY_REPORT_INVALID');
+  const {acceptance,...base}=a,sources=verifyPiDeliverySources(base);
+  let evidence={entryVerified:false,results:[]},fresh=false;
+  if(acceptance===null) sources.acceptance=null;
+  else {
+    if(!isPiChatAcceptanceAdmission(acceptance))throw deliveryError('AGENTMO_DELIVERY_REPORT_INVALID');
+    sources.acceptance=piAcceptanceProvenance(acceptance);
+    const r=acceptance.value.runtime,p=a.activationPlan.value;
+    if(r.blueprintDigest!==sources.blueprint.digest||r.packageArchiveDigest!==p.archiveBinding.archiveDigest||r.installReceiptDigest!==sources.installReceipt.digest
+      ||r.activationPlanDigest!==p.installPlanDigest||r.nativeBindingDigest!==behaviorEvidenceDigest(p.nativeBinding))throw deliveryError('AGENTMO_DELIVERY_REPORT_INVALID');
+    evidence=validatePiChatAcceptanceArtifact(acceptance.value);if(!evidence.ok)throw deliveryError('AGENTMO_DELIVERY_REPORT_INVALID');
+    fresh=acceptance.value.observedAt<=now&&now-acceptance.value.observedAt<=3600000;
+  }
+  const checks=buildChecksFromContract(NATIVE_CHECKS,[true,evidence.entryVerified,fresh]);
+  const piGaps=NATIVE_CHAT_CASES.filter(s=>!evidence.results.some(r=>r.id===s.id&&r.passed)).map(s=>s.id);
+  if(!fresh&&!piGaps.length)piGaps.push('evidence-freshness');
+  return {sources,checks,caseResults:evidence.results,verified:checks.every(c=>c.pass),piGaps};
+}
+async function buildPiDeliveryReport(blueprint,options) {
+  if(Object.keys(options).some(k=>!['nativeChat','admissions','now'].includes(k)))throw deliveryError('AGENTMO_DELIVERY_REPORT_INVALID');
+  const assessedAt=options.now??Date.now(),a=piDeliveryAssessment(blueprint,options,assessedAt);
+  return {schemaVersion:DELIVERY_REPORT_SCHEMA_VERSION,execution_profile:'native-chat',native_runtime:'pi',agentId:blueprint.agent_id,assessedAt,
+    status:a.verified?'entry-verified':'partial',ok:a.verified,nativeEntryVerified:a.verified,domainCertified:false,runtimePromotionEligible:false,deliveryReady:false,productionApproved:false,
+    sources:a.sources,checks:a.checks,caseResults:a.caseResults,legacySourceGaps:{...PI_LEGACY_GAPS},piGaps:a.piGaps,certificationBoundary:{...PI_BOUNDARY},
+    nextActions:a.verified?['Pi entry observations grant no domain, delivery or production certification.']:['Collect the missing separately approved Pi observations and independent reviews.']};
+}
+function validatePiDeliveryReport(report,options) {
+  try {
+    assertPersistable(report,{subject:'delivery-report'});
+    if(!hasExactKeys(report,['schemaVersion','execution_profile','native_runtime','agentId','assessedAt','status','ok','nativeEntryVerified','domainCertified','runtimePromotionEligible','deliveryReady','productionApproved','sources','checks','caseResults','legacySourceGaps','piGaps','certificationBoundary','nextActions'])
+      ||report.native_runtime!=='pi'||!sameJson(report.legacySourceGaps,PI_LEGACY_GAPS)||!sameJson(report.certificationBoundary,PI_BOUNDARY)
+      ||!stringArray(report.piGaps)||new Set(report.piGaps).size!==report.piGaps.length||report.piGaps.some(id=>id!=='evidence-freshness'&&!NATIVE_CHAT_CASES.some(s=>s.id===id)))throw new Error();
+    // Reuse the unchanged native report shape checks with its fixed source labels only.
+    const {native_runtime,legacySourceGaps,piGaps,...base}=report;
+    const nativeSources=Object.fromEntries(Object.entries(report.sources).map(([k,v])=>[k,v===null?null:{...v,subject:NATIVE_SOURCE_SUBJECTS[k]}]));
+    if(!validateNativeDeliveryReport({...base,sources:nativeSources},{}).ok)throw new Error();
+    for(const [k,subject] of Object.entries(PI_SOURCE_SUBJECTS))if(report.sources[k]!==null&&report.sources[k].subject!==subject)throw new Error();
+    const gaps=NATIVE_CHAT_CASES.filter(s=>!report.caseResults.some(r=>r.id===s.id&&r.passed)).map(s=>s.id);
+    if(!report.checks[2].pass&&!gaps.length)gaps.push('evidence-freshness');
+    if(!sameJson(gaps,piGaps))throw new Error();
+    if(options?.admissions) {
+      const a=piDeliveryAssessment(options.blueprint,options,report.assessedAt);
+      if(report.agentId!==options.blueprint.agent_id||!sameJson(report.sources,a.sources)||!sameJson(report.checks,a.checks)||!sameJson(report.caseResults,a.caseResults)||report.ok!==a.verified)throw new Error();
+    } else if(options?.nativeChat)throw new Error();
+    return {ok:true,errors:[]};
+  } catch {return {ok:false,errors:['pi_delivery_invalid']};}
 }

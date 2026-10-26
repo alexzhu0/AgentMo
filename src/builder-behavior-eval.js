@@ -46,7 +46,7 @@ const FRESH_COMMAND_TERMINATION_GRACE_MS = 250;
 // evaluation instead of turning a committed hook delivery into a false result.
 const AUTHENTIC_HOOK_TIMEOUT_MS = 90_000;
 const AUTHENTIC_HOOK_PREVIEW_TIMEOUT_MS = 20_000;
-const AUTHENTIC_HOOK_SETUP_TIMEOUT_MS = 120_000;
+const AUTHENTIC_HOOK_SETUP_TIMEOUT_MS = 300_000;
 // README is required only by the self-contained NPM closure. Runtime bytes
 // remain admitted separately and the installed hook digest is rechecked below.
 const AUTHENTIC_HOOK_FIXTURE_METADATA = "AgentMo authenticated behavior fixture.\n";

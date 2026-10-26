@@ -171,23 +171,28 @@ export function validateCourseBudgetRequest(value, modelProfile) {
 function validUsage(usage) {return usage && Number.isSafeInteger(usage.prompt_tokens) && usage.prompt_tokens>=0 && usage.prompt_tokens<=53248 && Number.isSafeInteger(usage.completion_tokens) && usage.completion_tokens>=0 && usage.completion_tokens<=2048 && usage.total_tokens===usage.prompt_tokens+usage.completion_tokens;}
 async function readBounded(stream, maximum) {const chunks=[];let size=0;for await(const chunk of stream){size+=chunk.length;if(size>maximum) fail();chunks.push(Buffer.from(chunk));}return Buffer.concat(chunks).toString('utf8');}
 
-export async function sendBudgetedCompletion({root,budgetReference,apiKey,request,deadline,signal,onReserved,modelProfile}) {
+export async function sendBudgetedCompletion({root,budgetReference,apiKey,request,deadline,signal,onReserved,onSent,modelProfile}) {
   let phase='request',upstreamStatus;const abort=new AbortController();let timer;
   const cancel=()=>abort.abort();
   try {
     if(typeof apiKey!=='string'||!apiKey||/[\r\n]/.test(apiKey)||!Number.isFinite(deadline)
       ||deadline<=Date.now()||deadline>Date.now()+120_000||signal?.aborted
-      ||(onReserved!==undefined&&typeof onReserved!=='function'))fail();
+      ||(onReserved!==undefined&&typeof onReserved!=='function')||(onSent!==undefined&&typeof onSent!=='function'))fail();
     const model=nativeChatModelProfile(modelProfile);
     validateCourseBudgetRequest(request,modelProfile);
     const {max_completion_tokens:unusedMax,max_tokens:unusedLegacyMax,...normalized}=request;
     const wire=JSON.stringify({...normalized,[model.outputLimitKey]:2048,n:1,...modelProfile===undefined?{}:{thinking:{type:'disabled'},service_tier:'standard'}});if(Buffer.byteLength(wire)>BODY_LIMIT)fail();
     signal?.addEventListener('abort',cancel,{once:true});
     timer=setTimeout(cancel,Math.max(1,deadline-Date.now()));timer.unref();
-    await reserve(root,budgetReference);onReserved?.();
+    await reserve(root,budgetReference);await onReserved?.();
     if(abort.signal.aborted||Date.now()>=deadline)throw {code:'COURSE_WIKI_NATIVE_TIMEOUT'};
     phase='network';
-    const upstream=await fetch(model.endpoint,{method:'POST',headers:{authorization:`Bearer ${apiKey}`,'content-type':'application/json'},body:wire,redirect:'error',signal:abort.signal});
+    const pendingUpstream=Promise.resolve(fetch(model.endpoint,{method:'POST',headers:{authorization:`Bearer ${apiKey}`,'content-type':'application/json'},body:wire,redirect:'error',signal:abort.signal}));
+    pendingUpstream.catch(()=>{});
+    phase='request';
+    await onSent?.();
+    phase='network';
+    const upstream=await pendingUpstream;
     if(Number.isInteger(upstream.status)&&upstream.status>=100&&upstream.status<=599)upstreamStatus=upstream.status;
     if(!upstream.ok){
       await upstream.body?.cancel();
@@ -216,7 +221,7 @@ export async function sendBudgetedCompletion({root,budgetReference,apiKey,reques
     const code=abort.signal.aborted?'COURSE_WIKI_UPSTREAM_TIMEOUT':allowed.includes(error?.code)?error.code
       :phase==='network'?'COURSE_WIKI_UPSTREAM_NETWORK':phase==='response'?'COURSE_WIKI_UPSTREAM_RESPONSE_INVALID':'COURSE_WIKI_BUDGET_REJECTED';
     throw Object.assign(new Error('Budgeted completion refused.'),{code,...upstreamStatus===undefined?{}:{upstreamStatus}});
-  } finally {clearTimeout(timer);signal?.removeEventListener('abort',cancel);}
+  } finally {clearTimeout(timer);signal?.removeEventListener('abort',cancel);abort.abort();}
 }
 
 export async function startCourseBudget({root,budgetReference,apiKey,deadline=Date.now()+90_000,onReserved}) {

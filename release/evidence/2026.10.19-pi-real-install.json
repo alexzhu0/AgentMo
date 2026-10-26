@@ -1,0 +1,110 @@
+{
+  "schemaVersion": "agentmo.pi-real-install-and-readonly-activation-preparation.v1",
+  "observedAt": "2026-10-19T05:30:02.763Z",
+  "approvedInstallProposalDigest": "sha256:decbe1f68895e602a5e6c70865a3849991ca6c682b47f5c023a87a29825b56b7",
+  "approvedInstallPlanDigest": "sha256:dacaef05bc3d6e8e6bb31a5eb02754e6fecffd3ec17ae8b92ed01321f6c47bac",
+  "status": "installed-verified-activation-preview-requires-offline-readiness-correction",
+  "commandResults": {
+    "ordinaryInstallApproval": {
+      "exitCode": 0,
+      "attempts": 1
+    },
+    "conflictInstallApproval": {
+      "exitCode": 0,
+      "attempts": 1
+    },
+    "installApply": {
+      "exitCode": 0,
+      "attempts": 1
+    },
+    "activationPreview": {
+      "exitCode": 0,
+      "attempts": 1
+    },
+    "retries": 0
+  },
+  "installation": {
+    "nativeRuntime": "pi",
+    "modelProfile": "minimax-m3-cn-v1",
+    "browserEntryPreserved": true,
+    "installReceiptDigest": "sha256:b22d6d4facf1a35a06baea1444ce79e2023633e6eee834623b1cb39c2cb3fd69",
+    "authorityConsumptionDigest": "sha256:84e17aec733f4f35157a4243432b2f073d16b1a48c7327e37bbc838bd4076dba",
+    "authorityJournalDigest": "sha256:1ef7765f6c62484486ec626c69c88cf66bb7511189936e8692ac9c0fdc7fd6f5",
+    "consumedRecords": 1,
+    "consumedDecisions": 2,
+    "managedFiles": 6,
+    "subdirectories": 4,
+    "totalInstalledFiles": 9,
+    "directoryModes": "0700",
+    "fileModes": "0600",
+    "receiptAdmitted": true,
+    "durableMarkersVerified": true,
+    "sessionAttemptTurnDirectoriesEmpty": true,
+    "installedBaselineDigest": "sha256:c15931550ffd1665a9bd0e26c684b0aa88367e42bc6b066614751a34bb08b512"
+  },
+  "activationCandidate": {
+    "activationPlanDigest": "sha256:f4c34ea909793983e9605744dfb18e84b070987c8f148e8af740604545cc24b5",
+    "proposalDigest": "sha256:99969f199f07c571dfe1957eb69bea1ab48bc02d2509ec52225ad360bf6f5f52",
+    "executionApprovalRequested": false,
+    "sensitiveActions": 2,
+    "totalDecisionsIfLaterApproved": 4,
+    "approvedModelCases": 0,
+    "restartAllowance": 0,
+    "providerKeyRequired": false,
+    "currentReadyDeadlineMs": 10000,
+    "offlinePreflightMs": 19016,
+    "secondMandatoryDescriptorObservationMs": 18529,
+    "totalMandatoryValidationMs": 37545,
+    "sdkImportNotIncluded": true,
+    "offlinePreflightPassed": true,
+    "readinessTimingMismatchObserved": true,
+    "actualActivationAttempted": false,
+    "observationDigest": "sha256:18db965a5043c8a51e0081f0d20070a1cd57ac32e22e28f0115f5806b0d02ae1",
+    "interpretation": "This host offline equivalents already exceed fixed readiness window; actual future timing may vary. No activation failure has been executed or observed.",
+    "next": "offline readiness correction, regression validation and refreeze; changed source requires newly matching formal/lifecycle previews"
+  },
+  "originalRealBudget": {
+    "projectReservations": 26,
+    "totalReservedFen": 4774,
+    "remainingFen": 5226,
+    "capFen": 10000
+  },
+  "preservation": {
+    "sourceFilesUnchanged": 374,
+    "sourceSnapshotDigest": "sha256:ac2c69654f1fb8e4ea8769a2e8db3ca45b3c0c4e80f90182980602ddc340ed83",
+    "oldFailureEntriesUnchanged": 16,
+    "oldManagedFilesUnchanged": 6,
+    "oldReceiptAndAuthorityUnchanged": true,
+    "protectedArtifactsUnchanged": 12,
+    "syntheticSdkMetadataEntriesUnchanged": 210,
+    "allHistoricalFailuresRetained": true
+  },
+  "remainingGaps": {
+    "newPlanMechanicalMissingEvidence": 11,
+    "oldM3MissingEvidence": 15,
+    "piReadinessGroups": 6,
+    "realAcceptanceCasesPending": 19,
+    "sourceCaptureLimitationsRetained": true
+  },
+  "actions": {
+    "realAgentInstalled": true,
+    "browserActivated": false,
+    "servicesStarted": false,
+    "sdkImported": false,
+    "sdkExecuted": false,
+    "envFileRead": false,
+    "credentialContentsRead": false,
+    "realModelRequests": 0,
+    "newRealReservations": 0,
+    "committed": false,
+    "pushed": false
+  },
+  "certificationBoundary": {
+    "installationMechanismOnly": true,
+    "runtimeVerified": false,
+    "nativeEntryVerified": false,
+    "domainCertified": false,
+    "deliveryReady": false,
+    "productionApproved": false
+  }
+}

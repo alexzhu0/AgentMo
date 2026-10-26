@@ -20,6 +20,7 @@ import {
 } from "./persistability.js";
 import { validateSourceRefs } from "./source-refs.js";
 import { USER_NEED_SCHEMA_VERSION, validateUserNeed } from "./user-need.js";
+import { nativeChatRuntime } from "./native-chat-model-profile.js";
 
 export const BLUEPRINT_DRAFT_SCHEMA_VERSION = "agentmo.blueprint-draft.v1";
 const ADMITTED_BLUEPRINT_DRAFT_CANDIDATES = new WeakSet();
@@ -30,11 +31,13 @@ export function draftBlueprint(discoveryDb, userNeed, options = {}) {
   const agentId = sanitizeAgentId(userNeed.agent_id ?? discoveryDb.agentId);
   const runtime = resolveRuntime(options.target, options.runtime);
   const nativeChat = userNeed.execution_profile === "native-chat";
-  if (nativeChat && runtime !== "openclaw") throw new Error("native-chat requires target runtime openclaw.");
+  if (nativeChat && runtime !== nativeChatRuntime(userNeed)) throw new Error("native-chat target runtime must match its explicit source selection.");
   if (designPlan !== null) {
     assertDesignPlanForDraft(designPlan, { agentId, domain: userNeed.domain, runtime });
     if (designPlan.execution_profile !== userNeed.execution_profile
-      || designPlan.native_model_profile !== userNeed.native_model_profile) {
+      || designPlan.native_model_profile !== userNeed.native_model_profile
+      || Object.hasOwn(designPlan, "native_runtime") !== Object.hasOwn(userNeed, "native_runtime")
+      || designPlan.native_runtime !== userNeed.native_runtime) {
       throw new Error("design-plan execution_profile must match user-need execution_profile.");
     }
   }
@@ -64,6 +67,7 @@ export function draftBlueprint(discoveryDb, userNeed, options = {}) {
     [BLUEPRINT_IDENTITY_FIELD]: BLUEPRINT_SCHEMA_VERSION,
     ...(nativeChat ? { execution_profile: "native-chat" } : {}),
     ...(Object.hasOwn(userNeed, "native_model_profile") ? { native_model_profile: userNeed.native_model_profile } : {}),
+    ...(Object.hasOwn(userNeed, "native_runtime") ? { native_runtime: userNeed.native_runtime } : {}),
     agent_id: agentId,
     runtime,
     status: "draft",
@@ -356,6 +360,7 @@ function defaultTool(agentId, userNeed) {
 function resolveRuntime(target, runtime) {
   if (nonEmptyString(runtime)) return runtime;
   if (target === "agentmo") return "codex";
+  if (target === "pi") return "pi";
   return "openclaw";
 }
 

@@ -39,6 +39,9 @@ import {
   serializePersistableJson,
 } from "./persistability.js";
 import { buildOpenClawPackageProjection } from "./targets/openclaw-package.js";
+import { buildPiPackageProjection } from "./targets/pi-package.js";
+import { validatePiTargetCarrierAdmission } from "./pi-target-admission.js";
+import { observePiRuntimeSourceClosure } from "./pi-target-descriptor.js";
 import { publishNativeChatFiles, writeNativeChatFile } from "./native-chat-files.js";
 
 const DIGEST_PATTERN = /^sha256:[a-f0-9]{64}$/u;
@@ -123,6 +126,10 @@ export async function produceAgentPackage(options = {}, hooks = {}) {
     targetAdmission,
   });
   const nativeChat = buildContract.execution_profile === "native-chat";
+  if (buildContract.native_runtime === "pi"
+    && (await observePiRuntimeSourceClosure()).digest !== targetDescriptor.closure.runtimeSourceDigest) {
+    throw new PackageProduceError("AGENTMO_PACKAGE_AUTHORITY_DRIFT");
+  }
   if (nativeChat) {
     if (publicationKeys.some((key) => Object.hasOwn(options, key))) {
       throw new PackageProduceError("AGENTMO_PACKAGE_PUBLICATION_AUTHORITY_INVALID");
@@ -140,7 +147,7 @@ export async function produceAgentPackage(options = {}, hooks = {}) {
       : jsonBytes(resourcePayload(resource, buildContract), relativePath);
     addFile(files, ownership, relativePath, 0o644, bytes, resource.id);
   }
-  for (const entry of buildOpenClawPackageProjection({
+  for (const entry of (buildContract.native_runtime === "pi" ? buildPiPackageProjection : buildOpenClawPackageProjection)({
     buildContract,
     carrierSelection,
     targetAdmission,
@@ -175,7 +182,10 @@ export async function produceAgentPackage(options = {}, hooks = {}) {
       decisionLedgerDigest: admitted.decisionLedger.digest,
       planApprovalDigest: admitted.planApproval.digest,
     },
-    targetCompatibility: [{
+    targetCompatibility: buildContract.native_runtime === "pi" ? [{
+      target: "pi", version: targetAdmission.target.version,
+      sdkClosureDigest: targetAdmission.target.sdkClosureDigest, exactRevisionRequired: true,
+    }] : [{
       target: "openclaw",
       version: targetAdmission.target.version,
       sourceRevision: targetAdmission.target.sourceRevision,
@@ -201,6 +211,7 @@ export async function produceAgentPackage(options = {}, hooks = {}) {
     },
     remainingRisks: [...buildContract.remainingRisks].sort(),
     ...(nativeChat ? { execution_profile: "native-chat" } : {}),
+    ...(buildContract.native_runtime === "pi" ? { native_runtime: "pi" } : {}),
   };
   const manifestValidation = validateAgentPackageManifest(manifest, { observedMembers: members });
   if (!manifestValidation.ok) {
@@ -462,15 +473,16 @@ async function admitExactSources(bindings) {
   const decisionLedger = await load(bindings.decisionLedger, "decision-ledger");
   const buildContract = await load(bindings.buildContract, "build-contract");
   const planApproval = await load(bindings.planApproval, "plan-approval");
-  const targetDescriptor = await load(bindings.targetDescriptor, "openclaw-target-descriptor");
+  const target = blueprint.value.native_runtime === "pi" ? "pi" : "openclaw";
+  const targetDescriptor = await load(bindings.targetDescriptor, `${target}-target-descriptor`);
   const targetCarrierAdmission = await load(
     bindings.targetCarrierAdmission,
-    "openclaw-target-carrier-admission",
+    `${target}-target-carrier-admission`,
     {
       blueprint,
       "build-contract": buildContract,
       "plan-approval": planApproval,
-      "openclaw-target-descriptor": targetDescriptor,
+      [`${target}-target-descriptor`]: targetDescriptor,
     },
   );
   return {
@@ -496,7 +508,7 @@ function revalidateAuthority(context) {
   const nativeChat = buildContract.execution_profile === "native-chat";
   const recipeValidation = validateNativePluginRecipe(recipe, buildContract.targetRuntime);
   const contractValidation = validateBuildContract(buildContract);
-  const targetValidation = validateOpenClawTargetCarrierAdmission(targetAdmission, {
+  const targetValidation = (buildContract.native_runtime === "pi" ? validatePiTargetCarrierAdmission : validateOpenClawTargetCarrierAdmission)(targetAdmission, {
     targetDescriptor,
     sources: {
       blueprint: provenance(admitted.blueprint, blueprint),
@@ -520,6 +532,9 @@ function revalidateAuthority(context) {
     throw new PackageProduceError("AGENTMO_PACKAGE_CARRIER_AUTHORITY_INVALID", error?.errors);
   }
   if (!contractValidation.ok || !recipeValidation.ok || !targetValidation.ok || !approvalValidation.ok
+    || [blueprint, admitted.designPlan.value, targetAdmission].some(v =>
+      Object.hasOwn(v, "native_runtime") !== Object.hasOwn(buildContract, "native_runtime")
+      || v.native_runtime !== buildContract.native_runtime)
     || blueprint.execution_profile !== buildContract.execution_profile
     || admitted.designPlan.value.execution_profile !== buildContract.execution_profile
     || targetAdmission.execution_profile !== buildContract.execution_profile
@@ -602,6 +617,8 @@ function resourceText(kind) {
 }
 
 function projectionCapability(relativePath) {
+  if (relativePath === "projections/pi/system.md") return "resource:prompt";
+  if (relativePath === "projections/pi/agent.json") return "resource:tool-policy";
   if (relativePath.includes("/hooks/")) {
     return `hook:${path.posix.basename(relativePath, ".json")}`;
   }
@@ -633,7 +650,7 @@ function ledgerEntry(selection, ownership, contract, targetAdmission) {
     memberPaths,
     recipeDigest: native ? contract.nativePluginRecipe.recipeDigest : null,
     targetMapping: {
-      target: "openclaw",
+      target: targetAdmission.target.id,
       event: native ? (selection.openclawEvent ?? "before_agent_run") : null,
       versionRange: `${targetAdmission.target.version}@${targetAdmission.target.displayRevision}`,
     },

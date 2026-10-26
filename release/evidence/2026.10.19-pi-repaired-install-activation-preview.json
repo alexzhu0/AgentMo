@@ -1,0 +1,79 @@
+{
+  "schemaVersion": "agentmo.pi-repaired-install-and-activation-preview.v1",
+  "observedAt": "2026-10-19T12:44:27.594Z",
+  "approvedInstallPlanDigest": "sha256:f4a837449b76c7dd0efedeb23d098282536ded6edcbf2b4cd500edef1886b69c",
+  "approvedInstallProposalDigest": "sha256:1a52bead4cc12384ec40aec7e08af7f783b8ab6bfa74acdb732fd56704dbd38a",
+  "receiptDigest": "sha256:1f96d011f234e656792f4aad968c3953c895e8de9221aced86978b847426a60c",
+  "consumptionDigest": "sha256:6c113cb9d8d48bd4526d68cbec9d2a453094e026bfa8192a0f13c949d587738a",
+  "authorityJournalDigest": "sha256:20dd0620f517dd0546852892ec78437271ec33ee51ddd48daff7948cc73466b3",
+  "sourceSnapshotDigest": "sha256:47292897e142fa99dc05c3758d11c9190e9aa5a2c0501c87215a00352aa8a463",
+  "installation": {
+    "status": "complete",
+    "managedFiles": 6,
+    "subdirectories": 4,
+    "durableFiles": 3,
+    "totalFiles": 9,
+    "totalDirectoriesIncludingRoot": 5,
+    "addedConsumptionRecords": 1,
+    "addedDecisions": 2,
+    "totalConsumptionRecords": 2,
+    "totalDecisions": 4,
+    "attempts": 1
+  },
+  "activationPreview": {
+    "installPlanDigest": "sha256:51af8dd1c0df75707a224b413cf616b31bf20dc24df26b2ec6a6778bc647a543",
+    "planFileDigest": "sha256:20dc01d8a63e95fa32f922ea0ca58c8f901181c3402dbdceaf9f8eb181eb2228",
+    "proposalDigest": "sha256:56762c3fca4b65f2660364903e4ff44be7f74dc1eb4fd37a67c3272cf78c3b7f",
+    "privatePreviewPath": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-produce-2026-10-19-r2/install-operation/readonly-activation-preview/ACTIVATION_PREVIEW.md",
+    "sourceFilesDigest": "sha256:4ecb36a86f4e4ff672a843b796330e7cb4e542ac177b36026b3a2f188bf7d944",
+    "preflightDurationMs": 6493,
+    "requestedDecisionCount": 4,
+    "approvedCases": [],
+    "restartAllowance": 0,
+    "requestedIdleMs": 60000
+  },
+  "preservation": {
+    "observedAt": "2026-10-19T12:44:27.591Z",
+    "installedEntriesUnchanged": 14,
+    "authorityEntriesUnchanged": 3,
+    "installedR2EntriesUnchanged": 14,
+    "protectedArtifactsUnchanged": 12,
+    "syntheticMetadataEntriesUnchanged": 210,
+    "sourceFiles": 374,
+    "oldState": {
+      "observedAt": "2026-10-19T12:44:27.513Z",
+      "failedRootEntriesUnchanged": 16,
+      "authFileContentRead": false,
+      "failureEvidenceUnchanged": true,
+      "managedFilesUnchanged": 6,
+      "originalReceiptUnchanged": true,
+      "originalAuthorityUnchanged": true,
+      "budget": {
+        "projectReservations": 26,
+        "totalReservedFen": 4774,
+        "remainingFen": 5226,
+        "capFen": 10000
+      },
+      "sessionDirectoryGuardUnchanged": true,
+      "approvedSpecAndPlanUnchanged": true,
+      "noStagedChanges": true
+    }
+  },
+  "sourceGaps": {
+    "formal": 11,
+    "legacy": 15,
+    "realPiAcceptancePending": 19
+  },
+  "boundaries": {
+    "installed": true,
+    "activated": false,
+    "sdkExecuted": false,
+    "credentialContentsRead": false,
+    "modelRequests": 0,
+    "newRealReservations": 0,
+    "domainCertified": false,
+    "deliveryReady": false,
+    "commit": false,
+    "push": false
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "schemaVersion": "agentmo.pi-host-child-attempt-review.v1",
+  "observedOn": "2026-10-23",
+  "status": "accepted-bounded-failure-record",
+  "reviewer": "fresh independent agent",
+  "counts": {
+    "critical": 0,
+    "important": 0,
+    "minor": 0
+  },
+  "findings": [],
+  "scope": "One approved failed start, preservation evidence and current recovery instructions; no model acceptance or Task 13 whole-delivery certification",
+  "subject": {
+    "path": "release/evidence/2026.10.23-pi-m3-host-browser-startup-failure.json",
+    "digest": "sha256:fd56d0c4ec60854f95f2fb1f1591120a31517345b206f2927c1b7db25e42943f"
+  },
+  "proposalDigest": "sha256:e6264b77930131194f2c8f82d769df77c8c4c935235eaa15edd17c8109b2a9e8",
+  "activationPlanDigest": "sha256:3a5bea86a8fe9a11ee941900cd0fabc3774f5c05ddd1ec144cc4ccd85de22245",
+  "freshReadOnlyChecks": {
+    "proposalReferenceDigests": 24,
+    "formalSourceDigests": 9,
+    "frozenProductFiles": 374,
+    "publicReportDigests": 10,
+    "metadataDelta": "36 to 40; exactly four attempt files, original session metadata unchanged",
+    "authority": "7 consumptions / 27 decisions, original byte prefix retained",
+    "budget": "26 reservations / 4774 reserved fen / 5226 available fen / 10000 cap fen",
+    "startup": "One start; proxy listening; child exit 1; CLI rejection; no ready/browser/materials",
+    "cleanup": "Plan/run/root matched failed / child-exit / ownChildExited=true receipt, no duplicate stop or retry",
+    "currentDocumentationFiles": 6,
+    "diffCheck": "passed",
+    "checkerScopeFlagsQualified": true
+  },
+  "parentValidation": {
+    "documentationContract": {
+      "passed": 11,
+      "failed": 0
+    },
+    "finalPreservationAudit": {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-launch-repair-2026-10-23-r1/activation-operation/reports/final-preservation-audit.json",
+      "digest": "sha256:94fc8599cf392eabde7a5abed44c76a1cfc4f3048046799ce12c2808589370c8"
+    },
+    "stateBaseline": {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-launch-repair-2026-10-23-r1/activation-operation/reports/post-failure-baseline.json",
+      "digest": "sha256:ea66fc4c259401499e2a8417e10b92a053067908c19f7b8d7f2d8bad542ec3b0"
+    }
+  },
+  "acceptance": {
+    "fiveCases": "not-run",
+    "independentContentReview": "not-run; no replies",
+    "wholeTask13": "pending",
+    "sourceGaps": "Plan11 / legacy15 remain"
+  },
+  "boundaries": {
+    "readOnly": true,
+    "installedSdkExecuted": false,
+    "servicesStarted": false,
+    "browserStarted": false,
+    "providerKeyRead": false,
+    "privateSessionContentsRead": false,
+    "newModelRequests": 0,
+    "newReservations": 0,
+    "commit": false,
+    "push": false
+  },
+  "remainingUnknowns": [
+    "Actual installed SDK import success",
+    "Underlying child startup exit cause",
+    "Post-start proxy and provider counters, billing, retries, token usage and independent network telemetry",
+    "M3 model/content quality and whole-delivery acceptance"
+  ]
+}

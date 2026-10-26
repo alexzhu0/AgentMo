@@ -372,15 +372,17 @@ function isDeclarativePromptContract(value) {
     "secretPolicy",
   ]);
   if (fields === null
-    || fields.profile !== "openclaw-workspace-bootstrap"
+    || !["openclaw-workspace-bootstrap", "pi-package-system"].includes(fields.profile)
     || !Array.isArray(fields.bootstrapFiles)
     || fields.bootstrapFiles.length === 0
     || fields.bootstrapFiles.length > 32
     || !Array.isArray(fields.precedence)
     || fields.precedence.length === 0
     || fields.precedence.length > 32) return false;
-  const safeName = /^[A-Z][A-Z0-9_-]{0,63}\.md$/u;
-  const safePath = /^openclaw\/workspace\/[A-Z][A-Z0-9_-]{0,63}\.md$/u;
+  const pi = fields.profile === "pi-package-system";
+  if (pi && (fields.bootstrapFiles.length !== 1 || fields.precedence.length !== 1)) return false;
+  const safeName = pi ? /^pi\/system\.md$/u : /^[A-Z][A-Z0-9_-]{0,63}\.md$/u;
+  const safePath = pi ? /^pi\/system\.md$/u : /^openclaw\/workspace\/[A-Z][A-Z0-9_-]{0,63}\.md$/u;
   for (const entry of fields.bootstrapFiles) {
     const entryFields = exactDataFields(entry, [
       "path",

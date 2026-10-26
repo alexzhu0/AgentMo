@@ -107,6 +107,13 @@ describe("actual Node 20 core lane", { skip: !LANE_ACTIVE }, () => {
       assertPathAbsent(childMarker),
     ]);
   });
+  it("imports Pi contracts without resolving an actual SDK and rejects toolchain execution", async () => {
+    const { runPiNativeCommand } = await import("../src/pi-native-cli.js");
+    const { validatePiInstallPlan } = await import("../src/pi-install-plan.js");
+    assert.equal(validatePiInstallPlan({}).ok, false);
+    await assert.rejects(runPiNativeCommand("pi-target-describe", ["--sdk-root", "/absent-toolchain"]), error => error.code === "AGENTMO_PI_NATIVE_CLI_REJECTED");
+  });
+
 });
 
 async function assertUnsupported(operation) {

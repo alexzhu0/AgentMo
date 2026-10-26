@@ -1,0 +1,159 @@
+{
+  "schemaVersion": "agentmo.pi-paid-startup-failure.v1",
+  "observedOn": "2026-10-22",
+  "status": "failed-before-first-case",
+  "approvedProposalDigest": "sha256:3bf9ab89dd6331c199a64ab3b44ad5187bf426623f1c925ec8b295c26561193d",
+  "activationPlanDigest": "sha256:4c330a416975b00ee66439ae9ed2bd1158111924ba9f7d28434c3e3ab04a1d5f",
+  "starts": 1,
+  "restarts": 0,
+  "browserLaunched": false,
+  "materialsSubmitted": 0,
+  "casesCompleted": 0,
+  "casesUnexecuted": [
+    "entry",
+    "correction",
+    "injection",
+    "fresh-session",
+    "restart"
+  ],
+  "providerModelAcceptancePassed": false,
+  "runtime": {
+    "publicCode": "AGENTMO_PI_NATIVE_CLI_REJECTED",
+    "entryObserved": false,
+    "exit": {
+      "code": 1,
+      "signal": null
+    },
+    "durableStop": {
+      "status": "failed",
+      "reason": "startup-failed",
+      "ownChildExited": true
+    }
+  },
+  "stop": {
+    "publicAuthenticatedStopAttempts": 1,
+    "publicAuthenticatedStopSucceeded": false,
+    "automaticRuntimeCleanupConfirmed": true,
+    "portsReleased": [
+      19492,
+      19493
+    ]
+  },
+  "diagnosis": {
+    "rootCause": "unknown",
+    "provider502Observed": false,
+    "controllerFraming": "Initial parser saw an opening brace of a complete CLI rejection; framing was secondary and not the runtime startup cause.",
+    "readonlyParentTurnController": "passed without writes, sockets or SDK",
+    "postFailureSourcePreflight": "passed without SDK import or service start",
+    "exactOwnedChildStartupPhase": "not observed"
+  },
+  "budget": {
+    "projectReservations": 26,
+    "totalReservedFen": 4774,
+    "remainingFen": 5226,
+    "capFen": 10000,
+    "newReservations": 0,
+    "newReservedFen": 0,
+    "providerInvoice": "not queried"
+  },
+  "authority": {
+    "addedConsumptionRecords": 1,
+    "addedDecisions": 5,
+    "totalConsumptionRecords": 5,
+    "totalDecisions": 17,
+    "previousJournalPrefixPreserved": true,
+    "journalDigest": "sha256:478af02ce3f2997bacaf42f3bf57f800d3654f68a0ff0b2ff8f2060b6ee9928e"
+  },
+  "preservation": {
+    "installedEntries": 30,
+    "old26EntriesPreservedExceptAttemptsParentMetadata": true,
+    "newAttemptFiles": 4,
+    "oldInstalledEntries": 14,
+    "oldFailureReports": 16,
+    "protectedArtifacts": 12,
+    "syntheticMetadataEntries": 210,
+    "firstFailureEntries": 16,
+    "sourceFiles": 374,
+    "targetDescriptorUnchanged": true,
+    "previousFailuresRetained": true
+  },
+  "reports": [
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-paid-preview-2026-10-22-r1/operation/reports/control-setup.json",
+      "digest": "sha256:b2f4cc352d9cb2fe4411a36761ca2a94210bc90c4fdbfbf02a9278e43c34b936"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-paid-preview-2026-10-22-r1/operation/reports/failure-classification.json",
+      "digest": "sha256:5d36b69ba4d9c2b162f6751ad73637267256875fca5452e65dfe055046195d9f"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-paid-preview-2026-10-22-r1/operation/reports/failure.json",
+      "digest": "sha256:4de3683ad8340e3fd47343cf61389505e4d1f535b5c98322a77cf653caa8d779"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-paid-preview-2026-10-22-r1/operation/reports/offline-controller-isolation.json",
+      "digest": "sha256:1c71452364aa9f7666be3d521ce323b23044e7bd1c287fd592b329bde6c60f6f"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-paid-preview-2026-10-22-r1/operation/reports/post-failure-baseline.json",
+      "digest": "sha256:47b99e56282f236d42f5ea21d625e2f511375cd69ca7133179bc4449c739d799"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-paid-preview-2026-10-22-r1/operation/reports/ready-framing-diagnostic.json",
+      "digest": "sha256:dc8fb7ff08636946c3051da217b4ef55d732637c052a6f6d93b973fb3948131b"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-paid-preview-2026-10-22-r1/operation/reports/run0-approve-child-status.json",
+      "digest": "sha256:db43e58bb7cf321e25d080dc7ea4cf49d302b905a6f4406a83585c2d6e9f5d7e"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-paid-preview-2026-10-22-r1/operation/reports/run0-approve-conflict-status.json",
+      "digest": "sha256:e62efe51a168e53ff375bab3c0bcb0815b56f2ae259826f231fd69bc935b91db"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-paid-preview-2026-10-22-r1/operation/reports/run0-approve-key-status.json",
+      "digest": "sha256:f453190a06927a699e94f1373381d831714d1cbcd816937caf532ea34438bf8e"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-paid-preview-2026-10-22-r1/operation/reports/run0-approve-ordinary-status.json",
+      "digest": "sha256:6e27177d1ed1ea55747f4eedbbdc79945a258bfef4465435bb6f5ffb0e0900d5"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-paid-preview-2026-10-22-r1/operation/reports/run0-approve-proxy-status.json",
+      "digest": "sha256:4e731cbe750510067d42e5848af294276e9fa20b74e52250291433be86636686"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-paid-preview-2026-10-22-r1/operation/reports/run0-stop-status.json",
+      "digest": "sha256:c491a79651d081f0c9feddc8885f5494c7d52ac2828d1b56181c1fc832967322"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-paid-preview-2026-10-22-r1/operation/reports/runtime-process.json",
+      "digest": "sha256:a1c0e17bcd55c4e90967a3d536ba0ea0e39437b9c50c891b5c2f1219ad801808"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-paid-preview-2026-10-22-r1/operation/reports/startup-result-safe.json",
+      "digest": "sha256:5321fb2e5d8dcb96293088a0c7dd0c21fa0f0eb6fdd35e618fda43f7016d1682"
+    }
+  ],
+  "postFailureBaseline": {
+    "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-paid-preview-2026-10-22-r1/operation/reports/post-failure-baseline.json",
+    "digest": "sha256:47b99e56282f236d42f5ea21d625e2f511375cd69ca7133179bc4449c739d799"
+  },
+  "secretBoundary": "Only the approved existing runtime parent may load the provider key into memory. Assistant/reviewer/checks read no .env, provider key, auth.json or login/control capability contents. No raw provider payload or transcript retained in repository evidence.",
+  "evidenceBoundary": "Zero observed turn/request claims and unchanged original ledger plus startup failure support no budgeted model sends; not an independent whole-machine network audit. Actual SDK import reached is unknown. Stop outcome is failed/startup-failed, never relabelled requested/stopped.",
+  "approvalConsumed": true,
+  "retry": false,
+  "modelUpgradeStarted": false,
+  "nextWork": "Offline diagnosis and a fresh exact preview are required before another activation/model attempt. M3.1 adaptation follows M3 acceptance per user direction.",
+  "commit": false,
+  "push": false,
+  "publication": {
+    "schemaVersion": "agentmo.public-evidence-projection.v1",
+    "observedOn": "2026-10-26",
+    "originalDigest": "sha256:e9c1577e09125d1fb2d875fdcc80846aad81f824814daac52cfe6f7243cd52b2",
+    "scope": "publication copy; host paths made repository relative and reviewer identifiers generalized; no execution or new approval",
+    "originalRetainedLocally": true,
+    "originalExcludedFromGit": true,
+    "historicalApprovalDigestsUnchanged": true
+  }
+}

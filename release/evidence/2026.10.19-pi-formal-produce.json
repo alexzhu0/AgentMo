@@ -1,0 +1,109 @@
+{
+  "schemaVersion": "agentmo.pi-formal-produce.v1",
+  "observedAt": "2026-10-19T05:12:43.880Z",
+  "approvedProduceProposalDigest": "sha256:85bcf49ffd732d90f869ac0d511ed8dcdb1c66b9f0808514b2a863d585e5909b",
+  "status": "formal-pi-package-produced-installation-preparation-awaiting-approval",
+  "commandResults": {
+    "planApprove": {
+      "exitCode": 0,
+      "attempts": 1
+    },
+    "piTargetAdmit": {
+      "exitCode": 0,
+      "attempts": 1
+    },
+    "packageProduce": {
+      "exitCode": 0,
+      "attempts": 1
+    },
+    "directoryInspect": {
+      "exitCode": 0
+    },
+    "archiveInspect": {
+      "exitCode": 0
+    },
+    "noReplay": true
+  },
+  "bindings": {
+    "planApprovalDigest": "sha256:dd8e713f29321c773a64135f0fe576e2a5947ef819eaedd0885c3060516b95c2",
+    "targetCarrierAdmissionDigest": "sha256:8ad1dfbe4528a55cdfaf3904b8186f82cee38c4088e35cc9204a8e8d7e9bb0e3",
+    "archiveDigest": "sha256:e10ff6e822bf35c3b73ecd01ed1210764aa57bd9cc03d5b1078dbffbfdc3e084",
+    "manifestDigest": "sha256:da0042082cee112eefe0d2ea6c238ed63a6760f21da35df182d6e2afcfbd3d7f",
+    "inventoryDigest": "sha256:0ba4e3f58144ab0cecc73bfac1a3aa244f67dde0214b7e52f45e2645a108374f",
+    "independentPackageAuditDigest": "sha256:fd1123bcdb13e32f1f22e4dad79017b50b90262998a234eef4200df2a2c16cb1",
+    "installationPreparationProposalDigest": "sha256:cb03a301da22d7f0d5e1260c7ef7154f195b504599b2919ca9362c2e9366e0a0"
+  },
+  "package": {
+    "nativeRuntime": "pi",
+    "modelProfile": "minimax-m3-cn-v1",
+    "browserEntryPreserved": true,
+    "memberCount": 28,
+    "totalDirectoryFiles": 29,
+    "piProjectionCount": 6,
+    "directoryAndArchiveInventoryIdentical": true,
+    "exactSourceChainAdmitted": true,
+    "sixPiProjectionsRebuiltAndEqual": true,
+    "wrongArchiveDigestRejected": true,
+    "permissions": {
+      "directories": "0700",
+      "canonicalPackageMembers": "0644",
+      "controlFilesAndArchive": "0600",
+      "privateOuterRoot": "0700",
+      "previewBlanket0600Clarified": "canonical shareable package member modes retained within private directories"
+    }
+  },
+  "planning": {
+    "newMechanicalMissingEvidenceGaps": 11,
+    "allNewGapsGoverned": true,
+    "oldM3GapCountRetained": 15,
+    "piReadinessGroupsPending": 6,
+    "realAcceptanceCasesPending": 19,
+    "sourceCaptureLimitationsRetained": true,
+    "semanticCoverageCertified": false
+  },
+  "preservation": {
+    "oldFailureEntriesUnchanged": 16,
+    "oldManagedFilesUnchanged": 6,
+    "oldInstallReceiptUnchanged": true,
+    "oldAuthorityJournalUnchanged": true,
+    "protectedArtifactsUnchanged": 12,
+    "syntheticSdkMetadataEntriesUnchanged": 210,
+    "originalPlanControllerFailureRetained": true,
+    "approvedSpecAndPlanUnchanged": true,
+    "sourceSnapshotDigest": "sha256:ac2c69654f1fb8e4ea8769a2e8db3ca45b3c0c4e80f90182980602ddc340ed83",
+    "sourceFilesUnchanged": 374
+  },
+  "originalRealBudget": {
+    "projectReservations": 26,
+    "totalReservedFen": 4774,
+    "remainingFen": 5226,
+    "capFen": 10000
+  },
+  "nextGate": {
+    "scope": "initialize-one-private-native-authority-store-and-generate-real-identity-bound-install-preview-only",
+    "proposalDigest": "sha256:cb03a301da22d7f0d5e1260c7ef7154f195b504599b2919ca9362c2e9366e0a0",
+    "authorityRootAbsent": true,
+    "agentStateRootAbsent": true,
+    "actualInstallPlanNotYetGenerated": true,
+    "approval": "pending-human-approval"
+  },
+  "actions": {
+    "sdkExecuted": false,
+    "realAuthorityInitialized": false,
+    "realAgentInstalled": false,
+    "browserActivated": false,
+    "realModelRequests": 0,
+    "newRealReservations": 0,
+    "envFileRead": false,
+    "credentialContentsRead": false,
+    "committed": false,
+    "pushed": false
+  },
+  "certificationBoundary": {
+    "mechanismEvidenceOnly": true,
+    "runtimeVerified": false,
+    "domainCertified": false,
+    "deliveryReady": false,
+    "productionApproved": false
+  }
+}

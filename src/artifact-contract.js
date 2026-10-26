@@ -336,6 +336,7 @@ const USER_NEED_CONTRACT = deepFreeze({
       schemaVersion: { const: "agentmo.user-need.v1" },
       execution_profile: { enum: ["native-chat"] },
       native_model_profile: { const: "minimax-m3-cn-v1" },
+      native_runtime: { const: "pi", description: "Only native-chat with explicit minimax-m3-cn-v1; omission preserves OpenClaw." },
       agent_id: NON_EMPTY_STRING,
       domain: NON_EMPTY_STRING,
       problem: NON_EMPTY_STRING,
@@ -941,7 +942,48 @@ const NATIVE_CHAT_ACCEPTANCE_CONTRACT = deepFreeze({
   },
 });
 
+const PI_LIFECYCLE_TEMPLATES = piLifecycleTemplates();
 const CONTRACTS = new Map([
+  ["pi-native-chat-acceptance", deepFreeze({schemaVersion:"agentmo.artifact-contract.v1",subject:"pi-native-chat-acceptance",identity:"agentmo.pi-native-chat-acceptance.v1",
+    jsonSchema:{type:"object",additionalProperties:false,required:["schemaVersion","runtime","observedAt","cases"],properties:{schemaVersion:{const:"agentmo.pi-native-chat-acceptance.v1"},runtime:{type:"object"},observedAt:{type:"integer",minimum:0},cases:{type:"array",maxItems:19}}},
+    minimalTemplate:piAcceptanceTemplate(),notes:["Structural guidance only. Pi delivery requires observed installation and acceptance admissions, consumed exact case plans, and independent bounded reviews; templates prove no runtime or domain quality."]})],
+  ...Object.entries(PI_LIFECYCLE_TEMPLATES).map(([subject, minimalTemplate]) => [subject, deepFreeze({
+    ...lifecycleContract(subject, minimalTemplate.schemaVersion, `AgentMo ${subject}`, minimalTemplate),
+    jsonSchema: { type: "object", additionalProperties: false, required: Object.keys(minimalTemplate),
+      properties: { ...Object.fromEntries(Object.keys(minimalTemplate).map(k => [k, {}])), schemaVersion: { const: minimalTemplate.schemaVersion } } },
+    notes: ["Structural guidance only. Real source admissions, durable authority consumption and filesystem observation are required; this template never authorizes installation or activation."],
+  })]),
+  ["pi-target-carrier-admission", deepFreeze({ schemaVersion: "agentmo.artifact-contract.v1", subject: "pi-target-carrier-admission",
+    identity: "agentmo.pi-target-carrier-admission.v1",
+    jsonSchema: { type: "object", additionalProperties: false,
+      required: ["schemaVersion", "execution_profile", "native_runtime", "decision", "target", "authorities", "carrier", "hookMappings", "certificationBoundary"],
+      properties: { schemaVersion: { const: "agentmo.pi-target-carrier-admission.v1" }, execution_profile: { const: "native-chat" },
+        native_runtime: { const: "pi" }, decision: { const: "admit-exact-target-and-native-runtime" },
+        target: { type: "object" }, authorities: { type: "object" }, carrier: { type: "object" }, hookMappings: { const: [] }, certificationBoundary: { type: "object" } } },
+    minimalTemplate: { schemaVersion: "agentmo.pi-target-carrier-admission.v1", execution_profile: "native-chat", native_runtime: "pi",
+      decision: "admit-exact-target-and-native-runtime",
+      target: { id: "pi", version: "1.2.0", nodeRange: ">=22.19.0", nodeVersion: "22.19.0", displayRevision: "0".repeat(12),
+        ...Object.fromEntries(["descriptorDigest", "lockDigest", "sdkClosureDigest", "nodeExecutableDigest", "runtimeSourceDigest"].map(k => [k, `sha256:${"0".repeat(64)}`])), sdkFileCount: 1, runtimeFileCount: 1 },
+      authorities: { ...Object.fromEntries(["blueprintDigest", "buildContractDigest", "planApprovalDigest", "targetDescriptorDigest"].map(k => [k, `sha256:${"0".repeat(64)}`])), nativePluginRecipeDigest: null },
+      carrier: { kind: "native-runtime", owner: "pi", implementationPathAccepted: false, mcp: false }, hookMappings: [],
+      certificationBoundary: { carrierAdmissionOnly: true, installed: false, runtime: false, domain: false, production: false } },
+    notes: ["Structural template only; exact admitted Pi sources and a fresh target observation are required. No runtime or domain certification."],
+  })],
+  ["pi-target-descriptor", deepFreeze({ schemaVersion: "agentmo.artifact-contract.v1", subject: "pi-target-descriptor",
+    identity: "agentmo.pi-target-descriptor.v1", jsonSchema: { type: "object", additionalProperties: false,
+      required: ["schemaVersion", "execution_profile", "native_runtime", "target", "rootBinding", "closure", "certificationBoundary"],
+      properties: { schemaVersion: { const: "agentmo.pi-target-descriptor.v1" }, execution_profile: { const: "native-chat" }, native_runtime: { const: "pi" },
+        target: { type: "object" }, rootBinding: { type: "object" }, closure: { type: "object" }, certificationBoundary: { type: "object" } } },
+    minimalTemplate: { schemaVersion: "agentmo.pi-target-descriptor.v1", execution_profile: "native-chat", native_runtime: "pi",
+      target: { id: "pi", packageName: "@earendil-works/pi-coding-agent", version: "1.2.0", nodeRange: ">=22.19.0", nodeVersion: "22.19.0" },
+      rootBinding: { sdkRootDigest: `sha256:${"0".repeat(64)}`, nodeExecutablePathDigest: `sha256:${"0".repeat(64)}`,
+        rootIdentity: { device: "0", inode: "0", birthtimeNs: "0" } },
+      closure: { ...Object.fromEntries(["lockDigest", "sdkClosureDigest", "nodeExecutableDigest", "runtimeSourceDigest"].map(key => [key, `sha256:${"0".repeat(64)}`])),
+        sdkFileCount: 1, runtimeFileCount: 1 },
+      certificationBoundary: { targetIdentityObservationOnly: true, runtimeVerified: false, domainCertified: false, productionApproved: false },
+    },
+    notes: ["Template is structural guidance, not observed installation evidence. Obtain actual identity through the observer; SDK execution and domain quality remain unverified."],
+  })],
   [NATIVE_CHAT_ACCEPTANCE_CONTRACT.subject, NATIVE_CHAT_ACCEPTANCE_CONTRACT],
   [AGENT_IDEA_CANDIDATE_CONTRACT.subject, AGENT_IDEA_CANDIDATE_CONTRACT],
   [DECISION_ENTRY_CONTRACT.subject, DECISION_ENTRY_CONTRACT],
@@ -989,6 +1031,7 @@ export function listArtifactContractSubjects() {
   return Object.freeze(
     [...CONTRACTS.keys()]
       .filter((subject) => ![
+        ...Object.keys(PI_LIFECYCLE_TEMPLATES),
         "openclaw-install-receipt",
         "openclaw-install-private-journal",
         "openclaw-install-post-state",
@@ -1954,4 +1997,51 @@ function openClawLifecycleMinimalTemplates() {
       useNonce: "replace-with-conflict-nonce",
     }),
   };
+}
+
+function piLifecycleTemplates() {
+  const zero = `sha256:${"0".repeat(64)}`, one = `sha256:${"1".repeat(64)}`;
+  const identity = { device: "0", inode: "0", birthtimeNs: "0" };
+  const authorityRootBinding = { schemaVersion: "agentmo.native-authority-binding.v1", rootDigest: one, anchorDigest: zero,
+    rootIdentity: identity, anchorIdentity: identity, journalIdentity: identity };
+  const subjects = { blueprint: ["0.1", "blueprint"], buildContract: ["agentmo.build-contract.v1", "build-contract"],
+    planApproval: ["agentmo.plan-approval.v1", "plan-approval"], targetDescriptor: ["agentmo.pi-target-descriptor.v1", "pi-target-descriptor"],
+    targetCarrierAdmission: ["agentmo.pi-target-carrier-admission.v1", "pi-target-carrier-admission"] };
+  const sourceBindings = Object.fromEntries(Object.entries(subjects).map(([k, [identity, subject]]) => [k, { identity, subject, digest: zero }]));
+  const archiveBinding = { archiveDigest: zero, manifestDigest: zero, inventoryDigest: zero };
+  const nativeBinding = { native_runtime: "pi", agentId: "meeting-preview", stateRootDigest: zero, modelProfile: "minimax-m3-cn-v1", chatPort: 19492, proxyPort: 19493,
+    budgetReference: { version: 1, rootDigest: zero, policyDigest: zero, inventoryDigest: zero }, targetDescriptorDigest: zero, runtimeSourceDigest: zero,
+    packageArchiveDigest: zero, buildContractDigest: zero };
+  const paths = ["agent.json", "browser/client.js", "browser/index.html", "browser/style.css", "runtime-binding.json", "system.md"];
+  const plan = { schemaVersion: "agentmo.pi-install-plan.v1", execution_profile: "native-chat", native_runtime: "pi", lifecycle: "install",
+    sourceBindings, archiveBinding, authorityRootBinding, nativeBinding,
+    operations: paths.map(relativePath => ({ kind: "write", relativePath, mode: 384, byteLength: 1, sha256: zero })),
+    directories: ["attempts", "browser", "sessions", "turns"],
+    durableFiles: ["installation.started.json", "installation.complete.json", "installation.incomplete.json", "install-receipt.json"],
+    sensitiveActions: [], conflicts: [], predecessor: null, activationId: null, approvedCases: [], restartAllowance: 0, runtimeWrites: [],
+    certificationBoundary: { planOnly: true, installed: false, runtimeVerified: false, domainCertified: false, productionApproved: false } };
+  plan.installPlanDigest = digestTemplate(plan);
+  const common = { decision: "approve", installPlanDigest: plan.installPlanDigest, archiveBinding, authorityRootBinding,
+    lifecycle: "install", issuedAt: "2000-01-01T00:00:00.000Z", expiresAt: "9999-01-01T00:00:00.000Z", useNonce: "replace-with-unique-nonce" };
+  return {
+    "pi-install-plan": plan,
+    "pi-install-approval": { schemaVersion: "agentmo.pi-install-approval.v1", ...common },
+    "pi-sensitive-action-decision": { schemaVersion: "agentmo.pi-sensitive-action-decision.v1", ...common, lifecycle: "activate", action: { id: "start-pi-child" } },
+    "pi-conflict-approval": { schemaVersion: "agentmo.pi-conflict-approval.v1", ...common, conflicts: [] },
+    "pi-install-receipt": { schemaVersion: "agentmo.pi-install-receipt.v1", execution_profile: "native-chat", native_runtime: "pi", status: "complete",
+      installPlanDigest: plan.installPlanDigest, sourceBindings, archiveBinding, nativeBinding,
+      authorityConsumption: { schemaVersion: "agentmo.native-authority-consumption.v1", installPlanDigest: plan.installPlanDigest,
+        authorityBindingDigest: zero, consumptionDigest: zero, decisionCount: 2 }, rootIdentity: identity,
+      files: paths.map(relativePath => ({ relativePath, sha256: zero, byteLength: 1, identity })),
+      directories: plan.directories.map(relativePath => ({ relativePath, identity })),
+      certificationBoundary: { installed: true, runtimeVerified: false, nativeEntryVerified: false, domainCertified: false, productionApproved: false } },
+  };
+}
+
+function piAcceptanceTemplate() {
+  const uuid=n=>`00000000-0000-4000-8000-${String(n).padStart(12,"0")}`,zero=`sha256:${"0".repeat(64)}`;
+  return {schemaVersion:"agentmo.pi-native-chat-acceptance.v1",observedAt:0,cases:[],runtime:{native_runtime:"pi",agentId:"meeting-preview",targetVersion:"1.2.0",model:"agentmo-budget/MiniMax-M3",mainSessionKey:uuid(1),freshSessionKey:uuid(2),
+    caseSessions:Object.fromEntries(NATIVE_CHAT_CASES.map((s,i)=>[s.id,s.sessionRole==="main"?uuid(1):s.sessionRole==="fresh"?uuid(2):uuid(i+10)])),
+    ...Object.fromEntries(["caseActivationDigests","caseConsumptionDigests"].map(k=>[k,Object.fromEntries(NATIVE_CHAT_CASES.map(s=>[s.id,zero]))])),
+    ...Object.fromEntries(["blueprintDigest","packageArchiveDigest","installReceiptDigest","activationPlanDigest","nativeBindingDigest","targetDescriptorDigest","sdkClosureDigest","runtimeSourceDigest"].map(k=>[k,zero]))}};
 }

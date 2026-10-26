@@ -1,0 +1,213 @@
+{
+  "schemaVersion": "agentmo.pi-sdk-conformance-observation.v1",
+  "observedAt": "2026-10-19T04:20:07.530Z",
+  "status": "passed-synthetic-only",
+  "approvedLaunchProposalDigest": "sha256:5626c46c21d2de023955800c51877ed4ccc101ff6af68855ae1b671f8e0b62d5",
+  "machinePreviewDigest": "sha256:eae2695989f9981fa6ec3ca93e0a0d73ab268e8294cd3782d93a397d93f30a68",
+  "approvalRecordDigest": "sha256:3fbca64c7d76b0a4e007d95aeda48341099b1c0eab33975fcc890da8fd63c4fb",
+  "operationResultDigest": "sha256:93df99c573ce2e6e5d16995b2a980a9c72e44ae0e3d20871c8f1de169f13a015",
+  "sdkResultDigest": "sha256:bbeec29a4de969a17345a4af44a5a1e0661fe79c342240a83f68b9325749a6a8",
+  "note": "New r3 approval authorizes the unchanged r2-named launcher and recipe; the prior r2 launch ended before SDK invocation. Historical records remain unchanged.",
+  "startedAt": "2026-10-19T03:15:22.348Z",
+  "finishedAt": "2026-10-19T04:18:13.565Z",
+  "durationMs": 3770584,
+  "attempts": 1,
+  "retries": 0,
+  "sdkVersion": "1.2.0",
+  "nodeVersion": "24.18.0",
+  "sourceSnapshot": {
+    "path": "release/evidence/2026.10.16-pi-credentials-repair-source-snapshot.json",
+    "digest": "sha256:ac2c69654f1fb8e4ea8769a2e8db3ca45b3c0c4e80f90182980602ddc340ed83",
+    "fileCount": 374,
+    "exactEnumerationAndBytesUnchanged": true
+  },
+  "descriptorDigest": "sha256:f2ad84b3dd683244988786af2dc71d5b75fc3db80628461c7952c19fa1de3463",
+  "closure": {
+    "lockDigest": "sha256:af60f0182a6cb4918197f7eeb8511cf300be77ae8c2a1ca992aecb113cb22401",
+    "sdkClosureDigest": "sha256:f31ed3e5ae10d2d9994e129f06b6f63a2c5cadfdeccfb943431f6813040e82d3",
+    "sdkFileCount": 15026,
+    "nodeExecutableDigest": "sha256:bf0cea6ab3631b6b53a9709ed54d62608dd0725187426d34d4d6af6644c5197f",
+    "runtimeSourceDigest": "sha256:50c87d4f5cf7e9916ebd7b3127e5027373804f9629ad3a2dec7eeed5f5c17250",
+    "runtimeFileCount": 140
+  },
+  "postRunClosureUnchanged": true,
+  "result": {
+    "schemaVersion": "agentmo.pi-sdk-conformance-result.v1",
+    "ok": true,
+    "caseResults": [
+      {
+        "id": "success",
+        "pass": true,
+        "setupRequests": 0,
+        "proxyRequests": 1,
+        "modelRequests": 1,
+        "reservations": 1
+      },
+      {
+        "id": "401",
+        "pass": true,
+        "setupRequests": 0,
+        "proxyRequests": 1,
+        "modelRequests": 1,
+        "reservations": 1
+      },
+      {
+        "id": "429",
+        "pass": true,
+        "setupRequests": 0,
+        "proxyRequests": 1,
+        "modelRequests": 1,
+        "reservations": 1
+      },
+      {
+        "id": "500",
+        "pass": true,
+        "setupRequests": 0,
+        "proxyRequests": 1,
+        "modelRequests": 1,
+        "reservations": 1
+      },
+      {
+        "id": "timeout",
+        "pass": true,
+        "setupRequests": 0,
+        "proxyRequests": 1,
+        "modelRequests": 1,
+        "reservations": 1
+      },
+      {
+        "id": "disconnect",
+        "pass": true,
+        "setupRequests": 0,
+        "proxyRequests": 1,
+        "modelRequests": 1,
+        "reservations": 1
+      },
+      {
+        "id": "malformed",
+        "pass": true,
+        "setupRequests": 0,
+        "proxyRequests": 1,
+        "modelRequests": 1,
+        "reservations": 1
+      },
+      {
+        "id": "empty-input",
+        "pass": true,
+        "setupRequests": 0,
+        "proxyRequests": 0,
+        "modelRequests": 0,
+        "reservations": 0
+      },
+      {
+        "id": "at-limit-input",
+        "pass": true,
+        "setupRequests": 0,
+        "proxyRequests": 1,
+        "modelRequests": 1,
+        "reservations": 1
+      },
+      {
+        "id": "over-limit-input",
+        "pass": true,
+        "setupRequests": 0,
+        "proxyRequests": 0,
+        "modelRequests": 0,
+        "reservations": 0
+      },
+      {
+        "id": "full-request-limit",
+        "pass": true,
+        "setupRequests": 1,
+        "proxyRequests": 2,
+        "modelRequests": 1,
+        "reservations": 1
+      },
+      {
+        "id": "history-limit",
+        "pass": true,
+        "setupRequests": 1,
+        "proxyRequests": 2,
+        "modelRequests": 1,
+        "reservations": 1
+      }
+    ],
+    "idleWindowMs": 3660000,
+    "maxDurationMs": 4500000,
+    "extraRequests": 0,
+    "realProviderRequests": 0,
+    "certificationBoundary": {
+      "syntheticSdkOnly": true,
+      "domainCertified": false,
+      "deliveryReady": false,
+      "productionApproved": false
+    }
+  },
+  "counts": {
+    "localProxyRequests": 12,
+    "mockedUpstreamRequests": 10,
+    "extraRequests": 0,
+    "realProviderRequests": 0,
+    "newRealReservations": 0
+  },
+  "syntheticBudget": {
+    "initialReservedFen": 496,
+    "projectReservations": 10,
+    "newReservedFen": 310,
+    "totalReservedFen": 806,
+    "remainingFen": 9194,
+    "capFen": 10000
+  },
+  "originalRealBudget": {
+    "projectReservations": 26,
+    "totalReservedFen": 4774,
+    "remainingFen": 5226,
+    "capFen": 10000
+  },
+  "metadataOnly": {
+    "entries": 210,
+    "authFileEntries": 0,
+    "symlinks": 0,
+    "caseDirectories": 12,
+    "officialSessionFiles": 10,
+    "completedTurnFiles": 4,
+    "failedTurnFiles": 8
+  },
+  "preserved": {
+    "oldSdkFailureEntries": 16,
+    "blockedLaunchAndOriginalPreviewFilesUnchanged": 8,
+    "originalManagedFiles": 6,
+    "originalReceiptAndAuthority": true,
+    "approvedSpecAndPlan": true,
+    "sessionDirectoryGuard": true
+  },
+  "resources": {
+    "ownedChildClosedConfirmedByRunner": true,
+    "parentExitCode": 0,
+    "port19593ListenerObserved": false,
+    "syntheticRootRetained": true
+  },
+  "actions": {
+    "credentialFileContentsRead": false,
+    "realAgentInstalled": false,
+    "browserActivated": false,
+    "realModelCalled": false,
+    "staged": false,
+    "committed": false,
+    "pushed": false
+  },
+  "certificationBoundary": {
+    "actualFixedSdkSyntheticConformance": true,
+    "realProviderVerified": false,
+    "browserAcceptanceVerified": false,
+    "domainCertified": false,
+    "deliveryReady": false,
+    "productionApproved": false
+  },
+  "remaining": {
+    "legacySourceGaps": 15,
+    "realAcceptanceClasses": 19,
+    "legacy502RootCause": "unknown",
+    "next": "Task12 formal Pi Discover/Plan/Produce and separately approved lifecycle previews; no runtime authorization follows from this SDK result."
+  }
+}

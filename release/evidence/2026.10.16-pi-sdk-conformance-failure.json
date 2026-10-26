@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "agentmo.pi-sdk-conformance-failure-observation.v1",
+  "observedAt": "2026-10-16T07:35:32.384Z",
+  "approvedPreviewDigest": "sha256:236c2242e3fc5e7958bd0440fa75dd02787f6818b067993748e4861e194f5bcc",
+  "operationResultDigest": "sha256:0c11dcec869b4e2960068b52764d387ffa65a387a144689d0bcfff36363764e9",
+  "status": "failed-retained",
+  "attempts": 1,
+  "durationMs": 20006,
+  "parentErrorCode": "PI_CONFORMANCE_FAILED",
+  "phase": "first-success-case-after-sdk-preparation-before-turn-admission",
+  "sdkImportedAndSessionPrepared": true,
+  "observedCasesCreated": 1,
+  "completedCaseResults": 0,
+  "persistedTurnStages": 0,
+  "officialSessionJsonlExists": false,
+  "unexpectedSessionFiles": [
+    "auth.json"
+  ],
+  "credentialFileInspectedByMetadataOnly": true,
+  "confirmedBlockingMismatch": "SDK default file auth storage conflicts with the session directory allowlist",
+  "exactChildExceptionCaptured": false,
+  "additionalSdkDefectsExcluded": false,
+  "upstreamAndDeniedAttemptCounters": null,
+  "syntheticBudget": {
+    "projectReservations": 0,
+    "totalReservedFen": 496,
+    "remainingFen": 9504,
+    "capFen": 10000
+  },
+  "realBudget": {
+    "projectReservations": 26,
+    "totalReservedFen": 4774,
+    "remainingFen": 5226,
+    "capFen": 10000
+  },
+  "originalManagedFilesUnchanged": 6,
+  "originalReceiptUnchanged": true,
+  "originalAuthorityUnchanged": true,
+  "originalBudgetUnchanged": true,
+  "sourceSnapshotUnchangedFiles": 374,
+  "approvedDocumentsUnchanged": true,
+  "sdkDescriptorUnchanged": true,
+  "ownConformanceChildClosed": true,
+  "loopback19593Listening": false,
+  "realCredentialContentsRead": false,
+  "realProviderRequestsAllowed": 0,
+  "browserActivated": false,
+  "realAgentInstalled": false,
+  "retries": 0,
+  "idleWindowCompleted": false,
+  "rootRetained": true,
+  "certificationBoundary": {
+    "runtimeVerified": false,
+    "domainCertified": false,
+    "deliveryReady": false,
+    "productionApproved": false
+  }
+}

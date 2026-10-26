@@ -6,6 +6,20 @@ export function helpText() {
 Builder platform: POSIX only (darwin, linux). Windows is unsupported.
 
 Usage:
+  agentmo pi-target-describe --sdk-root <private-sdk-root> --node-executable <node> --lock-file <package-lock.json> --out <absent-descriptor.json> [--json]
+  agentmo pi-target-admit [exact Pi planning sources and digests] [fixed target paths] --out <absent-admission.json> [--json]
+  agentmo pi-install-preview --lifecycle install|activate [exact Pi source paths and digests] --target-root <private-root> --authority-root <authority> --authority-binding <file> --digest native-authority-binding=sha256:<64hex> --budget-root <existing-project-budget> --chat-port <port> --proxy-port <port> --out <absent-plan.json> [--cases <digest-bound-cases.json> --restart-allowance 0|1] [--json]
+  agentmo pi-install-approve --install-plan <file> --digest pi-install-plan=sha256:<64hex> --family ordinary|sensitive|conflicts [--action-id <plan-action>] --issued-at <ISO> --expires-at <ISO> --nonce <unique> --approve --out <absent-decision.json> [--json]
+  agentmo pi-install-apply [exact Pi sources and approvals] --apply [--json]
+  agentmo pi-native-serve [exact Pi sources and activation approvals] [--runtime-env-file <approved-file>] [--json]
+  agentmo pi-native-stop --install-plan <activate-plan.json> --digest pi-install-plan=sha256:<64hex> --target-root <private-root> [--json]
+
+Pi SDK uses an independently approved toolchain with Node >=22.19.0. Core import/help does not load the SDK.
+Pi installation, activation and model acceptance require separate exact previews. A read-only activation cannot send.
+Pi source flags are --blueprint, --build-contract, --plan-approval, --target-descriptor, --target-carrier-admission, --archive;
+activation adds --installed-plan, --install-receipt and --install-plan. Each has its exact Pi subject --digest binding.
+Serving requires the plan's two (read-only) or three (model cases) --sensitive-decision files with indexed pi-sensitive-action-decision-N digests, plus ordinary and conflict approvals.
+
   agentmo builder [start] [--host codex] [--json]
   agentmo builder probe [--host codex] [--json]
   agentmo builder setup [--project <dir>] [--digest builder-install-receipt=sha256:<64hex>] [--host-scope user] [--host codex] [--json]
@@ -168,6 +182,9 @@ const OPENCLAW_RECEIPT_COMPANION_HELP = [
 ].join("\n");
 
 export function commandHelpText(command) {
+  if (["pi-target-describe", "pi-target-admit", "pi-install-preview", "pi-install-approve", "pi-install-apply", "pi-native-serve", "pi-native-stop"].includes(command)) {
+    return `AgentMo ${command}\nPi SDK requires an independently approved toolchain and Node >=22.19.0.\nUse agentmo --help for fixed source flags and Pi digest subjects. Installation, activation and model acceptance each require their own exact approved preview.\n`;
+  }
   const entries = {
     "artifact-contract": `AgentMo artifact-contract
 Usage: agentmo artifact-contract agent-idea-candidate|decision-entry|discovery-manifest|openclaw-probe|openclaw-target-carrier-admission|openclaw-target-descriptor|package-manifest|user-need [--json]

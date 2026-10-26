@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "agentmo.pi-sdk-install-evidence.v1",
+  "observedAt": "2026-10-16T07:14:42.120Z",
+  "approvedInstallProposalDigest": "sha256:2924dc697ed8a39e6aaa3a1939c40e3cbf623c33d00f2b5076cb51eac6ef7a73",
+  "attempts": 1,
+  "exitCode": 0,
+  "durationMs": 4319,
+  "installResultDigest": "sha256:4d02751209077eb96f3b0c8ad6719fe202f5bfb0d6eb1f6b405925771a01e203",
+  "installScripts": false,
+  "inheritedEnvironment": false,
+  "target": {
+    "id": "pi",
+    "packageName": "@earendil-works/pi-coding-agent",
+    "version": "1.2.0",
+    "nodeRange": ">=22.19.0",
+    "nodeVersion": "24.18.0"
+  },
+  "lockedPackages": 118,
+  "installedPackages": 118,
+  "descriptorDigest": "sha256:a8a109b6f6915d0994c08c921da8e930fc8faf03d64e71291191c74b5e61733d",
+  "closure": {
+    "lockDigest": "sha256:af60f0182a6cb4918197f7eeb8511cf300be77ae8c2a1ca992aecb113cb22401",
+    "sdkClosureDigest": "sha256:f31ed3e5ae10d2d9994e129f06b6f63a2c5cadfdeccfb943431f6813040e82d3",
+    "sdkFileCount": 15026,
+    "nodeExecutableDigest": "sha256:bf0cea6ab3631b6b53a9709ed54d62608dd0725187426d34d4d6af6644c5197f",
+    "runtimeSourceDigest": "sha256:b4348ed25472598a3aa134fc4de6d4baa9e80074dd2ed0ff06fc881dc8227304",
+    "runtimeFileCount": 140
+  },
+  "sdkImported": false,
+  "sdkConformanceExecuted": false,
+  "nextConformancePreviewDigest": "sha256:236c2242e3fc5e7958bd0440fa75dd02787f6818b067993748e4861e194f5bcc",
+  "nextConformanceApproved": false,
+  "syntheticWorkspaceCreated": false,
+  "agentAuthorityCreated": false,
+  "agentStateCreated": false,
+  "activated": false,
+  "realCredentialReads": 0,
+  "realProviderRequests": 0,
+  "newRealReservations": 0,
+  "protectedState": {
+    "managedFilesUnchanged": 6,
+    "receiptUnchanged": true,
+    "authorityUnchanged": true,
+    "budget": {
+      "projectReservations": 26,
+      "totalReservedFen": 4774,
+      "remainingFen": 5226,
+      "capFen": 10000
+    }
+  },
+  "certificationBoundary": {
+    "installedByteObservationOnly": true,
+    "runtimeVerified": false,
+    "domainCertified": false,
+    "deliveryReady": false,
+    "productionApproved": false
+  }
+}

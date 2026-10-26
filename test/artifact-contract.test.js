@@ -16,6 +16,7 @@ import { validateDiscoveryManifest } from "../src/discovery.js";
 import { validateUserNeed } from "../src/user-need.js";
 import { validateOpenClawTargetCarrierAdmission } from "../src/openclaw-target-admission.js";
 import { validateOpenClawTargetDescriptor } from "../src/openclaw-target-descriptor.js";
+import { validatePiTargetDescriptor } from "../src/pi-target-descriptor.js";
 import { validateAgentPackageManifest } from "../src/package-contract.js";
 import { validateOpenClawProbe } from "../src/openclaw-probe.js";
 import {
@@ -64,10 +65,14 @@ describe("operator-authored artifact contracts", () => {
       "openclaw-target-carrier-admission",
       "openclaw-target-descriptor",
       "package-manifest",
+      "pi-native-chat-acceptance",
+      "pi-target-carrier-admission",
+      "pi-target-descriptor",
       "user-need",
     ]);
 
     const decision = getArtifactContract("decision-entry");
+    assert.equal(validatePiTargetDescriptor(getArtifactContract("pi-target-descriptor").minimalTemplate).ok, true);
     const ideaCandidate = getArtifactContract("agent-idea-candidate");
     const discovery = getArtifactContract("discovery-manifest");
     const need = getArtifactContract("user-need");

@@ -28,6 +28,7 @@ export function validateUserNeed(need) {
     errors.push("execution_profile must be native-chat when supplied.");
   }
   if (!validNativeModelProfileSource(need)) errors.push("native_model_profile must select the fixed native-chat model.");
+  if (!validNativeRuntimeSource(need)) errors.push("native_runtime must explicitly select Pi with the fixed native-chat M3 profile.");
   requireString(need, "agent_id", errors);
   requireString(need, "domain", errors);
   requireString(need, "problem", errors);
@@ -61,6 +62,7 @@ export function summarizeUserNeed(need) {
   return {
     schemaVersion: isObject(need) ? need.schemaVersion : undefined,
     agent_id: isObject(need) ? sanitizeText(need.agent_id ?? "") : undefined,
+    ...(Object.hasOwn(need ?? {}, "native_runtime") ? { native_runtime: need.native_runtime } : {}),
     domain: isObject(need) ? sanitizeText(need.domain ?? "") : undefined,
     target_user_count: Array.isArray(need?.target_users) ? need.target_users.filter(nonEmptyString).length : 0,
     primary_task_count: Array.isArray(need?.primary_tasks) ? need.primary_tasks.filter(nonEmptyString).length : 0,
@@ -174,4 +176,4 @@ function isObject(value) {
 function nonEmptyString(value) {
   return typeof value === "string" && value.trim().length > 0;
 }
-import { validNativeModelProfileSource } from "./native-chat-model-profile.js";
+import { validNativeModelProfileSource, validNativeRuntimeSource } from "./native-chat-model-profile.js";

@@ -1,0 +1,198 @@
+{
+  "schemaVersion": "agentmo.pi-child-startup-repair-offline-checks.v1",
+  "observedAt": "2026-10-23T14:24:12.796Z",
+  "status": "directed-repair-verified-global-checks-incomplete-source-recovery-preview-only",
+  "source": {
+    "path": "release/evidence/2026.10.23-pi-child-startup-repair-source-snapshot.json",
+    "digest": "sha256:8ba314f015f284e0e79da622d23d6bff0a9e6c89814101c814e177dcb1d18312",
+    "files": 374,
+    "changedFiles": [
+      "src/pi-native-runtime.js",
+      "src/pi-session-host.js",
+      "test/helpers/io-surface-inventory.js",
+      "test/pi-native-runtime.test.js",
+      "test/pi-review-regressions.test.js",
+      "test/pi-session-host.test.js",
+      "test/runtime-evidence-consumers.test.js"
+    ]
+  },
+  "diagnosis": {
+    "mechanism": "Existing SDK double reproduces lazy empty-prewarm restart ENOENT; installed SDK1.2.0 public source confirms delayed history persistence",
+    "historicalUniqueCause": "unproved",
+    "actualSdkRecovery": "not executed"
+  },
+  "repair": [
+    "Only proven empty prewarms can create one header, retaining private directory, metadata and history identity checks",
+    "Own host/server before reporting success to retain cleanup on diagnostic transport failure",
+    "Seven finite child startup stages; exact run/sequence/state/code checks; no raw errors or provider payloads",
+    "Direct bounded process.send retains process capability classification; exact I/O owner inventory retained"
+  ],
+  "checks": {
+    "canonicalCommand": {
+      "command": "npm --offline --no-update-notifier run check",
+      "status": "execution-continuity-lost",
+      "exitCode": null,
+      "finalExitUnobserved": true,
+      "passed": false,
+      "logDigest": "sha256:85cd1894111fbd5803496f764bc2a562aa45cda7983e96154fb1a34d4603eb1c"
+    },
+    "completedLanes": {
+      "status": "first-three-only",
+      "lanes": [
+        {
+          "id": "main",
+          "tests": 1511,
+          "pass": 1451,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 60
+        },
+        {
+          "id": "durable-fs",
+          "tests": 2,
+          "pass": 2,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        {
+          "id": "packed-hook-chain",
+          "tests": 1,
+          "pass": 1,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      ],
+      "total": {
+        "pass": 1454,
+        "skip": 60,
+        "fail": 0
+      },
+      "sourceSnapshotUnchanged": true
+    },
+    "incompleteLane": {
+      "id": "packed-behavior",
+      "exitCode": 1,
+      "forced": true,
+      "summary": {
+        "tests": 8,
+        "pass": 6,
+        "fail": 0,
+        "cancelled": 1,
+        "skipped": 1
+      },
+      "logDigest": "sha256:7ebbe3974948d6e3e71ff256ee94e7a7eb3446446b8fdc65f4750ca75fba5376",
+      "passed": false
+    },
+    "unrunLanes": [
+      "immutable-successor"
+    ],
+    "globalCheckPassed": false,
+    "node20": {
+      "path": "release/evidence/2026.10.23-node20-pi-child-startup-repair-core-receipt.json",
+      "digest": "sha256:9a5cd347085823b755256375b0eaa0d771e39ebec099517109681f08ab49d378",
+      "publishedExactBytesHistoricallyVerified": true,
+      "originalTemporaryReceiptCurrentlyAvailable": false,
+      "temporaryReceiptRecreated": false,
+      "consumersPass": 6,
+      "batches": [
+        {
+          "id": "syntax",
+          "pass": 70,
+          "skip": 0
+        },
+        {
+          "id": "core-contracts",
+          "pass": 110,
+          "skip": 7
+        },
+        {
+          "id": "stage-contracts",
+          "pass": 3,
+          "skip": 2
+        }
+      ]
+    },
+    "startupObserver": {
+      "pass": 5,
+      "maxChildRows": 14,
+      "parentLimitRequiresFutureBoundRecorder": true
+    },
+    "historicalCodeReview": {
+      "critical": 0,
+      "important": 0,
+      "minor": 0
+    }
+  },
+  "preservation": {
+    "installedEntries": 40,
+    "authority": {
+      "consumptions": 7,
+      "decisions": 27
+    },
+    "budget": {
+      "projectReservations": 26,
+      "totalReservedFen": 4774,
+      "remainingFen": 5226,
+      "capFen": 10000
+    },
+    "allowedFileDigestsAndBlindMetadataMatch": true,
+    "forbiddenControlLoginAndSdkSessionBodiesRead": false,
+    "exactPhysicalIdentityMatch": false,
+    "identityChanges": [
+      {
+        "label": "prior-r2",
+        "entries": 40,
+        "previousDevice": "16777229",
+        "observedDevice": "16777230"
+      },
+      {
+        "label": "prior-authority",
+        "entries": 3,
+        "previousDevice": "16777229",
+        "observedDevice": "16777230"
+      },
+      {
+        "label": "prior-r1",
+        "entries": 14,
+        "previousDevice": "16777229",
+        "observedDevice": "16777230"
+      }
+    ],
+    "oldAuthorityAdmissionRejected": true,
+    "oldDirectionLedgerRejected": true,
+    "oldBindingsReused": false,
+    "priorBatchFiles": 840,
+    "earlierBatchFiles": 120,
+    "portsFree": [
+      19492,
+      19493
+    ]
+  },
+  "recovery": {
+    "requiresNewHumanDirectionApproval": true,
+    "entryIsSameLogicalDirectionInNewPhysicalLedger": true,
+    "noOldJournalHelperCopied": true,
+    "newPiDescriptorDigest": "sha256:9ef8adddf6ee07d7621daf2d05cf2cb3458de2a728eddd7662eb0c90a099a84a",
+    "next": "new private Plan ledger approval and formal Plan/Produce preview only"
+  },
+  "remaining": {
+    "formalPlanGaps": 11,
+    "legacyGaps": 15,
+    "realAcceptanceCases": 19,
+    "task13WholeDeliveryReview": "pending",
+    "actualSdkAndM3Recovery": "not verified",
+    "m3BeforeNewModel": true
+  },
+  "boundaries": {
+    "actualSdkExecuted": false,
+    "realAgentInstalled": false,
+    "realAgentActivated": false,
+    "providerKeyRead": false,
+    "realModelRequests": 0,
+    "newReservations": 0,
+    "commit": false,
+    "push": false
+  }
+}

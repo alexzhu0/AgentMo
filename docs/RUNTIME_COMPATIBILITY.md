@@ -19,7 +19,7 @@
 ```json
 {
   "schemaVersion": "agentmo.runtime-compatibility-matrix.v1",
-  "observedAt": "2026-10-14",
+  "observedAt": "2026-10-23",
   "evidenceClasses": [
     "upstream-declared",
     "official-supported",
@@ -102,7 +102,7 @@
       "range": ">=20",
       "command": "\"$NODE20_BIN\" scripts/node20-core-receipt.js --repository-root \"$REPOSITORY_ROOT\" --node-bin \"$NODE20_BIN\" --archive \"$NODE20_ARCHIVE\" --checksums \"$NODE20_CHECKSUMS\" --expected-version 20.20.2 --expected-arch arm64 --receipt \"$NODE20_RECEIPT\"",
       "status": "tested",
-      "evidenceRef": "receipt=release/evidence/2026.10.14-node20-native-minimax-source-receipt.json; receipt-sha256=d91fd522afd42df480d304770aa8b77174b6a0ec33c7627438a23f1b5d92b729; command-set-sha256=c0b23d407db45a6aada4c8b80275a2c865ade90ed91187d8c0e48eec9b3ee1df; archive-sha256=466e05f3477c20dfb723054dfebffe55bc74660ee77f612166fca121dacb65b6; checksums-manifest-sha256=c6f74825d6ddf350ef06600c67fec6ea2f7996cf438a78c3cb2a89b29d4320ed; archive-member-sha256=38de4fc456c0c439bac48c727d378f749abb4e31f4116703bb1ee9a746fccbb6; executable-sha256=38de4fc456c0c439bac48c727d378f749abb4e31f4116703bb1ee9a746fccbb6; batches=syntax:55/0/0/55|core-contracts:90/7/0/97|stage-contracts:3/2/0/5",
+      "evidenceRef": "receipt=release/evidence/2026.10.23-node20-pi-child-startup-repair-core-receipt.json; receipt-sha256=9a5cd347085823b755256375b0eaa0d771e39ebec099517109681f08ab49d378; command-set-sha256=1998121186b2f922c0d0c352fd13caea58e668e3271133de97fc5a0ced71f003; archive-sha256=466e05f3477c20dfb723054dfebffe55bc74660ee77f612166fca121dacb65b6; checksums-manifest-sha256=c6f74825d6ddf350ef06600c67fec6ea2f7996cf438a78c3cb2a89b29d4320ed; archive-member-sha256=38de4fc456c0c439bac48c727d378f749abb4e31f4116703bb1ee9a746fccbb6; executable-sha256=38de4fc456c0c439bac48c727d378f749abb4e31f4116703bb1ee9a746fccbb6; batches=syntax:70/0/0/70|core-contracts:110/7/0/117|stage-contracts:3/2/0/5",
       "remainingRisk": "Node.js 20 is end-of-life; this is compatibility and rejection evidence, not a production-runtime recommendation."
     },
     {
@@ -116,6 +116,30 @@
       "status": "untested",
       "evidenceRef": "None — deliberately not executed in Phase 01.2.",
       "remainingRisk": "No provider-backed live-success, bounded domain eval, or production approval exists from this phase."
+    },
+    {
+      "id": "pi-sdk-declaration",
+      "component": "pi-sdk-target",
+      "evidenceClass": "upstream-declared",
+      "claim": "Fixed Pi coding-agent SDK 1.2.0 declares Node >=22.19.0.",
+      "runtimeVersion": null,
+      "range": ">=22.19.0",
+      "command": null,
+      "status": "untested",
+      "evidenceRef": "https://registry.npmjs.org/@earendil-works/pi-coding-agent/1.2.0",
+      "remainingRisk": "Synthetic core tests do not prove actual SDK behavior, real provider success, domain quality or production readiness."
+    },
+    {
+      "id": "pi-target-sdk-execution",
+      "component": "pi-sdk-target",
+      "evidenceClass": "target-executed",
+      "claim": "Complete fixed SDK conformance and browser acceptance remain untested; the approved preparation attempt failed before any turn was admitted.",
+      "runtimeVersion": "1.2.0 / Node 24.18.0",
+      "range": ">=22.19.0",
+      "command": "runPiSdkConformance with approved preview 236c2242e3fc5e7958bd0440fa75dd02787f6818b067993748e4861e194f5bcc",
+      "status": "untested",
+      "evidenceRef": "release/evidence/2026.10.16-pi-sdk-conformance-failure.json; one approved SDK import/session preparation failed before turn admission; no retry or idle observation. Browser acceptance remains unexecuted. Offline repair evidence: release/evidence/2026.10.16-pi-credentials-repair-offline-checks.json.",
+      "remainingRisk": "Offline repair now injects an empty read-only CredentialStore and preserves the directory allowlist; complete SDK conformance of this changed source still requires new approval. The earlier failed preparation attempt returned no exact child exception or egress counters; real provider/domain/production acceptance remains unverified."
     }
   ],
   "certificationBoundary": {
@@ -127,6 +151,12 @@
 ```
 
 ## 实际执行边界
+
+2026.10.19 后续修复：上方 Node20 core 行已更新为本次就绪等待修复的最终确切回执；其余 target 观察按各自日期保留。同冻结源码的分段覆盖验证及本次修复审阅通过（单次完整命令仍失败），仍未执行修复后真实 Pi 启动或模型验收。见[本次修复事实](../release/evidence/2026.10.19-pi-readiness-repair-offline-checks.json)。
+
+2026.10.19新增独立目标证据：[固定Pi SDK合成验证](../release/evidence/2026.10.19-pi-sdk-r3-conformance.json)，摘要sha256:0eb72b63eff9debd0bd58ffd883d52ab34cb425d04b873ed8861f40b31666e92。SDK1.2.0/Node24.18.0获批单次执行12/12及61分钟空闲通过，12本地/10模拟/0额外/0真实请求，已停止自有资源；实际浏览器入口和真实MiniMax验收仍未执行。除上方已更新的 Node20 core 行外，JSON 中其余 target 行保留2026.10.16冻结观察，其Pi“未完成”描述属于当时的历史快照，不否定本次SDK合成结果，也不把本次结果提升为完整浏览器/领域/生产认证。该次 SDK 验证当时未改产品源码和既有 Node20 收据；其后就绪等待修复见上方新记录。最新批准与计数见[当日记录](../release/2026.10.19.md)。
+
+以下按日期保留历史；2026.10.19以前的精确证据以上方2026.10.16矩阵及对应日期记录为准。
 
 2026.09.28 当前 Node 20 证据为
 [`2026.09.28-node20-core-receipt.json`](../release/evidence/2026.09.28-node20-core-receipt.json)：

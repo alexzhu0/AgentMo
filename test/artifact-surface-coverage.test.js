@@ -39,8 +39,8 @@ const PHASE_4_PACKED_SECURITY_CLOSURE = Object.freeze([
   "native/agentmo-nondumpable-preload.c",
   "native/openclaw-fs-kernel.c",
   "native/openclaw-process-supervisor.c",
-  "native/prebuilt/linux-x64/agentmo-nondumpable-preload.so",
   "native/prebuilt/linux-x64/README.md",
+  "native/prebuilt/linux-x64/agentmo-nondumpable-preload.so",
   "src/artifact-admission.js",
   "src/artifact-contract.js",
   "src/artifact-registry.js",
@@ -259,7 +259,7 @@ describe("artifact/output surface inventory", () => {
       assert.match(id, /^(?:src|bin|scripts|plugin)\//u);
       assert.match(
         classification.owner,
-        /^(?:phase-01\.1-plan-(?:0[2-9]|1[0-3])|phase-01\.2-plan-(?:04|05|06|11|12)|phase-02-plan-(?:02|03|04|06|07|08|09|11|12|13|14|15|16|17|18|19|20|21|22|23)|phase-03-plan-(?:01|03|04|05)|phase-04-plan-(?:03|04|05|07|08|09|12|13|14|15|16|17|19)|course-wiki-poc-2026-09-14|native-chat-package-2026-09-29|native-chat-probe-2026-10-09|native-chat-authority-2026-10-09|native-chat-install-2026-10-10|native-chat-budget-2026-10-12|native-chat-activation-2026-10-12|native-chat-delivery-2026-10-12)$/u,
+        /^(?:phase-01\.1-plan-(?:0[2-9]|1[0-3])|phase-01\.2-plan-(?:04|05|06|11|12)|phase-02-plan-(?:02|03|04|06|07|08|09|11|12|13|14|15|16|17|18|19|20|21|22|23)|phase-03-plan-(?:01|03|04|05)|phase-04-plan-(?:03|04|05|07|08|09|12|13|14|15|16|17|19)|course-wiki-poc-2026-09-14|native-chat-package-2026-09-29|native-chat-probe-2026-10-09|native-chat-authority-2026-10-09|native-chat-install-2026-10-10|native-chat-budget-2026-10-12|native-chat-activation-2026-10-12|native-chat-delivery-2026-10-12|pi-browser-agent-2026-10-16)$/u,
       );
       assert.match(
         classification.status,
@@ -482,12 +482,12 @@ describe("artifact/output surface inventory", () => {
       entry.startsWith("native/")
     ));
     assert.deepEqual(
-      packageJson.files.filter((entry) => entry.startsWith("native/")),
-      nativeClosure,
+      packageJson.files.filter((entry) => entry.startsWith("native/")).toSorted(),
+      nativeClosure.toSorted(),
     );
     assert.deepEqual(
-      releaseSources.filter((entry) => entry.startsWith("native/")),
-      nativeClosure,
+      releaseSources.filter((entry) => entry.startsWith("native/")).toSorted(),
+      nativeClosure.toSorted(),
     );
   });
 
@@ -725,6 +725,7 @@ describe("artifact/output surface inventory", () => {
 
   it("owns every Plan 11 command branch and leaves no pending CLI or console sink", async () => {
     assert.deepEqual(CLI_OUTPUT_OWNERS, {
+      "pi-target-describe":"artifact", "pi-target-admit":"artifact", "pi-install-preview":"artifact", "pi-install-approve":"artifact", "pi-install-apply":"artifact", "pi-native-serve":"non-artifact", "pi-native-stop":"non-artifact",
       help: "non-artifact",
       "artifact-contract": "non-artifact",
       builder: "non-artifact",

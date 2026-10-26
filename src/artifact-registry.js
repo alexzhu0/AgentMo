@@ -1,6 +1,12 @@
+import { validatePiChatAcceptanceArtifact } from './pi-chat-acceptance.js';
 import { createHash } from "node:crypto";
 import { validateBuildContract } from "./build-contract.js";
 import { validateOpenClawTargetCarrierAdmission } from "./openclaw-target-admission.js";
+import { validatePiTargetDescriptor } from "./pi-target-descriptor.js";
+import { validatePiTargetCarrierAdmission } from "./pi-target-admission.js";
+import { validatePiInstallPlan } from "./pi-install-plan.js";
+import { validatePiInstallApproval, validatePiSensitiveActionDecision, validatePiConflictApproval } from "./pi-install-approval.js";
+import { validatePiInstallReceipt } from "./pi-install.js";
 import { validatePlanApproval } from "./plan-approval.js";
 import {
   AGENT_IDEA_CANDIDATE_SCHEMA_VERSION,
@@ -15,7 +21,7 @@ import {
 } from "./build-state.js";
 import { BIRTH_REPORT_SCHEMA_VERSION, validateBirthReportArtifact } from "./birth-report.js";
 import { NATIVE_CHAT_ACCEPTANCE_SCHEMA_VERSION, validateNativeChatAcceptanceArtifact } from "./behavior-evidence.js";
-import { DELIVERY_REPORT_SCHEMA_VERSION, validateDeliveryReportArtifact } from "./delivery-report.js";
+import { validateDeliveryReportArtifact } from "./delivery-report.js";
 import {
   DISCOVERY_APPROVAL_SCHEMA_VERSION,
   validateDiscoveryApproval,
@@ -230,6 +236,10 @@ const REGISTRY_BY_FAMILY = new Map(LEGACY_ARTIFACT_REGISTRY.map((record) => [rec
 
 export const DURABLE_ARTIFACT_REGISTRY = Object.freeze([
   Object.freeze({
+    subject: "pi-target-descriptor", identity_field: "schemaVersion", identity: "agentmo.pi-target-descriptor.v1",
+    legacy_inspector: "unsupported", validate_canonical_input: (value) => validateSafely(() => validatePiTargetDescriptor(value).ok),
+  }),
+  Object.freeze({
     subject: "discovery-manifest",
     identity_field: "schemaVersion",
     identity: DISCOVERY_SCHEMA_VERSION,
@@ -328,6 +338,43 @@ export const DURABLE_ARTIFACT_REGISTRY = Object.freeze([
     identity: "agentmo.plan-approval.v1",
     legacy_inspector: "unsupported",
     validate_canonical_input: validateCanonicalPlanApproval,
+  }),
+  Object.freeze({
+    subject: "pi-install-plan", identity_field: "schemaVersion", identity: "agentmo.pi-install-plan.v1", legacy_inspector: "unsupported",
+    validate_canonical_input: value => validatePiInstallPlan(value).ok,
+  }),
+  Object.freeze({
+    subject: "pi-install-receipt", identity_field: "schemaVersion", identity: "agentmo.pi-install-receipt.v1", legacy_inspector: "unsupported",
+    validate_canonical_input: value => validatePiInstallReceipt(value).ok,
+  }),
+  Object.freeze({
+    subject: "pi-install-approval", identity_field: "schemaVersion", identity: "agentmo.pi-install-approval.v1", legacy_inspector: "unsupported",
+    required_companion_subjects: Object.freeze(["pi-install-plan"]),
+    validate_canonical_input: (value, context) => validatePiInstallApproval(value, { plan: context?.plan, now: new Date().toISOString() }).ok,
+  }),
+  Object.freeze({
+    subject: "pi-sensitive-action-decision", identity_field: "schemaVersion", identity: "agentmo.pi-sensitive-action-decision.v1", legacy_inspector: "unsupported",
+    required_companion_subjects: Object.freeze(["pi-install-plan"]),
+    validate_canonical_input: (value, context) => validatePiSensitiveActionDecision(value, { plan: context?.plan, now: new Date().toISOString(), action: value?.action }).ok,
+  }),
+  Object.freeze({
+    subject: "pi-conflict-approval", identity_field: "schemaVersion", identity: "agentmo.pi-conflict-approval.v1", legacy_inspector: "unsupported",
+    required_companion_subjects: Object.freeze(["pi-install-plan"]),
+    validate_canonical_input: (value, context) => validatePiConflictApproval(value, { plan: context?.plan, now: new Date().toISOString() }).ok,
+  }),
+  Object.freeze({
+    subject: "pi-target-carrier-admission",
+    identity_field: "schemaVersion",
+    identity: "agentmo.pi-target-carrier-admission.v1",
+    legacy_inspector: "unsupported",
+    required_companion_subjects: Object.freeze(["blueprint", "build-contract", "plan-approval", "pi-target-descriptor"]),
+    validate_canonical_input: (value, context) => validateSafely(() => (
+      context?.blueprint?.native_runtime === "pi" && context?.buildContract?.native_runtime === "pi"
+      && validateBlueprint(context.blueprint).ok && validateBuildContract(context.buildContract).ok
+      && context.buildContract.bindings.blueprint.digest === context.sources.blueprint.digest
+      && context.buildContract.bindings.targetDescriptor.digest === context.sources.targetDescriptor.digest
+      && isExactPiCarrierContext(value, context)
+    )),
   }),
   Object.freeze({
     subject: "openclaw-target-carrier-admission",
@@ -580,6 +627,10 @@ export const DURABLE_ARTIFACT_REGISTRY = Object.freeze([
     validate_canonical_input: (value) => validateSafely(() => validateDomainEvalArtifact(value).ok),
   }),
   Object.freeze({
+    subject: "pi-native-chat-acceptance", identity_field: "schemaVersion", identity: "agentmo.pi-native-chat-acceptance.v1", legacy_inspector: "unsupported",
+    validate_canonical_input: value => validateSafely(() => validatePiChatAcceptanceArtifact(value).ok),
+  }),
+  Object.freeze({
     subject: "native-chat-acceptance",
     identity_field: "schemaVersion",
     identity: NATIVE_CHAT_ACCEPTANCE_SCHEMA_VERSION,
@@ -589,7 +640,7 @@ export const DURABLE_ARTIFACT_REGISTRY = Object.freeze([
   Object.freeze({
     subject: "delivery-report",
     identity_field: "schemaVersion",
-    identity: DELIVERY_REPORT_SCHEMA_VERSION,
+    identity: "agentmo.delivery.v1",
     legacy_inspector: "unsupported",
     required_companion_subjects: Object.freeze(["blueprint", "build-state", "run-state", "run-eval", "birth-report"]),
     optional_companion_subjects: Object.freeze(["domain-eval"]),
@@ -938,6 +989,7 @@ export function listDurableArtifactDescriptors() {
 
 export function companionSubjectsForDurableArtifact(subject, value) {
   if (subject === "openclaw-install-receipt" && value?.execution_profile === "native-chat") return null;
+  if (subject === "delivery-report" && value?.native_runtime === "pi") return Object.freeze(["blueprint", "package-manifest", "pi-install-plan", "pi-install-receipt", ...(value.sources?.acceptance === null ? [] : ["pi-native-chat-acceptance"])]);
   if (subject === "delivery-report" && value?.execution_profile === "native-chat") return Object.freeze([
     "blueprint", "package-manifest", "openclaw-install-plan", "openclaw-install-receipt",
     ...(value.sources?.acceptance === null ? [] : ["native-chat-acceptance"]),
@@ -1241,6 +1293,15 @@ function validateCanonicalNativePluginRecipe(value) {
       && /^sha256:[a-f0-9]{64}$/u.test(file.sha256)
     ));
   });
+}
+
+function isExactPiCarrierContext(value, context) {
+  return validatePlanApproval(context.planApproval, {
+    blueprint: context.blueprint, buildContract: context.buildContract,
+    sources: { blueprint: context.sources.blueprint, buildContract: context.sources.buildContract },
+  }).ok && validatePiTargetCarrierAdmission(value, {
+    targetDescriptor: context.targetDescriptor, sources: context.sources,
+  }).ok;
 }
 
 function validateCanonicalPlanApproval(value) {

@@ -113,7 +113,7 @@ import { buildAgentMoReport, formatAgentMoReport } from "./report.js";
 import { buildPlan } from "./build-plan.js";
 import { runPocCommand } from "./poc-cli.js";
 import { buildRuntimePlan } from "./runtime-plan.js";
-import { assertCurrentOpenClawTargetRuntime } from "./runtime-compatibility.js";
+import { assertCurrentOpenClawTargetRuntime, observePiCurrentRuntime } from "./runtime-compatibility.js";
 import {
   buildRunEvalVerified,
   buildRunReport,
@@ -180,6 +180,13 @@ import { listTargetIds } from "./targets/registry.js";
 import { buildUserNeedReport, formatUserNeedReport, loadUserNeed } from "./user-need.js";
 
 export const CLI_OUTPUT_OWNERS = Object.freeze({
+  "pi-target-describe": "artifact",
+  "pi-target-admit": "artifact",
+  "pi-install-preview": "artifact",
+  "pi-install-approve": "artifact",
+  "pi-install-apply": "artifact",
+  "pi-native-serve": "non-artifact",
+  "pi-native-stop": "non-artifact",
   help: "non-artifact",
   "artifact-contract": "non-artifact",
   builder: "non-artifact",
@@ -265,6 +272,14 @@ export async function main(args) {
 
 async function runCommand(args) {
   const [command, ...rest] = args;
+  if (["pi-target-describe", "pi-target-admit", "pi-install-preview", "pi-install-approve", "pi-install-apply", "pi-native-serve", "pi-native-stop"].includes(command) && !rest.some(arg => ["--help", "-h"].includes(arg))) {
+    const { runPiNativeCommand } = await import("./pi-native-cli.js");
+    const result = await runPiNativeCommand(command, rest);
+    if (result) await (CLI_OUTPUT_OWNERS[command] === "artifact" ? emitArtifactOutput : emitNonArtifactOutput)(result.artifact, {
+      json: result.json, subject: result.subject, format: value => `${JSON.stringify(value, null, 2)}\n`,
+    });
+    return;
+  }
   if (command === "openclaw-native" && !rest.includes("--help")) {
     const { runNativeChatCommand } = await import("./native-chat-cli.js");
     return runNativeChatCommand(rest);
@@ -615,7 +630,8 @@ async function runCommand(args) {
 
   if (command === "runtime-check") {
     const options = parseRuntimeCheckArgs(rest);
-    const observation = assertCurrentOpenClawTargetRuntime();
+    const observation = options.target === "pi" ? observePiCurrentRuntime() : assertCurrentOpenClawTargetRuntime();
+    if (!observation.supported) throw Object.assign(new Error("Current Node does not satisfy the Pi SDK range."), { code: "AGENTMO_PI_RUNTIME_UNSUPPORTED" });
     await emitNonArtifactOutput(observation, {
       json: options.json,
       subject: "runtime-check",
@@ -975,8 +991,8 @@ async function runCommand(args) {
     });
     const targetDescriptorAdmission = await loadAdmittedArtifact({
       filePath: options.targetDescriptor,
-      subject: "openclaw-target-descriptor",
-      expectedDigest: options.digests["openclaw-target-descriptor"],
+      subject: `${options.target}-target-descriptor`,
+      expectedDigest: options.digests[`${options.target}-target-descriptor`],
     });
     const nativePluginRecipeAdmission = options.nativePluginRecipe
       ? await admitNativePluginRecipe({
@@ -1111,11 +1127,11 @@ async function runCommand(args) {
         planApproval: artifactBinding(options.planApproval, options.digests["plan-approval"]),
         targetDescriptor: artifactBinding(
           options.targetDescriptor,
-          options.digests["openclaw-target-descriptor"],
+          options.digests[`${options.target}-target-descriptor`],
         ),
         targetCarrierAdmission: artifactBinding(
           options.targetCarrierAdmission,
-          options.digests["openclaw-target-carrier-admission"],
+          options.digests[`${options.target}-target-carrier-admission`],
         ),
       },
       outputRoot: options.out,
@@ -2697,7 +2713,7 @@ function parseRuntimeCheckArgs(args) {
       throw cliError("AGENTMO_CLI_RUNTIME_CHECK_REJECTED");
     }
   }
-  if (target !== "openclaw") {
+  if (!["openclaw", "pi"].includes(target)) {
     throw cliError("AGENTMO_CLI_RUNTIME_CHECK_REJECTED");
   }
   return { target, json };
@@ -3347,13 +3363,14 @@ function parseBuildContractArgs(args) {
   requireOptionValue(decisionLedger, "--decision-ledger");
   requireOptionValue(targetDescriptor, "--target-descriptor");
   requireOptionValue(out, "--out");
-  if (target !== "openclaw") throw new Error("build-contract target must be openclaw.");
+  if (!["openclaw", "pi"].includes(target)) throw new Error("build-contract target must be openclaw or pi.");
   if ((nativePluginRecipe === null) !== !digestBindings.some((binding) => (
     binding.startsWith("native-plugin-recipe=")
   ))) {
     throw new Error("--native-plugin-recipe requires exactly one native-plugin-recipe digest.");
   }
   const digests = parseDigestBindings(digestBindings, subjectsForCommand("build-contract", {
+    target,
     includeOptionalSubjects: nativePluginRecipe ? ["native-plugin-recipe"] : [],
   }));
   return {
@@ -3539,6 +3556,7 @@ function parsePackageProduceArgs(args) {
   const file = args[0];
   if (!file) throw new Error("Missing blueprint file path.");
   const options = {
+    target: "openclaw",
     file,
     designPlan: null,
     discoveryApproval: null,
@@ -3565,6 +3583,7 @@ function parsePackageProduceArgs(args) {
     ["--target-carrier-admission", "targetCarrierAdmission"],
     ["--out", "out"],
     ["--archive", "archive"],
+    ["--target", "target"],
     ["--fs-helper", "fsHelper"],
     ["--fs-helper-receipt", "fsHelperReceipt"],
     ["--fs-helper-receipt-digest", "fsHelperReceiptDigest"],
@@ -3586,9 +3605,10 @@ function parsePackageProduceArgs(args) {
   for (const [flag, key] of names) {
     if (!key.startsWith("fsHelper")) requireOptionValue(options[key], flag);
   }
+  if (!["openclaw", "pi"].includes(options.target)) throw new Error("package-produce target must be openclaw or pi.");
   options.digests = parseDigestBindings(
     digestBindings,
-    subjectsForCommand("package-produce"),
+    subjectsForCommand("package-produce", { target: options.target }),
   );
   for (const key of [
     "file", "designPlan", "discoveryApproval", "decisionLedger", "buildContract",

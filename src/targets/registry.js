@@ -1,7 +1,8 @@
 import { agentMoTarget } from "./agentmo.js";
 import { openClawTarget } from "./openclaw.js";
+import { piTarget } from "./pi.js";
 
-const TARGETS = [agentMoTarget, openClawTarget];
+const TARGETS = [agentMoTarget, openClawTarget, piTarget];
 const TARGET_BY_ID = new Map(TARGETS.map((target) => [target.id, target]));
 
 export function listTargets() {

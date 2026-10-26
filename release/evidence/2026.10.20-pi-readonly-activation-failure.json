@@ -1,0 +1,158 @@
+{
+  "schemaVersion": "agentmo.pi-readonly-activation-failure.v1",
+  "observedAt": "2026-10-20T06:11:19.102Z",
+  "status": "failed-stopped-preserved",
+  "activationPlanDigest": "sha256:51af8dd1c0df75707a224b413cf616b31bf20dc24df26b2ec6a6778bc647a543",
+  "proposalDigest": "sha256:56762c3fca4b65f2660364903e4ff44be7f74dc1eb4fd37a67c3272cf78c3b7f",
+  "sourceSnapshotDigest": "sha256:47292897e142fa99dc05c3758d11c9190e9aa5a2c0501c87215a00352aa8a463",
+  "execution": {
+    "attempts": 1,
+    "exitCode": 1,
+    "durationMs": 47084,
+    "serviceReady": true,
+    "actualSdkImported": true,
+    "canSend": false,
+    "modelRequests": 0,
+    "newRealReservations": 0,
+    "restarted": false,
+    "retried": false
+  },
+  "browser": {
+    "status": "failed",
+    "step": "browser",
+    "code": "CONTROL_CHECK_FAILED",
+    "rootCause": "undetermined",
+    "diagnosticBoundary": "Browser launch, navigation, authentication and pre-session checks share one failure stage; raw browser error text was not retained.",
+    "emptyMeetingRegistrations": 0,
+    "turns": 0,
+    "modelRequestClaims": 0,
+    "loginVerified": false,
+    "sessionRoutingVerified": false,
+    "idle60SecondsCompleted": false,
+    "screenshotCreated": false
+  },
+  "cleanup": {
+    "authenticatedStop": true,
+    "stopCommandAttempts": 1,
+    "stopCommandExitCode": 0,
+    "ownChildExited": true,
+    "observedOwnedProcessGroups": 2,
+    "observedOwnedGroupsGone": true,
+    "portsReleased": [
+      19492,
+      19493
+    ],
+    "cleanupMs": 775,
+    "discoveryErrors": 0,
+    "signalErrors": 0,
+    "termSent": false,
+    "killSent": false,
+    "rootKillSent": false,
+    "observationBoundary": "Controlled signals and supervisor escalation; arbitrary external abrupt death before independent-group registration is not certified."
+  },
+  "authority": {
+    "priorJournalDigest": "sha256:20dd0620f517dd0546852892ec78437271ec33ee51ddd48daff7948cc73466b3",
+    "currentJournalDigest": "sha256:4ea6ba00e94e954b1caf7ae7515c890c6a6556bf34a1a2c2c3348bccffec90d9",
+    "originalBytePrefixPreserved": true,
+    "addedConsumptionRecords": 1,
+    "addedDecisions": 4,
+    "totalConsumptionRecords": 3,
+    "totalDecisions": 8,
+    "anchorLines": 1,
+    "planConsumed": true
+  },
+  "budget": {
+    "projectReservations": 26,
+    "totalReservedFen": 4774,
+    "remainingFen": 5226,
+    "capFen": 10000
+  },
+  "preservation": {
+    "installedR2BaselineEntries": 14,
+    "managedFilesUnchanged": 6,
+    "changedBaselineDirectories": [
+      "attempts"
+    ],
+    "addedAttemptFiles": 4,
+    "capabilityFilesMetadataOnly": true,
+    "oldInstalledEntriesUnchanged": 14,
+    "protectedArtifactsUnchanged": 12,
+    "syntheticMetadataEntriesUnchanged": 210,
+    "sourceFilesUnchanged": 374,
+    "targetDescriptorUnchanged": true,
+    "oldState": {
+      "observedAt": "2026-10-20T06:11:10.857Z",
+      "failedRootEntriesUnchanged": 16,
+      "authFileContentRead": false,
+      "failureEvidenceUnchanged": true,
+      "managedFilesUnchanged": 6,
+      "originalReceiptUnchanged": true,
+      "originalAuthorityUnchanged": true,
+      "budget": {
+        "projectReservations": 26,
+        "totalReservedFen": 4774,
+        "remainingFen": 5226,
+        "capFen": 10000
+      },
+      "sessionDirectoryGuardUnchanged": true,
+      "approvedSpecAndPlanUnchanged": true,
+      "noStagedChanges": true
+    },
+    "originalRunReportsUnchanged": true
+  },
+  "controlBindings": {
+    "workerDigest": "sha256:f2f5432c8e5a56d81442ea6e3180a1017a176288c0b1a124992bcf2f2ee76bfc",
+    "supervisorDigest": "sha256:10f3ce1e5d618d04d73bc947e8904fe0026c075c6efaad7a663fc3b26dd7d924",
+    "preservationCheckDigest": "sha256:8a03666db1a2f81cc772ea1dcd2b5ffc987ee9eaa3c5e260ed7a94e1e4066cb5",
+    "offlineCheckCorrection": {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-readiness-repair-2026-10-19-r1/post-failure-check-correction.json",
+      "digest": "sha256:088a63e5e8345bb9203f7221cf9d6d6876a49837d3a45389db36a59467224efc"
+    }
+  },
+  "reports": [
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-produce-2026-10-19-r2/install-operation/readonly-activation-operation/reports/failure.json",
+      "digest": "sha256:48afb498c4ca67884868ce812b5ffe72839566ee19db13779ee927e407486021"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-produce-2026-10-19-r2/install-operation/readonly-activation-operation/reports/entry.json",
+      "digest": "sha256:8ac8261e936d619b3c1675dc0f96a727d15c84484e6921b23c978769cd27e820"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-produce-2026-10-19-r2/install-operation/readonly-activation-operation/reports/supervisor.json",
+      "digest": "sha256:0c70b50d8ae9dce6d4ca0916445fb10894e77cb12e205143582c0f4462817743"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-produce-2026-10-19-r2/install-operation/readonly-activation-operation/reports/pi-native-stop-result.json",
+      "digest": "sha256:3c4927c84e99d00e8ab2b46b776f77bbe68edd928eae211890c2400aae38ae08"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-produce-2026-10-19-r2/install-operation/readonly-activation-operation/reports/preflight.json",
+      "digest": "sha256:1ad3ce5f36e499162fe390e4495fca86cc6c3a34b4a15c112abc5bc50303169d"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-produce-2026-10-19-r2/install-operation/readonly-activation-operation/reports/post-failure-preservation.json",
+      "digest": "sha256:8531cc834fbdbbc108736e2ca20556ace8b30319679f5dfcad410f87bf009b99"
+    }
+  ],
+  "boundaries": {
+    "providerKeysRead": false,
+    "runtimeEnvFileUsed": false,
+    "newModelCalls": 0,
+    "newRealReservations": 0,
+    "completeNetworkAudit": false,
+    "browserAcceptancePassed": false,
+    "domainCertified": false,
+    "deliveryReady": false,
+    "wholeDeliveryReviewComplete": false,
+    "commit": false,
+    "push": false
+  },
+  "pending": {
+    "formalSourceGaps": 11,
+    "legacySourceGaps": 15,
+    "realPiAcceptanceCategories": 19,
+    "legacyM3502RootCause": "undetermined",
+    "nextStep": "Offline diagnosis with bounded per-step diagnostics; any further activation requires a fresh concrete preview and human approval. This consumed plan must not be replayed."
+  }
+}

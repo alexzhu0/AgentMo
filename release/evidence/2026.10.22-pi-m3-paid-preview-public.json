@@ -1,0 +1,163 @@
+{
+  "schemaVersion": "agentmo.pi-paid-preview-evidence.v1",
+  "observedOn": "2026-10-22",
+  "status": "prepared-awaiting-human-approval",
+  "proposalDigest": "sha256:3bf9ab89dd6331c199a64ab3b44ad5187bf426623f1c925ec8b295c26561193d",
+  "activationPlanDigest": "sha256:4c330a416975b00ee66439ae9ed2bd1158111924ba9f7d28434c3e3ab04a1d5f",
+  "proposal": {
+    "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-paid-preview-2026-10-22-r1/paid-proposal.json",
+    "digest": "sha256:3bf9ab89dd6331c199a64ab3b44ad5187bf426623f1c925ec8b295c26561193d"
+  },
+  "humanPreview": {
+    "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-paid-preview-2026-10-22-r1/PAID_ACCEPTANCE_PREVIEW.md",
+    "digest": "sha256:ce3c23f5c49b69eed692d3fbd57455929ef922425c69d414be98f25745eff379"
+  },
+  "sourceFiles": {
+    "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-paid-preview-2026-10-22-r1/source-files.json",
+    "digest": "sha256:dfe73bd6d20883179ae278ad36de8325dd32ec8a5af9fad894d181b6d5615626"
+  },
+  "executionRecipe": {
+    "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-paid-preview-2026-10-22-r1/execution-recipe.json",
+    "digest": "sha256:faf985afef9563d76b1bc5a385108804c344175b73510d300e20f5f3fb2ae363"
+  },
+  "testMaterials": {
+    "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-paid-preview-2026-10-22-r1/test-materials.json",
+    "digest": "sha256:95e4f00616d71d586c003e86739997fa8f50404e56bae8a442c67d0afab74d98"
+  },
+  "approvedCases": {
+    "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-paid-preview-2026-10-22-r1/approved-cases.json",
+    "digest": "sha256:70c6104009233cc7024bf27da2bda982316d9c34d2d4b23716458ca046dc375e"
+  },
+  "pricing": {
+    "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-paid-preview-2026-10-22-r1/pricing-observation.json",
+    "digest": "sha256:c3d465317880d035d67f7838c4c0236c8c5d9bce5ada15bdd8dc5b15a40317c4"
+  },
+  "offlinePreflight": {
+    "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-paid-preview-2026-10-22-r1/offline-preflight.json",
+    "digest": "sha256:73b3b72d21f985ff7b89f119cae9b758cda04d31bc9f58e400fcee8c1de67832"
+  },
+  "baselineVerification": {
+    "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-paid-preview-2026-10-22-r1/baseline-verification.json",
+    "digest": "sha256:038628b40cfd7f42f81da68c1d1540eab692167d8b6b68fe641eba9342147da7"
+  },
+  "sourceFreeze": {
+    "path": "release/evidence/2026.10.19-pi-readiness-repair-source-snapshot.json",
+    "digest": "sha256:47292897e142fa99dc05c3758d11c9190e9aa5a2c0501c87215a00352aa8a463"
+  },
+  "cases": [
+    {
+      "caseId": "entry",
+      "inputDigest": "sha256:93a61da245ad71db12fae2c23d37e77ae8c029ed8aef705638cba4164e87f8e9",
+      "maxRequests": 1,
+      "maxReservedFen": 31
+    },
+    {
+      "caseId": "correction",
+      "inputDigest": "sha256:200458afbe08cd03d4ae1c7b26cb0be25fcbc47b2659e43a78e862e3ca70a4d4",
+      "maxRequests": 1,
+      "maxReservedFen": 31
+    },
+    {
+      "caseId": "injection",
+      "inputDigest": "sha256:622dd38c00d6d7de0a0d302b66da185fca96390732b647c2a76f6e621c7ae3b4",
+      "maxRequests": 1,
+      "maxReservedFen": 31
+    },
+    {
+      "caseId": "fresh-session",
+      "inputDigest": "sha256:8fc4d086c4c6c55d1225579e189acb559e03358ff67a39a643618b52236a81c9",
+      "maxRequests": 1,
+      "maxReservedFen": 31
+    },
+    {
+      "caseId": "restart",
+      "inputDigest": "sha256:8cb7061f42424bed16506d77581d21039a5b6458a092cdf0e622a0c6aa0dcda6",
+      "maxRequests": 1,
+      "maxReservedFen": 31
+    }
+  ],
+  "maxModelRequests": 5,
+  "maxNewReservedFen": 155,
+  "maxPlannedRestarts": 1,
+  "maxStarts": 2,
+  "originalBudget": {
+    "projectReservations": 26,
+    "totalReservedFen": 4774,
+    "remainingFen": 5226,
+    "capFen": 10000
+  },
+  "afterAllFive": {
+    "projectReservations": 31,
+    "totalReservedFen": 4929,
+    "remainingFen": 5071,
+    "capFen": 10000
+  },
+  "preservation": {
+    "installedEntries": 26,
+    "authorityConsumptionRecords": 4,
+    "authorityDecisions": 12,
+    "authorityJournalDigest": "sha256:75eeaead838c758f6a2761d71e5504b644b15c63f5c80b8e9615deccb91c0161",
+    "sourceFiles": 374,
+    "oldInstalledEntries": 14,
+    "oldFailureReports": 16,
+    "protectedArtifacts": 12,
+    "syntheticMetadataEntries": 210,
+    "firstSyntheticFailureEntries": 16,
+    "unchanged": true
+  },
+  "currentActions": {
+    "decisionsIssued": 0,
+    "consumptionRecordsAdded": 0,
+    "servicesStarted": false,
+    "sdkExecuted": false,
+    "providerKeysRead": false,
+    "modelRequests": 0,
+    "newReservations": 0,
+    "commit": false,
+    "push": false
+  },
+  "operationRootAbsent": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-paid-preview-2026-10-22-r1/operation",
+  "evidenceBoundary": "Supported observations are case/turn/request-claim state and budget deltas plus actual rendered replies; model/stop/no-tools/no-retry properties are explicitly frozen-runtime inferences. Exact usage, post-start proxy counters and bill remain unknown. No model acceptance performed.",
+  "feeBoundary": "155 fen is an authorized conservative local reservation cap, not a provider account hard spend limit. Actual cost depends on usage/rates; official domestic standard price recorded separately.",
+  "outstanding": {
+    "remainingCases": [
+      "empty-input",
+      "at-limit-input",
+      "over-limit-input",
+      "provider-429",
+      "provider-500",
+      "provider-timeout",
+      "provider-disconnect",
+      "budget-duplicate",
+      "budget-concurrency",
+      "budget-recovery",
+      "full-request-limit",
+      "history-limit",
+      "unknown-structure",
+      "state-protection"
+    ],
+    "sourceGaps": {
+      "piPlan": 11,
+      "legacy": 15
+    },
+    "old502Cause": "unresolved",
+    "wholeDeliveryReviewComplete": false,
+    "entryVerified": false
+  },
+  "validation": {
+    "planGeneration": "passed once, offline",
+    "nineSourcePreflight": "passed, no SDK import",
+    "artifactAssertions": "passed",
+    "sourceFreeze": "374 exact matches",
+    "wholeProductSuiteRerun": false
+  },
+  "publication": {
+    "schemaVersion": "agentmo.public-evidence-projection.v1",
+    "observedOn": "2026-10-26",
+    "originalDigest": "sha256:898c93ee24f5ae3d36c72b1e1be50334c4bfef7352d7b67cce06b0e6657fce92",
+    "scope": "publication copy; host paths made repository relative and reviewer identifiers generalized; no execution or new approval",
+    "originalRetainedLocally": true,
+    "originalExcludedFromGit": true,
+    "historicalApprovalDigestsUnchanged": true
+  }
+}

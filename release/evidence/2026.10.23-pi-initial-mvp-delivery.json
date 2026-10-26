@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "agentmo.pi-initial-mvp-delivery.v1",
+  "observedAt": "2026-10-23T14:49:11.199Z",
+  "status": "offline-package-delivered-live-acceptance-pending",
+  "sourceSnapshotDigest": "sha256:8ba314f015f284e0e79da622d23d6bff0a9e6c89814101c814e177dcb1d18312",
+  "productSourceChangedThisTurn": false,
+  "planRoot": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-plan-recovery-2026-10-23-r1",
+  "produceRoot": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-produce-2026-10-23-r3",
+  "manifestDigest": "sha256:56dbc45103027d0cd1495b5cf06f2a99af4a233f1ccf214669e1bddfd4094354",
+  "archiveDigest": "sha256:9e6f392b407cab05615d9ee5184d82d6a122ff9cfe69adbd37c008442074f3d7",
+  "packageMemberCount": 28,
+  "packageVersion": "1.0.0",
+  "packageAndArchiveInspected": true,
+  "authorizationBasis": "current user instruction to finish the offline initial version; actual installation, activation and model calls remain separately gated",
+  "authorityPreparationProposalDigest": "sha256:36d8d85a20ebfa398d3cbb0a77a6f70ae8631503225940ed7b4f0933cda596bb",
+  "originalBudget": {
+    "projectReservations": 26,
+    "totalReservedFen": 4774,
+    "remainingFen": 5226,
+    "capFen": 10000
+  },
+  "oldAuthority": {
+    "consumptions": 7,
+    "decisions": 27,
+    "unchanged": true
+  },
+  "retention": {
+    "priorBatchFiles": 840,
+    "earlierBatchFiles": 120,
+    "allowedDigestsAndBlindMetadataMatch": true,
+    "physicalIdentityMatched": false
+  },
+  "globalCheckPassed": false,
+  "actualSdkExecuted": false,
+  "agentInstalled": false,
+  "agentActivated": false,
+  "credentialContentsRead": false,
+  "modelRequests": 0,
+  "newReservations": 0,
+  "commit": false,
+  "push": false
+}

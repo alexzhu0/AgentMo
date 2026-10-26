@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "agentmo.pi-sdk-conformance-launch-observation.v1",
+  "observedAt": "2026-10-19T02:47:47.656Z",
+  "approvedPreviewDigest": "sha256:eae2695989f9981fa6ec3ca93e0a0d73ab268e8294cd3782d93a397d93f30a68",
+  "status": "blocked-before-sdk",
+  "launches": 1,
+  "sdkConformanceInvocations": 0,
+  "retries": 0,
+  "preflight": {
+    "normalEnvironmentAuditPassed": true,
+    "whitelistedEnvironmentExitCode": 1,
+    "missingPrerequisite": "rg",
+    "lookupErrorCode": "ENOENT",
+    "bundledExecutableExists": true,
+    "cause": "Control-side whitelist omitted the bundled file-search executable directory; final-audit invokes rg by name before SDK execution."
+  },
+  "controlRunnerDigest": "sha256:c4dc3f3fcac12bcfb240ee31de3929193eccbb3a92705b7c2a8e53ac718d0ff5",
+  "source": {
+    "snapshotPath": "release/evidence/2026.10.16-pi-credentials-repair-source-snapshot.json",
+    "snapshotDigest": "sha256:ac2c69654f1fb8e4ea8769a2e8db3ca45b3c0c4e80f90182980602ddc340ed83",
+    "fileCount": 374,
+    "exactEnumerationAndBytesUnchanged": true
+  },
+  "effects": {
+    "newSyntheticRootCreated": false,
+    "newOperationClaimCreated": false,
+    "sdkChildStarted": false,
+    "syntheticCasesCompleted": 0,
+    "idleWindowObserved": false,
+    "newSyntheticReservedFen": 0,
+    "realProviderRequests": 0,
+    "newRealReservations": 0,
+    "credentialContentsRead": false,
+    "realAgentInstalled": false,
+    "browserActivated": false,
+    "port19593ListenerObserved": false
+  },
+  "preserved": {
+    "oldFailureEntries": 16,
+    "managedFiles": 6,
+    "originalReceipt": true,
+    "originalAuthority": true,
+    "approvedSpecAndPlan": true,
+    "directoryGuard": true,
+    "realBudget": {
+      "projectReservations": 26,
+      "totalReservedFen": 4774,
+      "remainingFen": 5226,
+      "capFen": 10000
+    }
+  },
+  "git": {
+    "head": "9e59ff7fc59bc15f42a557e18232ab41ee9412e5",
+    "staged": false,
+    "committed": false,
+    "pushed": false
+  },
+  "certificationBoundary": {
+    "syntheticSdkPassed": false,
+    "domainCertified": false,
+    "deliveryReady": false,
+    "productionApproved": false
+  },
+  "nextStep": "Offline repair of control-side prerequisite lookup and a concrete revised execution preview; no launch retry in this authorization."
+}

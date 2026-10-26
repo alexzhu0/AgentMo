@@ -1097,6 +1097,23 @@ function buildBuilderReleaseAssetInventory() {
     "src/poc-research-store.js",
     "src/poc-research-workspace.js",
     "src/plan-approval.js",
+    "src/pi-budget-proxy.js",
+    "src/pi-chat-acceptance.js",
+    "src/pi-chat-client.js",
+    "src/pi-chat-server.js",
+    "src/pi-chat.css",
+    "src/pi-chat.html",
+    "src/pi-install-approval.js",
+    "src/pi-install-plan.js",
+    "src/pi-install.js",
+    "src/pi-native-cli.js",
+    "src/pi-native-runtime.js",
+    "src/pi-sdk.js",
+    "src/pi-session-host.js",
+    "src/pi-target-admission.js",
+    "src/pi-target-descriptor.js",
+    "src/targets/pi-package.js",
+    "src/targets/pi.js",
     "src/persistability.js",
     "src/report.js",
     "src/run-observation.js",
@@ -1374,6 +1391,7 @@ function validateBuilderExecutableClosure(assets) {
   const roots = [
     "hooks/agentmo-hook.js",
     "runtime/agentmo/bin/agentmo.js",
+    "runtime/agentmo/src/pi-chat-client.js",
     "runtime/agentmo/scripts/verify-codex-uat-candidate.js",
     "runtime/agentmo/src/builder-hook-bridge.js",
     "runtime/agentmo/src/openclaw-credential-handoff.js",
@@ -1411,7 +1429,8 @@ function validateBuilderExecutableClosure(assets) {
     } else if (asset.sourcePath === "src/builder-posix-effect.js") {
       validateBuilderPosixEffectChild(source);
     }
-    for (const { specifier } of analysis.loaders) {
+    for (const { kind, specifier } of analysis.loaders) {
+      if (kind === "pi-sdk-import" && asset.sourcePath === "src/pi-sdk.js") continue;
       if (specifier.startsWith("node:")) continue;
       if (!specifier.startsWith("./") && !specifier.startsWith("../")) {
         fail("AGENTMO_BUILDER_PACKAGE_IMPORT_UNLISTED");

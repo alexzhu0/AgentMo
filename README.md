@@ -2,6 +2,8 @@
 
 AgentMo is a minimal agent-building toolkit: it records what agent should be built, plans the agent from valid data plus user needs, then scaffolds a repo-native harness for coding-agent production.
 
+当前开发交付：会议文字助手（浏览器入口、Pi SDK 1.2.0、MiniMax M3）已生成正式离线 Package，源码冻结；新版真实安装及 M3 验收尚未完成。继续工作先读[当前接续入口](docs/handoffs/README.md)和[当前状态](docs/CURRENT_STATUS.md)。下方保留 AgentMo 通用机制及历史 OpenClaw POC 说明。
+
 AgentMo has three explicit stages connected by artifact contracts, not mandatory command ancestry:
 
 1. **Discover -> Discovery Contract:** materialize bounded discovery evidence through `discover-pack` (manifest-only), `discover-workspace` (approved local source intake), or exact-admitted `discover-live` with closed Web, GitHub REST, and arXiv metadata adapters.
@@ -458,7 +460,7 @@ or `openclaw` unless explicitly requested. The archived
 For the current meeting-text MiniMax M3 work and a move to another computer,
 read [the cross-computer checkpoint](docs/handoffs/2026-10-14-cross-computer.md)
 and [the native acceptance status](docs/poc/native-chat/acceptance.md).
-M3 is installed on the source computer and remains inactive. Git carries code
+The retained OpenClaw/M3 installation is stopped after one failed acceptance attempt. Pi browser migration source is implemented; its SDK and real Pi entry are not yet installed or verified. Git carries code
 and public evidence; local credentials, runtime state, approval stores and the
 existing budget require their own handling before real work on another host.
 
@@ -688,3 +690,9 @@ scripts/openclaw-live-smoke.sh --blueprint examples/win9.agentmo.json --agent wi
 ```
 
 `check` runs syntax checks and the Node test suite. The OpenClaw live smoke script is optional, defaults to DeepSeek flash with `--thinking off`, uses temporary `OPENCLAW_STATE_DIR`, scaffold workspace, and run-output paths by default, refuses non-gitignored env files, reads only supported env keys, passes proxy env keys through when present without persisting their values, requires live execution success by default, and scrubs credential-bearing OpenClaw state unless `--keep-state` is explicit.
+
+### Pi browser meeting agent
+
+The explicit `native_runtime: "pi"` / `native_model_profile: "minimax-m3-cn-v1"` path preserves the browser entry and existing cumulative budget. The independently installed SDK is pinned to `@earendil-works/pi-coding-agent@1.2.0`, requires Node >=22.19.0, and is loaded only by an approved owned child. AgentMo core remains Node >=20.
+
+See [the approved design](docs/superpowers/specs/2026-10-16-pi-browser-agent-design.md), [implementation plan](docs/superpowers/plans/2026-10-16-pi-browser-agent.md) and [current status](docs/CURRENT_STATUS.md). Real toolchain/Agent installation, activation and model acceptance each require their own exact preview approval. Synthetic tests prove bounded mechanisms only; old source gaps and failed OpenClaw observations remain historical.

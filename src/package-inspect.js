@@ -276,6 +276,7 @@ function buildInspectionCandidate(snapshot) {
     manifest: {
       schemaVersion: manifest.schemaVersion,
       ...(manifest.execution_profile === "native-chat" ? { execution_profile: "native-chat" } : {}),
+      ...(manifest.native_runtime === "pi" ? { native_runtime: "pi" } : {}),
       packageId: manifest.packageId,
       packageVersion: manifest.packageVersion,
       manifestDigest: hash(snapshot.manifestBytes),

@@ -1,0 +1,74 @@
+{
+  "schemaVersion": "agentmo.pi-preflight-path-repair.v1",
+  "observedAt": "2026-10-19T03:06:54.949Z",
+  "scope": "control-side launch PATH configuration and offline preflight only",
+  "change": {
+    "addedBundledFileSearchDirectory": true,
+    "controlEnvironmentKeys": [
+      "PATH",
+      "TMPDIR"
+    ],
+    "sdkChildWhitelistUnchanged": true,
+    "productSourceChanged": false,
+    "newDependencies": false,
+    "existingLauncherUnchanged": true
+  },
+  "red": {
+    "exitCode": 1,
+    "cause": "rg lookup ENOENT",
+    "logDigest": "sha256:49140dd2e960dba3f95306829a02fce16a79642733b879493befc0f503055d36"
+  },
+  "green": {
+    "exitCode": 0,
+    "signal": null,
+    "logDigest": "sha256:d694dcd86de9039e4f4241261d4bea4d3422b56e2cd19808fcd64b39cc74a271",
+    "sourceFiles": 374
+  },
+  "observedTarget": {
+    "machinePreviewDigest": "sha256:eae2695989f9981fa6ec3ca93e0a0d73ab268e8294cd3782d93a397d93f30a68",
+    "descriptorDigest": "sha256:f2ad84b3dd683244988786af2dc71d5b75fc3db80628461c7952c19fa1de3463",
+    "lockDigest": "sha256:af60f0182a6cb4918197f7eeb8511cf300be77ae8c2a1ca992aecb113cb22401",
+    "sdkClosureDigest": "sha256:f31ed3e5ae10d2d9994e129f06b6f63a2c5cadfdeccfb943431f6813040e82d3",
+    "sdkFileCount": 15026,
+    "nodeExecutableDigest": "sha256:bf0cea6ab3631b6b53a9709ed54d62608dd0725187426d34d4d6af6644c5197f",
+    "runtimeSourceDigest": "sha256:50c87d4f5cf7e9916ebd7b3127e5027373804f9629ad3a2dec7eeed5f5c17250",
+    "runtimeFileCount": 140
+  },
+  "sourceSnapshot": {
+    "path": "release/evidence/2026.10.16-pi-credentials-repair-source-snapshot.json",
+    "digest": "sha256:ac2c69654f1fb8e4ea8769a2e8db3ca45b3c0c4e80f90182980602ddc340ed83"
+  },
+  "originalBudget": {
+    "projectReservations": 26,
+    "totalReservedFen": 4774,
+    "remainingFen": 5226,
+    "capFen": 10000
+  },
+  "retained": {
+    "oldSdkFailureEntries": 16,
+    "blockedLaunchFilesAndOriginalPreviewFiles": 8,
+    "managedFiles": 6,
+    "originalReceiptAndAuthority": true,
+    "approvedSpecAndPlan": true,
+    "newR2SyntheticRootAbsent": true,
+    "newR2ClaimAbsent": true
+  },
+  "execution": {
+    "sdkValidationInvocations": 0,
+    "actualSdkImported": false,
+    "realCredentialContentsRead": false,
+    "realProviderRequests": 0,
+    "newRealReservations": 0,
+    "newSyntheticReservedFen": 0,
+    "realAgentInstalled": false,
+    "browserActivated": false,
+    "committed": false,
+    "pushed": false
+  },
+  "certificationBoundary": {
+    "actualSdkConformanceSucceeded": false,
+    "domainCertified": false,
+    "deliveryReady": false,
+    "productionApproved": false
+  }
+}

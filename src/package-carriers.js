@@ -68,7 +68,7 @@ export function assertApprovedHookCarrierConsistency(buildContract) {
   const targetVersion = targetVersionFor(buildContract);
   if (buildContract.execution_profile === "native-chat") {
     return deepFreeze({
-      target: "openclaw", targetVersion, carrier: "native-runtime", owner: "openclaw",
+      target: buildContract.targetRuntime.id, targetVersion, carrier: "native-runtime", owner: buildContract.targetRuntime.id,
       recipe: null, hooks: [], unsupportedBehavior: ["automatic-external-plugin-install"],
       phase3ReapprovalRequired: true,
     });
@@ -153,7 +153,8 @@ export function selectPackageCarriers(buildContract) {
   const result = {
     schemaVersion: "agentmo.package-carrier-selection.v1",
     ...(buildContract.execution_profile === "native-chat" ? { execution_profile: "native-chat" } : {}),
-    target: "openclaw",
+    ...(buildContract.native_runtime === "pi" ? { native_runtime: "pi" } : {}),
+    target: hookConsistency.target,
     targetVersion: hookConsistency.targetVersion,
     entries,
     mcpCarrierCount: 0,
@@ -288,7 +289,7 @@ function selectionForResource(kind, hookConsistency) {
     const runtime = ["harness", "agent-loop", "runtime-binding"].includes(kind);
     return {
       carrier: runtime ? "native-runtime" : "workspace-content",
-      owner: runtime ? "openclaw" : "agent-package",
+      owner: runtime ? hookConsistency.owner : "agent-package",
       necessity: ["skills", "plugins", "memory", "rag", "schedules"].includes(kind)
         ? "disabled" : "portable-declarative-resource",
       trust: runtime ? "runtime-owned" : "workspace-content",

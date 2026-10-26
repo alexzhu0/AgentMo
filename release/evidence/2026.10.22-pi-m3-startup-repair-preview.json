@@ -1,0 +1,379 @@
+{
+  "schemaVersion": "agentmo.pi-m3-startup-repair-preview.v1",
+  "observedOn": "2026-10-22",
+  "status": "offline-repair-verified-preview-pending-human-approval",
+  "sourceHead": "9e59ff7fc59bc15f42a557e18232ab41ee9412e5",
+  "scope": "Offline private-control repair and fresh supervised preview. No changes to the 374 frozen product inputs or existing installation.",
+  "previousFailure": {
+    "path": "release/evidence/2026.10.22-pi-m3-paid-startup-failure.json",
+    "digest": "sha256:e9c1577e09125d1fb2d875fdcc80846aad81f824814daac52cfe6f7243cd52b2"
+  },
+  "historicalRuntimeCause": "Unknown. The complete CLI rejection is known; the old first-line invalid-entry classification is a controller symptom. No evidence of a provider HTTP502 in this attempt.",
+  "confirmedControlDefects": [
+    "Pretty-printed CLI rejection was parsed as its first line only.",
+    "A failed self-stop was followed by a redundant authenticated stop.",
+    "Proxy-listen and owned-child startup boundaries lacked bounded diagnostics.",
+    "The strict control whitelist did not allow the macOS-injected metadata variable name; its value was not read.",
+    "A referenced batch watchdog would keep a failed launcher alive; now unreferenced."
+  ],
+  "changes": [
+    "Bounded whole-frame exact readiness or fixed CLI rejection parsing.",
+    "Plan/root/run-bound receipt-aware cleanup; every supervised caller gates stop through cleanupAction first.",
+    "Pass-through parent observer for fixed stages and safe OS categories, no IPC/env/headers/payload/error-body inspection.",
+    "Fixed launcher rejection code/stage, value-blind Darwin metadata-name allowance and draining watchdog."
+  ],
+  "preview": {
+    "proposalDigest": "sha256:8671772b76f71248bb2df9464b2df54e6f763e843f3e8b24378bdc6b64de8276",
+    "activationPlanDigest": "sha256:dc3ac493d10d0bd2d4975d3e96b6a2b6d82202dbd039d71210938af13a3f3a36",
+    "proposal": {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/activation-preview/paid-proposal.json",
+      "digest": "sha256:8671772b76f71248bb2df9464b2df54e6f763e843f3e8b24378bdc6b64de8276"
+    },
+    "humanPreview": {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/activation-preview/PAID_ACCEPTANCE_PREVIEW.md",
+      "digest": "sha256:d7420c328fb9709bd8f592d71f60f452f368610573099e29e19cbe08823248b8"
+    },
+    "executionRecipe": {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/activation-preview/execution-recipe.json",
+      "digest": "sha256:3cea1727073243745420977eb20b3668b612c9ce6ae589e3a3c8ce19a2f5f754"
+    },
+    "formalSources": 9,
+    "changedFormalSources": [
+      "activationPlan"
+    ],
+    "controlBindings": {
+      "observerCLI": {
+        "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/observe-cli.mjs",
+        "digest": "sha256:35a36a94d99349f4a0bb0cb5e28542a842d7dfe156efbf703b8dc21eb4a604ff"
+      },
+      "startupControl": {
+        "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/startup-control.mjs",
+        "digest": "sha256:3823ca2e1531774501660fe90b276d67c5d2cc4d6f078e1878ca8cf71e985b9c"
+      },
+      "preservationCheck": {
+        "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/check-preserved.mjs",
+        "digest": "sha256:b7bdc5c2b43d49022f8358b7187c163b21508fa12b0c521535ec3c6afd699fda"
+      }
+    },
+    "oldMaterialsUnchanged": true,
+    "fixedCases": 5,
+    "maxModelRequests": 5,
+    "maxNewReservedFen": 155,
+    "maxStarts": 2,
+    "conditionalRestarts": 1,
+    "maxNewAuthorityDecisions": 10,
+    "maxNewConsumptions": 2,
+    "deadlineMs": 2700000,
+    "finalCleanupMs": 300000,
+    "requiresNewHumanApproval": true,
+    "operationRoot": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/activation-operation",
+    "operationRootAbsent": true,
+    "hostExecutionAfterApproval": "Exact bound terminal Node command via exec_command require_escalated. Tool permission is not an OS network ACL; fixed configured loopback ports and budgeted MiniMax upstream only.",
+    "keyBoundary": "After approval only the existing runtime parent may load MINIMAX_API_KEY from main project .env into memory. Assistant/reviewer never read or see the value.",
+    "billingBoundary": "155fen is the local authorization/reservation maximum, not a provider-account hard billing switch; actual invoice depends on tokens and public pricing."
+  },
+  "verification": {
+    "focused": {
+      "tests": 14,
+      "passed": 14,
+      "failed": 0,
+      "syntheticOnly": true,
+      "actualSdkExecuted": false,
+      "actualPiActivated": false,
+      "controlAndLifecycle": {
+        "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/regression-final-green.tap",
+        "digest": "sha256:eb97666b0473d85272e3da1e27a5b4f2dbd54e46336e930682c49c902d89b6d9"
+      },
+      "launcher": {
+        "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/launcher-guard-verified-green.tap",
+        "digest": "sha256:052ff7d9300eafd509ea731bda59786e9650ca1266b4c6091fe4fbf93104686d"
+      },
+      "redGreenHistory": {
+        "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/activation-preview/repair-evidence.json",
+        "digest": "sha256:e15d82882e467fea58509eca256a5df5646fd9487a64338e7f9104b6e5f6f2ea"
+      },
+      "testSources": [
+        {
+          "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/startup-control.test.mjs",
+          "digest": "sha256:0d2292c0f94c2a0f584793d33719887b926a57d0a285c07d96ea5da8ade239cc"
+        },
+        {
+          "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/startup-integration.test.mjs",
+          "digest": "sha256:fd09bc63e38826b9995f6c26773fd017fde72047382cc319c43daf861e07694e"
+        },
+        {
+          "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/launcher-guard.test.mjs",
+          "digest": "sha256:7b2a49aafbcb034ced1c3e3a972d1cc500656d8412a38ba831f5824f3e6af0b6"
+        }
+      ]
+    },
+    "context": {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/execution-context-investigation.json",
+      "digest": "sha256:9b9dd28a1ba35fb2d7fae577fb872bfc3ee84c0b56ec9c63d853323113ca9fcb"
+    },
+    "contextInterpretation": "Identical fully mocked supplier regression fails localhost bind with EPERM in sandbox and passes in controlled host context. Separate doctor test rejects shared world-writable HOME and passes with fresh0700HOME. These differences do not recover the old runtime error.",
+    "offlineLauncher": {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/final-launcher-check.json",
+      "digest": "sha256:a4641904714d47065d6e179d841763a1fcef20d179fe723e73c27959f47b7bd5"
+    },
+    "independentReview": {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/independent-control-review-final.json",
+      "digest": "sha256:755145a9297229ca58a40c1642bea23ce68a0a34929c85bf6fe418d971292e45"
+    },
+    "independentReviewDisposition": {
+      "critical": 0,
+      "important": 0,
+      "minor": 0,
+      "oneImportantCallerConflictFoundFixedAndIndependentlyClosed": true,
+      "fullSuiteAtReviewerBoundary": "pending; parent must verify",
+      "scope": "control repair and preview only, not Task13 whole delivery",
+      "parentFullSuiteVerified": "passed all five lanes, canonical exit0",
+      "parentFinalPreservationVerified": "passed"
+    },
+    "fullCheck": {
+      "status": "passed",
+      "command": "npm run check",
+      "exitCode": 0,
+      "result": {
+        "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/full-check-normal-mask-result.json",
+        "digest": "sha256:1d1c1a77abe97645255cb2630a91cc7e289e4d36f6079d5e9305a84ebc8847ed"
+      },
+      "log": {
+        "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/full-check-normal-mask.log",
+        "digest": "sha256:a688eaa4f9fefe727b5f4dcae7af306cd6ca1b67b5142006292011fd1fd71563"
+      },
+      "lanes": [
+        {
+          "lane": "main",
+          "tests": 1498,
+          "suites": 112,
+          "pass": 1438,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 60,
+          "todo": 0,
+          "duration_ms": 2033459.091875
+        },
+        {
+          "lane": "durable-fs",
+          "tests": 2,
+          "suites": 2,
+          "pass": 2,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0,
+          "duration_ms": 44871.425291
+        },
+        {
+          "lane": "packed-hook-chain",
+          "tests": 1,
+          "suites": 1,
+          "pass": 1,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0,
+          "duration_ms": 143945.273375
+        },
+        {
+          "lane": "packed-behavior",
+          "tests": 8,
+          "suites": 1,
+          "pass": 7,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 1,
+          "todo": 0,
+          "duration_ms": 1054733.2805
+        },
+        {
+          "lane": "immutable-successor",
+          "tests": 1,
+          "suites": 1,
+          "pass": 1,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0,
+          "duration_ms": 325965.77875
+        }
+      ],
+      "allPrevious15FailuresActuallyPassed": true,
+      "syntaxChainPassed": true,
+      "sourceFreezeUnchanged": true,
+      "actualSdkExecuted": false,
+      "realPiActivated": false,
+      "realProviderRequests": 0,
+      "summary": {
+        "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/full-check-summary.json",
+        "digest": "sha256:da2a22cc3db6feb89d838378b777d4cd03f0335c49b55ab8e2eab35ef914118a"
+      },
+      "umask": "022",
+      "freshPrivateHome": true
+    },
+    "preservation": {
+      "status": "passed",
+      "preparedBaseline": {
+        "status": "passed",
+        "observedAt": "2026-10-22T10:19:44.133Z",
+        "installedEntries": 30,
+        "consumptionRecords": 5,
+        "decisions": 17,
+        "authorityJournalDigest": "sha256:478af02ce3f2997bacaf42f3bf57f800d3654f68a0ff0b2ff8f2060b6ee9928e",
+        "budget": {
+          "projectReservations": 26,
+          "totalReservedFen": 4774,
+          "remainingFen": 5226,
+          "capFen": 10000
+        },
+        "sessionIds": [
+          "12068979-f315-4d5c-9a2a-60425768a680",
+          "612af241-1fae-462b-88eb-c7f8aaaf8ef3"
+        ],
+        "sourceFiles": 374,
+        "targetDescriptorUnchanged": true,
+        "oldInstalledEntries": 14,
+        "oldFailureReports": 16,
+        "protectedArtifacts": 12,
+        "syntheticMetadataEntries": 210,
+        "firstSyntheticFailureEntries": 16,
+        "currentFailedBatchFilesPreserved": 30,
+        "servicesStarted": false,
+        "sdkExecuted": false,
+        "providerKeyContentsRead": false,
+        "capabilityContentsRead": false,
+        "newModelRequests": 0,
+        "newReservations": 0,
+        "portsFree": [
+          19492,
+          19493
+        ]
+      },
+      "protectedCurrentFailureFiles": {
+        "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/protected-failure-files.json",
+        "digest": "sha256:a3ed5587b2cb3c3cf1eeb6ced5b29ae1085ea9f583337b515cf4d8e9c1017e57"
+      },
+      "finalResult": {
+        "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/final-preservation.json",
+        "digest": "sha256:96529139a4a7b2542f0c3931c648d1aff85ab5f0a55e51d9f426cb4312c15b74"
+      }
+    },
+    "node20Producer": {
+      "rerun": false,
+      "reason": "All374 frozen producer inputs unchanged; existing repository-owned trust policy and historical receipts preserved, no new compatibility claim."
+    },
+    "previewAssertions": {
+      "status": "passed",
+      "result": {
+        "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/final-preview-assertions.json",
+        "digest": "sha256:d3d7bc0bc70e68285cac07da556bd58cbc4369b3375b21d468ce3523309e76d7"
+      },
+      "script": {
+        "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/activation-preview/validate-preview.mjs",
+        "digest": "sha256:36b57fc328ed444e712c469e2d14158a936e0fad6644007b9229291770d9f1c8"
+      },
+      "scope": "offline hashes, source and case/fee/cleanup/absence/mode checks only"
+    },
+    "earlierFullCheck077": {
+      "status": "failed-and-preserved",
+      "exitCode": 1,
+      "tests": 1498,
+      "pass": 1423,
+      "fail": 15,
+      "skipped": 60,
+      "log": {
+        "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/full-check-host.log",
+        "digest": "sha256:173ef6b444e23e77c01955bd2454dd549c8472492114e840eb75780fb12a47f9"
+      },
+      "diagnostic": {
+        "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/full-check-mode-investigation.json",
+        "digest": "sha256:c0316674c3c01650d87a6a761c637c8fb1a3a721823c70387aee969000b405d4"
+      },
+      "cause": "One retained40-member synthetic stage directly shows all644->600 mode mismatch with equal sizes. Common archive error/shared writer plus all14 archive failures passing under022 support the shared umask cause; the separate missing dated index row is fixed. No frozen product source changed."
+    },
+    "affectedRecheck022": {
+      "status": "passed",
+      "tests": 47,
+      "pass": 38,
+      "fail": 0,
+      "skipped": 9,
+      "allPrevious15FailuresPassed": true,
+      "result": {
+        "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/affected-tests-normal-mask-result.json",
+        "digest": "sha256:ff960c4a1a5c66fc8a28cad4e4b0f31c7dfd5b373006d5793d432f959f26c7f2"
+      },
+      "log": {
+        "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/affected-tests-normal-mask.log",
+        "digest": "sha256:5f228fe60704b5d61ec8b3a7b608da52494feb28a902ba594d702f3095d981fe"
+      },
+      "formerFailuresCoveredInitially": 13,
+      "reconciliation": {
+        "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/affected-failures-reconciled.json",
+        "digest": "sha256:19ac6c234af866c58fdc9cd77ca8ad4528a35f3908cd672a94340954bfd285e2"
+      },
+      "supplement": {
+        "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/package-determinism-normal-mask-result.json",
+        "digest": "sha256:2cb396d1afa0d205b64a351dc94835123c16f7f70d080a3019d906ac483945d5"
+      },
+      "supplementLog": {
+        "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/package-determinism-normal-mask.log",
+        "digest": "sha256:eb8260768fede78ea8dfdcc3e7a2f212bf511ea44030555a8d76085a89e943e9"
+      },
+      "filenameResolutionFailurePreserved": {
+        "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/verification-reconciliation-initial-failure.json",
+        "digest": "sha256:2acf73eb0d20209cd19806e375f7e1f9bd78bc7b4944e0617670c4db9b106d96"
+      }
+    },
+    "independentBookkeepingReview": {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-m3-startup-repair-2026-10-22-r1/independent-verification-review.json",
+      "digest": "sha256:78da9a6d36bcf513bf8f3caee8b5c3d79aac5cebe805d9a94aab830439b720ce"
+    }
+  },
+  "budget": {
+    "unchanged": {
+      "projectReservations": 26,
+      "totalReservedFen": 4774,
+      "remainingFen": 5226,
+      "capFen": 10000
+    },
+    "afterAllFive": {
+      "projectReservations": 31,
+      "totalReservedFen": 4929,
+      "remainingFen": 5071,
+      "capFen": 10000
+    },
+    "newRealReservationsDuringRepair": 0
+  },
+  "currentActions": {
+    "realPiActivated": false,
+    "actualPiSdkExecuted": false,
+    "providerKeyContentsRead": false,
+    "envFileRead": false,
+    "localCapabilityContentsRead": false,
+    "newRuntimeApprovalsIssued": 0,
+    "modelRequests": 0,
+    "newRealReservations": 0,
+    "syntheticLoopbackRegressions": true,
+    "hostPermissionUsedForOwnTestsOnly": true,
+    "commit": false,
+    "push": false,
+    "scope": "Real authorized Pi/M3 actions only. Synthetic fixture requests use isolated fake suppliers/budgets and are separate; no full-machine network audit is claimed."
+  },
+  "remaining": [
+    "Historical startup runtime root cause and real recovery unproven until approved run.",
+    "All five M3 cases still unexecuted; remaining fourteen categories require separate previews.",
+    "Plan11 and legacy15 source gaps remain.",
+    "Old M3 HTTP502 root cause and Task13 whole-delivery review remain.",
+    "Complete M3 acceptance before adapting M3.1; no new model adaptation in this turn."
+  ],
+  "certificationBoundary": {
+    "offlineControlRepairOnly": true,
+    "realStartupRecoveryVerified": false,
+    "realM3CasesPassed": 0,
+    "full19CaseAcceptance": false,
+    "task13WholeDeliveryComplete": false,
+    "productionCertified": false
+  },
+  "observedAt": "2026-10-22T12:20:04.063057+00:00"
+}

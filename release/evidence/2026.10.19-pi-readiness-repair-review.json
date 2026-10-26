@@ -1,0 +1,133 @@
+{
+  "schemaVersion": "agentmo.pi-readiness-repair-review.v1",
+  "reviewer": "independent-pi-readiness-repair-review",
+  "scope": "final300-second readiness repair diff; not final delivery whole-project review",
+  "initial": {
+    "critical": 0,
+    "important": 1,
+    "minor": 1,
+    "independentTestPass": 9,
+    "independentTestFail": 1
+  },
+  "disposition": [
+    {
+      "issue": "stop receipt observation can intersect create-only publication",
+      "resolution": "bounded strict re-read after an authenticated stop request; receipt publication remains create-only"
+    },
+    {
+      "issue": "cancellation timing coverage",
+      "resolution": "pre-listener cancellation and late-ready cancellation tests; health check guarded"
+    }
+  ],
+  "final": {
+    "critical": 0,
+    "important": 0,
+    "minor": 0,
+    "independentFinalCalibrationPass": 3,
+    "independentFinalCalibrationFail": 0,
+    "priorRepairBoundaryPass": 4
+  },
+  "independentCommand": "node --test --test-name-pattern='loaded-ready|ready-timeout|unfinished receipt' test/pi-native-runtime.test.js",
+  "reviewedRuntimeDigest": "sha256:8832cc4268347bd64c2475af3299cb5ed13773839a0e8ce5e0e3ffbbf56def21",
+  "reviewedTestsDigest": "sha256:f40f64fc8f41b6b27f42e98b11c6dc8ccac778c927bee08eb75f4b100becf2c5",
+  "boundaries": {
+    "realSdkExecuted": false,
+    "realAgentActivated": false,
+    "credentialContentsRead": false,
+    "originalBudgetChanged": false,
+    "allConcurrentStopScenariosClaimed": false
+  },
+  "remainingScope": "Actual startup and SDK import not executed; initial pre-stop read still immediately rejects unstable bytes.",
+  "calibration": {
+    "observedLoadedSingleDescriptorMs": 85538,
+    "simulatedDoubleValidationMs": 171076,
+    "readyDeadlineMs": 300000,
+    "childExitDeadlineMs": 300000,
+    "stopObservationMaxPolls": 3000,
+    "stopObservationIntervalMs": 100
+  },
+  "schedulerReview": {
+    "scope": "single-line main test scheduler and restored original Builder assertions",
+    "critical": 0,
+    "important": 0,
+    "minor": 0,
+    "runnerPath": "scripts/check-single-flight.js",
+    "runnerSha256": "26a13bad72caa21ce02451731fb29dac84e2dfdc5767c31140f59040dedbaafb",
+    "builderTestPath": "test/builder-cli.test.js",
+    "builderTestSha256": "92188aaa0448c437dd3470ab5b6c88a7c8cc579283a75877b1c59ab19eb3823a",
+    "mainFileConcurrency": 2,
+    "reviewerExecutedTests": false,
+    "testsPending": false
+  },
+  "durablePreparationReview": {
+    "reviewer": "independent-pi-readiness-repair-review",
+    "critical": 0,
+    "important": 0,
+    "minor": 0,
+    "scope": "sole synthetic baseline preparation timeout and segmented validation coverage",
+    "path": "test/builder-package-security.test.js",
+    "reviewedSha256": "f34c0cef37cdb0d19bdd712b43a780a394c16149fb8dd944e6745b7001eca100",
+    "changedFromMs": 30000,
+    "changedToMs": 120000,
+    "onlyCallerIsSkippedInMain": true,
+    "independent90SecondGateUnchanged": true,
+    "sigkillAndPreservationAndCleanupAssertionsUnchanged": true,
+    "excludedFromNode20ProducerAndPiRuntime": true,
+    "mainEvidenceReusable": true,
+    "singleNpmRunCheckSuccessClaimAllowed": false,
+    "isolatedVerificationPending": false
+  },
+  "behaviorPreparationReview": {
+    "observedAt": "2026-10-19T09:46:09.340941+00:00",
+    "reviewer": "independent-pi-readiness-repair-review",
+    "critical": 0,
+    "important": 0,
+    "minor": 0,
+    "files": {
+      "src/builder-behavior-eval.js": "2873d015a5ef263d2c1d612d37bb2819a44e0f97d62960372124b9098eb18e8d",
+      "test/codex-builder-behavior.test.js": "bb9e4cb63047deb9928c53e90c5cb7006843dad7f1e9d06b7b47571db2fc5679",
+      ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-readiness-repair-2026-10-19-r1/run-behavior-regression.mjs": "4f42cd160587bb4e517919278a397979741d3bf0cfd8035c1bedcb924c58f02d"
+    },
+    "scope": "two deadline constants, measured fixture phase, exact regression selection and frozen source checks",
+    "regressionPending": false,
+    "fullFinalCheckRequired": false,
+    "oldMainNotReusedAsFinalPass": true,
+    "fullFinalCheckPassed": false,
+    "segmentedCoveragePassed": true
+  },
+  "environmentSegmentationReview": {
+    "observedAt": "2026-10-19T12:11:42.475840+00:00",
+    "reviewer": "independent-pi-readiness-repair-review",
+    "critical": 0,
+    "important": 0,
+    "minor": 0,
+    "scope": "static supplemental control, source-bound 178-test manifest, exact 103 recovery identities, segmented publication/doc/completion gates",
+    "files": {
+      ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-readiness-repair-2026-10-19-r1/run-permitted-supplement.mjs": "a75c11edae2970306cf356e589012d9d443c794216ed93477296bac05f077bdf",
+      ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-readiness-repair-2026-10-19-r1/owned-test-process.mjs": "a3f519d6916948f398307e6543554f77b50669f2eb741928cc1bf449433b792b",
+      ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-readiness-repair-2026-10-19-r1/check-permitted-coverage.mjs": "63d79f4cca5f38a7aea0a13648806ec427556e0f1185b3a9f7369bc20a1082b6",
+      ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-readiness-repair-2026-10-19-r1/affected-main-expected.json": "31045dcd4f764e065caa95a0b8320ed45d832fc3d067dbd729fa7e574dbeb65f",
+      ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-readiness-repair-2026-10-19-r1/publish-permitted.mjs": "6e21232423579636b512719d8a800a0bd9810590ed5f73482a96817dd2b3f32d",
+      ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-readiness-repair-2026-10-19-r1/update-permitted-docs.mjs": "1e8e0836450c21d93f19306b520b569f2d19f5aa2bcaade6d484ea62df0f94ae",
+      ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-readiness-repair-2026-10-19-r1/complete-permitted.mjs": "fdb4ec934c10e83ac0c39c0185b858772977928dfbc8a03ff658503816d3eb36"
+    },
+    "disposition": [
+      "bounded owned-process cleanup including metadata failure waits for terminal state; unresolved process state blocks",
+      "controller/helper/reporter/expected-manifest bytes fixed before every segment",
+      "71 prior successful tests and 5 original opt-in skips checked by full file name sequence; 103 recovery identities checked by file/line/column/name",
+      "single full command remains failed; independent static path review permits segmented reuse with stated grouping limits",
+      "existing OpenClaw executable runs in disposable synthetic roots with mock provider; fixed Pi SDK and production root excluded",
+      "Previously unregistered gateway child had manually inferred column9; fixed source method and actual passing JSONL independently confirm421:11. Original analysis retained; all other102 identities unchanged.",
+      "Public phase omits only two local path fields and binds the unchanged private evidence by relative path and digest. Public reviewer copies use non-path aliases. Both public review and facts retain assertPersistable gates; no verification gate changed."
+    ],
+    "runtimeResultsPending": true,
+    "externalBinaryImplementationAudited": false,
+    "networkSyscallAuditPerformed": false,
+    "wholeDeliveryReview": false,
+    "postDocumentationConsumerPassRequired": 6,
+    "previousReviewSha256": "a122f77d396f79d3fc5d82dee71410e4e642eb3cf7a1075c1c45f1b942b9b171",
+    "actualRecoveryIdentitiesReviewed": 103,
+    "remainingIsolatedRuntimeResultsPending": true
+  },
+  "verificationBasis": "same final 374-file source, restricted main successes plus full 11-file permitted replay, exact process-inspection recovery and four isolated lanes; single full command failed and retained"
+}

@@ -1,0 +1,310 @@
+{
+  "schemaVersion": "agentmo.pi-browser-launch-repair-preview.v1",
+  "observedOn": "2026-10-23",
+  "observedAt": "2026-10-23T05:07:49.500Z",
+  "status": "offline-repaired-awaiting-specific-runtime-approval",
+  "sourceHead": "9e59ff7fc59bc15f42a557e18232ab41ee9412e5",
+  "scope": "仅修复本机执行控制和证据；374份产品源码冻结及实际安装未改变。",
+  "previousFailure": {
+    "path": "release/evidence/2026.10.23-pi-m3-browser-launch-failure.json",
+    "digest": "sha256:a6e7fadf46be53d006d8463b8dbaa19bdd78bdcbed7ba589aff5069ea1ebf565"
+  },
+  "previousFailureReview": {
+    "path": "release/evidence/2026.10.23-pi-m3-execution-review.json",
+    "digest": "sha256:9e5c7e4ab59534438776e8fe52a55cece1d3b5ea351ee0b838e69fbdb0a7f1f4"
+  },
+  "historicalCause": {
+    "status": "inference-only",
+    "observation": "相同空白Chrome配置在交互执行器和终端沙箱中被拒绝，在受控主机终端启动并关闭。旧失败未保留底层异常，同因归属仍为推断。"
+  },
+  "changes": [
+    "网关和浏览器均使用绑定的主机终端命令",
+    "启动、页面、鉴权、会话、逐例、评审和清理分别记录有限诊断",
+    "诊断或取消失败仍清理自有浏览器；关闭并核验后才确认阶段成功",
+    "父进程先校验配方和环境；封存拒绝失败、摘要不符或未绑定草稿的记录"
+  ],
+  "sourceFreeze": {
+    "path": "release/evidence/2026.10.19-pi-readiness-repair-source-snapshot.json",
+    "digest": "sha256:47292897e142fa99dc05c3758d11c9190e9aa5a2c0501c87215a00352aa8a463"
+  },
+  "runtimeControlFreeze": {
+    "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-launch-repair-2026-10-23-r1/control-source-snapshot.json",
+    "digest": "sha256:8c72ac8566d233d643362569d38c72931c6ca60663c9e03c5558119752de7500"
+  },
+  "runtimeControls": [
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-launch-repair-2026-10-23-r1/observe-cli.mjs",
+      "digest": "sha256:35a36a94d99349f4a0bb0cb5e28542a842d7dfe156efbf703b8dc21eb4a604ff"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-launch-repair-2026-10-23-r1/startup-control.mjs",
+      "digest": "sha256:3823ca2e1531774501660fe90b276d67c5d2cc4d6f078e1878ca8cf71e985b9c"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-launch-repair-2026-10-23-r1/check-preserved.mjs",
+      "digest": "sha256:daa7dad27d521433a32019e6b1a3f1d3048865768bac95fe9c380146c08da15a"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-launch-repair-2026-10-23-r1/browser-control.mjs",
+      "digest": "sha256:b15e0178d92fbe06d3b2d977fbd60c52a744b5a7adc8cfd825de319671a87516"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-launch-repair-2026-10-23-r1/browser-worker.mjs",
+      "digest": "sha256:70a13fc08cc80abb86829843d29827e1bee88c17f312752e4645251d09d2f1d7"
+    }
+  ],
+  "preparationSources": [
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-launch-repair-2026-10-23-r1/seal-preview.mjs",
+      "digest": "sha256:bd4a11d8a1505bddd0c98d00ce5936ee41de40c05da2a7398e9af142bcf21fb5"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-launch-repair-2026-10-23-r1/render-preview.mjs",
+      "digest": "sha256:18b1ece0f2ee3f4f97b1387fc0a8c58d590d647cfb635cd315a7597e89da4a5b"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-launch-repair-2026-10-23-r1/check-final-preview.mjs",
+      "digest": "sha256:93ed53b82659290207597727b51e92eb77d202be4e780706729b5eb823d6e8d9"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-launch-repair-2026-10-23-r1/preview-admission.mjs",
+      "digest": "sha256:ee7386b7f4eb5c714ae23d5240e965ddf42667fb58bc0f97b5d0b36d0c936f1f"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-launch-repair-2026-10-23-r1/activation-preview/validate-preview.mjs",
+      "digest": "sha256:2fed9e1ba1f6e16c0a9a91effc3a64452fb4ebed26aa5f90c9bee1dada2e9e4d"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-launch-repair-2026-10-23-r1/tests/preparation-admission.test.mjs",
+      "digest": "sha256:6ee9eb6dde97cfdf41d4a557eef259b55ab9edb1fa261c598b9ea42d21bb25dc"
+    }
+  ],
+  "preview": {
+    "proposal": {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-launch-repair-2026-10-23-r1/activation-preview/paid-proposal.json",
+      "digest": "sha256:e6264b77930131194f2c8f82d769df77c8c4c935235eaa15edd17c8109b2a9e8"
+    },
+    "proposalDigest": "sha256:e6264b77930131194f2c8f82d769df77c8c4c935235eaa15edd17c8109b2a9e8",
+    "human": {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-launch-repair-2026-10-23-r1/activation-preview/PAID_ACCEPTANCE_PREVIEW.md",
+      "digest": "sha256:391c83849af5461dbee596d082ba2c839ce4576b9d5dc176b1fa9af66d11166b"
+    },
+    "publication": {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-launch-repair-2026-10-23-r1/activation-preview/publication.json",
+      "digest": "sha256:2ae6af8066c6acbafd171e79062bcdb3d25ccdaf85655eefc57ef2edd8a0aa34"
+    },
+    "activationPlan": {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-launch-repair-2026-10-23-r1/activation-preview/activation-plan.json",
+      "digest": "sha256:b1b13e58adb7cd3776959de57c82f037c7594c915e8011fafb8c24d7498e9fd9"
+    },
+    "activationPlanDigest": "sha256:3a5bea86a8fe9a11ee941900cd0fabc3774f5c05ddd1ec144cc4ccd85de22245",
+    "model": "MiniMax-M3",
+    "fixedCases": 5,
+    "remainingCases": 14,
+    "maxProviderRequests": 5,
+    "maxStarts": 2,
+    "maxConditionalRestarts": 1,
+    "maxNewReservedFen": 155,
+    "firstFourTechnicalAndIndependentContentReviewsRequired": true,
+    "batchMs": 2700000,
+    "cleanupMs": 300000,
+    "failurePolicy": "执行一次；失败停止、不补跑或切换模型。",
+    "operationRootAbsent": true,
+    "expectedAuthorityMaximum": {
+      "records": 8,
+      "decisions": 32
+    }
+  },
+  "verification": {
+    "fullProjectCheck": {
+      "command": "npm --offline --no-update-notifier run check",
+      "status": "passed",
+      "exitCode": 0,
+      "forced": false,
+      "durationMs": 3895166,
+      "lanes": [
+        {
+          "lane": "main",
+          "tests": 1498,
+          "suites": 112,
+          "pass": 1438,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 60,
+          "todo": 0,
+          "duration_ms": 2248884.6985
+        },
+        {
+          "lane": "durable-fs",
+          "tests": 2,
+          "suites": 2,
+          "pass": 2,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0,
+          "duration_ms": 47127.593292
+        },
+        {
+          "lane": "packed-hook-chain",
+          "tests": 1,
+          "suites": 1,
+          "pass": 1,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0,
+          "duration_ms": 160814.825291
+        },
+        {
+          "lane": "packed-behavior",
+          "tests": 8,
+          "suites": 1,
+          "pass": 7,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 1,
+          "todo": 0,
+          "duration_ms": 1121515.824167
+        },
+        {
+          "lane": "immutable-successor",
+          "tests": 1,
+          "suites": 1,
+          "pass": 1,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0,
+          "duration_ms": 312014.602042
+        }
+      ],
+      "log": {
+        "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-launch-repair-2026-10-23-r1/reports/full-check.log",
+        "digest": "sha256:f8c900669642987575ce832656d86c0824cb701a5f4e72cb56f17b19d7e5fbbe"
+      },
+      "result": {
+        "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-launch-repair-2026-10-23-r1/reports/full-check-result.json",
+        "digest": "sha256:977c1b84f6265d9d36745ceb01fcc136fec2322ed250761fd0688cb3b342638c"
+      }
+    },
+    "browserControls": {
+      "passed": 21,
+      "failed": 0,
+      "report": {
+        "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-launch-repair-2026-10-23-r1/reports/regression-frozen-green.tap",
+        "digest": "sha256:ee45d83af2e082a849beb80db8bb474aa7079008af6e46b86ea5928155b0ee46"
+      }
+    },
+    "preparation": {
+      "passed": 13,
+      "failed": 0,
+      "report": {
+        "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-launch-repair-2026-10-23-r1/reports/preparation-admission-frozen-green.tap",
+        "digest": "sha256:a45180c532aaf4966c7e508f5156684f94d6684a7022a27020cff639eaa98633"
+      },
+      "red": {
+        "tests": 12,
+        "passed": 2,
+        "failed": 10,
+        "report": {
+          "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-launch-repair-2026-10-23-r1/reports/preparation-admission-red.tap",
+          "digest": "sha256:0e625d2a66f83d4ab69c7b687548136d990f246e2546e831b34432f2ad3f3062"
+        }
+      }
+    },
+    "mockBrowser": {
+      "status": "passed",
+      "actualChrome": true,
+      "allApiRequestsFulfilledInMemory": true,
+      "syntheticSends": 5,
+      "browserPhases": 2,
+      "diagnosticRows": 124,
+      "pageRequests": 47,
+      "realAgentActivations": 0,
+      "actualInstalledSdkExecutions": 0,
+      "providerRequests": 0,
+      "realBudgetUsed": false,
+      "report": {
+        "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-launch-repair-2026-10-23-r1/reports/offline-browser-integration-final.json",
+        "digest": "sha256:f7542afd7f70f876c3de30fec00737e3d0c86396201c84edaeffff4c614b6cfa"
+      }
+    },
+    "offlineGuards": {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-launch-repair-2026-10-23-r1/reports/final-offline-guards.json",
+      "digest": "sha256:f5531539986ca6638cac6806bc4d7a31b58545388a8b7445f9c64916a3f6a17c"
+    },
+    "independentReview": {
+      "scope": "仅当前控制、预检保护与具体预览；不构成Task13整批交付审阅",
+      "findings": {
+        "critical": 0,
+        "important": 0,
+        "minor": 0
+      },
+      "resolvedImportant": 3,
+      "bindings": 37,
+      "report": {
+        "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-launch-repair-2026-10-23-r1/reports/final-seal-review.json",
+        "digest": "sha256:200bd3282f4bb9de52428b177c0f5295b9897bc8e920d1e93478136da2633962"
+      }
+    }
+  },
+  "preservation": {
+    "report": {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-launch-repair-2026-10-23-r1/reports/final-preservation.json",
+      "digest": "sha256:ca5079ce2499d78c2bf85cbc7f5b95399c1655b284d450d225960391fe5c4712"
+    },
+    "installedEntries": 36,
+    "consumptionRecords": 6,
+    "decisions": 22,
+    "authorityJournalDigest": "sha256:cb7960662c543c53d0453499abc6e6840f3329d47b9246aa325eb433e3249c0e",
+    "sourceFiles": 374,
+    "currentFailedBatchFiles": 120,
+    "legacyFailureReports": 16,
+    "legacyProtectedArtifacts": 12,
+    "syntheticMetadataEntries": 210,
+    "firstSyntheticFailureEntries": 16,
+    "oldInstalledEntries": 14,
+    "portsFree": [
+      19492,
+      19493
+    ]
+  },
+  "budget": {
+    "original": {
+      "projectReservations": 26,
+      "totalReservedFen": 4774,
+      "remainingFen": 5226,
+      "capFen": 10000
+    },
+    "newReservedFen": 0,
+    "afterAllFiveMaximum": {
+      "projectReservations": 31,
+      "totalReservedFen": 4929,
+      "remainingFen": 5071,
+      "capFen": 10000
+    },
+    "authorizationLimit": "155分是本地授权保守预留上限；供应商账单按实际token和价格计算，未查询账号。"
+  },
+  "currentActions": {
+    "decisionsIssued": 0,
+    "consumptionsAdded": 0,
+    "realAgentActivations": 0,
+    "actualInstalledSdkExecutions": 0,
+    "providerKeyContentsRead": false,
+    "modelRequests": 0,
+    "newReservations": 0,
+    "commit": false,
+    "push": false
+  },
+  "remaining": {
+    "historical502Cause": "unknown",
+    "piPlanSourceGaps": 11,
+    "legacySourceGaps": 15,
+    "realAcceptanceCasesStillUnexecuted": 5,
+    "otherCases": 14,
+    "task13WholeBatchReview": "pending",
+    "newModelAdaptation": "after-M3-acceptance"
+  },
+  "certificationBoundary": "离线通过不证明真实Pi/M3恢复或领域质量；下一步必须先取得本提案的具体人工批准。"
+}

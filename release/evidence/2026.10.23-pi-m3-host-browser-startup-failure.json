@@ -1,0 +1,214 @@
+{
+  "schemaVersion": "agentmo.pi-paid-host-child-startup-failure.v1",
+  "observedOn": "2026-10-23",
+  "status": "failed-before-browser",
+  "approvedProposalDigest": "sha256:e6264b77930131194f2c8f82d769df77c8c4c935235eaa15edd17c8109b2a9e8",
+  "activationPlanDigest": "sha256:3a5bea86a8fe9a11ee941900cd0fabc3774f5c05ddd1ec144cc4ccd85de22245",
+  "approvalConsumed": true,
+  "starts": 1,
+  "retries": 0,
+  "restarts": 0,
+  "cases": [
+    {
+      "id": "entry",
+      "status": "not-run",
+      "reason": "runtime-not-ready",
+      "technicalReview": "not-run",
+      "independentContentReview": "not-run"
+    },
+    {
+      "id": "correction",
+      "status": "not-run",
+      "reason": "runtime-not-ready",
+      "technicalReview": "not-run",
+      "independentContentReview": "not-run"
+    },
+    {
+      "id": "injection",
+      "status": "not-run",
+      "reason": "runtime-not-ready",
+      "technicalReview": "not-run",
+      "independentContentReview": "not-run"
+    },
+    {
+      "id": "fresh-session",
+      "status": "not-run",
+      "reason": "runtime-not-ready",
+      "technicalReview": "not-run",
+      "independentContentReview": "not-run"
+    },
+    {
+      "id": "restart",
+      "status": "not-run",
+      "reason": "runtime-not-ready",
+      "technicalReview": "not-run",
+      "independentContentReview": "not-run"
+    }
+  ],
+  "materialsSubmitted": 0,
+  "casesCompleted": 0,
+  "providerModelAcceptancePassed": false,
+  "runtime": {
+    "transport": "approved host terminal with exact four-variable whitelist",
+    "proxyListenObserved": "passed",
+    "ownedPiChildSpawnObserved": true,
+    "ownedPiChildPid": 93183,
+    "ownedPiChildExitCode": 1,
+    "cliExitCode": 1,
+    "cliResultCode": "AGENTMO_PI_NATIVE_CLI_REJECTED",
+    "publicReadyEntryObserved": false,
+    "startupDiagnosticRows": 7,
+    "observerElapsedMs": 14883,
+    "actualSdkImport": "unobserved; owned child exited before readiness",
+    "underlyingCause": "unknown; safe diagnostics establish child exit only",
+    "browserLaunchAttempts": 0,
+    "browserLoginReached": false,
+    "upstreamHttpStatus": "unobserved; no evidence of provider 502"
+  },
+  "stop": {
+    "receiptAwareGate": "preserved-failed",
+    "publicAuthenticatedStopAttempts": 0,
+    "signalsSent": false,
+    "durableStop": {
+      "status": "failed",
+      "reason": "child-exit",
+      "ownChildExited": true
+    },
+    "cliSessionExited": true,
+    "portsReleased": [
+      19492,
+      19493
+    ],
+    "conditionalRestartAdmission": "not reached; first four cases were not run"
+  },
+  "budget": {
+    "projectReservations": 26,
+    "totalReservedFen": 4774,
+    "remainingFen": 5226,
+    "capFen": 10000,
+    "newReservations": 0,
+    "newReservedFen": 0,
+    "caseClaims": 0,
+    "modelRequestClaims": 0,
+    "turnFiles": 0,
+    "providerSendsThroughApprovedController": 0,
+    "interpretation": "No browser material, turn, request claim or new reservation; zero provider sends follows from the bounded controller. This is not an independent network capture.",
+    "providerInvoice": "not queried",
+    "postStartupProxyCounter": "unobserved",
+    "providerRetryTokenAndBillingDetails": "unobserved"
+  },
+  "authority": {
+    "addedConsumptionRecords": 1,
+    "addedDecisions": 5,
+    "totalConsumptionRecords": 7,
+    "totalDecisions": 27,
+    "originalJournalPrefixPreserved": true,
+    "preservedJournalPrefixDigest": "sha256:cb7960662c543c53d0453499abc6e6840f3329d47b9246aa325eb433e3249c0e",
+    "journalDigest": "sha256:0e4e25c40f483605538c6f35f86498d7989f06699dd73aec31a6d387e98efa70",
+    "consumptionVerification": "passed"
+  },
+  "preservation": {
+    "installedEntries": 40,
+    "previousEntries": 36,
+    "newAttemptFiles": 4,
+    "newSessionFiles": 0,
+    "changedParentMetadata": [
+      "attempts"
+    ],
+    "existingSessionFilesUnchanged": true,
+    "managedFilesUnchanged": true,
+    "sourceFiles": 374,
+    "sourceSnapshotDigest": "sha256:47292897e142fa99dc05c3758d11c9190e9aa5a2c0501c87215a00352aa8a463",
+    "targetDescriptorUnchanged": true,
+    "oldInstalledEntries": 14,
+    "oldFailureReports": 16,
+    "protectedArtifacts": 12,
+    "syntheticMetadataEntries": 210,
+    "firstSyntheticFailureEntries": 16,
+    "protectedPriorBatchFiles": 120,
+    "previousFailuresRetained": true
+  },
+  "validation": {
+    "preRunPreviewAndWhitelistCheck": "passed",
+    "postFailureSourceAndConsumptionPreflight": "passed without executing installed SDK or starting services",
+    "postFailureCheckerScope": "servicesStarted=false and sdkExecuted=false in the baseline describe only the read-only preservation check, not the actual attempt. The actual attempt started a proxy and owned child; SDK import remains unobserved.",
+    "productSourceChanges": false,
+    "priorFullCheck": {
+      "passed": 1449,
+      "skipped": 61,
+      "failed": 0,
+      "scope": "same 374 frozen product files; not repeated for this actual attempt"
+    },
+    "pricingRecheck": "Official public price checked before the single start; within approved local reservation envelope",
+    "pricingSource": "https://platform.minimax.cn/docs/pricing/overview"
+  },
+  "secretBoundary": {
+    "assistantProviderKeyRead": false,
+    "reviewerProviderKeyRead": false,
+    "observerProviderKeyRead": false,
+    "localLoginControlValuesRead": false,
+    "sdkSessionContentsRead": false,
+    "providerPayloadStored": false,
+    "transcriptStored": false,
+    "runtimeKeyHandling": "Only the existing approved parent runner may load the key from local .env in memory; no value exposed to assistant or reviewers"
+  },
+  "recovery": {
+    "baselinePath": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-launch-repair-2026-10-23-r1/activation-operation/reports/post-failure-baseline.json",
+    "installedEntries": 40,
+    "consumptionRecords": 7,
+    "decisions": 27,
+    "obsoleteChecker": "The frozen pre-run checker requires 36 entries and 6/22 authority counts; do not rerun it or reuse the consumed proposal.",
+    "next": "Offline child-startup diagnosis. Any subsequent real activation or model run requires a new concrete preview and approval. Complete M3 acceptance before adapting a newer model."
+  },
+  "limits": [
+    "M3 five-case acceptance not completed",
+    "Remaining fourteen real acceptance categories not run",
+    "Plan eleven and legacy fifteen source gaps remain",
+    "Task 13 whole-delivery independent review remains pending",
+    "Underlying child-exit cause and installed SDK import readiness unverified"
+  ],
+  "reports": [
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-launch-repair-2026-10-23-r1/activation-operation/human-approval.json",
+      "digest": "sha256:b56ec497d38a57cb24cfd4f5a16c1cacd8a5f419249d142e244b7212ed9bd4ba"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-launch-repair-2026-10-23-r1/activation-operation/reports/pre-run-baseline.json",
+      "digest": "sha256:279070a7f12f3227ace65797d2745fe5c04f1145c0d66e6695e80bd98972400c"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-launch-repair-2026-10-23-r1/activation-operation/reports/preflight.json",
+      "digest": "sha256:dd6656c167633a50ed622c15d4abd0e9b5c099d30d6840b8b81ab1240c6abf80"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-launch-repair-2026-10-23-r1/activation-operation/reports/pricing-recheck.json",
+      "digest": "sha256:5d2da005b82a6557b9ca621a13c710dae77e0b99a48ca4d86b7779f1944fcc2c"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-launch-repair-2026-10-23-r1/activation-operation/reports/run-0-decisions.json",
+      "digest": "sha256:e003c9a8b5c134f138e9082fe8d60aa7db78967a55d51f0951e70e8a0f795086"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-launch-repair-2026-10-23-r1/activation-operation/run-0/startup-events.jsonl",
+      "digest": "sha256:b64523c90958fae275ee73e8ba9b7abfc7e860d09128f8802b3ba099d2c2dd28"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-launch-repair-2026-10-23-r1/activation-operation/reports/cleanup-check.json",
+      "digest": "sha256:387193ce91f6c3b6781e0275970a8160e5f53cfd5612e622fc9ee0021c23c190"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-launch-repair-2026-10-23-r1/activation-operation/reports/metadata-observation.json",
+      "digest": "sha256:b839d220ae4e64b41cc6776bad8fc0cef15279919e5233a95bfd44518be24194"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-launch-repair-2026-10-23-r1/activation-operation/reports/post-failure-baseline.json",
+      "digest": "sha256:ea66fc4c259401499e2a8417e10b92a053067908c19f7b8d7f2d8bad542ec3b0"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-launch-repair-2026-10-23-r1/activation-operation/post-failure-check.mjs",
+      "digest": "sha256:39bde7fd553c3b129f3541a14057eb6fc874a52a7ad04c17c6d6f810f1bd8cb5"
+    }
+  ],
+  "commit": false,
+  "push": false
+}

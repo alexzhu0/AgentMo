@@ -169,3 +169,7 @@ Not-tested: <known gaps>
 ```
 
 Stage explicit paths only and include verification evidence in the commit body when useful.
+
+## Collaboration entry
+
+For collaboration and TODO recovery, first read `docs/handoffs/README.md`, the project's Orchivane role and TODO index. The current controller consolidates impacts, owns that index, and accepts deliveries. Superpowers remains responsible for design, implementation, and validation. Existing user authorization, runtime approval gates, frozen inputs, and budgets remain effective.

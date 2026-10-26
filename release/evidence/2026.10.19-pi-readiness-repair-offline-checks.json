@@ -1,0 +1,1206 @@
+{
+  "schemaVersion": "agentmo.pi-readiness-repair-offline-checks.v1",
+  "observedAt": "2026-10-19T12:14:06.666Z",
+  "head": "9e59ff7fc59bc15f42a557e18232ab41ee9412e5",
+  "sourceFiles": 374,
+  "sourceSnapshotDigest": "sha256:47292897e142fa99dc05c3758d11c9190e9aa5a2c0501c87215a00352aa8a463",
+  "changedSourcePaths": [
+    "scripts/check-single-flight.js",
+    "src/pi-native-runtime.js",
+    "test/helpers/io-surface-inventory.js",
+    "test/pi-native-runtime.test.js",
+    "test/runtime-evidence-consumers.test.js",
+    "test/builder-package-security.test.js",
+    "src/builder-behavior-eval.js",
+    "test/codex-builder-behavior.test.js"
+  ],
+  "calibration": {
+    "originalDoubleValidationMs": 37545,
+    "loadedSingleDescriptorMs": 85538,
+    "loadedDoubleValidationRegressionMs": 171076,
+    "readyDeadlineMs": 300000,
+    "childExitDeadlineMs": 300000,
+    "stopObservationMaxPolls": 3000,
+    "stopObservationIntervalMs": 100,
+    "stopObservationExcludesIoTime": true,
+    "finalDescriptorObservationMs": 7356,
+    "durableBaselinePreparationMs": 120000,
+    "authenticatedBehaviorPreparationMs": 300000,
+    "selectedBehaviorOuterMs": 900000,
+    "finalSourceRefreshDescriptorMs": 19001
+  },
+  "regression": {
+    "originalTenSecondWindowRedFail": 1,
+    "intermediate120SecondWindowRedFail": 1,
+    "finalFocusedPass": 47,
+    "finalFocusedFail": 0,
+    "initialReceiptRaceFailedBeforeFix": true,
+    "staleIoInventoryUpdated": true,
+    "interruptedIntermediateChecksRetained": true
+  },
+  "failedFullCheck": {
+    "command": "npm run check",
+    "mainFileConcurrency": 2,
+    "priorFailedAttempts": [
+      "full-check-final-result.json",
+      "full-check-bounded-result.json",
+      "isolated-final-r2-result.json"
+    ],
+    "startedAt": "2026-10-19T09:55:26.822Z",
+    "finishedAt": "2026-10-19T11:20:13.571Z",
+    "durationMs": 5086803,
+    "exitCode": 1,
+    "signal": null,
+    "spawnError": null,
+    "prerequisiteHashes": {
+      "behavior-regression-result.json": "757b42670d4218c9d6adc9312ae4378f08e8e2af4862cd70c439445ef18dc77d",
+      "behavior-regression.tap": "5d57d9bcdb3ea416e621911ebcc7e9e1fceb9fba75cba9d503f1eeeaaf00f8f7",
+      "source-candidate-behavior-calibrated.json": "653e48fcaf04c1ad5b6be50784175741f3dfc4be1da7662942a0395737da96f2",
+      "source-refresh-repaired-result.json": "330c90a1e4097d8fa3d144890556189026e174c8a5cba4e4c7faf8c9fc64ae21",
+      "node20-repaired-published-facts.json": "daa88d988a81c5eba313308a36a660709187d7f9d8b80c1b4a3b9848535132a9",
+      "node20-repaired-consumers-result.json": "27895dd8269c5a52f641c81808da68fc2d94d909c1c80f8fd7d639ff47553bde",
+      "node20-repaired-consumers.tap": "3f28271fb739ae29a4318962be7093b07e75d182fd7ccf74b0b182acad9c68aa",
+      "source-candidate-repaired.json": "47292897e142fa99dc05c3758d11c9190e9aa5a2c0501c87215a00352aa8a463"
+    },
+    "logSha256": "6b5681bf25afd8db3583ba21a8a63c5cde69031989b16ad850e5cf7da4d6290e"
+  },
+  "segmentedVerification": {
+    "status": "segmented-coverage-verified",
+    "singleFullCommandPassed": false,
+    "sourceSnapshotSha256": "47292897e142fa99dc05c3758d11c9190e9aa5a2c0501c87215a00352aa8a463",
+    "failedFullRunSha256": "44597ffa4055f977f428ed4793be7ff41c2606ffacf714fd960d1d9ed5ad58b2",
+    "failedFullLogSha256": "6b5681bf25afd8db3583ba21a8a63c5cde69031989b16ad850e5cf7da4d6290e",
+    "originalCounts": {
+      "tests": 1497,
+      "pass": 1335,
+      "fail": 101,
+      "cancelled": 0,
+      "skipped": 61
+    },
+    "supplementSha256": "2725943298414e5e17e9609462ded65dddbbf23e1e4a565ef0a81b56359e9bc4",
+    "supplementRows": [
+      {
+        "id": "affected-main",
+        "lane": "main",
+        "command": [
+          "node",
+          "--test",
+          "--test-concurrency=2",
+          "test/course-wiki-budget.test.js",
+          "test/course-wiki-gateway.test.js",
+          "test/course-wiki-generations.test.js",
+          "test/course-wiki-openclaw.test.js",
+          "test/course-wiki-server.test.js",
+          "test/native-chat-acceptance.test.js",
+          "test/native-chat-cli.test.js",
+          "test/native-chat-install.test.js",
+          "test/native-chat-minimax.test.js",
+          "test/native-chat-proxy.test.js",
+          "test/native-chat-runtime.test.js"
+        ],
+        "exitCode": 0,
+        "signal": null,
+        "spawnError": null,
+        "interrupted": false,
+        "deadlineFired": false,
+        "metadataError": false,
+        "ownedProcessesRemaining": 0,
+        "counts": {
+          "tests": 178,
+          "pass": 173,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 5
+        },
+        "exactCounts": true,
+        "globalSuccess": true,
+        "durationMs": 569701,
+        "logSha256": "89377ab83c054d914f674f526edb4f5e5016e7992c07a347d01fa8f07a453d2f",
+        "identitySha256": "b7ee4aa6d78e1efe3e02bef8dc5a1432347d5d935b9dbeacd59fc90980e9745d",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sourceSnapshotSha256": "47292897e142fa99dc05c3758d11c9190e9aa5a2c0501c87215a00352aa8a463"
+      },
+      {
+        "id": "process-inspection",
+        "lane": "main",
+        "command": [
+          "node",
+          "--test",
+          "--test-name-pattern=^resumes the same selected record inode after SIGSTOP and SIGKILL crash its real writer and owner$",
+          "test/builder-append-only-authority.test.js"
+        ],
+        "exitCode": 0,
+        "signal": null,
+        "spawnError": null,
+        "interrupted": false,
+        "deadlineFired": false,
+        "metadataError": false,
+        "ownedProcessesRemaining": 0,
+        "counts": {
+          "tests": 1,
+          "pass": 1,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "exactCounts": true,
+        "globalSuccess": true,
+        "durationMs": 7513,
+        "logSha256": "7c7f90e508e1a5e2ac65022480400582034bd3ee57965497156a2c7fd9664ea6",
+        "identitySha256": "a5a4f9a0df8f7acc4feebddc17c16ec868d217db54384abb07180acf07d41403",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sourceSnapshotSha256": "47292897e142fa99dc05c3758d11c9190e9aa5a2c0501c87215a00352aa8a463"
+      },
+      {
+        "id": "durable-fs",
+        "lane": "durable-fs",
+        "command": "AGENTMO_TEST_LANE=durable-fs node --test --test-concurrency=1 --test-name-pattern='^(publishes an 86-member projection in bounded batches within 90 seconds|preserves the retained baseline when the external producer is killed during successor build)$' test/builder-marketplace-projection-transaction.test.js test/builder-package-security.test.js",
+        "exitCode": 0,
+        "signal": null,
+        "spawnError": null,
+        "interrupted": false,
+        "deadlineFired": false,
+        "metadataError": false,
+        "ownedProcessesRemaining": 0,
+        "counts": {
+          "tests": 2,
+          "pass": 2,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "exactCounts": true,
+        "globalSuccess": true,
+        "durationMs": 49640,
+        "logSha256": "e3c3417ab0d842ade7b81cdafe435b4833bf5a0fe25afe7627387c95d338efcb",
+        "identitySha256": "4d9ce021d5cef5c5af0553aa14bb6a99c6aa920a941684fbb522072303ab895b",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sourceSnapshotSha256": "47292897e142fa99dc05c3758d11c9190e9aa5a2c0501c87215a00352aa8a463"
+      },
+      {
+        "id": "packed-hook-chain",
+        "lane": "packed-hook-chain",
+        "command": "AGENTMO_TEST_LANE=packed-hook-chain node --test --test-name-pattern='^traverses registered packed hooks through the adjacent launcher, bridge, reducer, and checkpoint CAS$' test/builder-packed-install.test.js",
+        "exitCode": 0,
+        "signal": null,
+        "spawnError": null,
+        "interrupted": false,
+        "deadlineFired": false,
+        "metadataError": false,
+        "ownedProcessesRemaining": 0,
+        "counts": {
+          "tests": 1,
+          "pass": 1,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "exactCounts": true,
+        "globalSuccess": true,
+        "durationMs": 151764,
+        "logSha256": "37175719a95b3c4197b9932d0a4952f5764482898b52e421e52bd037ba76697a",
+        "identitySha256": "b55a359597b473031d5affc87a19d15b09fe13683d36379719f6f64ed81251ed",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sourceSnapshotSha256": "47292897e142fa99dc05c3758d11c9190e9aa5a2c0501c87215a00352aa8a463"
+      },
+      {
+        "id": "packed-behavior",
+        "lane": "packed-behavior",
+        "command": "AGENTMO_TEST_LANE=packed-behavior node --test test/codex-builder-behavior.test.js",
+        "exitCode": 0,
+        "signal": null,
+        "spawnError": null,
+        "interrupted": false,
+        "deadlineFired": false,
+        "metadataError": false,
+        "ownedProcessesRemaining": 0,
+        "counts": {
+          "tests": 8,
+          "pass": 7,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 1
+        },
+        "exactCounts": true,
+        "globalSuccess": true,
+        "durationMs": 1036868,
+        "logSha256": "ba2363d4cba4a4cf7b30cf059b5314edc91a58014f0e343e162a17144ef9eef2",
+        "identitySha256": "5253f67b93110a7413ce3b4721e7f92f2d2dc7a948c13eb273ec3c3dc63951c1",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sourceSnapshotSha256": "47292897e142fa99dc05c3758d11c9190e9aa5a2c0501c87215a00352aa8a463"
+      },
+      {
+        "id": "immutable-successor",
+        "lane": "immutable-successor",
+        "command": "AGENTMO_TEST_LANE=immutable-successor node --test --test-name-pattern='^uses one immutable successor selection for receipt, hook, doctor, and behavior$' test/codex-builder-behavior.test.js",
+        "exitCode": 0,
+        "signal": null,
+        "spawnError": null,
+        "interrupted": false,
+        "deadlineFired": false,
+        "metadataError": false,
+        "ownedProcessesRemaining": 0,
+        "counts": {
+          "tests": 1,
+          "pass": 1,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "exactCounts": true,
+        "globalSuccess": true,
+        "durationMs": 331229,
+        "logSha256": "1f90d7864bccedfdd0cf83f80bc393c43b8392d3e08146b1ef4d45d19a7cbc64",
+        "identitySha256": "03fe432994c1a8f4235906fd25cace15bb8990bedb6cc6edab3daeb5be042c47",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sourceSnapshotSha256": "47292897e142fa99dc05c3758d11c9190e9aa5a2c0501c87215a00352aa8a463"
+      }
+    ],
+    "verifiedRecoveryIdentities": [
+      {
+        "file": "test/course-wiki-budget.test.js",
+        "line": 60,
+        "column": 1,
+        "name": "a rejected duplicate cannot replace the accepted request diagnostic"
+      },
+      {
+        "file": "test/course-wiki-budget.test.js",
+        "line": 71,
+        "column": 1,
+        "name": "the deadline is not an upstream timeout before a request or after a valid response"
+      },
+      {
+        "file": "test/course-wiki-budget.test.js",
+        "line": 80,
+        "column": 1,
+        "name": "provider failures expose only bounded diagnostic categories and never refund"
+      },
+      {
+        "file": "test/course-wiki-budget.test.js",
+        "line": 96,
+        "column": 1,
+        "name": "interactive allocation permits exactly 64 reservations without resetting old campaigns"
+      },
+      {
+        "file": "test/course-wiki-budget.test.js",
+        "line": 113,
+        "column": 1,
+        "name": "rejects authorization, models, unknown fields and oversized requests before upstream"
+      },
+      {
+        "file": "test/course-wiki-budget.test.js",
+        "line": 124,
+        "column": 1,
+        "name": "reserves before forwarding, keeps key only upstream, and never replenishes sixteen campaign slots"
+      },
+      {
+        "file": "test/course-wiki-budget.test.js",
+        "line": 133,
+        "column": 1,
+        "name": "missing usage and network failures consume slots and a single boundary never retries"
+      },
+      {
+        "file": "test/course-wiki-budget.test.js",
+        "line": 147,
+        "column": 1,
+        "name": "normalizes actual native streaming wire and accepts bounded final SSE usage"
+      },
+      {
+        "file": "test/course-wiki-budget.test.js",
+        "line": 155,
+        "column": 1,
+        "name": "accepts canonical deepseek-flash responses without changing requested model and rejects other identities"
+      },
+      {
+        "file": "test/course-wiki-budget.test.js",
+        "line": 163,
+        "column": 1,
+        "name": "truncated model output cannot be labelled successful even with valid usage"
+      },
+      {
+        "file": "test/course-wiki-budget.test.js",
+        "line": 169,
+        "column": 1,
+        "name": "simultaneous requests and upstream failure never get a retry or a refund"
+      },
+      {
+        "file": "test/course-wiki-budget.test.js",
+        "line": 179,
+        "column": 1,
+        "name": "missing actual model identity is not successful provider evidence"
+      },
+      {
+        "file": "test/course-wiki-budget.test.js",
+        "line": 185,
+        "column": 1,
+        "name": "the deadline aborts an in-flight upstream and retains its reserved slot"
+      },
+      {
+        "file": "test/course-wiki-budget.test.js",
+        "line": 191,
+        "column": 1,
+        "name": "usage summaries retain only counters, never arbitrary provider metadata"
+      },
+      {
+        "file": "test/course-wiki-budget.test.js",
+        "line": 197,
+        "column": 1,
+        "name": "accepts bounded per-token SSE framing without raising the token or request limits"
+      },
+      {
+        "file": "test/course-wiki-budget.test.js",
+        "line": 207,
+        "column": 1,
+        "name": "rejects SSE response wire larger than one MiB without refunding or retrying"
+      },
+      {
+        "file": "test/course-wiki-budget.test.js",
+        "line": 255,
+        "column": 1,
+        "name": "project reservations are concurrent exclusive cumulative and never refunded"
+      },
+      {
+        "file": "test/course-wiki-budget.test.js",
+        "line": 269,
+        "column": 1,
+        "name": "each request boundary emits one request-local reservation signal before its provider call"
+      },
+      {
+        "file": "test/course-wiki-budget.test.js",
+        "line": 294,
+        "column": 1,
+        "name": "project budget survives module reimport and cannot be initialized again"
+      },
+      {
+        "file": "test/course-wiki-budget.test.js",
+        "line": 305,
+        "column": 1,
+        "name": "a child crash after durable reservation cannot refund reset or retry the project budget"
+      },
+      {
+        "file": "test/course-wiki-gateway.test.js",
+        "line": 80,
+        "column": 1,
+        "name": "gateway requests preserve conversation, validate citations, and reject exact retries without paying twice"
+      },
+      {
+        "file": "test/course-wiki-gateway.test.js",
+        "line": 105,
+        "column": 1,
+        "name": "invalid model citations are never displayed and a failed request stays consumed"
+      },
+      {
+        "file": "test/course-wiki-gateway.test.js",
+        "line": 155,
+        "column": 1,
+        "name": "OpenClaw migrated workspace survives provisioning without restoring retired files and requires its merged context"
+      },
+      {
+        "file": "test/course-wiki-gateway.test.js",
+        "line": 231,
+        "column": 1,
+        "name": "native text-only content parts normalize losslessly, while attachments fail before spending"
+      },
+      {
+        "file": "test/course-wiki-gateway.test.js",
+        "line": 241,
+        "column": 1,
+        "name": "non-JSON model output has a bounded format diagnostic without disclosing its content"
+      },
+      {
+        "file": "test/course-wiki-gateway.test.js",
+        "line": 247,
+        "column": 1,
+        "name": "observed whitespace-only model completion fails closed and cannot cause a paid replay"
+      },
+      {
+        "file": "test/course-wiki-gateway.test.js",
+        "line": 275,
+        "column": 1,
+        "name": "loopback gateway rejects browser requests and bad tokens before spending and emits validated native SSE"
+      },
+      {
+        "file": "test/course-wiki-gateway.test.js",
+        "line": 287,
+        "column": 1,
+        "name": "selected-corpus gateway keeps public SSE unchanged and reports only reserved stage metadata"
+      },
+      {
+        "file": "test/course-wiki-gateway.test.js",
+        "line": 333,
+        "column": 1,
+        "name": "model JSON failure is a bounded non-retryable 502 and a distinct next request remains admissible"
+      },
+      {
+        "file": "test/course-wiki-gateway.test.js",
+        "line": 351,
+        "column": 1,
+        "name": "request and exhausted-budget failures use bounded statuses and disable SDK retries"
+      },
+      {
+        "file": "test/course-wiki-gateway.test.js",
+        "line": 364,
+        "column": 1,
+        "name": "an in-flight request makes the next gateway request a bounded non-retryable 409 without spending"
+      },
+      {
+        "file": "test/course-wiki-gateway.test.js",
+        "line": 388,
+        "column": 1,
+        "name": "active generation consent mismatch returns a bounded non-retryable 403 before another provider call"
+      },
+      {
+        "file": "test/course-wiki-gateway.test.js",
+        "line": 447,
+        "column": 13,
+        "name": "upstream-unavailable"
+      },
+      {
+        "file": "test/course-wiki-gateway.test.js",
+        "line": 447,
+        "column": 13,
+        "name": "private-filesystem-error"
+      },
+      {
+        "file": "test/course-wiki-gateway.test.js",
+        "line": 473,
+        "column": 1,
+        "name": "gateway diagnostics expose structural metadata while preserving a failed-turn greeting history"
+      },
+      {
+        "file": "test/course-wiki-gateway.test.js",
+        "line": 496,
+        "column": 1,
+        "name": "diagnostic callback failures do not alter gateway request outcomes"
+      },
+      {
+        "file": "test/course-wiki-generations.test.js",
+        "line": 63,
+        "column": 1,
+        "name": "generation provider contract requires claim-complete citations and unambiguous source terminology"
+      },
+      {
+        "file": "test/course-wiki-generations.test.js",
+        "line": 93,
+        "column": 1,
+        "name": "selected turns carry trusted product capabilities without using them as teaching evidence"
+      },
+      {
+        "file": "test/course-wiki-generations.test.js",
+        "line": 121,
+        "column": 1,
+        "name": "selected native provider contract validates citation selections before the separate answer"
+      },
+      {
+        "file": "test/course-wiki-generations.test.js",
+        "line": 159,
+        "column": 1,
+        "name": "selected native product scope assigns Wiki browsing to the document page and questions to native chat"
+      },
+      {
+        "file": "test/course-wiki-generations.test.js",
+        "line": 177,
+        "column": 1,
+        "name": "one and four-source complete generations publish atomically, deduplicate by bytes and keep pinned old links"
+      },
+      {
+        "file": "test/course-wiki-generations.test.js",
+        "line": 191,
+        "column": 1,
+        "name": "QA pins verified evidence, projects latest input, fails busy and rejects oversized wire before spend"
+      },
+      {
+        "file": "test/course-wiki-generations.test.js",
+        "line": 204,
+        "column": 1,
+        "name": "large corpus uses bounded retrieval with referents and empty hits remain retrieved coverage"
+      },
+      {
+        "file": "test/course-wiki-generations.test.js",
+        "line": 212,
+        "column": 1,
+        "name": "failed ingest, compile, lint and unrepresentable sources cannot replace the complete active pointer"
+      },
+      {
+        "file": "test/course-wiki-generations.test.js",
+        "line": 221,
+        "column": 1,
+        "name": "changed campaign, stale consent and rebinding cannot gain data or spending authority"
+      },
+      {
+        "file": "test/course-wiki-generations.test.js",
+        "line": 233,
+        "column": 1,
+        "name": "real native selected corpus generates and retrieves without mutating the ready generation"
+      },
+      {
+        "file": "test/course-wiki-generations.test.js",
+        "line": 244,
+        "column": 1,
+        "name": "final selected-stage wire is rejected before a provider reservation"
+      },
+      {
+        "file": "test/course-wiki-generations.test.js",
+        "line": 250,
+        "column": 1,
+        "name": "failed generation and restart with incomplete consent retain old active bytes without retrying"
+      },
+      {
+        "file": "test/course-wiki-generations.test.js",
+        "line": 263,
+        "column": 1,
+        "name": "old conversation sources cannot authorize citations after a generation switch"
+      },
+      {
+        "file": "test/course-wiki-generations.test.js",
+        "line": 272,
+        "column": 1,
+        "name": "large-corpus successful and failed translation replays cannot spend another reservation"
+      },
+      {
+        "file": "test/course-wiki-generations.test.js",
+        "line": 286,
+        "column": 1,
+        "name": "invalid large-corpus native options are rejected before translation or reservation"
+      },
+      {
+        "file": "test/course-wiki-generations.test.js",
+        "line": 294,
+        "column": 1,
+        "name": "native selected-corpus chat projects only the latest user message as the active request"
+      },
+      {
+        "file": "test/course-wiki-generations.test.js",
+        "line": 320,
+        "column": 1,
+        "name": "small selected-corpus turns select citations before a separate answer and aggregate usage"
+      },
+      {
+        "file": "test/course-wiki-generations.test.js",
+        "line": 344,
+        "column": 1,
+        "name": "large selected-corpus turns route, retrieve and select before answering, while misses stop after routing"
+      },
+      {
+        "file": "test/course-wiki-generations.test.js",
+        "line": 372,
+        "column": 1,
+        "name": "selected-corpus balance preflight covers the worst-case route before reserving"
+      },
+      {
+        "file": "test/course-wiki-generations.test.js",
+        "line": 383,
+        "column": 1,
+        "name": "large-corpus balance preflight reserves no route when only two of three calls remain"
+      },
+      {
+        "file": "test/course-wiki-generations.test.js",
+        "line": 396,
+        "column": 1,
+        "name": "selected-corpus stage metadata stays request-local across a concurrent shared-budget reservation"
+      },
+      {
+        "file": "test/course-wiki-generations.test.js",
+        "line": 420,
+        "column": 38,
+        "name": "selected-corpus native search stops at the shared deadline with 0ms child startup"
+      },
+      {
+        "file": "test/course-wiki-generations.test.js",
+        "line": 420,
+        "column": 38,
+        "name": "selected-corpus native search stops at the shared deadline with 250ms child startup"
+      },
+      {
+        "file": "test/course-wiki-openclaw.test.js",
+        "line": 23,
+        "column": 1,
+        "name": "the native agent loads persistent workspace context from a plain question and rejects altered bootstrap files before spending"
+      },
+      {
+        "file": "test/course-wiki-openclaw.test.js",
+        "line": 70,
+        "column": 1,
+        "name": "a misleading native search hit cannot exclude the adjective definition from this fixed corpus"
+      },
+      {
+        "file": "test/course-wiki-openclaw.test.js",
+        "line": 127,
+        "column": 1,
+        "name": "real native agent with fake upstream generates grounded topics and answers without raw meta leakage"
+      },
+      {
+        "file": "test/course-wiki-server.test.js",
+        "line": 20,
+        "column": 1,
+        "name": "binds to IPv4 loopback and rejects hostile Host and Origin before operations"
+      },
+      {
+        "file": "test/course-wiki-server.test.js",
+        "line": 34,
+        "column": 1,
+        "name": "upload normalizes the whole batch and stages locally without activation"
+      },
+      {
+        "file": "test/course-wiki-server.test.js",
+        "line": 56,
+        "column": 1,
+        "name": "upload enforces file count, aggregate characters, and declared body bounds"
+      },
+      {
+        "file": "test/course-wiki-server.test.js",
+        "line": 80,
+        "column": 1,
+        "name": "activation accepts only the URL generation and exact consent"
+      },
+      {
+        "file": "test/course-wiki-server.test.js",
+        "line": 112,
+        "column": 1,
+        "name": "bad request is 400, invalid consent 403, busy 409, and all are non-retryable"
+      },
+      {
+        "file": "test/course-wiki-server.test.js",
+        "line": 130,
+        "column": 1,
+        "name": "evidence context refusal is a sanitized non-retryable 400 while upload size stays 413"
+      },
+      {
+        "file": "test/course-wiki-server.test.js",
+        "line": 142,
+        "column": 1,
+        "name": "reads propagate an optional exact generation and reject malformed query state"
+      },
+      {
+        "file": "test/course-wiki-server.test.js",
+        "line": 158,
+        "column": 1,
+        "name": "server has corpus and browsing surfaces but no second chat or old generation route"
+      },
+      {
+        "file": "test/course-wiki-server.test.js",
+        "line": 167,
+        "column": 1,
+        "name": "selected-document authority permits staging while a legacy live campaign keeps uploads closed"
+      },
+      {
+        "file": "test/native-chat-acceptance.test.js",
+        "line": 56,
+        "column": 1,
+        "name": "native delivery stays partial until exact native UI cases pass"
+      },
+      {
+        "file": "test/native-chat-acceptance.test.js",
+        "line": 75,
+        "column": 1,
+        "name": "M3 acceptance cannot certify a DeepSeek runtime against M3 source bindings"
+      },
+      {
+        "file": "test/native-chat-acceptance.test.js",
+        "line": 82,
+        "column": 1,
+        "name": "native public delivery command exact-loads its sources and preserves a missing-acceptance gap"
+      },
+      {
+        "file": "test/native-chat-cli.test.js",
+        "line": 15,
+        "column": 1,
+        "name": "previews exact activation, serves in foreground and stops through the public authenticated command"
+      },
+      {
+        "file": "test/native-chat-cli.test.js",
+        "line": 48,
+        "column": 1,
+        "name": "keeps native chat out of the legacy one-shot run-plan path"
+      },
+      {
+        "file": "test/native-chat-cli.test.js",
+        "line": 54,
+        "column": 1,
+        "name": "SIGTERM during readiness or health startup closes owned processes and both ports without an entry"
+      },
+      {
+        "file": "test/native-chat-install.test.js",
+        "line": 25,
+        "column": 1,
+        "name": "native installation rejects stale authority before mutation"
+      },
+      {
+        "file": "test/native-chat-install.test.js",
+        "line": 38,
+        "column": 1,
+        "name": "native installation rejects changed runtime bytes before consuming any approval"
+      },
+      {
+        "file": "test/native-chat-install.test.js",
+        "line": 45,
+        "column": 1,
+        "name": "does not certify registration when the runtime changes workspace or permissions"
+      },
+      {
+        "file": "test/native-chat-install.test.js",
+        "line": 69,
+        "column": 1,
+        "name": "rejects the extra default agent produced by a native roster migration"
+      },
+      {
+        "file": "test/native-chat-install.test.js",
+        "line": 77,
+        "column": 1,
+        "name": "creates one isolated native agent from the exact package without spending or activation"
+      },
+      {
+        "file": "test/native-chat-install.test.js",
+        "line": 130,
+        "column": 1,
+        "name": "retains an incomplete native result on registration failure and never retries"
+      },
+      {
+        "file": "test/native-chat-install.test.js",
+        "line": 142,
+        "column": 1,
+        "name": "public install preview and apply use the native package branch and retain exact approval gates"
+      },
+      {
+        "file": "test/native-chat-minimax.test.js",
+        "line": 47,
+        "column": 1,
+        "name": "model selection in a plan cannot replace the admitted archive before authority consumption"
+      },
+      {
+        "file": "test/native-chat-minimax.test.js",
+        "line": 58,
+        "column": 1,
+        "name": "M3 installation derives model and activation key scope from genuine M3 archive"
+      },
+      {
+        "file": "test/native-chat-minimax.test.js",
+        "line": 83,
+        "column": 1,
+        "name": "rehashed M3 resource cannot replace genuine DeepSeek planning authority through direct install"
+      },
+      {
+        "file": "test/native-chat-proxy.test.js",
+        "line": 33,
+        "column": 1,
+        "name": "M3 uses the domestic fixed wire and keeps failed claims across restart with bounded diagnostics"
+      },
+      {
+        "file": "test/native-chat-proxy.test.js",
+        "line": 57,
+        "column": 1,
+        "name": "M3 refuses malformed successful upstream bodies instead of exposing diagnostics or multimedia"
+      },
+      {
+        "file": "test/native-chat-proxy.test.js",
+        "line": 75,
+        "column": 1,
+        "name": "keeps complete history and rejects invalid input before spend"
+      },
+      {
+        "file": "test/native-chat-proxy.test.js",
+        "line": 94,
+        "column": 1,
+        "name": "duplicates including restart spend once; a real follow-up preserves history"
+      },
+      {
+        "file": "test/native-chat-proxy.test.js",
+        "line": 107,
+        "column": 1,
+        "name": "failed and disconnected provider requests never refund or automatically retry"
+      },
+      {
+        "file": "test/native-chat-proxy.test.js",
+        "line": 119,
+        "column": 1,
+        "name": "missing or unsafe state, changed binding and legacy budget cannot start a proxy"
+      },
+      {
+        "file": "test/native-chat-proxy.test.js",
+        "line": 129,
+        "column": 1,
+        "name": "insufficient shared budget causes zero network even for concurrent different requests"
+      },
+      {
+        "file": "test/native-chat-proxy.test.js",
+        "line": 138,
+        "column": 1,
+        "name": "process death after a durable claim and reservation cannot pay again after restart"
+      },
+      {
+        "file": "test/native-chat-runtime.test.js",
+        "line": 61,
+        "column": 1,
+        "name": "re-admits exact installed bytes before activation and rejects changed receipt, root or workspace"
+      },
+      {
+        "file": "test/native-chat-runtime.test.js",
+        "line": 97,
+        "column": 1,
+        "name": "starts the proxy before its own gateway and authenticates stop without exposing tokens"
+      },
+      {
+        "file": "test/native-chat-runtime.test.js",
+        "line": 122,
+        "column": 1,
+        "name": "rejects occupied ports, missing approval and unknown supervisor remnants before consumption"
+      },
+      {
+        "file": "test/native-chat-runtime.test.js",
+        "line": 144,
+        "column": 1,
+        "name": "a failed owned gateway closes its proxy, retains consumed authority, and never retries"
+      },
+      {
+        "file": "test/native-chat-runtime.test.js",
+        "line": 207,
+        "column": 1,
+        "name": "rejects nested runtime-state links before consuming activation or touching external state"
+      },
+      {
+        "file": "test/course-wiki-gateway.test.js",
+        "line": 443,
+        "column": 1,
+        "name": "upstream and private internal failures remain sanitized non-retryable 502 responses"
+      },
+      {
+        "file": "test/course-wiki-gateway.test.js",
+        "line": 421,
+        "column": 11,
+        "name": "oversized raw gateway request is rejected before another provider call"
+      },
+      {
+        "file": "test/builder-append-only-authority.test.js",
+        "line": 836,
+        "column": 3,
+        "name": "resumes the same selected record inode after SIGSTOP and SIGKILL crash its real writer and owner"
+      }
+    ],
+    "recoveredIdentities": 103,
+    "overlappingPassesReverified": 71,
+    "existingOptInSkips": [
+      "installed OpenClaw emits the admitted text-only envelope with prior assistant history",
+      "owns installed DeepSeek V4 Flash gateway in disposable state and restarts the exact installation",
+      "owns installed MiniMax M3 gateway in disposable state and restarts the exact installation",
+      "registers the installed OpenClaw in disposable state without invoking a model",
+      "validates the installed OpenClaw against a synthetic native configuration without invoking a model"
+    ],
+    "mainCoverage": {
+      "tests": 1498,
+      "pass": 1438,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 60
+    },
+    "allRequiredLanesPassed": true,
+    "sourceFiles": 374,
+    "manuallyInferredIdentityCorrection": {
+      "file": "test/course-wiki-gateway.test.js",
+      "line": 421,
+      "originalColumn": 9,
+      "correctedColumn": 11,
+      "reason": "never-registered child had no failure-event location; source call and actual test reporter use the test method column"
+    },
+    "expectedFullFileManifestSha256": "31045dcd4f764e065caa95a0b8320ed45d832fc3d067dbd729fa7e574dbeb65f",
+    "limitation": "Static environment audit and segmented identity coverage; no claim of single-command success or equivalence for all unknown grouping interactions."
+  },
+  "verification": {
+    "allRequiredLanesPassed": true,
+    "singleFullCommandPassed": false,
+    "mode": "segmented-identity-coverage"
+  },
+  "behaviorRegression": {
+    "startedAt": "2026-10-19T09:41:15.034Z",
+    "finishedAt": "2026-10-19T09:52:26.371Z",
+    "durationMs": 671330,
+    "exitCode": 0,
+    "signal": null,
+    "spawnError": null,
+    "counts": {
+      "tests": 1,
+      "pass": 1,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "exactSelectionPassed": true,
+    "sourceSnapshotSha256": "653e48fcaf04c1ad5b6be50784175741f3dfc4be1da7662942a0395737da96f2",
+    "logSha256": "5d57d9bcdb3ea416e621911ebcc7e9e1fceb9fba75cba9d503f1eeeaaf00f8f7"
+  },
+  "behaviorFixturePhase": {
+    "observedAt": "2026-10-19T09:39:48.246Z",
+    "packageInventorySha256": "27d467b12a7f43fbfea652ece9dbc42de7d7a8e98514ea3e13ba029ee9ca61d1",
+    "sourcePackageUnchanged": true,
+    "rows": [
+      {
+        "phase": "preview",
+        "durationMs": 3133,
+        "deadlineMs": 60000,
+        "exitCode": 0,
+        "signal": null,
+        "spawnError": null,
+        "overflow": false,
+        "deadlineFired": false,
+        "interrupted": false,
+        "stderrEmpty": true,
+        "stdoutBytes": 4374,
+        "stdoutSha256": "63aa236eca2cb20a49a6298ecbe871e46e9e403bf745aea89e1e5406f54baf56"
+      },
+      {
+        "phase": "setup",
+        "durationMs": 156550,
+        "deadlineMs": 300000,
+        "exitCode": 0,
+        "signal": null,
+        "spawnError": null,
+        "overflow": false,
+        "deadlineFired": false,
+        "interrupted": false,
+        "stderrEmpty": true,
+        "stdoutBytes": 1147,
+        "stdoutSha256": "edf0e54df3763498b203055932d42f4b5b8690b9eb183dfc6e680b7c5007d00d"
+      }
+    ],
+    "failed": false,
+    "failure": null,
+    "syntheticOnly": true,
+    "actualSdkExecuted": false,
+    "realCredentialsRead": false,
+    "realServicesUsed": false
+  },
+  "behaviorFixturePhaseEvidence": {
+    "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-readiness-repair-2026-10-19-r1/behavior-fixture-phase-timing.json",
+    "digest": "sha256:3bc3530cc181f7b1098280af808444bd7f3a6ba8d2bca5719a42cb17be022d8e"
+  },
+  "node20": {
+    "path": "release/evidence/2026.10.19-node20-pi-readiness-repair-r3-core-receipt.json",
+    "digest": "sha256:7e2432b74af84713df417d0573ef715f6b0e4b76c491209b708cf9a9b24f7e4e",
+    "consumerPass": 6
+  },
+  "independentReview": {
+    "path": "release/evidence/2026.10.19-pi-readiness-repair-review.json",
+    "digest": "sha256:55361d318d1fa6329eee042d4a27387612277db7209cb5cbebd27d128eb3dc44",
+    "critical": 0,
+    "important": 0,
+    "minor": 0
+  },
+  "protectedState": {
+    "observedAt": "2026-10-19T12:13:59.296Z",
+    "installedEntriesUnchanged": 14,
+    "authorityEntriesUnchanged": 3,
+    "protectedArtifactsUnchanged": 12,
+    "syntheticMetadataEntriesUnchanged": 210,
+    "sourceFiles": 374,
+    "oldState": {
+      "observedAt": "2026-10-19T12:13:59.134Z",
+      "failedRootEntriesUnchanged": 16,
+      "authFileContentRead": false,
+      "failureEvidenceUnchanged": true,
+      "managedFilesUnchanged": 6,
+      "originalReceiptUnchanged": true,
+      "originalAuthorityUnchanged": true,
+      "budget": {
+        "projectReservations": 26,
+        "totalReservedFen": 4774,
+        "remainingFen": 5226,
+        "capFen": 10000
+      },
+      "sessionDirectoryGuardUnchanged": true,
+      "approvedSpecAndPlanUnchanged": true,
+      "noStagedChanges": true
+    }
+  },
+  "sourceRefresh": {
+    "targetDescriptorDigest": "sha256:f1a7581f414aace264bee26259441e2b4b9f73897400cd6cfdb92348f627b799",
+    "buildContractDigest": "sha256:9e5011e97788919af927b09837ee472ece9b98b99420c344931512c4b4a3a36d",
+    "producePreviewDigest": "sha256:f4853c13d9f84691217d454a7fba543e8ee4a62ee0c7ccf2931225464081d778",
+    "formalGapCount": 11,
+    "legacyGapCount": 15,
+    "realAcceptanceCasesPending": 19
+  },
+  "legacyOfflineTests": {
+    "runtime": "existing installed OpenClaw executable in disposable synthetic roots",
+    "upstream": "test-local mock responses",
+    "fixedPiSdkToolchainExecuted": false,
+    "productionInstalledRootActivated": false,
+    "assurance": "controlled configuration and reviewed call paths; no external-binary implementation or network syscall audit"
+  },
+  "remainingLimits": [
+    "real Pi startup and SDK import are still unexecuted for this source",
+    "the pre-stop existing-receipt read still immediately rejects unstable bytes; not all concurrent-stop scenarios are certified",
+    "finite waits can still expire on slower hardware; failure remains fail-closed"
+  ],
+  "certificationBoundary": {
+    "fixedPiSdkToolchainExecutedInThisRepair": false,
+    "productionPiAgentInstalledInThisRepair": false,
+    "productionPiBrowserActivated": false,
+    "realCredentialContentsRead": false,
+    "realProviderRequests": 0,
+    "newRealReservations": 0,
+    "domainCertified": false,
+    "deliveryReady": false,
+    "productionApproved": false
+  },
+  "priorFailedAttemptCleanup": {
+    "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-readiness-repair-2026-10-19-r1/paused-test-children-cleanup.json",
+    "digest": "sha256:d01f3266208c36a011e15969248eb5f81bc96e24a5f274e46e13b70a02a2ef07",
+    "ownedPausedTestChildrenStopped": 5,
+    "realServicesTouched": false
+  },
+  "testScheduling": {
+    "mainFileConcurrency": 2,
+    "priorFailedAttempt": {
+      "command": "npm run check",
+      "startedAt": "2026-10-19T05:54:00.400Z",
+      "finishedAt": "2026-10-19T07:06:38.228Z",
+      "durationMs": 4357868,
+      "exitCode": 1,
+      "signal": null,
+      "spawnError": null,
+      "logSha256": "6a6a96a28fd53ed173e782971f6fde7692e319e2a3fa63e2a3a75d7dafb97476"
+    },
+    "priorMainCount": 1498,
+    "priorFailedCount": 13,
+    "temporary90SecondBuilderWaitReverted": true,
+    "original20SecondAssertionRetained": true,
+    "failedCaseVerification": {
+      "startedAt": "2026-10-19T07:07:33.328Z",
+      "finishedAt": "2026-10-19T07:14:33.413Z",
+      "durationMs": 420079,
+      "exitCode": 0,
+      "signal": null,
+      "spawnError": null,
+      "selectedCases": 13,
+      "counts": {
+        "tests": 13,
+        "pass": 13,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "exactSelectionPassed": true,
+      "mainFileConcurrency": 2,
+      "logSha256": "3d1e8f5200668ed6bcfed84dda67663ba4ca2f5809814a0bc3a341a6fafcb56c"
+    }
+  },
+  "priorFailedAttempts": [
+    {
+      "command": "npm run check",
+      "mainFileConcurrency": 2,
+      "priorFailedAttempts": [
+        "full-check-final-result.json",
+        "full-check-bounded-result.json",
+        "isolated-final-r2-result.json"
+      ],
+      "startedAt": "2026-10-19T09:55:26.822Z",
+      "finishedAt": "2026-10-19T11:20:13.571Z",
+      "durationMs": 5086803,
+      "exitCode": 1,
+      "signal": null,
+      "spawnError": null,
+      "prerequisiteHashes": {
+        "behavior-regression-result.json": "757b42670d4218c9d6adc9312ae4378f08e8e2af4862cd70c439445ef18dc77d",
+        "behavior-regression.tap": "5d57d9bcdb3ea416e621911ebcc7e9e1fceb9fba75cba9d503f1eeeaaf00f8f7",
+        "source-candidate-behavior-calibrated.json": "653e48fcaf04c1ad5b6be50784175741f3dfc4be1da7662942a0395737da96f2",
+        "source-refresh-repaired-result.json": "330c90a1e4097d8fa3d144890556189026e174c8a5cba4e4c7faf8c9fc64ae21",
+        "node20-repaired-published-facts.json": "daa88d988a81c5eba313308a36a660709187d7f9d8b80c1b4a3b9848535132a9",
+        "node20-repaired-consumers-result.json": "27895dd8269c5a52f641c81808da68fc2d94d909c1c80f8fd7d639ff47553bde",
+        "node20-repaired-consumers.tap": "3f28271fb739ae29a4318962be7093b07e75d182fd7ccf74b0b182acad9c68aa",
+        "source-candidate-repaired.json": "47292897e142fa99dc05c3758d11c9190e9aa5a2c0501c87215a00352aa8a463"
+      },
+      "logSha256": "6b5681bf25afd8db3583ba21a8a63c5cde69031989b16ad850e5cf7da4d6290e"
+    },
+    {
+      "command": "npm run check",
+      "startedAt": "2026-10-19T05:54:00.400Z",
+      "finishedAt": "2026-10-19T07:06:38.228Z",
+      "durationMs": 4357868,
+      "exitCode": 1,
+      "signal": null,
+      "spawnError": null,
+      "logSha256": "6a6a96a28fd53ed173e782971f6fde7692e319e2a3fa63e2a3a75d7dafb97476"
+    },
+    {
+      "command": "npm run check",
+      "mainFileConcurrency": 2,
+      "priorFailedAttempt": "full-check-final-result.json",
+      "startedAt": "2026-10-19T07:15:01.501Z",
+      "finishedAt": "2026-10-19T08:40:25.706Z",
+      "durationMs": 5124393,
+      "exitCode": 1,
+      "signal": null,
+      "spawnError": null,
+      "logSha256": "643f575aec7a4e300e7fa4be96fd6f28e1454b19096e774bcdd6c1d884c25800"
+    },
+    {
+      "startedAt": "2026-10-19T08:45:00.195Z",
+      "finishedAt": "2026-10-19T09:36:04.677Z",
+      "rows": [
+        {
+          "id": "durable-fs",
+          "command": "npm run check:test:durable-fs",
+          "exitCode": 0,
+          "signal": null,
+          "spawnError": null,
+          "durationMs": 118048,
+          "counts": {
+            "tests": 2,
+            "pass": 2,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0
+          },
+          "exactCounts": true,
+          "logSha256": "015ac68d207bfab6bb45379e31357b509c0fddc3467f36fc71957e8ed3b31098",
+          "sourceSnapshotSha256": "c593bc795776080d6e501b7f643b1e2f8efdcce1e8697bf3c1b9d3f180bcc1ff"
+        },
+        {
+          "id": "packed-hook-chain",
+          "command": "npm run check:test:packed-hook-chain",
+          "exitCode": 0,
+          "signal": null,
+          "spawnError": null,
+          "durationMs": 363001,
+          "counts": {
+            "tests": 1,
+            "pass": 1,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0
+          },
+          "exactCounts": true,
+          "logSha256": "02f1422a589ff562b0861517ec2bc977f45bca12c474d0871ee7b3fadc141ade",
+          "sourceSnapshotSha256": "c593bc795776080d6e501b7f643b1e2f8efdcce1e8697bf3c1b9d3f180bcc1ff"
+        },
+        {
+          "id": "packed-behavior",
+          "command": "npm run check:test:packed-behavior",
+          "exitCode": 1,
+          "signal": null,
+          "spawnError": null,
+          "durationMs": 2583404,
+          "counts": {
+            "tests": 8,
+            "pass": 6,
+            "fail": 1,
+            "cancelled": 0,
+            "skipped": 1
+          },
+          "exactCounts": false,
+          "logSha256": "0f240516ed032d162dac28be49941a9978ce05d4e0637a83eff3a277673b4ade",
+          "sourceSnapshotSha256": "c593bc795776080d6e501b7f643b1e2f8efdcce1e8697bf3c1b9d3f180bcc1ff"
+        }
+      ],
+      "allFourPassed": false,
+      "priorMainEvidence": "full-check-bounded-result.json",
+      "mainRerun": false,
+      "sourceChangeSinceMain": {
+        "path": "test/builder-package-security.test.js",
+        "beforeSha256": "17241db18868ee9e6ac99b61d068bb566d2d28be709dd09898e12a336266be65",
+        "afterSha256": "f34c0cef37cdb0d19bdd712b43a780a394c16149fb8dd944e6745b7001eca100",
+        "change": "sole 30s-to-120s preparation deadline for the case skipped in main; all product and other test bytes unchanged"
+      },
+      "singleFullCommandPassed": false
+    }
+  ]
+}

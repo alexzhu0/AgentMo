@@ -37,7 +37,7 @@ function defaultLockPath() {
 
 function runMainTests() {
   return new Promise((resolve) => {
-    const child = spawn(process.execPath, ["--test"], {
+    const child = spawn(process.execPath, ["--test", "--test-concurrency=2"], {
       env: { ...process.env, AGENTMO_TEST_LANE: "main" },
       stdio: "inherit",
     });

@@ -52,6 +52,11 @@ export async function runNativeChatCommand(args) {
 
 export async function runNativeDeliveryCommand(args) {
   try {
+    const b=args.indexOf("--blueprint"),d=args.indexOf("--blueprint-sha256");
+    if(b>=0&&d>=0&&b===args.lastIndexOf("--blueprint")&&d===args.lastIndexOf("--blueprint-sha256")&&!path.basename(args[b+1]??"").startsWith(".env")) {
+      const blueprint=await loadAdmittedArtifact({subject:"blueprint",filePath:args[b+1],expectedDigest:args[d+1]});
+      if(blueprint.value.native_runtime==="pi")return (await import("./pi-native-cli.js")).runPiDeliveryCommand(args);
+    }
     const required=["execution-profile","blueprint","blueprint-sha256","archive","archive-sha256","install-plan","install-plan-sha256","install-receipt","install-receipt-sha256"];
     const allowed=[...required,"acceptance","acceptance-sha256"], options={};
     for(let i=0;i<args.length;i++){

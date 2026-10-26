@@ -61,7 +61,7 @@ describe("Node 20 core runner fail-closed contract", () => {
     assert.equal(syntax.files.includes("src/native-chat-proxy.js"), true);
     assert.equal(syntax.files.includes("src/native-chat-model-profile.js"), true);
     assert.equal(syntax.files.includes("src/course-wiki-budget.js"), true);
-    assert.deepEqual(syntax.expected, { pass: 55, skip: 0, fail: 0, total: 55 });
+    assert.deepEqual(syntax.expected, { pass: 70, skip: 0, fail: 0, total: 70 });
   });
 
   it("requires every explicit provenance input and never searches PATH", async () => {
@@ -260,12 +260,15 @@ describe("Node 20 core runner fail-closed contract", () => {
       "test/design-plan.test.js",
       "test/native-chat-acceptance.test.js",
       "test/native-chat-minimax.test.js",
+      "test/pi-sdk.test.js",
+      "test/pi-chat.test.js",
+      "test/pi-budget-proxy.test.js",
     ]);
     assert.deepEqual(coreContracts.expected, {
-      pass: 90,
+      pass: 110,
       skip: 7,
       fail: 0,
-      total: 97,
+      total: 117,
     });
     assert.deepEqual(OWNED_COMMAND_MANIFEST.at(-1).expected, {
       pass: 3,
@@ -285,10 +288,10 @@ describe("Node 20 core runner fail-closed contract", () => {
       buildNode20Receipt,
     } = await loadReceiptModule();
     const receipt = buildNode20Receipt(receiptInput(COMMAND_SET_DIGEST, {
-      pass: 90,
+      pass: 110,
       skip: 7,
       fail: 0,
-      total: 97,
+      total: 117,
     }));
 
     assert.deepEqual(Object.keys(receipt), [
@@ -325,10 +328,10 @@ describe("Node 20 core runner fail-closed contract", () => {
       buildNode20Receipt,
     } = await loadReceiptModule();
     const receipt = buildNode20Receipt(receiptInput(COMMAND_SET_DIGEST, {
-      pass: 90,
+      pass: 110,
       skip: 7,
       fail: 0,
-      total: 97,
+      total: 117,
     }));
 
     assert.equal(assertNode20Receipt(receipt), receipt);
@@ -372,7 +375,7 @@ function receiptInput(commandSetDigest, coreCounts) {
     },
     commandSetDigest,
     batches: [
-      { id: "syntax", pass: 55, skip: 0, fail: 0, total: 55 },
+      { id: "syntax", pass: 70, skip: 0, fail: 0, total: 70 },
       { id: "core-contracts", ...coreCounts },
       { id: "stage-contracts", pass: 3, skip: 2, fail: 0, total: 5 },
     ],

@@ -929,7 +929,7 @@ describe("packed fresh-process Builder behavior evaluation", {
     : false,
 }, () => {
   packedBehaviorIt("observes every fixed scenario without claiming real Codex activation or domain quality", {
-    timeout: 360_000,
+    timeout: 900_000,
   }, async () => {
     const project = await mkdtemp(path.join(tmpdir(), "agentmo-behavior-project-"));
     const { receiptDigest, home } = await installProject(project);

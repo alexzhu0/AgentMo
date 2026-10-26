@@ -1,4 +1,23 @@
 export const MINIMAX_M3_PROFILE = "minimax-m3-cn-v1";
+export const PI_NATIVE_MODEL = "agentmo-budget/MiniMax-M3";
+
+export function nativeChatRuntime(source) {
+  if (!source || typeof source !== "object" || Array.isArray(source)) throw runtimeError();
+  const native = source.execution_profile === "native-chat";
+  if (Object.hasOwn(source, "native_runtime")) {
+    if (!native || source.native_runtime !== "pi" || source.native_model_profile !== MINIMAX_M3_PROFILE) throw runtimeError();
+    return "pi";
+  }
+  return native ? "openclaw" : undefined;
+}
+
+export function validNativeRuntimeSource(source) {
+  try { nativeChatRuntime(source); return true; } catch { return false; }
+}
+
+function runtimeError() {
+  return Object.assign(new Error("Native runtime selection rejected."), { code: "AGENTMO_NATIVE_RUNTIME_REJECTED" });
+}
 
 const deepseek = Object.freeze({
   provider: "deepseek", model: "deepseek-v4-flash", nativeModel: "deepseek/deepseek-v4-flash",

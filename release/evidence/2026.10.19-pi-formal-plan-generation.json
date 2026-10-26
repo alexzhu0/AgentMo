@@ -1,0 +1,77 @@
+{
+  "schemaVersion": "agentmo.pi-formal-plan-generation.v1",
+  "observedAt": "2026-10-19T04:57:53.324Z",
+  "approvedEnterPlanProposalDigest": "sha256:410e673a7a75aa55b56a89ad0aa464ffeca57c2141647ff6ff3d79310b520336",
+  "status": "formal-pi-plan-generated-produce-preview-pending-approval",
+  "commandResults": {
+    "formalSourceAndGenerationCommands": 5,
+    "formalCommandsExitZero": 5,
+    "formalCommandsReplayed": 0,
+    "readOnlyPreviewExitCode": 0,
+    "deterministicReadOnlyRecheck": true,
+    "wrongBuildContractDigestRejected": true,
+    "crossRuntimeContractMutationRejected": true
+  },
+  "controllerStop": {
+    "recordRetained": true,
+    "failureDigest": "sha256:930bcafc64aa2d8449a5b509b12cb810c38e09e2787d812ea6dcd8f0261bab03",
+    "cause": "control post-check read nonexistent contract.target; canonical contract uses targetRuntime.id",
+    "correctSchemaVerificationPassed": true,
+    "formalArtifactsRewritten": false,
+    "continuedScope": "already-authorized read-only Produce preview only"
+  },
+  "bindings": {
+    "discoveryApprovalDigest": "sha256:658ad7dcee4986cd56d515319f33503e766f1f5ebce7e6c0a14d7e89c8c0f0e7",
+    "decisionLedgerHeadDigest": "sha256:08f206254a4af3c0738fd208db8c90168b7524c019722e85b19eadfe885b1b35",
+    "designPlanDigest": "sha256:37720a1b768d9eed17cc80d1eb31d3dd6947ae9fd57a93af1c9aafa6f24e21f3",
+    "blueprintDigest": "sha256:ba9132b1ec9aec78e9346cf0a59a3c76febec6c9b65ee2413f7411e4cf48e4d8",
+    "buildContractDigest": "sha256:95bb7892cedbdfedb6df5da7ba3b3a1a6f9851cd5098c62efe4d63d061a2ed60",
+    "targetDescriptorDigest": "sha256:f2ad84b3dd683244988786af2dc71d5b75fc3db80628461c7952c19fa1de3463",
+    "producePreviewDigest": "sha256:d693b8fdb6a7c6fae68b48693cae4be2907269523639fe03477786aeb8358256"
+  },
+  "planning": {
+    "nativeRuntime": "pi",
+    "modelProfile": "minimax-m3-cn-v1",
+    "browserEntryPreserved": true,
+    "tools": 0,
+    "specialists": 0,
+    "requirementCount": 15,
+    "mechanicallySupported": 4,
+    "mechanicalMissingEvidenceGaps": 11,
+    "allGapsGoverned": true,
+    "resourceFamilies": 22,
+    "planAcceptanceCases": 15,
+    "realAcceptanceClassesPending": 19,
+    "oldM3GapCountRetained": 15,
+    "piReadinessGroupsPending": 6,
+    "semanticCoverageCertified": false,
+    "discoveryLimitationsRetained": true
+  },
+  "originalRealBudget": {
+    "projectReservations": 26,
+    "totalReservedFen": 4774,
+    "remainingFen": 5226,
+    "capFen": 10000
+  },
+  "sourceSnapshotDigest": "sha256:ac2c69654f1fb8e4ea8769a2e8db3ca45b3c0c4e80f90182980602ddc340ed83",
+  "sourceFilesUnchanged": 374,
+  "actions": {
+    "sdkExecuted": false,
+    "realModelRequests": 0,
+    "newRealReservations": 0,
+    "credentialContentsRead": false,
+    "planApprovalRecorded": false,
+    "packageGenerated": false,
+    "realAuthorityInitialized": false,
+    "realAgentInstalled": false,
+    "browserActivated": false,
+    "committed": false,
+    "pushed": false
+  },
+  "certificationBoundary": {
+    "sourceQualityCertified": false,
+    "domainCertified": false,
+    "deliveryReady": false,
+    "productionApproved": false
+  }
+}

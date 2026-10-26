@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>会议文字助手</title><link rel="stylesheet" href="./style.css"><script type="module" src="./client.js"></script></head>
+<body>
+  <header><p class="eyebrow">会议整理</p><h1>会议文字助手</h1><p class="intro">把讨论整理清楚，让下一步有据可循。</p><span class="model">MiniMax M3</span></header>
+  <main>
+    <section id="login-view" class="card login" aria-labelledby="login-title">
+      <h2 id="login-title">进入本次会议助手</h2><p>请输入本次启动时提供的访问口令。</p>
+      <form id="login-form"><label for="password">访问口令</label><input id="password" type="password" autocomplete="off" required><button type="submit">进入</button></form>
+      <p id="login-error" role="alert"></p>
+    </section>
+    <section id="app-view" class="workspace" hidden>
+      <aside class="card"><h2>我的会议</h2><label for="meeting-select">当前会议</label><select id="meeting-select"></select><button id="new-meeting" class="secondary" type="button">新会议</button><p class="muted">每个会议独立保存。切换或刷新不会重新发送材料。</p><button id="stop" class="quiet" type="button">停止本次服务</button></aside>
+      <section class="card conversation" aria-label="会议内容">
+        <p id="state" class="state" role="status" aria-live="polite">等待本次发送批准</p>
+        <div id="messages" class="messages" role="log" aria-live="polite" aria-label="对话记录"></div>
+        <form id="composer"><label for="material">会议材料</label><textarea id="material" rows="7" aria-describedby="input-help" placeholder="粘贴会议文字，或补充、更正已有信息…"></textarea><div class="compose-footer"><p id="input-help" class="muted">最多8,000个字符，不会截断材料。</p><button id="send" type="submit" disabled>发送材料</button></div></form>
+      </section>
+    </section>
+  </main>
+  <footer>只依据会议材料整理；未提供的信息保留为“未说明”。</footer>
+</body></html>

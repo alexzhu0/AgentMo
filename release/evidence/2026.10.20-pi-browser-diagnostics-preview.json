@@ -1,0 +1,174 @@
+{
+  "schemaVersion": "agentmo.pi-browser-diagnostics-preview.v1",
+  "observedAt": "2026-10-20T06:39:07.735Z",
+  "status": "offline-repaired-preview-pending-approval",
+  "previousFailure": {
+    "path": "release/evidence/2026.10.20-pi-readonly-activation-failure.json",
+    "digest": "sha256:1c0311541b2644493e3e50cee43194c8305cfb0898ff312de90dd9eb6603352b"
+  },
+  "diagnosis": {
+    "offlineFailure": "navigate-networkidle timeout",
+    "pageReadyState": "complete",
+    "loginVisible": true,
+    "firstSessionsResponse": 401,
+    "assetsFinished": true,
+    "sessions401FinishedEventObserved": false,
+    "scope": "Installed Chrome with all page requests intercepted into the actual in-memory handler; no listener, Pi runtime or real SDK.",
+    "historicalAttribution": "Supported inference, not confirmed: the original run saved only browser/CONTROL_CHECK_FAILED.",
+    "fix": "Use domcontentloaded plus explicit response, visible-state and restored-selection assertions; preserve server authentication and security headers."
+  },
+  "changes": {
+    "productSourceChanged": false,
+    "frozenProductFiles": 374,
+    "installedFilesChanged": false,
+    "newControlFilesBound": 4,
+    "durableBrowserStepStates": true,
+    "errorCategories": [
+      "timeout",
+      "assertion",
+      "cancelled",
+      "other"
+    ],
+    "maxBrowserEvents": 128,
+    "eventFields": "route class / method / HTTP status / fixed event category only",
+    "rawMessageStackHeadersBodiesRecorded": false,
+    "diagnosticWriteCannotBlockOwnedCleanup": true,
+    "observedMeetingCountPreservedOnLaterFailure": true
+  },
+  "verification": {
+    "offlineBrowserStages": 12,
+    "offlineBrowserPassed": true,
+    "diagnosticRegressionsPassed": 4,
+    "diagnosticRegressionsFailed": 0,
+    "exactControllerPreflightPassed": true,
+    "sdkImported": false,
+    "realActivation": false,
+    "realModelCalls": 0,
+    "newRealReservations": 0,
+    "browserPluginAvailable": false,
+    "browserFallback": "existing Chrome and bundled Playwright",
+    "completeBackgroundNetworkAudit": false,
+    "fullSuiteRepeated": false,
+    "reason": "Frozen product source unchanged; targeted control and browser regressions executed.",
+    "independentReview": {
+      "scope": "This offline repair and new preview only",
+      "critical": 0,
+      "important": 0,
+      "minor": 0
+    },
+    "docConsumerTestsPassed": 6
+  },
+  "newPreview": {
+    "proposalDigest": "sha256:0df43a1eb0c59cca78fc6382a03850f26fc8b3ee2bb31ca37878da577309b6b5",
+    "activationPlanDigest": "sha256:c3182c43231b2ace5c698b0d29a210762970bf4a7f2032b75baaf43bf1ee1892",
+    "previewPath": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-diagnostics-2026-10-20-r1/activation-preview/ACTIVATION_PREVIEW.md",
+    "controlBindings": {
+      "worker": {
+        "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-diagnostics-2026-10-20-r1/run-approved-readonly.mjs",
+        "digest": "sha256:92a34c5b2cc919258a268e390116cae2eb7c7145f001e09136d31e0483bd7de0"
+      },
+      "supervisor": {
+        "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-diagnostics-2026-10-20-r1/supervise-approved-readonly.mjs",
+        "digest": "sha256:53ea22498f65cef60ee5f699a7fc3603eb76b2234901e1595f1f767784920b7d"
+      },
+      "browserFlow": {
+        "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-diagnostics-2026-10-20-r1/browser-flow.mjs",
+        "digest": "sha256:2d803ae9fb8d9846e5ab35f7ed11f8e77edabd66d1dfeedc0b7e804c50d17626"
+      },
+      "preservationCheck": {
+        "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-diagnostics-2026-10-20-r1/check-preserved.mjs",
+        "digest": "sha256:6e36d73dda63141551580f9780c3c1839dd987525d542a1ce24a76c055734998"
+      }
+    },
+    "requestedDecisionCount": 4,
+    "approvedCases": [],
+    "restartAllowance": 0,
+    "ports": [
+      19492,
+      19493
+    ],
+    "maximumEmptyMeetings": 2,
+    "idleMs": 60000,
+    "batchMaxMs": 1200000,
+    "cleanupMaxMs": 300000,
+    "executeApproved": false,
+    "operationRootAbsent": true,
+    "baseline": {
+      "consumptionRecords": 3,
+      "decisionCount": 8,
+      "currentInstalledEntries": 18,
+      "priorActivationFilesPresent": true,
+      "digest": "sha256:7d4d251fbe5c3ea6f785342675673b35b04313ba38a5b24825c3d4920d9e18bd"
+    }
+  },
+  "preservation": {
+    "budget": {
+      "projectReservations": 26,
+      "totalReservedFen": 4774,
+      "remainingFen": 5226,
+      "capFen": 10000
+    },
+    "authorityJournalDigest": "sha256:4ea6ba00e94e954b1caf7ae7515c890c6a6556bf34a1a2c2c3348bccffec90d9",
+    "consumptionRecords": 3,
+    "decisionCount": 8,
+    "oldInstalledEntriesUnchanged": 14,
+    "protectedArtifactsUnchanged": 12,
+    "syntheticMetadataEntriesUnchanged": 210,
+    "sourceFilesUnchanged": 374,
+    "targetDescriptorUnchanged": true,
+    "previousFailureReportBytesPreserved": true,
+    "providerKeysRead": false,
+    "originalBudgetReset": false
+  },
+  "reports": [
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-diagnostics-2026-10-20-r1/offline-handler-detailed-result.json",
+      "digest": "sha256:2e0f2e03cc3b84f21810744633a62dbff978ad856289226d82c1e682ccc8d3b5"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-diagnostics-2026-10-20-r1/offline-networkidle-state-result.json",
+      "digest": "sha256:a20f5edf37c487ab333a9ebe7399d8ebe2a0a96a94af204122b91bca708c0f2b"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-diagnostics-2026-10-20-r1/offline-shared-flow-final-result.json",
+      "digest": "sha256:105ba603bf16b01b519dc597b2dc36647f1de6966daf860712f61fd5921c3972"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-diagnostics-2026-10-20-r1/diagnostics-tests.tap",
+      "digest": "sha256:6f5bc144fa994be6641e278d5edbc06b668fc9ff7e9b971d54df20f5840e7000"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-diagnostics-2026-10-20-r1/preservation-final.json",
+      "digest": "sha256:c1e5ebf7c6847e472b7a517fe18ce9a8ea4a151ddf6e7552ce675530df7cfda2"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-diagnostics-2026-10-20-r1/controller-preflight-final.json",
+      "digest": "sha256:ef6e54412b66ea5de48ad4260b7ccd27f575a7145547966306f4db952f89b2e3"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-diagnostics-2026-10-20-r1/baseline-correction.json",
+      "digest": "sha256:fa295c3e533dc8bf7f9c91b2a67ce62b3afb7ddfd08fee36022310061bd24e2f"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-diagnostics-2026-10-20-r1/independent-repair-review.json",
+      "digest": "sha256:79d61de48ac2cf243ce1c3a083d402af9ac56dceb7dc135a69cb7427d72c0683"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-diagnostics-2026-10-20-r1/doc-consumers.tap",
+      "digest": "sha256:6919dbaa70ffa9e2a22bfae6d96bdafb972b11633d8b66c1c4039d5fcf522627"
+    }
+  ],
+  "boundaries": {
+    "providerApiConfigured": "https://api.minimax.cn/v1/chat/completions",
+    "model": "MiniMax-M3",
+    "providerApiCalled": false,
+    "envFileRead": false,
+    "formalSourceGaps": 11,
+    "legacySourceGaps": 15,
+    "realPiAcceptancePending": 19,
+    "wholeDeliveryReviewComplete": false,
+    "domainCertified": false,
+    "commit": false,
+    "push": false
+  }
+}

@@ -14,10 +14,10 @@ import {
 
 const REPOSITORY_ROOT = fileURLToPath(new URL("../", import.meta.url));
 const THIS_FILE = fileURLToPath(import.meta.url);
-const NODE20_RECEIPT_RELATIVE_PATH = "release/evidence/2026.10.14-node20-native-minimax-source-receipt.json";
+const NODE20_RECEIPT_RELATIVE_PATH = "release/evidence/2026.10.23-node20-pi-child-startup-repair-core-receipt.json";
 const NODE20_RECEIPT = path.join(REPOSITORY_ROOT, NODE20_RECEIPT_RELATIVE_PATH);
 const RUNTIME_COMPATIBILITY_DOCUMENT = path.join(REPOSITORY_ROOT, "docs/RUNTIME_COMPATIBILITY.md");
-const RELEASE_RECORD = path.join(REPOSITORY_ROOT, "release/2026.10.14.md");
+const RELEASE_RECORD = path.join(REPOSITORY_ROOT, "release/2026.10.23.md");
 const HISTORICAL_RELEASE_RECORD = path.join(REPOSITORY_ROOT, "release/2026.08.28.md");
 const RELEASE_INDEX = path.join(REPOSITORY_ROOT, "release/README.md");
 const MAINTAINED_RUNTIME_ENV_FLAG_FILES = Object.freeze([
@@ -28,9 +28,9 @@ const MAINTAINED_RUNTIME_ENV_FLAG_FILES = Object.freeze([
 const NODE20_ARCHIVE_SHA256 = "466e05f3477c20dfb723054dfebffe55bc74660ee77f612166fca121dacb65b6";
 const NODE20_CHECKSUM_MANIFEST_SHA256 = "c6f74825d6ddf350ef06600c67fec6ea2f7996cf438a78c3cb2a89b29d4320ed";
 const NODE20_EXECUTABLE_SHA256 = "38de4fc456c0c439bac48c727d378f749abb4e31f4116703bb1ee9a746fccbb6";
-const NODE20_RECEIPT_SHA256 = "d91fd522afd42df480d304770aa8b77174b6a0ec33c7627438a23f1b5d92b729";
-const NODE20_COMMAND_SET_SHA256 = "c0b23d407db45a6aada4c8b80275a2c865ade90ed91187d8c0e48eec9b3ee1df";
-const NODE20_OBSERVED_AT = "2026-10-14T07:58:04.287Z";
+const NODE20_RECEIPT_SHA256 = "9a5cd347085823b755256375b0eaa0d771e39ebec099517109681f08ab49d378";
+const NODE20_COMMAND_SET_SHA256 = "1998121186b2f922c0d0c352fd13caea58e668e3271133de97fc5a0ced71f003";
+const NODE20_OBSERVED_AT = "2026-10-23T09:06:32.141Z";
 const NODE20_COMMAND = '"$NODE20_BIN" scripts/node20-core-receipt.js --repository-root "$REPOSITORY_ROOT" --node-bin "$NODE20_BIN" --archive "$NODE20_ARCHIVE" --checksums "$NODE20_CHECKSUMS" --expected-version 20.20.2 --expected-arch arm64 --receipt "$NODE20_RECEIPT"';
 const BOUNDARY_COMMAND = "node --test test/runtime-compatibility.test.js test/runtime-compatibility-seams.test.js test/runtime-evidence-consumers.test.js test/cli.test.js test/live-smoke-script.test.js test/command-docs.test.js test/node20-core-runner.test.js test/node20-core-lane.test.js test/artifact-surface-coverage.test.js && bash -n scripts/node20-core-lane.sh scripts/openclaw-live-smoke.sh";
 const BOUNDARY_EVIDENCE_REF = "test/runtime-compatibility.test.js; test/runtime-compatibility-seams.test.js; test/runtime-evidence-consumers.test.js; test/cli.test.js; test/live-smoke-script.test.js; test/command-docs.test.js; test/node20-core-runner.test.js; test/node20-core-lane.test.js; test/artifact-surface-coverage.test.js; scripts/node20-core-lane.sh#bash-n; scripts/openclaw-live-smoke.sh#bash-n";
@@ -66,7 +66,7 @@ if (verifyIndex !== -1) {
     it("keeps consumers outside the producer command manifest with exact producer counts", () => {
       const core = OWNED_COMMAND_MANIFEST.find((batch) => batch.id === "core-contracts");
       assert.notEqual(core, undefined);
-      assert.deepEqual(core.expected, { pass: 90, skip: 7, fail: 0, total: 97 });
+      assert.deepEqual(core.expected, { pass: 110, skip: 7, fail: 0, total: 117 });
       assert.equal(core.files.includes("test/runtime-compatibility-seams.test.js"), true);
       assert.equal(core.files.includes("test/design-plan.test.js"), true);
       assert.equal(core.files.includes("test/native-chat-acceptance.test.js"), true);
@@ -181,7 +181,7 @@ async function verifyPublishedEvidence(receiptPath) {
     "certificationBoundary",
   ]);
   assert.equal(matrix.schemaVersion, "agentmo.runtime-compatibility-matrix.v1");
-  assert.equal(matrix.observedAt, "2026-10-14");
+  assert.equal(matrix.observedAt, "2026-10-23");
   assert.deepEqual(matrix.evidenceClasses, RELEASE_EVIDENCE_CLASSES);
   assert.deepEqual(matrix.statuses, RELEASE_STATUSES);
 
@@ -193,6 +193,8 @@ async function verifyPublishedEvidence(receiptPath) {
     "current-host-core-execution",
     "node20-core-execution",
     "openclaw-target-live-execution",
+    "pi-sdk-declaration",
+    "pi-target-sdk-execution",
   ];
   assert.deepEqual(matrix.rows.map((row) => row.id), expectedRowIds);
   for (const row of matrix.rows) {
@@ -227,6 +229,8 @@ async function verifyPublishedEvidence(receiptPath) {
       { id: "current-host-core-execution", evidenceClass: "core-executed", status: "tested" },
       { id: "node20-core-execution", evidenceClass: "core-executed", status: "tested" },
       { id: "openclaw-target-live-execution", evidenceClass: "target-executed", status: "untested" },
+      { id: "pi-sdk-declaration", evidenceClass: "upstream-declared", status: "untested" },
+      { id: "pi-target-sdk-execution", evidenceClass: "target-executed", status: "untested" },
     ],
   );
   assert.equal(byId.get("agentmo-core-declaration").range, ">=20");

@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,realpath,mkdir,readFile,writeFile,rm,readdir,chmod} from 'node:fs/promises';
-import {spawnSync} from 'node:child_process';
+import childProcess,{spawnSync} from 'node:child_process';
+import {syncBuiltinESMExports} from 'node:module';
 import {createHash} from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
@@ -15,6 +16,7 @@ const nativeFixture=String.raw`#!/usr/bin/env node
 const fs=require('node:fs'),path=require('node:path');
 const args=process.argv.slice(2),root=process.cwd();
 const control=JSON.parse(fs.readFileSync(path.join(path.dirname(process.argv[1]),'control.json'),'utf8'));
+if(args[1]==='search'&&control.startupSearchMs)Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,control.startupSearchMs);
 if(control.fail===args[1])process.exit(2);
 let output={};fs.mkdirSync(path.join(root,'vault'),{recursive:true});const store=path.join(root,'vault','fixture-pages.json');
 const pages=fs.existsSync(store)?JSON.parse(fs.readFileSync(store,'utf8')):{};
@@ -415,16 +417,25 @@ test('selected-corpus stage metadata stays request-local across a concurrent sha
   assert.equal((await f.summary()).consumedRequests,3);
 });
 
-test('selected-corpus native search stops at the shared deadline after a near-deadline route',async t=>{
+for(const startupSearchMs of [0,250])test(`selected-corpus native search stops at the shared deadline with ${startupSearchMs}ms child startup`,async t=>{
   const f=await fixture(t),documents=await Promise.all([0,1,2].map(index=>document(`Lesson ${index}.\n`+'word '.repeat(1100),`deadline-${index}.txt`)));
   let answering=false,routeCalls=0,fakeNow=Date.now();const delays=[];const originalTimeout=AbortSignal.timeout;
   const calls=provider(t,input=>{if(!answering)return topic(input);routeCalls++;fakeNow+=119_900;return {kind:'search',query:'lesson'};});
   const staged=await runtime.stageCourseCorpus({...f,documents});await runtime.activateCourseCorpus({...f,generationId:staged.generationId,consent:consent(staged)});answering=true;
-  await f.control({delaySearchMs:2000});t.mock.method(Date,'now',()=>fakeNow);
+  await f.control({delaySearchMs:2000,startupSearchMs});t.mock.method(Date,'now',()=>fakeNow);
+  const spawn=childProcess.spawn,searchExits=[];
+  const observed=t.mock.method(childProcess,'spawn',(...args)=>{
+    const child=spawn(...args);
+    if(args[1][0]==='wiki'&&args[1][1]==='search')searchExits.push(new Promise(resolve=>child.once('close',(code,signal)=>resolve({code,signal}))));
+    return child;
+  });
+  syncBuiltinESMExports();t.after(()=>{observed.mock.restore();syncBuiltinESMExports();});
   t.mock.method(AbortSignal,'timeout',milliseconds=>{delays.push(milliseconds);assert.ok(Number.isInteger(milliseconds)&&milliseconds>0);return originalTimeout(milliseconds);});
   const startedAt=performance.now();let failure;
   try{await runtime.runCourseGatewayRequest({...f,request:await request(f.root,'Lesson 0 内容')});}catch(error){failure=error;}
-  assert.equal(await readFile(path.join(f.base,'search-started'),'utf8'),'started');
+  assert.equal(searchExits.length,1);assert.deepEqual(await searchExits[0],{code:null,signal:'SIGKILL'});
+  // The shared deadline may expire before the child can publish its first marker.
+  if(startupSearchMs)await assert.rejects(readFile(path.join(f.base,'search-started'),'utf8'),{code:'ENOENT'});
   const searchFinished=await readFile(path.join(f.base,'search-finished'),'utf8').catch(error=>error.code==='ENOENT'?null:Promise.reject(error));
   assert.equal(searchFinished,null,'the native search must be killed before its delayed completion');
   assert.ok(performance.now()-startedAt<1500);

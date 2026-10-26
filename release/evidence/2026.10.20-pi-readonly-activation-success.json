@@ -1,0 +1,195 @@
+{
+  "schemaVersion": "agentmo.pi-readonly-activation-success.v1",
+  "observedAt": "2026-10-20T07:32:53.427Z",
+  "status": "passed-readonly-stopped",
+  "proposalDigest": "sha256:0df43a1eb0c59cca78fc6382a03850f26fc8b3ee2bb31ca37878da577309b6b5",
+  "activationPlanDigest": "sha256:c3182c43231b2ace5c698b0d29a210762970bf4a7f2032b75baaf43bf1ee1892",
+  "sourceSnapshotDigest": "sha256:47292897e142fa99dc05c3758d11c9190e9aa5a2c0501c87215a00352aa8a463",
+  "execution": {
+    "attempts": 1,
+    "actualSdkImported": true,
+    "sdkVersion": "1.2.0",
+    "durationMs": 95255,
+    "approvedModelCases": [],
+    "restartAllowance": 0,
+    "runtimeEnvFileOmitted": true,
+    "providerKeyRead": false,
+    "modelRequests": 0,
+    "newRealReservations": 0
+  },
+  "browser": {
+    "stepsPassed": 14,
+    "emptyMeetingCount": 2,
+    "unauthenticatedStatus": 401,
+    "loginStatus": 200,
+    "refreshPreservedSelection": true,
+    "sendDisabled": true,
+    "materialEmpty": true,
+    "messagesEmpty": true,
+    "pageErrors": 0,
+    "consoleErrors": 0,
+    "unexpectedRequests": 0,
+    "idleObservedMs": 60051,
+    "before": {
+      "turns": 0,
+      "modelRequestClaims": 0,
+      "budget": {
+        "projectReservations": 26,
+        "totalReservedFen": 4774,
+        "remainingFen": 5226,
+        "capFen": 10000
+      }
+    },
+    "after": {
+      "turns": 0,
+      "modelRequestClaims": 0,
+      "budget": {
+        "projectReservations": 26,
+        "totalReservedFen": 4774,
+        "remainingFen": 5226,
+        "capFen": 10000
+      }
+    },
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "screenshotVisuallyChecked": true,
+    "pluginAvailable": false,
+    "driver": "existing Chrome and bundled Playwright"
+  },
+  "cleanup": {
+    "authenticatedStopAttempts": 1,
+    "authenticatedStopExitCode": 0,
+    "ownChildExited": true,
+    "ownedGroupsGone": true,
+    "observedOwnedProcessGroups": 2,
+    "discoveryErrors": 0,
+    "signalErrors": 0,
+    "termSent": false,
+    "killSent": false,
+    "rootKillSent": false,
+    "ports": [
+      {
+        "port": 19492,
+        "released": true
+      },
+      {
+        "port": 19493,
+        "released": true
+      }
+    ],
+    "cleanupMs": 6132
+  },
+  "authority": {
+    "addedConsumptionRecords": 1,
+    "addedDecisions": 4,
+    "totalConsumptionRecords": 4,
+    "totalDecisions": 12,
+    "priorJournalPrefixPreserved": true,
+    "currentJournalDigest": "sha256:75eeaead838c758f6a2761d71e5504b644b15c63f5c80b8e9615deccb91c0161",
+    "approvedPlanConsumed": true,
+    "replayAllowed": false
+  },
+  "budget": {
+    "projectReservations": 26,
+    "totalReservedFen": 4774,
+    "remainingFen": 5226,
+    "capFen": 10000
+  },
+  "preservation": {
+    "priorFailureReportsUnchanged": 16,
+    "priorPublicFailureDigest": "sha256:1c0311541b2644493e3e50cee43194c8305cfb0898ff312de90dd9eb6603352b",
+    "oldR1EntriesUnchanged": 14,
+    "priorR2EntriesRetained": 18,
+    "currentR2Entries": 26,
+    "addedAttemptFiles": 4,
+    "addedEmptySessionDirectories": 2,
+    "addedRegistrationFiles": 2,
+    "sourceFilesUnchanged": 374,
+    "protectedArtifactsUnchanged": 12,
+    "syntheticMetadataEntriesUnchanged": 210,
+    "sourceControlsUnchanged": true,
+    "targetDescriptorUnchanged": true
+  },
+  "reports": [
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-diagnostics-2026-10-20-r1/activation-operation/reports/preflight.json",
+      "digest": "sha256:1ad3ce5f36e499162fe390e4495fca86cc6c3a34b4a15c112abc5bc50303169d"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-diagnostics-2026-10-20-r1/activation-operation/reports/entry.json",
+      "digest": "sha256:62d8354ff1776b94bdc6be310f9bda90aa407e1f37754449a7c1937e329758c3"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-diagnostics-2026-10-20-r1/activation-operation/reports/browser-steps.jsonl",
+      "digest": "sha256:2fab15276bfaffe0b97f3d99360d14fd06911b70163a29d5048cc98942c11b72"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-diagnostics-2026-10-20-r1/activation-operation/reports/browser-checks.json",
+      "digest": "sha256:d2da76ad984bf64031461c798a12550162b7f6488d36c09a02b2a97be0424f25"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-diagnostics-2026-10-20-r1/activation-operation/reports/browser-diagnostics.json",
+      "digest": "sha256:db1bd4ceadc7df4022a8e835700a52f898bf34ff4df9f44010e5ba417cd0814e"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-diagnostics-2026-10-20-r1/activation-operation/reports/idle.json",
+      "digest": "sha256:c84eb6378932c89063cdd54d028a212bcd0a31b1a0b757b41a27822ceed03566"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-diagnostics-2026-10-20-r1/activation-operation/reports/pi-native-stop-status.json",
+      "digest": "sha256:1ffa3ec861c36a82770e9106bb37f0222dbb005ede3442c0f9b401b017bc3746"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-diagnostics-2026-10-20-r1/activation-operation/reports/pi-native-stop-result.json",
+      "digest": "sha256:40e3727f1d4ada39b735d98a033139235799d58c12641e4adc800e2076ef99fb"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-diagnostics-2026-10-20-r1/activation-operation/reports/serve-status.json",
+      "digest": "sha256:1a72db6b82d5d285a7e8eb4d7ed25261b242075ed0cd74aea2f94ed62cc7f421"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-diagnostics-2026-10-20-r1/activation-operation/reports/post-activation-baseline.json",
+      "digest": "sha256:3cc6406c23d96fedd118792452ae4e0e642af6bd101c2286393e6fbf6334845d"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-diagnostics-2026-10-20-r1/activation-operation/reports/completion.json",
+      "digest": "sha256:b1cbf08cc61e8147546f5fee1ac1021d714586fc2ba2ab2f65d0eee0f83a2dc8"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-diagnostics-2026-10-20-r1/activation-operation/reports/supervisor.json",
+      "digest": "sha256:1e4f5ca93d97983a923bd8676be20aa98aaaea523bc2c5bd2dfb27a3d8b06a23"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-diagnostics-2026-10-20-r1/activation-operation/reports/post-run-verification.json",
+      "digest": "sha256:2668ca115186567317a69ce59c610a933357d850cdb47d496676325d17d9388a"
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-diagnostics-2026-10-20-r1/activation-operation/reports/readonly-browser.png",
+      "digest": "sha256:dd3c1707695d814111962e2a8ae512e1a0675c2ec8641c673ae10a096c8692a4"
+    }
+  ],
+  "approvalRecord": {
+    "path": ".superpowers/sdd/2026-10-16-pi-browser-agent/pi-browser-diagnostics-2026-10-20-r1/human-approval-2026-10-20-r1.json",
+    "digest": "sha256:c962919baa658704d35cdbfaa745e4717c89061420afc1c4185e8f4280a9c9cc"
+  },
+  "boundaries": {
+    "noProviderKeysRead": true,
+    "noEnvFileRead": true,
+    "realModelAcceptancePerformed": false,
+    "realPiAcceptanceCasesPending": 19,
+    "formalPlanSourceGaps": 11,
+    "legacySourceGaps": 15,
+    "oldM3Provider502CauseUnresolved": true,
+    "originalBrowserFailureCause": "Supported inference only; the original coarse report cannot prove exact historical attribution.",
+    "networkObservation": "Page routing and startup plus durable budget/turn/request-claim state; not a complete independent background network audit.",
+    "supervisorBoundary": "Controlled signals and supervisor escalation; arbitrary external abrupt death before independent-group registration is not certified.",
+    "domainCertified": false,
+    "wholeDeliveryReviewComplete": false,
+    "fullSuiteRepeated": false,
+    "productSourceChangedThisRun": false,
+    "commit": false,
+    "push": false
+  }
+}

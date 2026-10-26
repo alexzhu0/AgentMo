@@ -88,7 +88,7 @@ export function analyzeJavaScriptSource(source, options = {}) {
     : "fixture.js";
   const tokens = tokenizeJavaScript(source);
   const pairs = buildDelimiterPairs(tokens);
-  const imports = analyzeModuleSyntax(tokens, pairs);
+  const imports = analyzeModuleSyntax(tokens, pairs, file);
   const declarations = analyzeDeclarations(tokens, pairs, imports.bindings);
   if (options.includeProcessEffects === true) {
     assertProcessGlobalIsUnshadowed(tokens, pairs, imports.bindings);
@@ -126,7 +126,7 @@ export function inventoryChildProcessCallSites(source, options = {}) {
     : "fixture.js";
   const tokens = tokenizeJavaScript(source);
   const pairs = buildDelimiterPairs(tokens);
-  const imports = analyzeModuleSyntax(tokens, pairs);
+  const imports = analyzeModuleSyntax(tokens, pairs, file);
   const childProcessNamespaces = new Set();
   const childProcessNamed = new Map();
   let childProcessImportCount = 0;
@@ -243,7 +243,7 @@ function assertParameterListDoesNotBindProcess(tokens, startIndex, endIndex) {
   }
 }
 
-function analyzeModuleSyntax(tokens, pairs) {
+function analyzeModuleSyntax(tokens, pairs, file) {
   const loaders = [];
   const bindings = new Map();
   const bindingTokenIndexes = new Set();
@@ -254,7 +254,7 @@ function analyzeModuleSyntax(tokens, pairs) {
     const previous = tokens[index - 1];
     if (previous?.type === "punctuator" && [".", "?."].includes(previous.value)) continue;
     if (token.value === "import") {
-      const parsed = parseImport(tokens, pairs, index);
+      const parsed = parseImport(tokens, pairs, index, file);
       syntaxTokenIndexes.add(index);
       for (let cursor = index; cursor <= parsed.endIndex; cursor += 1) syntaxTokenIndexes.add(cursor);
       if (parsed.kind !== "meta") {
@@ -281,7 +281,7 @@ function analyzeModuleSyntax(tokens, pairs) {
   return { loaders, bindings, bindingTokenIndexes, syntaxTokenIndexes };
 }
 
-function parseImport(tokens, pairs, index) {
+function parseImport(tokens, pairs, index, file) {
   const next = tokens[index + 1];
   if (next?.type === "punctuator" && next.value === ".") {
     if (tokens[index + 2]?.type !== "identifier" || tokens[index + 2].value !== "meta") reject();
@@ -290,6 +290,12 @@ function parseImport(tokens, pairs, index) {
   if (next?.type === "punctuator" && next.value === "(") {
     const closeIndex = pairs.forward.get(index + 1);
     if (closeIndex === undefined) reject();
+    const expression = ["pathToFileURL", "(", "path", ".", "join", "(", "targetPaths", ".", "sdkRoot", ",", "node_modules", ",", "PI_SDK_NAME", ",", "dist/index.js", ")", ")", ".", "href"];
+    const actual = tokens.slice(index + 2, closeIndex);
+    if (file === "src/pi-sdk.js" && actual.length === expression.length
+      && actual.every((token, i) => token.value === expression[i] && !token.escaped)) {
+      return { kind: "pi-sdk-import", specifier: "@earendil-works/pi-coding-agent", bindings: [], endIndex: closeIndex };
+    }
     const specifier = singlePlainStringArgument(tokens, index + 1, closeIndex);
     return { kind: "dynamic-import", specifier, bindings: [], endIndex: closeIndex };
   }

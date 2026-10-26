@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "agentmo.publication-map.v1",
+  "observedOn": "2026-10-26",
+  "scope": "Publish safe projections while retaining original failure evidence and historical bindings",
+  "entries": [
+    {
+      "originalPath": "release/evidence/2026.10.22-pi-m3-paid-preview.json",
+      "publicPath": "release/evidence/2026.10.22-pi-m3-paid-preview-public.json",
+      "originalDigest": "sha256:898c93ee24f5ae3d36c72b1e1be50334c4bfef7352d7b67cce06b0e6657fce92",
+      "publicDigest": "sha256:4a5235d1f725e766bcccf2bf207ca83ad33a1b2f455d05196507c56507e07bfb",
+      "hostPathFieldsRemoved": 11
+    },
+    {
+      "originalPath": "release/evidence/2026.10.22-pi-m3-paid-startup-failure.json",
+      "publicPath": "release/evidence/2026.10.22-pi-m3-paid-startup-failure-public.json",
+      "originalDigest": "sha256:e9c1577e09125d1fb2d875fdcc80846aad81f824814daac52cfe6f7243cd52b2",
+      "publicDigest": "sha256:f23d8adc4b634050dd5226b3d7611020b79f251d9a77df9959fada489690efbd",
+      "hostPathFieldsRemoved": 15
+    },
+    {
+      "originalPath": "release/evidence/2026.10.23-pi-m3-browser-launch-failure.json",
+      "publicPath": "release/evidence/2026.10.23-pi-m3-browser-launch-failure-public.json",
+      "originalDigest": "sha256:a6e7fadf46be53d006d8463b8dbaa19bdd78bdcbed7ba589aff5069ea1ebf565",
+      "publicDigest": "sha256:67574bddce8c6affcffb612ea85cbd79c21cf36b7b6f04e28016c10b3cc9d3c9",
+      "hostPathFieldsRemoved": 19
+    },
+    {
+      "originalPath": "release/evidence/2026.10.23-pi-m3-execution-review.json",
+      "publicPath": "release/evidence/2026.10.23-pi-m3-execution-review-public.json",
+      "originalDigest": "sha256:9e5c7e4ab59534438776e8fe52a55cece1d3b5ea351ee0b838e69fbdb0a7f1f4",
+      "publicDigest": "sha256:9d7d874a233164d05038515b47c7530753da5e1b3bcbc1f950f1ffdbe0d82385",
+      "hostPathFieldsRemoved": 6
+    }
+  ],
+  "approvalOrRuntimeAuthority": false,
+  "modelRequests": 0,
+  "newReservations": 0
+}

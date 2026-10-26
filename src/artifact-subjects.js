@@ -80,7 +80,15 @@ const MAX_MIGRATION_INPUTS = 10_000;
 const SHELL_FILE_EXPRESSION_PATTERN = /^[A-Za-z0-9_./:${}<>@+-]+$/u;
 const EXACT_FILE_DIGEST_NODE_SOURCE = 'const fs=require("node:fs");const crypto=require("node:crypto");fs.writeSync(1,"sha256:"+crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex"));';
 
+const PI_PACKAGE_SOURCE_SUBJECTS = Object.freeze(["blueprint", "build-contract", "plan-approval", "pi-target-descriptor", "pi-target-carrier-admission", "package-archive"]);
 export const DURABLE_COMMAND_SUBJECTS = Object.freeze({
+  "pi-target-describe": Object.freeze([]),
+  "pi-target-admit": Object.freeze(["blueprint", "build-contract", "plan-approval", "pi-target-descriptor"]),
+  "pi-install-preview": Object.freeze([...PI_PACKAGE_SOURCE_SUBJECTS, "native-authority-binding"]),
+  "pi-install-approve": Object.freeze(["pi-install-plan"]),
+  "pi-install-apply": Object.freeze([...PI_PACKAGE_SOURCE_SUBJECTS, "pi-install-plan", "pi-install-approval", "pi-conflict-approval"]),
+  "pi-native-serve": Object.freeze([...PI_PACKAGE_SOURCE_SUBJECTS, "pi-installed-plan", "pi-install-receipt", "pi-install-plan", "pi-install-approval", "pi-conflict-approval", "pi-sensitive-action-decision-1", "pi-sensitive-action-decision-2"]),
+  "pi-native-stop": Object.freeze(["pi-install-plan"]),
   "discover-report": DISCOVERY_MANIFEST_SUBJECTS,
   "discover-pack": DISCOVERY_MANIFEST_SUBJECTS,
   "discover-live": DISCOVERY_MANIFEST_SUBJECTS,
@@ -128,6 +136,21 @@ export const OPTIONAL_DURABLE_COMMAND_SUBJECTS = Object.freeze({
 });
 
 export function subjectsForCommand(command, options = {}) {
+  if(command === "delivery-report" && options.target === "pi") return Object.freeze(["blueprint","package-manifest","pi-install-plan","pi-install-receipt",...(options.includeOptionalSubjects?.includes("pi-native-chat-acceptance")?["pi-native-chat-acceptance"]:[])]);
+  if (command === "pi-install-preview" && options.lifecycle === "activate") {
+    const included = options.includeOptionalSubjects ?? [];
+    if (!Array.isArray(included) || included.length > 1 || included.some(s => s !== "pi-approved-cases")) return unsupported();
+    return Object.freeze([...PI_PACKAGE_SOURCE_SUBJECTS, "pi-installed-plan", "pi-install-receipt", "native-authority-binding", ...included]);
+  }
+  if (command === "pi-native-serve") {
+    const count = options.sensitiveDecisionCount ?? 2;
+    if (![2, 3].includes(count)) return unsupported();
+    return count === 2 ? DURABLE_COMMAND_SUBJECTS[command] : Object.freeze([...DURABLE_COMMAND_SUBJECTS[command], "pi-sensitive-action-decision-3"]);
+  }
+  if (["build-contract", "package-produce"].includes(command) && options.target === "pi") {
+    if ((options.includeOptionalSubjects ?? []).length) return unsupported();
+    return Object.freeze(DURABLE_COMMAND_SUBJECTS[command].map(subject => subject.replace(/^openclaw-target-/u, "pi-target-")));
+  }
   if (command === "openclaw-install-apply") {
     const lifecycle = options.lifecycle;
     const sensitiveActionCount = options.sensitiveActionCount;
@@ -209,6 +232,7 @@ export function renderDigestBindings(command, subjectToFileExpression) {
   const resolverOptions = command === "migrate"
     ? { inputCount: providedSubjects.length }
     : {
+        ...(providedSubjects.includes("pi-target-descriptor") ? { target: "pi" } : {}),
         includeOptionalSubjects: providedSubjects.filter((subject) => (
           (OPTIONAL_DURABLE_COMMAND_SUBJECTS[command] ?? []).includes(subject)
         )),

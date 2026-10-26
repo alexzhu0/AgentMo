@@ -1,4 +1,5 @@
 import path from "node:path";
+import { PI_TARGET_DESCRIPTOR_SCHEMA_VERSION, validatePiTargetDescriptor } from "./pi-target-descriptor.js";
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { OPENCLAW_RESOURCE_KINDS } from "./package-contract.js";
@@ -49,6 +50,7 @@ const PROJECTION_DISPOSITIONS = new Set([
 const CONTRACT_KEYS = Object.freeze([
   "schemaVersion",
   "execution_profile",
+  "native_runtime",
   "agentId",
   "status",
   "targetDescriptor",
@@ -65,7 +67,7 @@ const CONTRACT_KEYS = Object.freeze([
   "certificationBoundary",
 ]);
 const REQUIRED_CONTRACT_KEYS = Object.freeze(
-  CONTRACT_KEYS.filter((key) => !["execution_profile", "targetDescriptor", "nativePluginRecipe"].includes(key)),
+  CONTRACT_KEYS.filter((key) => !["execution_profile", "native_runtime", "targetDescriptor", "nativePluginRecipe"].includes(key)),
 );
 const NATIVE_PLUGIN_RECIPE_KEYS = Object.freeze([
   "schemaVersion",
@@ -181,7 +183,9 @@ export function buildBuildContract(
   );
   const planTrace = designPlan.traceGraph;
   if (blueprint.execution_profile !== designPlan.execution_profile
-    || blueprint.native_model_profile !== designPlan.native_model_profile) {
+    || blueprint.native_model_profile !== designPlan.native_model_profile
+    || Object.hasOwn(blueprint, "native_runtime") !== Object.hasOwn(designPlan, "native_runtime")
+    || blueprint.native_runtime !== designPlan.native_runtime) {
     throw new BuildContractError("AGENTMO_BUILD_CONTRACT_INPUT_MISMATCH");
   }
   const nativeChat = blueprint.execution_profile === "native-chat";
@@ -190,7 +194,7 @@ export function buildBuildContract(
   const decisionIds = [...planTrace.decisionIds].sort();
   const capabilityIds = [...planTrace.capabilityIds].sort();
   const evalCaseIds = [...planTrace.evalCaseIds].sort();
-  const resources = buildResources(requirementIds, sourceIds, decisionIds, nativeChat);
+  const resources = buildResources(requirementIds, sourceIds, decisionIds, nativeChat, targetRuntime.id);
   const permissions = resources.map((resource) => ({
     id: `permission:${resource.kind}`,
     resourceId: resource.id,
@@ -222,6 +226,7 @@ export function buildBuildContract(
   const contract = {
     schemaVersion: BUILD_CONTRACT_SCHEMA_VERSION,
     ...(nativeChat ? { execution_profile: "native-chat" } : {}),
+    ...(blueprint.native_runtime === "pi" ? { native_runtime: "pi" } : {}),
     agentId: designPlan.agentId,
     status: "construction-intent",
     targetDescriptor: structuredClone(targetDescriptor),
@@ -239,7 +244,8 @@ export function buildBuildContract(
     remainingRisks: [
       "All declared resources require Phase 4 materialization evidence.",
       "Domain behavior remains unverified until Phase 5 acceptance.",
-      "OpenClaw source drift must be checked before materialization.",
+      blueprint.native_runtime === "pi" ? "Pi source drift must be checked before materialization."
+        : "OpenClaw source drift must be checked before materialization.",
     ],
     certificationBoundary: { ...CERTIFICATION_BOUNDARY },
   };
@@ -260,6 +266,9 @@ export function validateBuildContract(value) {
     }
     if (value.schemaVersion !== BUILD_CONTRACT_SCHEMA_VERSION) errors.push("invalid schemaVersion.");
     const nativeChat = value.execution_profile === "native-chat";
+    const pi = value.native_runtime === "pi";
+    if (Object.hasOwn(value, "native_runtime") && (!pi || !nativeChat)
+      || pi !== (value.targetRuntime?.id === "pi")) errors.push("invalid native runtime selection.");
     if (Object.hasOwn(value, "execution_profile") && !nativeChat) errors.push("invalid execution_profile.");
     if (nativeChat && (value.nativePluginRecipe !== null || value.targetDescriptor === undefined)) {
       errors.push("native-chat requires an exact target and no plugin recipe.");
@@ -273,7 +282,7 @@ export function validateBuildContract(value) {
         value.targetRuntime,
       ).errors);
     }
-    validateBindings(value.bindings, errors);
+    validateBindings(value.bindings, errors, pi);
     if (value.targetDescriptor !== undefined
       && value.bindings?.targetDescriptor?.digest !== value.targetRuntime?.descriptorDigest) {
       errors.push("target descriptor provenance is stale.");
@@ -281,12 +290,13 @@ export function validateBuildContract(value) {
     if (nativeChat) {
       const runtime = value.specification?.runtimeBinding;
       const selected = { agent_id: value.agentId, execution_profile: "native-chat",
+        ...(pi ? { native_runtime: "pi" } : {}),
         ...(runtime && Object.hasOwn(runtime, "modelProfile") ? { native_model_profile: runtime.modelProfile } : {}) };
       if (!isDeepStrictEqual(value.specification, buildNativeChatSpecification(selected))) {
         errors.push("native-chat specification must exactly match the no-tools native runtime contract.");
       }
     } else validateSpecification(value.specification, errors);
-    validateResources(value.resources, errors, nativeChat);
+    validateResources(value.resources, errors, nativeChat, value.targetRuntime?.id);
     validatePermissions(value.permissions, value.resources, errors);
     validateAcceptanceCases(value.acceptanceCases, errors);
     validateEvidenceObligations(value.evidenceObligations, value.resources, errors);
@@ -425,9 +435,10 @@ function assertInputs(blueprint, designPlan, discoveryApproval, decisionLedger, 
     || !validateDecisionLedger(decisionLedger).ok) {
     throw new BuildContractError("AGENTMO_BUILD_CONTRACT_INPUT_INVALID");
   }
-  if (options.target !== "openclaw"
-    || blueprint.runtime !== "openclaw"
-    || designPlan.targetRuntime !== "openclaw"
+  const target = blueprint.native_runtime === "pi" ? "pi" : "openclaw";
+  if (options.target !== target
+    || blueprint.runtime !== target
+    || designPlan.targetRuntime !== target
     || designPlan.agentId !== blueprint.agent_id
     || discoveryApproval.decisionScope !== "enter-plan"
     || decisionLedger.head === null) {
@@ -440,7 +451,7 @@ function assertInputs(blueprint, designPlan, discoveryApproval, decisionLedger, 
   let targetDescriptor;
   try {
     targetDescriptor = admittedArtifactProvenance(options.admissions?.targetDescriptor, {
-      subject: "openclaw-target-descriptor",
+      subject: `${target}-target-descriptor`,
       value: options.admissions?.targetDescriptor?.value,
     });
   } catch {
@@ -448,14 +459,15 @@ function assertInputs(blueprint, designPlan, discoveryApproval, decisionLedger, 
       "AGENTMO_BUILD_CONTRACT_TARGET_DESCRIPTOR_REQUIRED",
     );
   }
-  if (targetDescriptor.identity !== OPENCLAW_TARGET_DESCRIPTOR_SCHEMA_VERSION
-    || !validateOpenClawTargetDescriptor(options.admissions.targetDescriptor.value).ok
+  if (targetDescriptor.identity !== (target === "pi" ? PI_TARGET_DESCRIPTOR_SCHEMA_VERSION : OPENCLAW_TARGET_DESCRIPTOR_SCHEMA_VERSION)
+    || !(target === "pi" ? validatePiTargetDescriptor : validateOpenClawTargetDescriptor)(options.admissions.targetDescriptor.value).ok
     || options.admissions.targetDescriptor.value.target.id !== options.target) {
     throw new BuildContractError(
       "AGENTMO_BUILD_CONTRACT_TARGET_DESCRIPTOR_REQUIRED",
     );
   }
   if (options.nativePluginRecipe !== undefined) {
+    if (target === "pi") throw new BuildContractError("AGENTMO_NATIVE_PLUGIN_RECIPE_INVALID");
     admittedArtifactProvenance(options.nativePluginRecipeAdmission, {
       subject: "native-plugin-recipe",
       value: options.nativePluginRecipe,
@@ -508,7 +520,7 @@ function admittedBindings(blueprint, designPlan, discoveryApproval, decisionLedg
     }),
     decisionLedger: admittedDecisionLedgerProvenance(admissions.decisionLedger),
     targetDescriptor: admittedArtifactProvenance(admissions.targetDescriptor, {
-      subject: "openclaw-target-descriptor",
+      subject: `${blueprint.native_runtime === "pi" ? "pi" : "openclaw"}-target-descriptor`,
       value: admissions.targetDescriptor.value,
     }),
   };
@@ -523,11 +535,22 @@ function admittedBindings(blueprint, designPlan, discoveryApproval, decisionLedg
 function buildNativeChatSpecification(blueprint) {
   if (!validNativeModelProfileSource(blueprint)) throw new BuildContractError("AGENTMO_NATIVE_MODEL_PROFILE_REJECTED");
   const model = nativeChatModelProfile(blueprint.native_model_profile);
+  const pi = blueprint.native_runtime === "pi";
+  if (pi && blueprint.native_model_profile !== "minimax-m3-cn-v1") throw new BuildContractError("AGENTMO_NATIVE_MODEL_PROFILE_REJECTED");
+  const runtime = pi ? "pi" : "openclaw";
   const prompt = buildSpecification(blueprint).prompt;
   prompt.bootstrapFiles = prompt.bootstrapFiles.slice(0, 4);
   prompt.precedence = prompt.precedence.slice(0, 4);
   prompt.dynamicSections = ["runtime-line", "session-context"];
   prompt.budgets.maximumBootstrapFiles = 4;
+  if (pi) {
+    prompt.profile = "pi-package-system";
+    prompt.bootstrapFiles = [{ ...prompt.bootstrapFiles[0], path: "pi/system.md", purpose: "package-system-prompt" }];
+    prompt.precedence = ["pi/system.md"];
+    prompt.staticSections = ["package-system-prompt"];
+    prompt.dynamicSections = ["session-context"];
+    prompt.budgets.maximumBootstrapFiles = 1;
+  }
   return {
     prompt,
     skills: { enabled: false },
@@ -535,17 +558,17 @@ function buildNativeChatSpecification(blueprint) {
     plugins: { enabled: false },
     memory: { enabled: false },
     rag: { enabled: false },
-    storage: { owner: "openclaw", scope: "isolated-native-session", databases: [], productionPathsPersisted: false },
+    storage: { owner: runtime, scope: "isolated-native-session", databases: [], productionPathsPersisted: false },
     schedules: { enabled: false },
-    harness: { id: "openclaw", owner: "openclaw", fallback: "fail-closed" },
+    harness: { id: runtime, owner: runtime, fallback: "fail-closed" },
     loop: {
-      mechanism: "openclaw-native-chat", hooks: [], tools: [], fallbacks: [],
+      mechanism: pi ? "pi-sdk-native-chat" : "openclaw-native-chat", hooks: [], tools: [], fallbacks: [],
       maximumAttempts: 1, automaticRetries: 0, thinking: "disabled",
       compaction: { enabled: false }, automaticPromotion: false,
     },
     runtimeBinding: {
-      target: "openclaw", harness: "openclaw", provider: "budget-proxy",
-      model: model.model, channel: "native-chat", exactRevisionRequired: true,
+      target: runtime, harness: runtime, provider: "budget-proxy",
+      model: pi ? "agentmo-budget/MiniMax-M3" : model.model, channel: "native-chat", exactRevisionRequired: true,
       ...(Object.hasOwn(blueprint, "native_model_profile") ? { modelProfile: blueprint.native_model_profile } : {}),
     },
     transitions: ["install", "activate", "stop"].map((transition) => ({
@@ -862,7 +885,7 @@ function promptFilePurpose(name) {
   }[name];
 }
 
-function buildResources(requirementRefs, sourceRefs, decisionRefs, nativeChat = false) {
+function buildResources(requirementRefs, sourceRefs, decisionRefs, nativeChat = false, target = "openclaw") {
   return OPENCLAW_RESOURCE_KINDS.map((kind) => ({
     id: `resource:${kind}`,
     kind,
@@ -879,7 +902,7 @@ function buildResources(requirementRefs, sourceRefs, decisionRefs, nativeChat = 
     trustSemantics: "declaration-is-not-runtime-or-domain-proof",
     permissionSemantics: permissionAuthority(kind),
     failureSemantics: "fail-closed-when-missing-stale-or-unapproved",
-    projection: projectionFor(kind, nativeChat),
+    projection: projectionFor(kind, nativeChat, target),
     evidenceObligationRefs: [`evidence:${kind}`],
   }));
 }
@@ -888,7 +911,7 @@ function disabledNativeResource(kind) {
   return ["skills", "plugins", "memory", "rag", "schedules"].includes(kind);
 }
 
-function projectionFor(kind, nativeChat = false) {
+function projectionFor(kind, nativeChat = false, target = "openclaw") {
   if (nativeChat && disabledNativeResource(kind)) {
     return { disposition: "explicit-unsupported", target: `native-chat.disabled.${kind}` };
   }
@@ -907,19 +930,19 @@ function projectionFor(kind, nativeChat = false) {
   if (kind === "install-transition") {
     return {
       disposition: "install-operation",
-      target: "openclaw.package.install",
+      target: `${target}.package.install`,
     };
   }
   if (["load-transition", "execute-transition", "runtime-binding", "harness", "agent-loop"].includes(kind)) {
     return {
       disposition: "runtime-evidence-obligation",
-      target: `openclaw.${kind}`,
+      target: `${target}.${kind}`,
     };
   }
   if (["permissions", "trust-boundaries", "secrets", "tool-policy"].includes(kind)) {
     return {
       disposition: "config-operation",
-      target: `openclaw.config.${kind}`,
+      target: `${target}.config.${kind}`,
     };
   }
   return {
@@ -1006,6 +1029,14 @@ function buildTraceGraph({ planTrace, resources, permissions, acceptanceCases, e
 }
 
 function validateTargetDescriptorBinding(descriptor, targetRuntime, errors) {
+  if (descriptor?.native_runtime === "pi") {
+    if (!validatePiTargetDescriptor(descriptor).ok || !plainObject(targetRuntime)
+      || targetRuntime.descriptorDigest !== descriptorRawDigest(descriptor)
+      || !isDeepStrictEqual(targetRuntime, targetRuntimeFromDescriptor(descriptor, targetRuntime.descriptorDigest))) {
+      errors.push("Pi targetRuntime must bind the exact descriptor.");
+    }
+    return;
+  }
   if (descriptor === undefined) {
     if (!plainObject(targetRuntime)
       || !hasExactKeys(targetRuntime, [
@@ -1043,7 +1074,7 @@ function validateTargetDescriptorBinding(descriptor, targetRuntime, errors) {
   }
 }
 
-function validateBindings(value, errors) {
+function validateBindings(value, errors, pi = false) {
   if (!plainObject(value)
     || (!hasExactKeys(value, BINDING_KEYS)
       && !hasExactKeys(value, LEGACY_BINDING_KEYS))) {
@@ -1062,8 +1093,8 @@ function validateBindings(value, errors) {
   if (Object.hasOwn(value, "targetDescriptor")) {
     validateProvenance(
       value.targetDescriptor,
-      OPENCLAW_TARGET_DESCRIPTOR_SCHEMA_VERSION,
-      "openclaw-target-descriptor",
+      pi ? PI_TARGET_DESCRIPTOR_SCHEMA_VERSION : OPENCLAW_TARGET_DESCRIPTOR_SCHEMA_VERSION,
+      pi ? "pi-target-descriptor" : "openclaw-target-descriptor",
       errors,
     );
   }
@@ -1195,7 +1226,7 @@ function validateSpecification(value, errors) {
   }
 }
 
-function validateResources(value, errors, nativeChat = false) {
+function validateResources(value, errors, nativeChat = false, target = "openclaw") {
   if (!Array.isArray(value)
     || !sameArray(value.map((resource) => resource?.kind), OPENCLAW_RESOURCE_KINDS)
     || new Set(value.map((resource) => resource?.id)).size !== OPENCLAW_RESOURCE_KINDS.length) {
@@ -1226,8 +1257,8 @@ function validateResources(value, errors, nativeChat = false) {
       || !plainObject(resource.projection)
       || !hasExactKeys(resource.projection, ["disposition", "target"])
       || !PROJECTION_DISPOSITIONS.has(resource.projection.disposition)
-      || resource.projection.disposition !== projectionFor(expectedKind, nativeChat).disposition
-      || resource.projection.target !== projectionFor(expectedKind, nativeChat).target
+      || resource.projection.disposition !== projectionFor(expectedKind, nativeChat, target).disposition
+      || resource.projection.target !== projectionFor(expectedKind, nativeChat, target).target
       || !sameArray(resource.evidenceObligationRefs, [`evidence:${expectedKind}`])) {
       errors.push(`invalid resource projection ${expectedKind}.`);
     }
@@ -1371,6 +1402,11 @@ function hasClosedContractKeys(value) {
 }
 
 function targetRuntimeFromDescriptor(descriptor, descriptorDigest) {
+  if (descriptor.native_runtime === "pi") return {
+    id: "pi", observedVersion: descriptor.target.version, displayRevision: descriptor.closure.sdkClosureDigest.slice(7, 19),
+    nodeRange: descriptor.target.nodeRange, nodeVersion: descriptor.target.nodeVersion, descriptorDigest,
+    ...descriptor.closure, driftPolicy: "phase-4-must-fail-closed-on-exact-descriptor-drift",
+  };
   const memberDigest = (role) => (
     descriptor.members.find((member) => member.role === role)?.sha256
   );
@@ -1392,7 +1428,7 @@ function targetRuntimeFromDescriptor(descriptor, descriptorDigest) {
 function descriptorRawDigest(descriptor) {
   return `sha256:${createHash("sha256")
     .update(Buffer.from(serializePersistableJson(descriptor, {
-      subject: "openclaw-target-descriptor",
+      subject: descriptor.native_runtime === "pi" ? "pi-target-descriptor" : "openclaw-target-descriptor",
     }), "utf8"))
     .digest("hex")}`;
 }

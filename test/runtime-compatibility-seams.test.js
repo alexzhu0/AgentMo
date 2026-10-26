@@ -309,6 +309,7 @@ describe("OpenClaw runtime compatibility seams", () => {
       { file: "src/openclaw-probe.js", count: 1 },
       { file: "src/openclaw-process-supervisor.js", count: 1 },
       { file: "src/openclaw-safe-fs.js", count: 2 },
+      { file: "src/pi-native-runtime.js", count: 1 },
       { file: "src/poc-openclaw-runtime.js", count: 3 },
       { file: "src/runtime-execution.js", count: 1 },
     ]);
@@ -883,7 +884,7 @@ async function inventoryProductionSpawnSites() {
   const spawnSites = [];
   for (const fileUrl of await listJavaScriptFiles(SOURCE_ROOT)) {
     const source = await readFile(fileUrl, "utf8");
-    const count = countClassifiedSpawnSites(source);
+    const count = countClassifiedSpawnSites(source, path.relative(REPOSITORY_ROOT, fileURLToPath(fileUrl)));
     if (count > 0) {
       spawnSites.push({
         file: path.relative(REPOSITORY_ROOT, fileURLToPath(fileUrl)),
@@ -899,10 +900,10 @@ function assertExactPocSpawnInventory(source) {
   if (count !== POC_CHILD_PROCESS_SITE_INVENTORY.length) rejectChildProcessInventory();
 }
 
-function countClassifiedSpawnSites(source) {
+function countClassifiedSpawnSites(source, file = "production-child-process-inventory.js") {
   try {
     return inventoryChildProcessCallSites(source, {
-      file: "production-child-process-inventory.js",
+      file,
     }).filter(({ method }) => method === "spawn").length;
   } catch {
     rejectChildProcessInventory();

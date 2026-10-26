@@ -1,9 +1,11 @@
 # AgentMo Superpowers 协作与恢复
 
-AgentMo 后续开发只使用 Superpowers。每个新的 AgentMo Codex 开发 session 都必须先调用
+AgentMo 使用 Superpowers 处理设计、实施与验证，使用 Orchivane 管理控制器、TODO 和交付验收。
+项目的角色与 TODO 索引复用 `docs/handoffs/README.md`，由当前控制器独占维护；接续时先读该入口。
+每个新的 AgentMo Codex 开发 session 都必须先调用
 `superpowers:using-superpowers`，再按任务选择并使用适用的 Superpowers skills。不要调用
 GSD 命令、恢复 GSD runtime，或按旧规划工作流的待办执行。`docs/superpowers/` 保留
-Superpowers 的设计与计划文档，是当前协作过程的唯一专用目录。
+Superpowers 的设计与计划文档；角色与当前待办仍以交接入口为准。
 
 ## 新 session 的最小阅读顺序
 

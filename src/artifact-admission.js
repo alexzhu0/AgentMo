@@ -332,6 +332,12 @@ function buildSourceValidationContext(subject, value, companions, actualDigest) 
       },
     };
   }
+  if (subject === "delivery-report" && value.native_runtime === "pi") {
+    const admissions = { blueprint: companions.blueprint, packageManifest: companions["package-manifest"], activationPlan: companions["pi-install-plan"],
+      installReceipt: companions["pi-install-receipt"], acceptance: companions["pi-native-chat-acceptance"] ?? null };
+    return { blueprint: admissions.blueprint.value, admissions,
+      nativeChat: Object.fromEntries(["packageManifest", "activationPlan", "installReceipt", "acceptance"].map(k=>[k,admissions[k]?.value??null])) };
+  }
   if (subject === "delivery-report" && value.execution_profile === "native-chat") {
     const acceptance = requiredSubjects.includes("native-chat-acceptance");
     return {
@@ -356,6 +362,18 @@ function buildSourceValidationContext(subject, value, companions, actualDigest) 
         runEval: provenanceFor("run-eval"),
         birthReport: provenanceFor("birth-report"),
         domainEval: hasDomainEval ? provenanceFor("domain-eval") : null,
+      },
+    };
+  }
+  if (["pi-install-approval", "pi-sensitive-action-decision", "pi-conflict-approval"].includes(subject)) {
+    return { plan: valueFor("pi-install-plan") };
+  }
+  if (subject === "pi-target-carrier-admission") {
+    return {
+      blueprint: valueFor("blueprint"), buildContract: valueFor("build-contract"), planApproval: valueFor("plan-approval"),
+      targetDescriptor: valueFor("pi-target-descriptor"), sources: {
+        blueprint: provenanceFor("blueprint"), buildContract: provenanceFor("build-contract"),
+        planApproval: provenanceFor("plan-approval"), targetDescriptor: provenanceFor("pi-target-descriptor"),
       },
     };
   }

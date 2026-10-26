@@ -1,5 +1,6 @@
 export const AGENTMO_CORE_NODE_RANGE = ">=20";
 export const OPENCLAW_TARGET_NODE_RANGE = ">=22.19.0 <23 || >=23.11.0";
+export const PI_TARGET_NODE_RANGE = ">=22.19.0";
 
 const OPENCLAW_TARGET_COMPONENT = "openclaw-target";
 const OPENCLAW_TARGET_ID = "openclaw";
@@ -17,6 +18,17 @@ export function isOpenClawTargetNodeSupported(version) {
 
 export function observeCurrentRuntime() {
   return buildCurrentRuntimeObservation(process.versions.node);
+}
+
+export function isPiTargetNodeSupported(version) {
+  const parts = parseNumericTriplet(version);
+  return parts !== null && (parts[0] > 22 || parts[0] === 22 && parts[1] >= 19);
+}
+
+export function observePiCurrentRuntime() {
+  if (arguments.length) throw Object.assign(new Error("Runtime observation accepts no inputs."), { code: "AGENTMO_PI_RUNTIME_INPUT_REJECTED" });
+  return Object.freeze({ component: "pi-sdk-target", target: "pi", observedVersion: process.versions.node,
+    range: PI_TARGET_NODE_RANGE, supported: isPiTargetNodeSupported(process.versions.node), evidenceClass: CURRENT_PROCESS_EVIDENCE_CLASS });
 }
 
 export function assertCurrentOpenClawTargetRuntime() {

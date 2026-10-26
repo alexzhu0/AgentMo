@@ -1,5 +1,5 @@
 import path from "node:path";
-import { validNativeModelProfileSource } from "./native-chat-model-profile.js";
+import { validNativeModelProfileSource, validNativeRuntimeSource, nativeChatRuntime } from "./native-chat-model-profile.js";
 import {
   admittedArtifactProvenance,
   ArtifactAdmissionError,
@@ -92,8 +92,8 @@ export function buildDesignPlan(discoveryDb, userNeed, options = {}) {
     throw new ArtifactAdmissionError("AGENTMO_ARTIFACT_ADMISSION_RESULT_INVALID");
   }
   const targetRuntime = resolveRuntime(options.target, options.runtime);
-  if (userNeed.execution_profile === "native-chat" && targetRuntime !== "openclaw") {
-    throw new Error("native-chat requires target runtime openclaw.");
+  if (userNeed.execution_profile === "native-chat" && targetRuntime !== nativeChatRuntime(userNeed)) {
+    throw new Error("native-chat target runtime must match its explicit source selection.");
   }
   const sourceIds = collectSourceIds(discoveryDb);
   const factIds = collectFactIds(discoveryDb);
@@ -129,6 +129,7 @@ export function buildDesignPlan(discoveryDb, userNeed, options = {}) {
     schemaVersion: DESIGN_PLAN_SCHEMA_VERSION,
     ...(userNeed.execution_profile === "native-chat" ? { execution_profile: "native-chat" } : {}),
     ...(Object.hasOwn(userNeed, "native_model_profile") ? { native_model_profile: userNeed.native_model_profile } : {}),
+    ...(Object.hasOwn(userNeed, "native_runtime") ? { native_runtime: userNeed.native_runtime } : {}),
     ok: validation.ok,
     agentId: sanitizeId(userNeed.agent_id),
     domain: sanitizeString(userNeed.domain),
@@ -178,11 +179,12 @@ export function validateDesignPlan(plan) {
     errors.push("execution_profile must be native-chat when supplied.");
   }
   if (!validNativeModelProfileSource(plan)) errors.push("native_model_profile must select the fixed native-chat model.");
+  if (!validNativeRuntimeSource(plan)) errors.push("native_runtime must explicitly select Pi with the fixed native-chat M3 profile.");
   if (plan.execution_profile === "native-chat"
-    && (plan.targetRuntime !== "openclaw"
+    && (!validNativeRuntimeSource(plan) || plan.targetRuntime !== nativeChatRuntime(plan)
       || !Array.isArray(plan.architecturePlan?.specialistPlans) || plan.architecturePlan.specialistPlans.length !== 0
       || !Array.isArray(plan.toolContractPlan?.tools) || plan.toolContractPlan.tools.length !== 0)) {
-    errors.push("native-chat requires target runtime openclaw and empty specialist/tool plans.");
+    errors.push("native-chat requires the selected target runtime and empty specialist/tool plans.");
   }
   if (typeof plan.ok !== "boolean") errors.push("ok must be a boolean.");
   requireString(plan, "agentId", errors);
@@ -227,6 +229,7 @@ export function buildDesignPlanReport(plan, options = {}) {
     agentId: plan.agentId,
     domain: plan.domain,
     targetRuntime: plan.targetRuntime,
+    ...(Object.hasOwn(plan, "native_runtime") ? { native_runtime: plan.native_runtime } : {}),
     requirements: Array.isArray(plan.requirementsTrace) ? plan.requirementsTrace.length : 0,
     gaps: Array.isArray(plan.gaps) ? plan.gaps.length : 0,
     validation,
@@ -869,6 +872,7 @@ function collectFactIds(discoveryDb) {
 function resolveRuntime(target, runtime) {
   if (nonEmptyString(runtime)) return runtime;
   if (target === "agentmo") return "codex";
+  if (target === "pi") return "pi";
   if (target === undefined || target === null || target === "openclaw") return "openclaw";
   throw new Error(`Unknown design-plan target: ${target}. Expected one of: agentmo, openclaw`);
 }

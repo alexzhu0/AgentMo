@@ -1,0 +1,72 @@
+{
+  "schemaVersion": "agentmo.pi-review-disposition.v1",
+  "scope": "approved Pi SDK implementation Tasks 1-10",
+  "reviewedSourceSnapshotSha256": "a3769ee84a1f28bf88562e29c502e5358805a95f33930fbe488d6aeb84101f0f",
+  "reviewedSourceFiles": 373,
+  "finalSourceSnapshotSha256": "82d60dacf57e6569f06f92127525b0cca87fc05e7e0bc8dacbb942b2b11b7335",
+  "finalSourceFiles": 374,
+  "independentReview": {
+    "initialDecision": "requires-fixes",
+    "critical": 0,
+    "important": 5,
+    "postFixIndependentSignoff": false,
+    "authenticatedHumanAttestation": false
+  },
+  "findings": [
+    {
+      "id": "prepared-fresh-session",
+      "severity": "important",
+      "file": "src/pi-session-host.js",
+      "disposition": "fixed-with-author-verification",
+      "change": "owned unpersisted adapter is reusable only before any observed SDK file marker; previously observed deleted file is refused"
+    },
+    {
+      "id": "shutdown-during-initialization",
+      "severity": "important",
+      "file": "src/pi-native-runtime.js",
+      "disposition": "fixed-with-author-verification",
+      "change": "closing flag gates async initialization; drain captured server and host before owned IPC disconnect"
+    },
+    {
+      "id": "swallowed-conformance-egress",
+      "severity": "important",
+      "file": "scripts/pi-sdk-conformance.js",
+      "disposition": "fixed-with-author-verification",
+      "change": "denied fetch/socket attempts counted before throw and checked through disposal and final cleanup"
+    },
+    {
+      "id": "timeout-and-partial-disconnect",
+      "severity": "important",
+      "file": "scripts/pi-sdk-conformance.js",
+      "disposition": "fixed-with-author-verification",
+      "change": "pending AbortSignal timeout and valid partial SSE then disconnect; 75minute parent bound with owned IPC/TERM/KILL"
+    },
+    {
+      "id": "host-and-boundary-conformance",
+      "severity": "important",
+      "file": "scripts/pi-sdk-conformance.js",
+      "disposition": "fixed-with-author-verification",
+      "change": "12 fixed cases use session host, official restoration/isolation, Unicode and request/history limits with explicit synthetic setup"
+    }
+  ],
+  "authorEvidence": {
+    "regressionFile": "test/pi-review-regressions.test.js",
+    "regressionTests": 8,
+    "focusedTests": 151,
+    "packedInventoryTests": 1,
+    "postPublicationConsumers": 6,
+    "fullCheck": "passed-r3",
+    "additionalDeadlineRegressionTests": 26
+  },
+  "unexecuted": [
+    "actual Pi SDK install/import/conformance",
+    "61minute real idle observation",
+    "real Agent install/activation/browser acceptance",
+    "MiniMax provider calls and billing verification"
+  ],
+  "certificationBoundary": {
+    "domainCertified": false,
+    "deliveryReady": false,
+    "productionApproved": false
+  }
+}

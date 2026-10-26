@@ -24,6 +24,13 @@ describe("durable command subjects", () => {
   it("defines one deeply frozen authority for Discover, Plan, and Produce-entry commands", () => {
     assert.equal(Object.isFrozen(DURABLE_COMMAND_SUBJECTS), true);
     assert.deepEqual(Object.keys(DURABLE_COMMAND_SUBJECTS), [
+      "pi-target-describe",
+      "pi-target-admit",
+      "pi-install-preview",
+      "pi-install-approve",
+      "pi-install-apply",
+      "pi-native-serve",
+      "pi-native-stop",
       "discover-report",
       "discover-pack",
       "discover-live",

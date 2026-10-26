@@ -24,3 +24,9 @@ coverage/
 
 # Local pnpm cache used by isolated upstream source mirrors.
 .pnpm-store/
+
+# Preserve original host-bound evidence locally; publish the explicit -public copies.
+/release/evidence/2026.10.22-pi-m3-paid-preview.json
+/release/evidence/2026.10.22-pi-m3-paid-startup-failure.json
+/release/evidence/2026.10.23-pi-m3-browser-launch-failure.json
+/release/evidence/2026.10.23-pi-m3-execution-review.json

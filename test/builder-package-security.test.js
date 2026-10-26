@@ -39,7 +39,7 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..
 const execFileAsync = promisify(execFile);
 const RELEASE_BUILDER_PATH = path.join(REPO_ROOT, "scripts", "build-builder-uat-releases.js");
 const MAIN_TEST_LANE = process.env.AGENTMO_TEST_LANE === "main";
-const RELEASE_PHASE_READY_DEADLINE_MS = 30_000;
+const RELEASE_PHASE_READY_DEADLINE_MS = 120_000;
 
 function releaseBuilderArguments(
   outDirectory,

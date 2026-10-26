@@ -40,8 +40,13 @@ export async function consumeNativeAuthoritySet(options = {}) {
     const request = structuredClone(options);
     const { authorityRoot, stateRoot, plan } = request;
     await disjointRoots(authorityRoot, stateRoot);
-    const { verifyOpenClawNativeInstallRoot, verifyOpenClawNativeRuntimeRoot } = await import("./openclaw-install-plan.js");
-    await (plan.lifecycle === "activate" ? verifyOpenClawNativeRuntimeRoot : verifyOpenClawNativeInstallRoot)({ plan, stateRoot });
+    if (plan.schemaVersion === "agentmo.pi-install-plan.v1") {
+      const { verifyPiPlanRoot } = await import("./pi-install-plan.js");
+      await verifyPiPlanRoot({ plan, stateRoot });
+    } else {
+      const { verifyOpenClawNativeInstallRoot, verifyOpenClawNativeRuntimeRoot } = await import("./openclaw-install-plan.js");
+      await (plan.lifecycle === "activate" ? verifyOpenClawNativeRuntimeRoot : verifyOpenClawNativeInstallRoot)({ plan, stateRoot });
+    }
     const record = await decisionRecord(request);
     const binding = plan.authorityRootBinding;
     await verifyStore(authorityRoot, binding);
@@ -73,7 +78,9 @@ export async function verifyNativeAuthorityConsumption({ authorityRoot, plan, co
   let journal;
   try {
     const { validateOpenClawInstallPlan } = await import("./openclaw-install-plan.js");
-    if (plan?.execution_profile !== "native-chat" || !validateOpenClawInstallPlan(plan).ok || !DIGEST.test(consumptionDigest ?? "")) reject();
+    const { validatePiInstallPlan } = await import("./pi-install-plan.js");
+    const validate = plan?.schemaVersion === "agentmo.pi-install-plan.v1" ? validatePiInstallPlan : validateOpenClawInstallPlan;
+    if (plan?.execution_profile !== "native-chat" || !validate(plan).ok || !DIGEST.test(consumptionDigest ?? "")) reject();
     await verifyStore(authorityRoot, plan.authorityRootBinding);
     try { await lstat(path.join(authorityRoot, "consume.lock")); reject(); } catch (error) { if (error.code !== "ENOENT") throw error; }
     journal = await open(path.join(authorityRoot, "consumption.jsonl"), constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
@@ -84,8 +91,11 @@ export async function verifyNativeAuthorityConsumption({ authorityRoot, plan, co
 }
 
 async function decisionRecord({ plan, ordinaryApproval, sensitiveDecisions, conflictApproval }) {
-  const { validateOpenClawInstallApproval, validateOpenClawSensitiveActionDecision,
-    validateOpenClawConflictApproval } = await import("./openclaw-install-approval.js");
+  const pi = plan?.schemaVersion === "agentmo.pi-install-plan.v1";
+  const validators = pi ? await import("./pi-install-approval.js") : await import("./openclaw-install-approval.js");
+  const validateOpenClawInstallApproval = pi ? validators.validatePiInstallApproval : validators.validateOpenClawInstallApproval;
+  const validateOpenClawSensitiveActionDecision = pi ? validators.validatePiSensitiveActionDecision : validators.validateOpenClawSensitiveActionDecision;
+  const validateOpenClawConflictApproval = pi ? validators.validatePiConflictApproval : validators.validateOpenClawConflictApproval;
   const context = { plan, now: new Date().toISOString() };
   if (!validateOpenClawInstallApproval(ordinaryApproval, context).ok
     || !validateOpenClawConflictApproval(conflictApproval, context).ok
@@ -96,7 +106,7 @@ async function decisionRecord({ plan, ordinaryApproval, sensitiveDecisions, conf
     nonceDigest: hash(decision.useNonce), decisionDigest: hash(line(decision)),
   }));
   if (new Set(decisions.map((d) => d.nonceDigest)).size !== decisions.length) reject();
-  return { installPlanDigest: plan.installPlanDigest, decisions };
+  return { installPlanDigest: plan.installPlanDigest, ...(pi ? { native_runtime: "pi", lifecycle: plan.lifecycle } : {}), decisions };
 }
 
 async function verifyStore(root, binding) {
@@ -129,8 +139,11 @@ async function checkJournal(handle, binding, next) {
   const used = new Set(), records = [];
   for (const row of rows) {
     const record = JSON.parse(row); records.push(record);
-    if (JSON.stringify(record) !== row || !keys(record, ["installPlanDigest", "decisions"])
-      || !DIGEST.test(record.installPlanDigest) || !Array.isArray(record.decisions) || record.decisions.length !== 5) reject();
+    const pi = record.native_runtime === "pi";
+    if (JSON.stringify(record) !== row || !keys(record, pi ? ["installPlanDigest", "native_runtime", "lifecycle", "decisions"] : ["installPlanDigest", "decisions"])
+      || (pi && !["install", "activate"].includes(record.lifecycle))
+      || !DIGEST.test(record.installPlanDigest) || !Array.isArray(record.decisions)
+      || !(pi ? (record.lifecycle === "install" ? [2] : [4, 5]) : [5]).includes(record.decisions.length)) reject();
     for (const decision of record.decisions) {
       if (!keys(decision, ["nonceDigest", "decisionDigest"])
         || !DIGEST.test(decision.nonceDigest) || !DIGEST.test(decision.decisionDigest)

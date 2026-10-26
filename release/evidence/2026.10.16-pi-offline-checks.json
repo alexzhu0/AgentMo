@@ -1,0 +1,90 @@
+{
+  "schemaVersion": "agentmo.pi-offline-checks.v1",
+  "observedAt": "2026-10-16T06:50:42.800493+00:00",
+  "scope": "approved implementation Tasks 1-10; source and synthetic verification only",
+  "head": "9e59ff7fc59bc15f42a557e18232ab41ee9412e5",
+  "sourceFiles": 374,
+  "sourceSnapshotSha256": "82d60dacf57e6569f06f92127525b0cca87fc05e7e0bc8dacbb942b2b11b7335",
+  "sourceAggregateSha256": "f74050ec1ea23009cc13b52f0ad5a005e0e80f54739cbfe2df85224b023d5ca7",
+  "reviewDispositionSha256": "e9e2d5fa7946420b0a2fa505f3ed8faa8330bda8c18159948df3c144027e098d",
+  "fullCheck": {
+    "command": "npm run check",
+    "exitCode": 0,
+    "logSha256": "5f1c98bf6f3794c9d4b3a6d169744143f0584da37f92d045b28db4a5202f56b2",
+    "lanes": [
+      {
+        "id": "main",
+        "total": 1488,
+        "pass": 1428,
+        "fail": 0,
+        "skip": 60
+      },
+      {
+        "id": "durable-fs",
+        "total": 2,
+        "pass": 2,
+        "fail": 0,
+        "skip": 0
+      },
+      {
+        "id": "packed-hook-chain",
+        "total": 1,
+        "pass": 1,
+        "fail": 0,
+        "skip": 0
+      },
+      {
+        "id": "packed-behavior",
+        "total": 8,
+        "pass": 7,
+        "fail": 0,
+        "skip": 1
+      },
+      {
+        "id": "immutable-successor",
+        "total": 1,
+        "pass": 1,
+        "fail": 0,
+        "skip": 0
+      }
+    ]
+  },
+  "focused": {
+    "command": "node --test test/pi-*.test.js test/design-plan.test.js test/user-need.test.js test/blueprint-draft.test.js test/blueprint.test.js test/stage-contracts.test.js test/discovery-source-workspace.test.js test/cli-mvp.test.js",
+    "passCount": 151,
+    "failCount": 0,
+    "logSha256": "04686c0288f352b28c9703c9b8e3af38887fb983cf3d7142a1f87a380961e4d1"
+  },
+  "independentReview": {
+    "initialImportantFindings": 5,
+    "authorVerifiedFixes": 5,
+    "postFixIndependentSignoff": false
+  },
+  "node20Receipt": {
+    "path": "release/evidence/2026.10.16-node20-pi-reviewed-core-receipt.json",
+    "sha256": "3310ff9c06ac68c1447dc7153ed53f45142abcbb4e64316f6ce0cd00d6dc8c96",
+    "postPublicationConsumerPassCount": 6
+  },
+  "protectedState": {
+    "managedFileCount": 6,
+    "managedFilesUnchanged": true,
+    "receiptUnchanged": true,
+    "authorityUnchanged": true,
+    "budget": {
+      "projectReservations": 26,
+      "totalReservedFen": 4774,
+      "remainingFen": 5226,
+      "capFen": 10000
+    }
+  },
+  "certificationBoundary": {
+    "actualSdkExecuted": false,
+    "actualPiInstalled": false,
+    "actualPiActivated": false,
+    "providerRequests": 0,
+    "newProjectReservations": 0,
+    "domainCertified": false,
+    "deliveryReady": false,
+    "productionApproved": false
+  }
+}
