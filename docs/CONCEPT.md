@@ -1,5 +1,12 @@
 # AgentMo Concept and Canonical Architecture
 
+2026-11-05 MVP refinement: the user selected a usable Pi CLI Agent as the first
+delivery endpoint. The [short specification](superpowers/specs/2026-11-05-agentmo-core-mvp-design.md)
+is approved for offline planning. The [implementation plan](superpowers/plans/2026-11-05-agentmo-core-mvp.md)
+was approved for offline implementation on 2026-11-06. Offline implementation and one independent batch review are complete; three important findings were repaired and regression-tested by the author. Actual SDK execution, installation, activation, network access and model calls remain separately gated; full repository checks are not green.
+The historical OpenClaw-first mappings below are reference context, not a
+requirement to resume that runtime or the stopped meeting-assistant workline.
+
 Product-design clarification: 2026-09-28. The architecture below describes the
 target, not completed product capability. The researched first-delivery design,
 source comparisons and scoped demo are in

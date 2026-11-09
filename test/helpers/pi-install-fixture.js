@@ -7,7 +7,7 @@ import { admitPiPackageArchive, buildPiInstallPlan } from '../../src/pi-install-
 import { buildPiInstallApproval, buildPiConflictApproval } from '../../src/pi-install-approval.js';
 import { initializeCourseBudget, initializeCourseProjectBudget } from '../../src/course-wiki-budget.js';
 
-export async function withPiInstallFixture(fn) {
+export async function withPiInstallFixture(fn, sources = {}) {
   return withPiPackageFixture(async f => {
     const archivePath = path.join(f.root, 'agent.d42');
     const produced = await produceAgentPackage({ artifacts: f.artifacts, outputRoot: path.join(f.root, 'package'), archivePath });
@@ -28,6 +28,6 @@ export async function withPiInstallFixture(fn) {
     const conflictApproval = buildPiConflictApproval({ ...common, conflicts: [], useNonce: 'pi-install-conflicts' });
     const options = { planAdmission, sourceAdmissions, stateRoot, authorityRoot, ordinaryApproval, conflictApproval, sensitiveDecisions: [] };
     return fn({ ...f, options, plan, stateRoot, authorityRoot, sourceAdmissions, budgetRoot });
-  });
+  }, sources);
 }
 

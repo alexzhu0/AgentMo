@@ -5,8 +5,8 @@ coverage/
 *.log
 
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
 
 .omx/
 
@@ -30,3 +30,4 @@ coverage/
 /release/evidence/2026.10.22-pi-m3-paid-startup-failure.json
 /release/evidence/2026.10.23-pi-m3-browser-launch-failure.json
 /release/evidence/2026.10.23-pi-m3-execution-review.json
+/release/evidence/2026.11.05-pi-environment-repair-offline.json

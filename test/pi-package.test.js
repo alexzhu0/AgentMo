@@ -17,7 +17,7 @@ test('produces an admitted Pi archive and rejects rehashed OpenClaw planning', a
     const c = f.admissions.buildContract.value;
     assert.equal(c.native_runtime, 'pi');
     assert.equal(c.specification.runtimeBinding.target, 'pi');
-    assert.equal(c.specification.runtimeBinding.model, 'agentmo-budget/MiniMax-M3');
+    assert.equal(c.specification.runtimeBinding.model, 'minimax-cn/MiniMax-M3');
     const pi = getTargetAdapter('pi');
     assert.equal(pi.supports(f.admissions.blueprint.value), true);
     assert.ok(pi.planOperations(f.admissions.blueprint.value, {}).some(op => op.relativePath === 'pi/browser/client.js'));
@@ -68,4 +68,23 @@ test('shared CLI requires Pi subjects and produces the same bounded archive', as
     assert.equal(result.status, 0, result.stderr);
     assert.equal(JSON.parse(result.stdout).certificationBoundary.installed, false);
   });
+});
+
+
+test('generates distinct Pi duties from two approved needs', async t => {
+  const { withCoreMvpFixture } = await import('./helpers/core-mvp-fixture.js');
+  const { buildPiSystemPrompt } = await import('../src/scaffold-files.js');
+  const prompts = [];
+  for (const profile of ['field-extractor', 'rule-labeler']) {
+    await withCoreMvpFixture(t, profile, async f => {
+      assert.ok(f.db.facts.some(fact => fact.kind === 'source_chunk'));
+      assert.ok(f.db.sources.every(source => source.id.startsWith(profile)));
+      const prompt = buildPiSystemPrompt(f.admissions.blueprint.value);
+      assert.match(prompt, new RegExp(profile));
+      assert.match(prompt, /Product|red/);
+      assert.doesNotMatch(prompt, /会议文字助手|会议摘要、决策、行动项|customer_support/);
+      prompts.push(prompt);
+    });
+  }
+  assert.notEqual(prompts[0], prompts[1]);
 });

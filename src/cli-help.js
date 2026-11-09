@@ -12,6 +12,7 @@ Usage:
   agentmo pi-install-approve --install-plan <file> --digest pi-install-plan=sha256:<64hex> --family ordinary|sensitive|conflicts [--action-id <plan-action>] --issued-at <ISO> --expires-at <ISO> --nonce <unique> --approve --out <absent-decision.json> [--json]
   agentmo pi-install-apply [exact Pi sources and approvals] --apply [--json]
   agentmo pi-native-serve [exact Pi sources and activation approvals] [--runtime-env-file <approved-file>] [--json]
+  agentmo pi-chat [8 exact installed Pi source paths and digests] [fixed target paths] --target-root <root> --authority-root <authority> --budget-root <budget> --source-root <authorized-text-root> --chat-port <port> --proxy-port <port> [--runtime-env-file <approved-file>]
   agentmo pi-native-stop --install-plan <activate-plan.json> --digest pi-install-plan=sha256:<64hex> --target-root <private-root> [--json]
 
 Pi SDK uses an independently approved toolchain with Node >=22.19.0. Core import/help does not load the SDK.
@@ -182,6 +183,7 @@ const OPENCLAW_RECEIPT_COMPANION_HELP = [
 ].join("\n");
 
 export function commandHelpText(command) {
+  if (command === "pi-chat") return `AgentMo pi-chat\nInteractive TTY only; no --json, --yes or --approve-all.\nUses 8 installed Pi sources with exact digests; no activation plan or old run approvals.\n/sessions, /use <UUID>, /new, /paste (ends at /end), /file <relative.txt|md>, /quit.\nEach activation/request requires a fresh exact preview and confirmation. Each operation stops its owned services.\n--runtime-env-file is the only environment-file option; only the approved parent runner reads it.\nCore help never imports the SDK. SDK execution requires Node >=22.19.0.\n`;
   if (["pi-target-describe", "pi-target-admit", "pi-install-preview", "pi-install-approve", "pi-install-apply", "pi-native-serve", "pi-native-stop"].includes(command)) {
     return `AgentMo ${command}\nPi SDK requires an independently approved toolchain and Node >=22.19.0.\nUse agentmo --help for fixed source flags and Pi digest subjects. Installation, activation and model acceptance each require their own exact approved preview.\n`;
   }

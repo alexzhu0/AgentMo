@@ -31,6 +31,7 @@ describe("durable command subjects", () => {
       "pi-install-apply",
       "pi-native-serve",
       "pi-native-stop",
+      "pi-chat",
       "discover-report",
       "discover-pack",
       "discover-live",

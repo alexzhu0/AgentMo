@@ -213,3 +213,32 @@ function keys(value, expected) {
   return value !== null && typeof value === "object" && !Array.isArray(value)
     && Object.keys(value).length === expected.length && expected.every((key) => Object.hasOwn(value, key));
 }
+
+export async function observeNativeAuthorityStore(options = {}) {
+  let journal;
+  try {
+    if (!keys(options, ["authorityRoot", "previousBinding", "expectedJournalDigest"])
+      || !validateNativeAuthorityBinding(options.previousBinding) || !DIGEST.test(options.expectedJournalDigest)) reject();
+    const { authorityRoot, previousBinding, expectedJournalDigest } = options;
+    if (hash(authorityRoot) !== previousBinding.rootDigest) reject();
+    const binding = structuredClone(previousBinding);
+    for (const [key, file] of [["rootIdentity", authorityRoot], ["anchorIdentity", path.join(authorityRoot, "identity.json")],
+      ["journalIdentity", path.join(authorityRoot, "consumption.jsonl")]]) {
+      const observed = identity(await lstat(file, { bigint: true }));
+      if (observed.inode !== previousBinding[key].inode || observed.birthtimeNs !== previousBinding[key].birthtimeNs) reject();
+      binding[key] = observed;
+    }
+    await verifyStore(authorityRoot, binding);
+    const unlocked = async () => { try { await lstat(path.join(authorityRoot, "consume.lock")); reject(); } catch (e) { if (e.code !== "ENOENT") throw e; } };
+    await unlocked();
+    journal = await open(path.join(authorityRoot, "consumption.jsonl"), constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+    await checkJournal(journal, binding, { decisions: [] });
+    if (hash(await privateBytes(journal, MAX_BYTES)) !== expectedJournalDigest) reject();
+    await verifyStore(authorityRoot, binding);
+    await unlocked();
+    if (hash(await privateBytes(journal, MAX_BYTES)) !== expectedJournalDigest) reject();
+    // Observation grants no consumption: a new exact plan and fresh decisions are still required.
+    return Object.freeze(binding);
+  } catch { reject(); }
+  finally { if (journal) await journal.close().catch(() => {}); }
+}

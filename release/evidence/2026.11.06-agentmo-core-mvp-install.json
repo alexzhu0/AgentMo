@@ -1,0 +1,64 @@
+{
+  "status": "installed-verified",
+  "proposalDigest": "sha256:9c3f1c8be85a6dfb08160de854736d1b0736ecc3bec5ef89f6c9ab721afdf361",
+  "installPlanDigest": "sha256:b32079ffc202993e213bda511b3580e0193a987223c80048028526db47697ae9",
+  "receiptDigest": "sha256:3066fc461489416ccc3eccd74336a71971792016cec2e25e3cfd5c36af5da80c",
+  "files": 6,
+  "directories": 4,
+  "emptyRuntimeDirectories": {
+    "attempts": 0,
+    "sessions": 0,
+    "turns": 0
+  },
+  "authority": {
+    "before": {
+      "consumptions": 14,
+      "decisions": 52
+    },
+    "consumptions": 15,
+    "decisions": 54,
+    "newConsumptions": 1,
+    "newDecisions": 2,
+    "oldPrefixPreserved": true,
+    "journalDigest": "sha256:e81c669d59c89f9e365f7084f151f44129bbb270619036882b378af89f4c9d85"
+  },
+  "budget": {
+    "totalReservedFen": 4836,
+    "remainingFen": 5164,
+    "capFen": 10000,
+    "projectReservations": 28,
+    "newReservedFen": 0
+  },
+  "actualSdkExecuted": false,
+  "activation": false,
+  "keyRead": false,
+  "externalNetworkRequests": 0,
+  "modelRequests": 0,
+  "retry": false,
+  "commit": false,
+  "push": false,
+  "date": "2026-11-06",
+  "authorization": {
+    "questionItemId": "call_c3727b032c04454d8f4bcad9aa6aec6a:0",
+    "answer": "批准提案，仅安装",
+    "newSourceAndPlanTupleConfirmed": true
+  },
+  "agentId": "field-extractor",
+  "stateRoot": ".agentmo/field-extractor-pi-minimax-m3-2026-11-06-r1",
+  "nextPreview": {
+    "status": "awaiting-user-approval",
+    "proposalDigest": "sha256:c323f6d2a97c8b9ea4436aa26bbf3a83962e400d718dd49b4c1aa5dee9320e6a",
+    "activationPlanDigest": "sha256:d07f6bc6a87c428a374b0cfc8f0c7305a447837201faa38b577607dd735145b1",
+    "receiptDigest": "sha256:3066fc461489416ccc3eccd74336a71971792016cec2e25e3cfd5c36af5da80c",
+    "newEmptySessions": 1,
+    "idleObserveMs": 60000,
+    "sdkExecutedDuringPreparation": false,
+    "newReservedFen": 0
+  },
+  "limits": {
+    "runtimeUsabilityNotVerified": true,
+    "modelAcceptanceNotVerified": true,
+    "fullRepositoryCheckNotGreen": true,
+    "noNewProductSourceChanges": true
+  }
+}

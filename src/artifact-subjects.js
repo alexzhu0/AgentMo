@@ -89,6 +89,7 @@ export const DURABLE_COMMAND_SUBJECTS = Object.freeze({
   "pi-install-apply": Object.freeze([...PI_PACKAGE_SOURCE_SUBJECTS, "pi-install-plan", "pi-install-approval", "pi-conflict-approval"]),
   "pi-native-serve": Object.freeze([...PI_PACKAGE_SOURCE_SUBJECTS, "pi-installed-plan", "pi-install-receipt", "pi-install-plan", "pi-install-approval", "pi-conflict-approval", "pi-sensitive-action-decision-1", "pi-sensitive-action-decision-2"]),
   "pi-native-stop": Object.freeze(["pi-install-plan"]),
+  "pi-chat": Object.freeze([...PI_PACKAGE_SOURCE_SUBJECTS, "pi-installed-plan", "pi-install-receipt"]),
   "discover-report": DISCOVERY_MANIFEST_SUBJECTS,
   "discover-pack": DISCOVERY_MANIFEST_SUBJECTS,
   "discover-live": DISCOVERY_MANIFEST_SUBJECTS,

@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "agentmo.discovery.v1",
+  "agent_id": "rule-labeler",
+  "source_inventory": [
+    {
+      "id": "rule-labeler-rules",
+      "type": "document",
+      "trust_level": "verified",
+      "description": "Apply only the rules in the current text: red maps to A, blue maps to B; missing or ambiguous evidence maps to 未定. Output only the label.",
+      "location": "rule-labeler.md",
+      "extraction_fields": [
+        "Return A for red and B for blue.",
+        "Return 未定 for missing or conflicting evidence."
+      ]
+    }
+  ],
+  "database_outputs": [
+    "authorized synthetic rules"
+  ],
+  "retrieval_outputs": [
+    "bounded source chunks"
+  ],
+  "user_need_inputs": [
+    "Return A for red and B for blue.",
+    "Return 未定 for missing or conflicting evidence."
+  ],
+  "refresh_policy": {
+    "cadence": "on explicit change",
+    "owner": "local user",
+    "stale_after": "on change"
+  },
+  "forbidden_data_handling": [
+    "Do not persist credentials or raw transcripts."
+  ]
+}

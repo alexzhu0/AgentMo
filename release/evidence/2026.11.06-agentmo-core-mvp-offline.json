@@ -1,0 +1,84 @@
+{
+  "agentId": "field-extractor",
+  "engineeringPlanDigest": "sha256:1bb6a35d4ec26ec379551adcda717804c5e3403010ab73edd5648febcf40f1bb",
+  "sourceApprovalStatus": "prospective-requires-user-confirmation",
+  "planApprovalStatus": "prospective-requires-user-confirmation",
+  "discoverPreviewDigest": "sha256:fe864b19d36b2e52802a9f84765a606f64b559b15a3a23bf76c94e14a869a19d",
+  "planPreviewDigest": "sha256:ab2072a1df592061cf0d998fca63573bb3612f718ca0d49f36557f5421628523",
+  "sourceInputs": {
+    "manifest": "sha256:41e33c51132ad34fea0cb74610205a8578d29dcec546da85c9b7ccb208dcb1ad",
+    "discoveryDb": "sha256:6a7cefe2e24d105e454307cf095ee0db219c5163f227cc7d94d79c46f08740ed",
+    "userNeed": "sha256:0a063405fb8524d15471cfb39665449831a9fd8e4d3ebccccb727b2811f41e55",
+    "blueprint": "sha256:584c290fee7f589fc5a55391324e62ab1d770a7b6967105be924fa177524d6e5",
+    "buildContract": "sha256:824f948fedbc60ac3843e2c2dfeb0cf3517e1159dfe0089908f451fbed83d7a4"
+  },
+  "packageArchiveDigest": "sha256:a029179aaa580ada828b7eee8fb8b117a56c283f2a485b1791402332e26526bc",
+  "targetDescriptorDigest": "sha256:b35a922bde41615b87116a22aa0fe9194d3edc0196b182758a6c13138a43474b",
+  "runtimeSourceDigest": "sha256:3a101a8bfdc5a8a11893278af1343d984f9911762afc4c10eb7d06df7391b500",
+  "installPlanDigest": "sha256:b32079ffc202993e213bda511b3580e0193a987223c80048028526db47697ae9",
+  "installPlanFileDigest": "sha256:d3729f6aa2d5b297b6629055b76c5832ca7e1733d32b6aa6a8372f95cf7d136a",
+  "budget": {
+    "totalReservedFen": 4836,
+    "capFen": 10000
+  },
+  "authorityJournalDigest": "sha256:2c3aad911a9d9717df71fe0f5bc7aa641610a2ee621f75e620786e47dbe2e04d",
+  "date": "2026-11-06",
+  "status": "offline-implemented-proposed-install-not-authorized",
+  "proposalDigest": "sha256:9c3f1c8be85a6dfb08160de854736d1b0736ecc3bec5ef89f6c9ab721afdf361",
+  "sourcePlanRealGrant": false,
+  "realInstalled": false,
+  "realSdkExecuted": false,
+  "realModelRequests": 0,
+  "newRealReservedFen": 0,
+  "originalFailuresPreserved": true,
+  "noCommitOrPush": true,
+  "checks": {
+    "affected": {
+      "pass": 155,
+      "fail": 0
+    },
+    "stage2AndThreeStage": {
+      "pass": 97,
+      "fail": 0
+    },
+    "closureDocsRegistry": {
+      "pass": 41,
+      "fail": 0
+    },
+    "syntaxFiles": 133,
+    "npmPackDryRunMembers": 151,
+    "requiredNewModulesPacked": 4,
+    "fullNpmCheck": {
+      "status": "not-passed-interrupted",
+      "tests": 873,
+      "pass": 597,
+      "fail": 104,
+      "cancelled": 166,
+      "skipped": 6,
+      "syntaxPassed": true,
+      "unrelatedRootCausesCertified": false
+    }
+  },
+  "independentReview": {
+    "reviewer": "core_mvp_whole_batch_review",
+    "initialCritical": 0,
+    "initialImportant": 3,
+    "initialMinor": 0,
+    "authorTddFixes": 3,
+    "fixRegressionPass": 10,
+    "independentRereview": false
+  },
+  "futureM3": {
+    "executable": false,
+    "missing": [
+      "real-install-receipt",
+      "registered-sessions",
+      "exact-runtime-approvals"
+    ],
+    "maximumRequests": 4,
+    "maximumNewReservedFen": 124,
+    "maximumCumulativeReservedFen": 4960
+  },
+  "externalNetworkRequests": 0,
+  "syntheticLoopbackChecks": true
+}

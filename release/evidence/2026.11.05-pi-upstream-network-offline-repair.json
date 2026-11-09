@@ -1,0 +1,199 @@
+{
+  "schemaVersion": "agentmo.pi-upstream-network-offline-repair.v1",
+  "date": "2026-11-05",
+  "status": "OFFLINE_DIAGNOSTIC_REPAIR_VERIFIED_NETWORK_PREVIEW_NOT_APPROVED",
+  "originalFailure": {
+    "proposalDigest": "sha256:8ae76eb7540a1ec963dd40d152d63ba3d3fe25923a8e0c25594ca918c21130c1",
+    "causeCode": "COURSE_WIKI_UPSTREAM_NETWORK",
+    "upstreamStatusObserved": false,
+    "rawUnderlyingErrorRetained": false,
+    "rootCauseKnown": false,
+    "scopeClosed": true,
+    "replayed": false
+  },
+  "confirmedDefect": "shared completion error mapping discarded safe lower-level network codes before Pi persisted the failure",
+  "repair": {
+    "field": "upstreamNetworkCode",
+    "whitelistOnly": true,
+    "ownDataDescriptorsOnly": true,
+    "maxDepth": 3,
+    "maxObjects": 32,
+    "maxAggregateChildren": 8,
+    "unknownOrTruncated": "UNKNOWN",
+    "multipleObservedCodes": "MULTIPLE",
+    "rawMessageStackPayloadsCopied": false,
+    "validOnlyFor": "failed/COURSE_WIKI_UPSTREAM_NETWORK/no-upstream-HTTP-status",
+    "historicalRecordsSupportedWithoutRewrite": true,
+    "noRetryOrReservationChanges": true
+  },
+  "sourceSnapshot": {
+    "path": "release/evidence/2026.11.05-pi-upstream-network-diagnostics-source-snapshot.json",
+    "digest": "sha256:de837b27c13f95055a91bc858b7bf3456b4492ae0cecff624422a0acbd04c304"
+  },
+  "changedFiles": [
+    "src/course-wiki-budget.js",
+    "src/pi-budget-proxy.js",
+    "test/pi-budget-proxy.test.js",
+    "test/helpers/io-surface-inventory.js"
+  ],
+  "sourceFiles": 377,
+  "validation": {
+    "redMissingDiagnostic": {
+      "tests": 3,
+      "failed": 3
+    },
+    "arrayProxyRedThenGreen": true,
+    "finalAffected": {
+      "tests": 73,
+      "passed": 73,
+      "failed": 0,
+      "syntheticFixturesOnly": true
+    },
+    "ioBoundary": {
+      "tests": 25,
+      "passed": 25
+    },
+    "probeFake": {
+      "checks": 5,
+      "passed": true,
+      "actualNetworkOperations": 0
+    },
+    "fullNpmCheck": {
+      "initialAttempt": "configuration rejected before tests because user/global npm config both /dev/null",
+      "configuredAttempt": "interrupted to apply reviewed security fix; not full pass",
+      "terminalSession": 37652,
+      "hostExitCode": 1,
+      "main": {
+        "tests": 418,
+        "passed": 266,
+        "failed": 0,
+        "cancelled": 150,
+        "skipped": 2
+      },
+      "laterLanes": "not-run"
+    },
+    "defaultSandboxAffected": "loopback EPERM; original log retained; final host run uses only synthetic local fixtures"
+  },
+  "preservation": {
+    "oldMetadataEntriesVerified": 115562,
+    "agentmoStrictTree": true,
+    "oldSddStrictExceptCurrentWorkspace": true,
+    "authorityJournalDigest": "sha256:2c3aad911a9d9717df71fe0f5bc7aa641610a2ee621f75e620786e47dbe2e04d",
+    "authorityConsumptions": 14,
+    "authorityDecisions": 52,
+    "budget": {
+      "reservations": 28,
+      "totalReservedFen": 4836,
+      "remainingFen": 5164,
+      "capFen": 10000,
+      "newReservedFen": 0,
+      "refundOrReset": false
+    },
+    "oldFailureEvidenceUntouched": true
+  },
+  "environmentObservation": "only presence of selected proxy/CA variable names observed; none present in this process; does not prove historical cause",
+  "nextPreview": {
+    "proposalDigest": "sha256:33d29f0b96f41e530d54412bbcd5c10ff006e80d9e6f63886cfdfb82702d3d3b",
+    "filesPinned": 5,
+    "steps": [
+      {
+        "type": "dns.lookup",
+        "host": "api.minimax.cn",
+        "all": true,
+        "timeoutMs": 5000
+      },
+      {
+        "type": "tls-handshake",
+        "host": "api.minimax.cn",
+        "port": 443,
+        "servername": "api.minimax.cn",
+        "rejectUnauthorized": true,
+        "timeoutMs": 7000
+      },
+      {
+        "type": "HEAD",
+        "url": "https://api.minimax.cn/",
+        "redirect": "manual",
+        "timeoutMs": 10000
+      }
+    ],
+    "processTimeoutMs": 30000,
+    "stopOnFirstFailure": true,
+    "runOnce": true,
+    "retry": false,
+    "approvalAbsent": true,
+    "operationAbsent": true,
+    "actualExternalNetworkOperations": 0,
+    "keyRead": false,
+    "sdkExecuted": false,
+    "modelApiRequests": 0,
+    "newReservedFen": 0
+  },
+  "independentReview": {
+    "path": ".superpowers/sdd/2026-11-05-pi-upstream-network-offline-r1/FINAL_INDEPENDENT_REVIEW.json",
+    "digest": "sha256:2ad3a956f36d04034d455b22490742d3fe1446f8eda0c989311de79f80dc5726"
+  },
+  "logs": {
+    "regression-red.log": {
+      "path": ".superpowers/sdd/2026-11-05-pi-upstream-network-offline-r1/regression-red.log",
+      "digest": "sha256:c8a20d1fc8dce51eb5d7ae76f52699e080ecca8f25cab9703432e7bd5e7882cf"
+    },
+    "regression-green.log": {
+      "path": ".superpowers/sdd/2026-11-05-pi-upstream-network-offline-r1/regression-green.log",
+      "digest": "sha256:4dfc76a6eedf105d7d170066f734d5da054c58d8aadc5c97f342fafbac60b7d8"
+    },
+    "array-proxy-red.log": {
+      "path": ".superpowers/sdd/2026-11-05-pi-upstream-network-offline-r1/array-proxy-red.log",
+      "digest": "sha256:12b15b2a30668c7ab18233fc140fbb2440c89acbf100b436e9ba57167a1c233b"
+    },
+    "array-proxy-green.log": {
+      "path": ".superpowers/sdd/2026-11-05-pi-upstream-network-offline-r1/array-proxy-green.log",
+      "digest": "sha256:a7384765b741822886b0d3ed4185f75ed9fb7f87871b24898950e621119c0f76"
+    },
+    "affected.log": {
+      "path": ".superpowers/sdd/2026-11-05-pi-upstream-network-offline-r1/affected.log",
+      "digest": "sha256:05dfe2c7af9240ec8fd02137f67e2c6dd4af89d6b6bca1066350caec1c23d31e"
+    },
+    "affected-final-host.log": {
+      "path": ".superpowers/sdd/2026-11-05-pi-upstream-network-offline-r1/affected-final-host.log",
+      "digest": "sha256:8e0d44b93afa750a95b6eeb3cd9a9a09994a8ca4342652e2021aa07d88d65244"
+    },
+    "io-final.log": {
+      "path": ".superpowers/sdd/2026-11-05-pi-upstream-network-offline-r1/io-final.log",
+      "digest": "sha256:03d67e43dd3a5448b022bd7fdb5f15def4ec69569c68e6d1f56e1ee4bce86a41"
+    },
+    "network-deadline-red.log": {
+      "path": ".superpowers/sdd/2026-11-05-pi-upstream-network-offline-r1/network-deadline-red.log",
+      "digest": "sha256:5fc345e27937486ed03d5866d5c817bcc73e0bf509608d768aedf6f4b8fa741d"
+    },
+    "network-deadline-green.log": {
+      "path": ".superpowers/sdd/2026-11-05-pi-upstream-network-offline-r1/network-deadline-green.log",
+      "digest": "sha256:fb0af8760977a90ab4d042abcb349ff5048dd695e9425775b39080cc48a0f3cc"
+    },
+    "npm-check.log": {
+      "path": ".superpowers/sdd/2026-11-05-pi-upstream-network-offline-r1/npm-check.log",
+      "digest": "sha256:250e369d730a46c4d41df37449a5c58c169b4b1d2ab546951a8bed0285805a95"
+    },
+    "npm-check-configured.log": {
+      "path": ".superpowers/sdd/2026-11-05-pi-upstream-network-offline-r1/npm-check-configured.log",
+      "digest": "sha256:4f91417fde4d93a6dfa0161a35897a877b090e52d0cd6016ad8190fe329c023e"
+    }
+  },
+  "limits": [
+    "real failure cannot be retroactively assigned a specific DNS/TLS/connect cause",
+    "real network reachability remains untested",
+    "M3 acceptance and complete repository check remain unpassed",
+    "Plan11/legacy15 source gaps, remaining14 categories and whole-delivery review remain open"
+  ],
+  "notPerformed": {
+    "envFileRead": true,
+    "credentialValueRead": true,
+    "realSdkExecution": true,
+    "realAgentInstallation": true,
+    "activation": true,
+    "externalNetworkDiagnostic": true,
+    "modelCall": true,
+    "commit": true,
+    "push": true
+  }
+}

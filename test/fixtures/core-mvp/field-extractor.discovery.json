@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "agentmo.discovery.v1",
+  "agent_id": "field-extractor",
+  "source_inventory": [
+    {
+      "id": "field-extractor-rules",
+      "type": "document",
+      "trust_level": "verified",
+      "description": "Extract Product and Deadline from the current text. Return only JSON with exactly Product and Deadline; missing values are null.",
+      "location": "field-extractor.md",
+      "extraction_fields": [
+        "Read explicit Product and Deadline values; never infer missing values.",
+        "Output JSON with exactly Product and Deadline."
+      ]
+    }
+  ],
+  "database_outputs": [
+    "authorized synthetic rules"
+  ],
+  "retrieval_outputs": [
+    "bounded source chunks"
+  ],
+  "user_need_inputs": [
+    "Read explicit Product and Deadline values; never infer missing values.",
+    "Output JSON with exactly Product and Deadline."
+  ],
+  "refresh_policy": {
+    "cadence": "on explicit change",
+    "owner": "local user",
+    "stale_after": "on change"
+  },
+  "forbidden_data_handling": [
+    "Do not persist credentials or raw transcripts."
+  ]
+}

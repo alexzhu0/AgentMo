@@ -1,0 +1,195 @@
+{
+  "schemaVersion": "agentmo.pi-native-query-repair-offline-public.v1",
+  "date": "2026-10-27",
+  "status": "OFFLINE_REPAIR_AND_INSTALL_PREVIEW_READY",
+  "sourceSnapshot": {
+    "path": "release/evidence/2026.10.27-pi-native-query-repair-source-snapshot.json",
+    "digest": "sha256:4f044e5c3a774b8cbe823a0696b8aa4fa03e6042f68ab1244c212f5e446c20d8"
+  },
+  "changedSourcePaths": [
+    "src/pi-budget-proxy.js",
+    "test/helpers/pi-http-fixture.js",
+    "test/pi-budget-proxy.test.js"
+  ],
+  "productionChange": "Accept only exact /v1/messages and /v1/messages?beta=true; reject other queries/routes; keep fixed upstream URL, authentication and one-use budget controls.",
+  "regression": {
+    "red": {
+      "tests": 1,
+      "failed": 1,
+      "symptom": "SDK beta route returned 400 instead of 200",
+      "logDigest": "sha256:73e44956a0dd27d321e7ff0d2ac1c9f6b841f8e4c3cadfcd5aade23fb568fb4c"
+    },
+    "restricted": {
+      "tests": 114,
+      "passed": 91,
+      "failed": 23,
+      "logDigest": "sha256:c054838d395ee6b17f1b4e9c29ac247be51f29c61ee7b00f362ba4fa73116dad",
+      "note": "22 listen EPERM errors plus one synthetic child assertion; retained, not relabelled as pass."
+    },
+    "hostSynthetic": {
+      "tests": 114,
+      "passed": 114,
+      "failed": 0,
+      "logDigest": "sha256:74524650ed1d7d34a9a04d0e3ecc640f0e32dc1083a69cd41340a3db3ad621da",
+      "realSdk": false,
+      "realProviderRequests": 0,
+      "secretEnvironmentInherited": false
+    },
+    "baselineGuard": {
+      "redFailed": true,
+      "greenCases": 2,
+      "greenPassed": 2,
+      "redLogDigest": "sha256:b8f3cd42446c5c79000e5f0d62889d07807d4ca9ff8b3d632541055eff78c46c",
+      "greenLogDigest": "sha256:7670dc446521fc32cfb9e043c24b2690809e42e6b4a18036aaae87c3deb96d42",
+      "realInstalls": 0
+    }
+  },
+  "fullNpmCheck": {
+    "command": "npm run check",
+    "exitCode": null,
+    "exitSignal": "SIGTERM",
+    "timedOut": false,
+    "limitMs": 900000,
+    "elapsedMs": 508324,
+    "secretEnvironmentInherited": false,
+    "sourceStableSinceStart": true,
+    "wrapperExitCode": 1,
+    "status": "FAILED_STOPPED_NOT_PASSED",
+    "mainSummary": {
+      "tests": 525,
+      "suites": 30,
+      "passed": 359,
+      "failed": 24,
+      "cancelled": 140,
+      "skipped": 2
+    },
+    "observedFailedEntriesBeforeStop": [
+      "✖ preflights an exact synthetic two-entry terminal and publishes closed private authority",
+      "✖ rejects an ancestor swap after retained-root validation without an external mkdir",
+      "✖ rejects direct programmatic terminal human claims without moving candidate-ready",
+      "✖ rejects malformed locators, unsafe metadata, and conflicting continuation replay without disclosure",
+      "✖ admits exactly one concurrent successor for one continuation head",
+      "✖ does not expose a linked continuation until its publisher commits",
+      "✖ keeps a prepared append-only continuation non-authoritative and resumes it exactly",
+      "✖ converges from a real fresh-process SIGKILL to one continuation",
+      "✖ unconditionally rejects an unknown continuation option",
+      "✖ returns the exact committed successor even when another writer advances it",
+      "✖ rejects same-byte inode swaps, extra hardlinks, and occupied recovery paths without mutation",
+      "✖ repository-private prior-attempt authority",
+      "✖ reports an empty project as not projected without creating state",
+      "✖ reports declared projection, observed capabilities, and unverified activation without mutating bytes",
+      "✖ reports changed and missing receipt-owned assets without repairing either",
+      "✖ does not echo secret-like material from a corrupt receipt",
+      "✖ rejects legacy installed receipt semantics instead of treating them as projection evidence",
+      "✖ rejects a receipt that rewrites its own project-agent digest instead of trusting the current release",
+      "✖ reports receipt-last interruption as a partial install without repairing it",
+      "✖ fails closed under an external same-byte inode swap race",
+      "✖ fails closed when an admitted parent becomes a symlink",
+      "✖ rejects unsafe nlink and directory/file modes without changing them",
+      "✖ validates a checkpoint only when it binds the exact receipt digest",
+      "✖ fails closed while an exact checkpoint successor remains prepared but uncommitted",
+      "✖ never selects a head from a fork, gap, orphan, malformed, or unsafe checkpoint journal",
+      "✖ read-only Builder doctor"
+    ],
+    "diagnosticCodes": [
+      "EPERM",
+      "AGENTMO_CODEX_UAT_PRIVATE_AUTHORITY_REJECTED",
+      "AGENTMO_CODEX_HOST_STATE_ROOT_REJECTED"
+    ],
+    "laterLanes": "not-run",
+    "stopInspectionFirstAttempt": {
+      "exitCode": 1,
+      "code": "EPERM",
+      "signalSent": false
+    },
+    "finalStop": "SIGTERM to verified owned test process group; stale check lock was subsequently archived and released separately.",
+    "logDigest": "sha256:07834edd843400e644540f861e6ef75f14cccff05f18ba496caa9f0462aaf819",
+    "checkLockCleanup": {
+      "status": "OWNED_STALE_TEST_LOCK_ARCHIVED_AND_RELEASED",
+      "ownerPidAbsent": true,
+      "groupLeaderAbsent": true,
+      "noOpenHandles": true,
+      "byteLength": 0,
+      "originalBytesAndIdentityPreserved": true,
+      "receiptDigest": "sha256:24188438a5ffa3b988f924cdb7ba7ee15e4952078fae51cc5a958ee1eff90598"
+    }
+  },
+  "preservation": {
+    "metadataRowsUnchanged": 108785,
+    "metadataTreeCounts": [
+      104433,
+      4253,
+      99
+    ],
+    "sensitiveFiles": "metadata only",
+    "originalBudget": {
+      "reservations": 27,
+      "totalReservedFen": 4805,
+      "remainingFen": 5195,
+      "capFen": 10000,
+      "newReservedFen": 0
+    },
+    "authority": {
+      "consumptions": 12,
+      "decisions": 45,
+      "journalDigest": "sha256:753284c7740acdef177da6e10f277a395e6a6d106a3bfcdeb6450e4f87860a41",
+      "newConsumptions": 0
+    },
+    "oldFailureAndInstallStatePreserved": true,
+    "resultDigest": "sha256:ffa4b56ccea6936deec87d19058021bf442b0286821184790e9e4e72c0ee55f5"
+  },
+  "preview": {
+    "proposalDigest": "sha256:ebd40d41487c744218384bc947b9a3df9af5222397b405e53c4b11e96cb376d6",
+    "installPlanDigest": "sha256:5b17d81fe73d39fe650ed27e6574c2d98f15857c7c793a293a98c5f36e430c65",
+    "installPlanRawDigest": "sha256:54b63950ed278150c161fa19768ac485265638c599d77056460dbc8483d54ef9",
+    "archiveDigest": "sha256:1877026e544bec80ba1595355f30ff59fc336e8c830c7dbcf69daed659f61be4",
+    "installerDigest": "sha256:b9979c92395f6fe5c032982bcc900f70c18bd541847d4a07bf015d3f987a0b93",
+    "publicPage": "docs/poc/native-chat/pi-native-m3-query-repair-preview.md",
+    "publicPageDigest": "sha256:0e6a5b31c43d34bc7d79d74d7dfda9e0da581126ccd26517d0a138a9e7528ea2",
+    "newStateRoot": ".agentmo/meeting-text-pi-minimax-m3-native-2026-10-27-r2",
+    "newStateRootAbsent": true,
+    "scope": "install exact repair package; register two empty sessions; prepare real-receipt-bound M3 preview only",
+    "operations": 6,
+    "directories": 4,
+    "installDecisions": 2,
+    "installConsumptions": 1,
+    "actualInstallApproved": false,
+    "activationApproved": false,
+    "paidGrantActive": false,
+    "futurePaidDraft": {
+      "maximumRequests": 5,
+      "maximumNewReservedFen": 155,
+      "maximumCumulativeReservedFen": 4960,
+      "conditionalRestartAfterFirstFourPasses": 1,
+      "status": "pending actual install receipt and separate exact approval"
+    }
+  },
+  "review": {
+    "verdict": "accepted-limited-offline-repair-and-install-preview",
+    "critical": 0,
+    "important": 0,
+    "minor": 0,
+    "priorImportantClosed": true,
+    "reportDigest": "sha256:46c3471637b63c6809d9177a3792596758ca7693b9e0b2a57707dbaf7b94b363"
+  },
+  "limits": [
+    "Actual rejected URL in old attempt was not captured; this fixes a demonstrated static/offline defect, not a proven sole live root cause.",
+    "No real M3 acceptance or domain/production certification; full check did not pass.",
+    "Plan11/legacy15 source gaps, remaining14 real categories and final delivery review remain open."
+  ],
+  "actualEffects": {
+    "installed": false,
+    "actualSdk": false,
+    "activated": false,
+    "keyValuesRead": false,
+    "realModelRequests": 0,
+    "newRealReservedFen": 0,
+    "committed": false,
+    "pushed": false
+  },
+  "documentChecks": {
+    "passed": 11,
+    "failed": 0,
+    "logDigest": "sha256:71edeb9f4a3072222bbbfd2c87f3814250721b4d32ca924e76c4ab2a53c9662a"
+  }
+}

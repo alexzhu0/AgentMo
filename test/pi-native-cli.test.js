@@ -1,3 +1,4 @@
+import { subjectsForCommand } from '../src/artifact-subjects.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { spawnSync } from 'node:child_process';
@@ -60,4 +61,12 @@ test('executes exact describe admit preview approve and apply against synthetic 
     await assert.rejects(runPiNativeCommand('pi-native-stop', ['--install-plan', activationPath, '--digest', `pi-install-plan=${digest(await readFile(activationPath))}`, ...rootArgs.filter((_, i) => i < 2), '--json']));
     assert.deepEqual(await readFile(path.join(f.authorityRoot, 'consumption.jsonl')), before);
   });
+});
+
+
+test('pi-chat is public and rejects noninteractive or blanket approvals', async () => {
+  const { commandHelpText } = await import('../src/cli-help.js');
+  assert.match(commandHelpText('pi-chat'), /Interactive TTY/);
+  assert.equal(subjectsForCommand('pi-chat').length, 8);
+  for (const flags of [['--yes'], ['--approve-all'], ['--json']]) await assert.rejects(runPiNativeCommand('pi-chat', flags));
 });

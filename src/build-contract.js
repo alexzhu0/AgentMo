@@ -568,7 +568,7 @@ function buildNativeChatSpecification(blueprint) {
     },
     runtimeBinding: {
       target: runtime, harness: runtime, provider: "budget-proxy",
-      model: pi ? "agentmo-budget/MiniMax-M3" : model.model, channel: "native-chat", exactRevisionRequired: true,
+      model: pi ? "minimax-cn/MiniMax-M3" : model.model, channel: "native-chat", exactRevisionRequired: true,
       ...(Object.hasOwn(blueprint, "native_model_profile") ? { modelProfile: blueprint.native_model_profile } : {}),
     },
     transitions: ["install", "activate", "stop"].map((transition) => ({

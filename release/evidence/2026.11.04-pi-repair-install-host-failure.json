@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "agentmo.pi-install-host-failure-public.v1",
+  "date": "2026-11-04",
+  "status": "FAILED_STOPPED_NO_RETRY",
+  "proposalDigest": "sha256:ebd40d41487c744218384bc947b9a3df9af5222397b405e53c4b11e96cb376d6",
+  "installPlanDigest": "sha256:5b17d81fe73d39fe650ed27e6574c2d98f15857c7c793a293a98c5f36e430c65",
+  "installerDigest": "sha256:b9979c92395f6fe5c032982bcc900f70c18bd541847d4a07bf015d3f987a0b93",
+  "installerInvocations": 1,
+  "reportedShellExitCode": 137,
+  "observedSignal": null,
+  "stdoutBytes": 0,
+  "normalResultProduced": false,
+  "phase": "before-operation-claim; finer stage not observed",
+  "cause": "unknown; no OOM or system-kill evidence captured",
+  "postcheck": {
+    "newAgentRoot": false,
+    "installOperation": false,
+    "installResult": false,
+    "installerFailure": false,
+    "precheckFailure": false,
+    "modelPreview": false
+  },
+  "budget": {
+    "reservations": 27,
+    "totalReservedFen": 4805,
+    "remainingFen": 5195,
+    "capFen": 10000,
+    "newReservedFen": 0
+  },
+  "authority": {
+    "consumptions": 12,
+    "decisions": 45,
+    "newConsumptions": 0,
+    "journalDigest": "sha256:753284c7740acdef177da6e10f277a395e6a6d106a3bfcdeb6450e4f87860a41"
+  },
+  "preservation": {
+    "sourceFilesVerified": 375,
+    "sourceSnapshot": {
+      "path": "release/evidence/2026.10.27-pi-native-query-repair-source-snapshot.json",
+      "digest": "sha256:4f044e5c3a774b8cbe823a0696b8aa4fa03e6042f68ab1244c212f5e446c20d8"
+    },
+    "oldFailureRecordDigest": "sha256:297fbd6d6a04213b2e42280aa22e22c3bf7c85c97fbb9caeea14c132ffb3d40f",
+    "oldControllerFilesVerified": 17,
+    "oldControllerResultDigest": "sha256:e585f47eaad08628008bd7642456fb5caaa0427f539683e32fb8ed63fc2fbc96",
+    "oldDurableStopDigest": "sha256:0823e0412c577c3e185f6365e0cf080a9c5611f286363ec5f43c9112ce44edfc",
+    "originalCleanupFailurePreserved": true,
+    "broadMetadataRescanPerformed": false
+  },
+  "realEffects": {
+    "installed": false,
+    "installDecisionsIssued": false,
+    "actualSdk": false,
+    "activated": false,
+    "keyValuesRead": false,
+    "modelRequests": 0,
+    "newReservations": 0
+  },
+  "scopeClosed": true,
+  "approvalReplayAllowed": false,
+  "retryPerformed": false,
+  "newM3RunPreviewPrepared": false,
+  "privateRecord": {
+    "path": ".superpowers/sdd/2026-10-27-pi-native-query-repair-r1/INSTALL_HOST_FAILURE_2026-11-04.json",
+    "digest": "sha256:61fea39a83254761ab6a1cc80dfeb47ac14cb248ff580b892dd1f32fa1a107f0"
+  },
+  "limits": [
+    "A finer startup stage or system termination reason was not captured.",
+    "No broad metadata rescan; checked 375 source file hashes, 17 frozen old controller files and key old failure-result/stop hashes.",
+    "No new installation receipt, real SDK or M3 acceptance evidence exists."
+  ],
+  "committed": false,
+  "pushed": false
+}

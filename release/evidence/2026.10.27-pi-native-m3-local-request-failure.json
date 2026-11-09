@@ -1,0 +1,135 @@
+{
+  "schemaVersion": "agentmo.pi-native-m3-local-request-failure-public.v1",
+  "date": "2026-10-27",
+  "status": "FAILED_STOPPED_NO_RETRY",
+  "proposalDigest": "sha256:de29abc28d8b93ab78a6ba6334a380a3b283eb73c632f55ac19bfb741202cff8",
+  "activationPlanDigest": "sha256:ca58b870b763b045d5453e34dde942b92b6ed3f038112b5f3e3992c59c8f00ef",
+  "authorizationQuestion": "call_a60fd2b6b96c4e9bb3712764a65df0e9:0",
+  "invocation": {
+    "count": 1,
+    "hostExitCode": 1,
+    "entry": "existing thin CLI; no browser",
+    "sdk": "pi-coding-agent 1.2.0",
+    "provider": "minimax-cn/MiniMax-M3"
+  },
+  "startupStagesPassed": [
+    "source-load",
+    "preflight",
+    "authority-consumption",
+    "control-files",
+    "sdk-import",
+    "session-prewarm",
+    "chat-listen"
+  ],
+  "sdkImported": true,
+  "sessionPrewarmPassed": true,
+  "cliReadyObserved": true,
+  "firstCase": {
+    "id": "entry",
+    "states": [
+      "received",
+      "failed"
+    ],
+    "causeCode": "PI_REQUEST_INVALID",
+    "caseClaimCount": 1,
+    "modelRequestClaimCount": 0,
+    "upstreamStatusObserved": false,
+    "controlledUpstreamRequests": 0,
+    "normalizedReply": false,
+    "independentContentReview": "not-run-no-reply"
+  },
+  "remainingCases": "not-run",
+  "conditionalRestartPerformed": false,
+  "scopeDurablyClosed": true,
+  "stop": {
+    "controllerStatus": "failed",
+    "controllerCleanup": "failed",
+    "durableStatus": "failed",
+    "durableReason": "case-failed",
+    "ownChildExited": true,
+    "resultDigest": "sha256:e585f47eaad08628008bd7642456fb5caaa0427f539683e32fb8ed63fc2fbc96",
+    "receiptDigest": "sha256:0823e0412c577c3e185f6365e0cf080a9c5611f286363ec5f43c9112ce44edfc",
+    "laterPortObservation": {
+      "source": "single-escalated-loopback-probe-after-host-exit",
+      "ports": [
+        {
+          "port": 19492,
+          "state": "refused"
+        },
+        {
+          "port": 19493,
+          "state": "refused"
+        }
+      ]
+    },
+    "manualStopRepeated": false,
+    "originalFailureStatusPreserved": true
+  },
+  "budget": {
+    "newReservations": 0,
+    "addedReservedFen": 0,
+    "projectReservationCount": 27,
+    "cumulativeReservedFen": 4805,
+    "remainingFen": 5195,
+    "capFen": 10000,
+    "reset": false,
+    "refund": false
+  },
+  "authority": {
+    "consumptions": 12,
+    "decisions": 45,
+    "journalDigest": "sha256:753284c7740acdef177da6e10f277a395e6a6d106a3bfcdeb6450e4f87860a41",
+    "oldJournalPrefixDigest": "sha256:55cb17069eb5face028b80611d35a0f7326ecc6b6d720ec341cf2fede4c2c535",
+    "prefixPreserved": true
+  },
+  "preservation": {
+    "originalInstallEntries": 18,
+    "currentInstallEntries": 30,
+    "addedEntries": 12,
+    "oldMetadataRowsVerified": 108674,
+    "sourceFilesVerified": 375,
+    "frozenFilesVerified": 423,
+    "controlFilesVerified": 17,
+    "oldFailuresPreserved": true,
+    "scope": "Existing metadata compared with explicit directory/journal deltas; source and frozen/control file bytes checked. Sensitive session/login/control files observed by metadata only."
+  },
+  "diagnosticClue": {
+    "type": "static-code-protocol-mismatch",
+    "sdkRoute": "/v1/messages?beta=true",
+    "proxyAcceptedRoute": "/v1/messages",
+    "actualRejectedRequestPathCaptured": false,
+    "actualRequestPayloadRead": false,
+    "soleCauseProven": false,
+    "sdkSource": ".agentmo/pi-sdk-1.2.0-toolchain-2026-10-16-r1/node_modules/@anthropic-ai/sdk/resources/beta/messages/messages.mjs:39",
+    "proxySource": "src/pi-budget-proxy.js:202",
+    "previousFakeCoverageGap": "Native SDK beta query route was not covered."
+  },
+  "keyHandling": {
+    "loader": "existing approved parent runner; in-memory only",
+    "assistantReadValue": false,
+    "reviewerReadValue": false,
+    "sdkChildReadValue": false,
+    "rawProviderPayloadReadOrPublished": false,
+    "privateSessionBodyReadOrPublished": false
+  },
+  "originalEvidence": {
+    "executionRecord": ".superpowers/sdd/2026-10-27-pi-native-minimal/model-preview/EXECUTION_FAILURE_RECORD.json",
+    "executionRecordDigest": "sha256:297fbd6d6a04213b2e42280aa22e22c3bf7c85c97fbb9caeea14c132ffb3d40f",
+    "postFailureBaseline": ".superpowers/sdd/2026-10-27-pi-native-minimal/model-preview/POST_FAILURE_BASELINE.json",
+    "postFailureBaselineDigest": "sha256:3e152ff3a36e7c7003d1b80b67575738fc07d48c232bd546805a1af14169771a",
+    "controllerResult": ".superpowers/sdd/2026-10-27-pi-native-minimal/model-preview/operation-once/result.json",
+    "sourceSnapshot": "release/evidence/2026.10.27-pi-native-minimal-source-snapshot.json",
+    "sourceSnapshotDigest": "sha256:f3c35315f975d5f7ef51adc6e3fa909fd8780e9ae7fb3c5e05356d07da9558c7"
+  },
+  "limits": [
+    "No independent network capture or provider billing query; zero forwarding is established only within the controlled path.",
+    "Actual rejected URL was not recorded; static incompatibility does not prove a sole measured root cause.",
+    "Original cleanup=failed is preserved despite later refused ports and ownChildExited=true.",
+    "No model acceptance or domain quality pass; full npm check remains incomplete/failed; Plan 11 and legacy 15 source gaps and the remaining 14 real categories remain open."
+  ],
+  "retryPerformed": false,
+  "productSourceRepairPerformed": false,
+  "nextRunPreviewPrepared": false,
+  "committed": false,
+  "pushed": false
+}

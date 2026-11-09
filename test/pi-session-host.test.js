@@ -1,3 +1,4 @@
+import { stubPiUpstream } from './helpers/pi-https-fixture.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { mkdir, writeFile, readFile, readdir, chmod } from 'node:fs/promises';
@@ -9,7 +10,7 @@ import { createPiSessionHost } from '../src/pi-session-host.js';
 import { createPiTurnController, createPiBudgetHandler } from '../src/pi-budget-proxy.js';
 import { piBudgetFixture } from './helpers/pi-budget-fixture.js';
 import { fakePiSdk, finalMessage } from './helpers/pi-sdk-fixture.js';
-import { piHttpRequest } from './helpers/pi-http-fixture.js';
+import { piHttpRequest, piNativeRequest, piNativeResponse } from './helpers/pi-http-fixture.js';
 import { digest } from './helpers/pi-native-fixture.js';
 
 async function fixture(t) {
@@ -24,15 +25,11 @@ async function fixture(t) {
   const approvedCases = [{ caseId: 'entry', sessionId, inputDigest: digest(f.text) }];
   controller = await createPiTurnController({ binding: f.binding, stateRoot: f.stateRoot, approvedCases });
   handler = createPiBudgetHandler({ binding: f.binding, stateRoot: f.stateRoot, budgetRoot: f.budgetRoot, apiKey: 'synthetic-upstream', controller });
-  const previous = globalThis.fetch; let upstreamCalls = 0;
-  globalThis.fetch = async () => { upstreamCalls++; return new Response(JSON.stringify({ model: 'MiniMax-M3',
-    choices: [{ index: 0, message: { role: 'assistant', content: '合成最终回复' }, finish_reason: 'stop' }],
-    usage: { prompt_tokens: 20, completion_tokens: 3, total_tokens: 23 } })); };
-  t.after(() => { globalThis.fetch = previous; });
+  let upstreamCalls = 0;
+  stubPiUpstream(t, async () => { upstreamCalls++; return piNativeResponse(); });
   const attempt = async () => {
     const token = fake.calls.credential.at(-1).credential;
-    const result = await piHttpRequest(handler, { model: 'MiniMax-M3', stream: false, max_tokens: 2048,
-      messages: [{ role: 'user', content: f.text }] }, { authorization: `Bearer ${token}` });
+    const result = await piHttpRequest(handler, piNativeRequest(f.text), { 'x-api-key': token });
     assert.equal(result.statusCode, 200);
   };
   fake.sequence(async () => { await attempt(); return [{ type: 'message_end', message: finalMessage() }, { type: 'agent_settled', aborted: false }]; });
@@ -111,13 +108,13 @@ test('keeps SDK base credentials empty and rejects mutations and cancelled reads
   try {
     const store = f.calls.runtime[0].credentials;
     assert.ok(store, 'SDK must receive an empty nonpersistent credential store');
-    assert.equal(await store.read('agentmo-budget'), undefined); assert.deepEqual(await store.list(), []);
+    assert.equal(await store.read('minimax-cn'), undefined); assert.deepEqual(await store.list(), []);
     let called = false;
-    await assert.rejects(store.modify('agentmo-budget', async () => { called = true; return { type: 'api_key', key: 'synthetic-only' }; }));
-    await assert.rejects(store.delete('agentmo-budget')); assert.equal(called, false);
-    assert.equal(await store.read('agentmo-budget'), undefined); assert.deepEqual(await store.list(), []);
+    await assert.rejects(store.modify('minimax-cn', async () => { called = true; return { type: 'api_key', key: 'synthetic-only' }; }));
+    await assert.rejects(store.delete('minimax-cn')); assert.equal(called, false);
+    assert.equal(await store.read('minimax-cn'), undefined); assert.deepEqual(await store.list(), []);
     const abort = new AbortController(); abort.abort();
-    await assert.rejects(store.read('agentmo-budget', { signal: abort.signal }), { name: 'AbortError' });
+    await assert.rejects(store.read('minimax-cn', { signal: abort.signal }), { name: 'AbortError' });
     await assert.rejects(store.list({ signal: abort.signal }), { name: 'AbortError' });
   } finally { await host.close(); }
 });

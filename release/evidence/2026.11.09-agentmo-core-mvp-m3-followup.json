@@ -1,0 +1,113 @@
+{
+  "status": "followup-failed-network-reset-owned-stopped-no-retry",
+  "proposalDigest": "sha256:0ee3be27ec7703f638f17378b617cf30d0cfc0428549ca05ae067f9af958cdfc",
+  "activationPlanDigest": "sha256:c097741d26dd066ca015db49c33a706f3360e7a570554b50a2f42b33f667ff04",
+  "installedReceiptDigest": "sha256:3066fc461489416ccc3eccd74336a71971792016cec2e25e3cfd5c36af5da80c",
+  "startedAt": 1794207092924,
+  "completedAt": 1794207191693,
+  "reviewDeadline": 1794208292924,
+  "workError": {
+    "stage": "submit-one-fixed-material",
+    "code": "COURSE_WIKI_UPSTREAM_NETWORK",
+    "upstreamNetworkCode": "ECONNRESET"
+  },
+  "sdkExecutionAttempted": true,
+  "ready": true,
+  "submitted": true,
+  "normalizedReplyAvailable": false,
+  "replyDigest": null,
+  "technicalChecks": null,
+  "terminal": {
+    "status": "failed",
+    "causeCode": "COURSE_WIKI_UPSTREAM_NETWORK",
+    "upstreamNetworkCode": "ECONNRESET"
+  },
+  "counts": {
+    "requestClaimsBefore": 1,
+    "turnEntriesBefore": 4,
+    "turnEntries": 8,
+    "requestClaims": 2,
+    "received": 1,
+    "reserved": 1,
+    "sent": 1,
+    "completed": 0
+  },
+  "authority": {
+    "consumptions": 18,
+    "decisions": 68,
+    "oldPrefixPreserved": true,
+    "journalDigest": "sha256:573f6c51a205c0f2f9a42f122d7b6eeaf6f4dcc51893d61a65ea0664c4e406f5"
+  },
+  "budget": {
+    "totalReservedFen": 4898,
+    "capFen": 10000,
+    "projectReservations": 30,
+    "newReservedFen": 31
+  },
+  "cleanup": {
+    "status": "stopped",
+    "ownChildExited": true,
+    "stopStatus": "stopped",
+    "reason": "requested"
+  },
+  "modelRequests": 1,
+  "independentContentReview": "not-performed-no-final-response",
+  "credentialValueExposed": false,
+  "retries": 0,
+  "restarts": 0,
+  "commit": false,
+  "push": false,
+  "date": "2026-11-09",
+  "resultDigest": "sha256:78616b8496a0e8672c6ce10d690f3b9e680aab1782ae6fcafb86de22d8b87384",
+  "provider": "minimax-cn",
+  "model": "MiniMax-M3",
+  "sdkVersion": "1.2.0",
+  "agentId": "field-extractor",
+  "authorization": {
+    "source": "current-conversation-user-consent-2026-11-09",
+    "userMessages": [
+      "同意",
+      "继续"
+    ],
+    "proposalDigest": "sha256:0ee3be27ec7703f638f17378b617cf30d0cfc0428549ca05ae067f9af958cdfc",
+    "maximumRequests": 1,
+    "maximumNewReservedFen": 31,
+    "maximumCumulativeReservedFen": 4898
+  },
+  "newRequestClaims": 1,
+  "sessionIdDigest": "sha256:c0f434d31e04e310e7184573a1b062eb8b4d251a3684a8ea986c8f1ef398955b",
+  "inputDigest": "sha256:5d974bf94c75ef7b07cc21b5f151f411a18b536bff88952cd172305eb7394cb6",
+  "postStopVerification": {
+    "status": "verified-failure-preserved-owned-stop-confirmed",
+    "proposalDigest": "sha256:0ee3be27ec7703f638f17378b617cf30d0cfc0428549ca05ae067f9af958cdfc",
+    "sourceDigest": "sha256:3a101a8bfdc5a8a11893278af1343d984f9911762afc4c10eb7d06df7391b500",
+    "sourceFiles": 144,
+    "journalDigest": "sha256:573f6c51a205c0f2f9a42f122d7b6eeaf6f4dcc51893d61a65ea0664c4e406f5",
+    "stopReceiptDigest": "sha256:0697f2ab8a3899ba7e079847065c82286c6a86bcbe2874b84b51e9f0849d1e18",
+    "stopStatus": "stopped",
+    "ownChildExited": true,
+    "totalReservedFen": 4898,
+    "reservations": 30,
+    "capFen": 10000,
+    "requestClaims": 2,
+    "firstEvidencePreserved": true,
+    "normalizedReplyAbsent": true,
+    "noRetry": true
+  },
+  "scope": {
+    "caseId": "core-followup",
+    "fixedSyntheticInput": "Deadline: Friday",
+    "newSessions": 0,
+    "restarts": 0,
+    "retries": 0
+  },
+  "limits": [
+    "The Pi SDK and local CLI became ready; the upstream send attempt failed with ECONNRESET before any HTTP status was recorded.",
+    "The observations do not identify which endpoint or network component reset the connection.",
+    "No final reply exists, so no semantic verdict or independent content review is asserted.",
+    "The successful first case remains valid; followup failed and the final two cases did not run.",
+    "A sent claim and local reservation are not evidence of a supplier invoice or a completed model response.",
+    "No raw supplier payload, SDK transcript, credential value or host path is included.",
+    "No new activation, diagnostic network access or model request is authorized by this closed attempt."
+  ]
+}

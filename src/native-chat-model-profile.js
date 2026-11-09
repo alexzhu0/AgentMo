@@ -1,5 +1,5 @@
 export const MINIMAX_M3_PROFILE = "minimax-m3-cn-v1";
-export const PI_NATIVE_MODEL = "agentmo-budget/MiniMax-M3";
+export const PI_NATIVE_MODEL = "minimax-cn/MiniMax-M3";
 
 export function nativeChatRuntime(source) {
   if (!source || typeof source !== "object" || Array.isArray(source)) throw runtimeError();

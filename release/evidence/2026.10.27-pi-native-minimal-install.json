@@ -1,0 +1,98 @@
+{
+  "schemaVersion": "agentmo.pi-native-minimal-install-result.v1",
+  "status": "complete",
+  "authorization": {
+    "proposalDigest": "sha256:ee0cd7bb6e2347b8941df1ad9298ca94b65a9053b86b5526a2d580c2800cc3d7",
+    "questionItemId": "call_7235a1a12dab42b6b6f7fb2df33c37ea:0",
+    "scope": "install-and-register-two-empty-sessions-only"
+  },
+  "install": {
+    "planDigest": "sha256:3f4892c472cfa467403781838bc9412e3d1bd5b14bf3b47e5e6a7935fe56e64b",
+    "receiptDigest": "sha256:a17f00944d53e8048a32a9027bc500a10a09d65754903dce2eb68b6c9c69f93e",
+    "installCalls": 1,
+    "files": 6,
+    "directories": 4,
+    "registeredEmptySessions": 2,
+    "entries": 18,
+    "authorityDecisionCount": 2,
+    "authorityConsumptionDigest": "sha256:618b6d93191312a7d331fc05a9c8185a13ac0700313ab7e3f13f8f6e3b3a50cc",
+    "rootPrivateModes": "directories0700-files0600"
+  },
+  "authority": {
+    "consumptionsBefore": 10,
+    "consumptionsAfter": 11,
+    "decisionsBefore": 38,
+    "decisionsAfter": 40,
+    "journalDigestBefore": "sha256:d194ab36035c6fc6ac8f6055b64201afcd8bf170138c1454844120b0a7aa3f77",
+    "journalDigestAfter": "sha256:55cb17069eb5face028b80611d35a0f7326ecc6b6d720ec341cf2fede4c2c535",
+    "oldBytesPrefixPreserved": true
+  },
+  "preservation": {
+    "oldMetadataRowsVerified": 108656,
+    "allowedChanges": "new root and two empty registrations; one authority append; parent directory metadata only",
+    "oldFailuresKept": true,
+    "oldInstallationsKept": true,
+    "source375Unchanged": true
+  },
+  "budget": {
+    "reservationsBefore": 27,
+    "reservationsAfter": 27,
+    "reservedFenBefore": 4805,
+    "reservedFenAfter": 4805,
+    "availableFen": 5195,
+    "capFen": 10000,
+    "newReservations": 0
+  },
+  "nextPreview": {
+    "proposalDigest": "sha256:de29abc28d8b93ab78a6ba6334a380a3b283eb73c632f55ac19bfb741202cff8",
+    "activationPlanDigest": "sha256:ca58b870b763b045d5453e34dde942b92b6ed3f038112b5f3e3992c59c8f00ef",
+    "activationPlanRawDigest": "sha256:6b8a25eb838ece9fc1ebbd4f9fd3c39d78f96d992d2a82f37db1021796ddd80c",
+    "approvalActive": false,
+    "maximumModelRequests": 5,
+    "maximumNewReservedFen": 155,
+    "maximumCumulativeReservedFen": 4960,
+    "conditionalRestarts": 1,
+    "actualInstallReceiptBound": true,
+    "actualEmptySessionsBound": true,
+    "publicPreview": "docs/poc/native-chat/pi-native-m3-run-preview.md"
+  },
+  "offlineChecks": {
+    "purePolicyPassed": 16,
+    "injectedCliPassed": 11,
+    "actualSdkExecuted": false,
+    "actualControllerExecuted": false,
+    "syntaxModules": 11
+  },
+  "previewPreparationFailure": {
+    "preserved": true,
+    "phase": "inspection-manifest-binding",
+    "installReplayed": false,
+    "runtimeEffects": false
+  },
+  "realRuntimeEffects": {
+    "sdkExecuted": false,
+    "activated": false,
+    "modelRequests": 0,
+    "keyReads": false,
+    "networkAttemptsInInstaller": 0,
+    "committed": false,
+    "pushed": false
+  },
+  "remainingLimits": [
+    "full npm check not passed",
+    "actual native SDK/provider path not executed",
+    "historical HTTP200 rejection field unknown",
+    "Plan11 and legacy15 source gaps retained",
+    "remaining14 acceptance classes and whole delivery incomplete"
+  ],
+  "independentReview": {
+    "reportDigest": "sha256:d6a77299cab8c73f25d48424885a1bc7df86ec92f1a17616f3148997f96b1960",
+    "proposalDigest": "sha256:de29abc28d8b93ab78a6ba6334a380a3b283eb73c632f55ac19bfb741202cff8",
+    "critical": 0,
+    "important": 0,
+    "metadataRowsVerified": 108674,
+    "sourceBindings": 9,
+    "manualBoundaryDisclosed": true,
+    "runtimeApproval": false
+  }
+}

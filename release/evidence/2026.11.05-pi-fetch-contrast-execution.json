@@ -1,0 +1,98 @@
+{
+  "schemaVersion": "agentmo.credential-free-fetch-contrast-result.v1",
+  "date": "2026-11-05",
+  "status": "FAILED_STOPPED_NO_RETRY",
+  "target": "https://api.minimax.cn/",
+  "method": "HEAD",
+  "proposalDigest": "sha256:90dad75a59f005704834118977437a17409462afab8e74127df027b461d95077",
+  "authorizationQuestionItemId": "call_ca45f1211f934c3bb85c2fba1a377aa4:0",
+  "hostInvocations": 1,
+  "hostExitCode": 1,
+  "applicationHeadCalls": 2,
+  "results": [
+    {
+      "client": "https.request",
+      "status": "passed",
+      "httpStatus": 404,
+      "deadlineExpired": false,
+      "elapsedMs": 2234,
+      "stages": {
+        "socketAssigned": true,
+        "lookupObserved": true,
+        "tcpConnected": true,
+        "tlsConnected": true,
+        "responseHeaders": true
+      }
+    },
+    {
+      "client": "fetch",
+      "status": "failed",
+      "networkCode": "UNKNOWN",
+      "deadlineExpired": true,
+      "elapsedMs": 10002,
+      "stages": {
+        "requestCreated": true,
+        "connectStarted": true,
+        "connected": false,
+        "headersSent": false,
+        "responseHeaders": false,
+        "connectError": false,
+        "requestError": false
+      }
+    }
+  ],
+  "modelRequests": 0,
+  "newReservedFen": 0,
+  "budget": {
+    "reservations": 28,
+    "totalReservedFen": 4836,
+    "remainingFen": 5164,
+    "capFen": 10000
+  },
+  "authority": {
+    "consumptions": 14,
+    "decisions": 52,
+    "journalDigest": "sha256:2c3aad911a9d9717df71fe0f5bc7aa641610a2ee621f75e620786e47dbe2e04d",
+    "mutated": false
+  },
+  "preservation": {
+    "oldMetadataEntriesVerified": 115607,
+    "strictAgentmoUnchanged": true,
+    "oldSddOutsideCurrentWorkspaceUnchanged": true,
+    "pinsVerified": 5,
+    "productSourceFilesUnchanged": 377
+  },
+  "scopeClosed": true,
+  "retry": false,
+  "followupProbes": 0,
+  "resultDigest": "sha256:b7edeaf3e70db3ebcd5abf624e44e827b84bf240410c03af030ea82f57ebbc00",
+  "privateRecord": {
+    "path": ".superpowers/sdd/2026-11-05-pi-fetch-contrast-r1/CONTRAST_EXECUTION_RECORD.json",
+    "digest": "sha256:977dbc51e31612150520ffecb450297f7bb97492ec8ac6bbefd1b97060735332"
+  },
+  "keyRead": false,
+  "envFileRead": false,
+  "rawEventPayloadRead": false,
+  "rawIpHeadersBodiesCertificatesOrErrorsStored": false,
+  "sdkExecuted": false,
+  "agentInstalled": false,
+  "activated": false,
+  "backgroundServices": false,
+  "interpretation": {
+    "observation": "native HTTPS obtained root-path HTTP404; fetch began connection but no completion or header event was observed before its deadline",
+    "inference": "clue points to the fetch connection path in this attempt",
+    "uniqueCauseProven": false,
+    "oldM3FailureCauseProven": false,
+    "modelApiTested": false
+  },
+  "limitations": [
+    "each client resolves and connects separately; no peer IP identity was retained",
+    "platform-generated headers and connection behavior may differ",
+    "a false channel flag means not observed within the window, not a complete packet or socket trace",
+    "root-path HEAD comparison cannot establish authenticated model POST availability"
+  ],
+  "m3AcceptancePassed": false,
+  "fullRepositoryCheckPassed": false,
+  "committed": false,
+  "pushed": false
+}

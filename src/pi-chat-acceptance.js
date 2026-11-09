@@ -14,7 +14,7 @@ const integer = n => Number.isSafeInteger(n) && n >= 0;
 function check(value) { if (!value) piReject(); }
 function validRuntime(r) {
   check(piKeys(r,['native_runtime','agentId','targetVersion','model','mainSessionKey','freshSessionKey','caseSessions','caseActivationDigests','caseConsumptionDigests',...runtimeDigests]));
-  check(r.native_runtime === 'pi' && /^[a-z][a-z0-9-]{0,63}$/u.test(r.agentId) && r.targetVersion === '1.2.0' && r.model === 'agentmo-budget/MiniMax-M3'
+  check(r.native_runtime === 'pi' && /^[a-z][a-z0-9-]{0,63}$/u.test(r.agentId) && r.targetVersion === '1.2.0' && r.model === 'minimax-cn/MiniMax-M3'
     && UUID.test(r.mainSessionKey) && UUID.test(r.freshSessionKey) && r.mainSessionKey !== r.freshSessionKey && runtimeDigests.every(k=>DIGEST.test(r[k])));
   const ids=NATIVE_CHAT_CASES.map(s=>s.id);
   check(piKeys(r.caseSessions,ids) && piKeys(r.caseActivationDigests,ids) && piKeys(r.caseConsumptionDigests,ids));

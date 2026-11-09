@@ -1,0 +1,127 @@
+{
+  "schemaVersion": "agentmo.pi-native-m3-upstream-network-failure-evidence.v1",
+  "date": "2026-11-05",
+  "status": "FAILED_STOPPED_NO_RETRY",
+  "proposalDigest": "sha256:8ae76eb7540a1ec963dd40d152d63ba3d3fe25923a8e0c25594ca918c21130c1",
+  "activationPlanDigest": "sha256:f945effd68a5027b6ffa928bb0ea6f88c1f5321e8071972e6075a17424c8c8d6",
+  "authorizationQuestionItemId": "call_9228af89c6cc46038d63053168851578:0",
+  "hostInvocations": 1,
+  "hostExitCode": 1,
+  "controllerResult": {
+    "status": "failed",
+    "cleanup": "preserved-failed",
+    "digest": "sha256:4828c27e393652f30719a122b01e947261386802b475f52ff6083c318fb6b137"
+  },
+  "durableStop": {
+    "status": "failed",
+    "reason": "case-failed",
+    "ownChildExited": true,
+    "digest": "sha256:921ae25862f9845b4a94976703eb4d562b9ec867606663e57d7464c85173a7c7"
+  },
+  "startupStagesPassed": [
+    "source-load",
+    "preflight",
+    "authority-consumption",
+    "control-files",
+    "sdk-import",
+    "session-prewarm",
+    "chat-listen"
+  ],
+  "sdkImported": true,
+  "cliReadyObserved": true,
+  "firstCase": "entry",
+  "turnId": "c455518c-09e1-451e-8690-a5fcd84d66ba",
+  "turnStates": [
+    "received",
+    "reserved",
+    "sent",
+    "failed"
+  ],
+  "causeCode": "COURSE_WIKI_UPSTREAM_NETWORK",
+  "upstreamStatusObserved": false,
+  "caseClaims": 1,
+  "requestClaims": 1,
+  "controlledUpstreamSendAttempts": 1,
+  "providerReceiptConfirmed": false,
+  "providerBillingQueried": false,
+  "remainingCases": "not-run",
+  "contentReview": "not-run-no-normalized-reply",
+  "conditionalRestartPerformed": false,
+  "modelAcceptancePassed": false,
+  "budget": {
+    "reservationsBefore": 27,
+    "reservationsAfter": 28,
+    "newReservedFen": 31,
+    "totalReservedFen": 4836,
+    "remainingFen": 5164,
+    "capFen": 10000,
+    "refundOrReset": false
+  },
+  "authority": {
+    "consumptions": 14,
+    "decisions": 52,
+    "journalDigest": "sha256:2c3aad911a9d9717df71fe0f5bc7aa641610a2ee621f75e620786e47dbe2e04d",
+    "originalPrefixDigest": "sha256:a2edc21e913146a0b1b56a704e32419325c2d4d9d9afd4e97889d20f2963c99c",
+    "originalPrefixBytes": 10608,
+    "prefixPreserved": true,
+    "addedConsumptions": 1,
+    "addedDecisions": 5
+  },
+  "preservation": {
+    "oldMetadataEntriesVerified": 115371,
+    "sourceFilesVerified": 377,
+    "frozenFilesVerified": 429,
+    "controlFilesVerified": 17,
+    "stateEntriesBefore": 18,
+    "stateEntriesAfter": 33,
+    "oldSddDigest": "sha256:54a79aa08860465c8d67531e89025de0e8edd9d4eafe872eefd16abdd7c412d2",
+    "oldFailedScopesReplayed": false
+  },
+  "postExitPorts": {
+    "source": "single-escalated-loopback-probe-after-host-exit",
+    "ports": [
+      {
+        "port": 19492,
+        "state": "refused"
+      },
+      {
+        "port": 19493,
+        "state": "refused"
+      }
+    ]
+  },
+  "scopeDurablyClosed": true,
+  "manualStopRepeated": false,
+  "retry": false,
+  "repairPerformed": false,
+  "privateRecord": {
+    "path": ".superpowers/sdd/2026-11-05-pi-environment-repair-r1/model-preview/EXECUTION_FAILURE_RECORD.json",
+    "digest": "sha256:0d35b6004040b35b74bf5ac04a0c8d6715186eb3c889a59fcde5ea7520391726"
+  },
+  "independentReview": {
+    "path": ".superpowers/sdd/2026-11-05-pi-environment-repair-r1/model-preview/FAILED_RUN_REVIEW_RESULT.json",
+    "digest": "sha256:e75ca7f7c57136840e689df877c18e92a2e3439cfe1795548b63a431f4765ab8"
+  },
+  "postObservation": {
+    "assertionsAndEvidenceWritesCompleted": true,
+    "observerExitCode": 1,
+    "summaryDisplayError": "ReferenceError: evidenceDigest is not defined",
+    "statusRecordDigest": "sha256:dd14810925a5ff4332936238a18d62d8dbcc0c37624df41d8d7362ec8fafff05",
+    "actualRunNotReplayed": true
+  },
+  "limits": {
+    "specificNetworkCause": "unknown",
+    "no502Observed": true,
+    "rawProviderPayloadsRead": false,
+    "rawSdkHistoryRead": false,
+    "keyBoundary": "existing-approved-parent-runner-in-memory-only; no assistant/reviewer/SDK-child key values",
+    "fullRepositoryCheck": "still-not-passed",
+    "currentPlanSourceGaps": 11,
+    "legacySourceGaps": 15,
+    "otherRealAcceptanceCategories": 14,
+    "wholeDeliveryReview": "open",
+    "domainOrProductionCertified": false
+  },
+  "committed": false,
+  "pushed": false
+}

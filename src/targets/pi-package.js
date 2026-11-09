@@ -22,7 +22,7 @@ export function buildPiPackageProjection({ blueprint, buildContract, carrierSele
   return [
     json('agent.json', { schemaVersion: 'agentmo.pi-agent-intent.v1', agentId: blueprint.agent_id,
       execution_profile: 'native-chat', native_runtime: 'pi', modelProfile: 'minimax-m3-cn-v1',
-      model: 'agentmo-budget/MiniMax-M3', tools: [], extensions: [], mcp: false,
+      model: 'minimax-cn/MiniMax-M3', tools: [], extensions: [], mcp: false,
       retry: { enabled: false, maxRetries: 0 }, providerRetry: 0, cacheWarming: false,
       compaction: false, promptTemplates: false, fallback: [], proposalOnly: true }),
     { relativePath: 'projections/pi/system.md', mode: 0o644, bytes: Buffer.from(buildPiSystemPrompt(blueprint)) },

@@ -3,6 +3,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { closeSync, fsyncSync, openSync, writeFileSync } from 'node:fs';
 import { lstat, mkdir, open, readdir, readFile, realpath } from 'node:fs/promises';
 import path from 'node:path';
+import { postPiMessages } from './pi-upstream.js';
 import { nativeChatModelProfile } from './native-chat-model-profile.js';
 
 const LEGACY_POLICY = {version:1,maxRequests:16,reservationFen:31};
@@ -12,6 +13,31 @@ const PROJECT_CAP_FEN = 10_000;
 const RESERVATION_FEN = 31;
 const RESERVATION_BYTES = 'reserved:31\n';
 const BODY_LIMIT = 48 * 1024;
+export const UPSTREAM_NETWORK_CODES = Object.freeze(['ENOTFOUND', 'EAI_AGAIN', 'ECONNREFUSED', 'ECONNRESET',
+  'EHOSTUNREACH', 'ENETUNREACH', 'ETIMEDOUT', 'EACCES', 'EPERM', 'UND_ERR_CONNECT_TIMEOUT',
+  'UND_ERR_HEADERS_TIMEOUT', 'UND_ERR_SOCKET', 'CERT_HAS_EXPIRED', 'DEPTH_ZERO_SELF_SIGNED_CERT',
+  'SELF_SIGNED_CERT_IN_CHAIN', 'UNABLE_TO_VERIFY_LEAF_SIGNATURE', 'UNABLE_TO_GET_ISSUER_CERT_LOCALLY',
+  'ERR_TLS_CERT_ALTNAME_INVALID', 'UNKNOWN', 'MULTIPLE']);
+const ownData = (value, key) => { try { return Object.getOwnPropertyDescriptor(value, key)?.value; } catch { return undefined; } };
+export function upstreamNetworkErrorCode(error) {
+  const codes = new Set(), seen = new Set();let truncated = false;
+  function visit(value, depth) {
+    if (!value || typeof value !== 'object' || seen.has(value)) return;
+    if (depth > 3 || seen.size >= 32) { truncated = true;return; }
+    seen.add(value);
+    const code = ownData(value, 'code');
+    if (UPSTREAM_NETWORK_CODES.includes(code) && code !== 'UNKNOWN' && code !== 'MULTIPLE') codes.add(code);
+    visit(ownData(value, 'cause'), depth + 1);
+    const errors = ownData(value, 'errors');
+    let count = 0;
+    try { if (Array.isArray(errors)) count = ownData(errors, 'length'); } catch { truncated = true;return; }
+    if (!Number.isSafeInteger(count) || count < 0) { truncated = true;return; }
+    if (count > 8) truncated = true;
+    for (let i=0; i<Math.min(count, 8); i++) visit(ownData(errors, String(i)), depth + 1);
+  }
+  visit(error, 0);
+  return codes.size > 1 ? 'MULTIPLE' : codes.size === 1 && !truncated ? [...codes][0] : 'UNKNOWN';
+}
 function fail() { throw Object.assign(new Error('Course Wiki fee boundary refused the operation.'), {code:'COURSE_WIKI_BUDGET_REJECTED'}); }
 function sha256(bytes) {return 'sha256:'+createHash('sha256').update(bytes).digest('hex');}
 function isDigest(value) {return typeof value==='string'&&/^sha256:[a-f0-9]{64}$/.test(value);}
@@ -171,7 +197,22 @@ export function validateCourseBudgetRequest(value, modelProfile) {
 function validUsage(usage) {return usage && Number.isSafeInteger(usage.prompt_tokens) && usage.prompt_tokens>=0 && usage.prompt_tokens<=53248 && Number.isSafeInteger(usage.completion_tokens) && usage.completion_tokens>=0 && usage.completion_tokens<=2048 && usage.total_tokens===usage.prompt_tokens+usage.completion_tokens;}
 async function readBounded(stream, maximum) {const chunks=[];let size=0;for await(const chunk of stream){size+=chunk.length;if(size>maximum) fail();chunks.push(Buffer.from(chunk));}return Buffer.concat(chunks).toString('utf8');}
 
-export async function sendBudgetedCompletion({root,budgetReference,apiKey,request,deadline,signal,onReserved,onSent,modelProfile}) {
+export function validatePiBudgetRequest(request) {
+  const text = value => typeof value === 'string' && value.isWellFormed() ? value
+    : Array.isArray(value) && value.length && value.every(p => exactKeys(p, ['type','text']) && p.type === 'text'
+      && typeof p.text === 'string' && p.text.isWellFormed()) ? value.map(p => p.text).join('') : null;
+  if (!exactKeys(request, ['model','stream','max_tokens','thinking','messages', ...Object.hasOwn(request ?? {}, 'system') ? ['system'] : []])
+    || request.model !== 'MiniMax-M3' || request.stream !== true || request.max_tokens !== 2048
+    || !exactKeys(request.thinking, ['type']) || request.thinking.type !== 'disabled'
+    || !Array.isArray(request.messages) || !request.messages.length || request.messages.length + (request.system === undefined ? 0 : 1) > 32
+    || request.messages.some(m => !exactKeys(m, ['role','content']) || !['user','assistant'].includes(m.role) || text(m.content) === null)
+    || request.system !== undefined && text(request.system) === null || Buffer.byteLength(JSON.stringify(request)) > BODY_LIMIT) fail();
+  const latest = request.messages.at(-1), input = text(latest.content);
+  if (latest.role !== 'user' || !input.trim() || [...input].length > 8000) fail();
+  return input;
+}
+
+export async function sendBudgetedCompletion({root,budgetReference,apiKey,request,deadline,signal,onReserved,onSent,modelProfile,protocol}) {
   let phase='request',upstreamStatus;const abort=new AbortController();let timer;
   const cancel=()=>abort.abort();
   try {
@@ -179,15 +220,21 @@ export async function sendBudgetedCompletion({root,budgetReference,apiKey,reques
       ||deadline<=Date.now()||deadline>Date.now()+120_000||signal?.aborted
       ||(onReserved!==undefined&&typeof onReserved!=='function')||(onSent!==undefined&&typeof onSent!=='function'))fail();
     const model=nativeChatModelProfile(modelProfile);
-    validateCourseBudgetRequest(request,modelProfile);
+    const native = protocol === 'anthropic-messages';
+    if (protocol !== undefined && !native || native && modelProfile !== 'minimax-m3-cn-v1') fail();
+    if (native) validatePiBudgetRequest(request); else validateCourseBudgetRequest(request,modelProfile);
     const {max_completion_tokens:unusedMax,max_tokens:unusedLegacyMax,...normalized}=request;
-    const wire=JSON.stringify({...normalized,[model.outputLimitKey]:2048,n:1,...modelProfile===undefined?{}:{thinking:{type:'disabled'},service_tier:'standard'}});if(Buffer.byteLength(wire)>BODY_LIMIT)fail();
+    const wire=JSON.stringify(native ? request : {...normalized,[model.outputLimitKey]:2048,n:1,...modelProfile===undefined?{}:{thinking:{type:'disabled'},service_tier:'standard'}});if(Buffer.byteLength(wire)>BODY_LIMIT)fail();
     signal?.addEventListener('abort',cancel,{once:true});
     timer=setTimeout(cancel,Math.max(1,deadline-Date.now()));timer.unref();
     await reserve(root,budgetReference);await onReserved?.();
     if(abort.signal.aborted||Date.now()>=deadline)throw {code:'COURSE_WIKI_NATIVE_TIMEOUT'};
     phase='network';
-    const pendingUpstream=Promise.resolve(fetch(model.endpoint,{method:'POST',headers:{authorization:`Bearer ${apiKey}`,'content-type':'application/json'},body:wire,redirect:'error',signal:abort.signal}));
+    const endpoint = native ? 'https://api.minimax.cn/anthropic/v1/messages' : model.endpoint;
+    const headers = native ? {'x-api-key':apiKey,'anthropic-version':'2023-06-01','content-type':'application/json'}
+      : {authorization:`Bearer ${apiKey}`,'content-type':'application/json'};
+    const pendingUpstream=Promise.resolve(native ? postPiMessages({body:wire,apiKey,signal:abort.signal})
+      : fetch(endpoint,{method:'POST',headers,body:wire,redirect:'error',signal:abort.signal}));
     pendingUpstream.catch(()=>{});
     phase='request';
     await onSent?.();
@@ -199,6 +246,10 @@ export async function sendBudgetedCompletion({root,budgetReference,apiKey,reques
       throw {code:upstream.status===429?'COURSE_WIKI_UPSTREAM_RATE_LIMIT':upstream.status>=500?'COURSE_WIKI_UPSTREAM_UNAVAILABLE':'COURSE_WIKI_UPSTREAM_DENIED'};
     }
     phase='response';const output=await readBounded(upstream.body,1024*1024);
+    if (native) {
+      if (upstream.headers.get('content-type')?.split(';')[0] !== 'text/event-stream') fail();
+      return {body:output,contentType:'text/event-stream'};
+    }
     const events=request.stream?output.split(/\r?\n/).filter(x=>x.startsWith('data: ')&&x!=='data: [DONE]').map(x=>JSON.parse(x.slice(6))):[JSON.parse(output)];
     if(events.some(event=>!event||typeof event!=='object'||Object.hasOwn(event,'error')))fail();
     if(events.some(event=>!Array.isArray(event.choices)||event.choices.length>1
@@ -218,9 +269,11 @@ export async function sendBudgetedCompletion({root,budgetReference,apiKey,reques
       usage:{prompt_tokens:last.usage.prompt_tokens,completion_tokens:last.usage.completion_tokens,total_tokens:last.usage.total_tokens}};
   } catch(error) {
     const allowed=['COURSE_WIKI_NATIVE_TIMEOUT','COURSE_WIKI_UPSTREAM_RATE_LIMIT','COURSE_WIKI_UPSTREAM_UNAVAILABLE','COURSE_WIKI_UPSTREAM_DENIED'];
-    const code=abort.signal.aborted?'COURSE_WIKI_UPSTREAM_TIMEOUT':allowed.includes(error?.code)?error.code
+    const caughtCode=ownData(error,'code');
+    const code=abort.signal.aborted?'COURSE_WIKI_UPSTREAM_TIMEOUT':allowed.includes(caughtCode)?caughtCode
       :phase==='network'?'COURSE_WIKI_UPSTREAM_NETWORK':phase==='response'?'COURSE_WIKI_UPSTREAM_RESPONSE_INVALID':'COURSE_WIKI_BUDGET_REJECTED';
-    throw Object.assign(new Error('Budgeted completion refused.'),{code,...upstreamStatus===undefined?{}:{upstreamStatus}});
+    throw Object.assign(new Error('Budgeted completion refused.'),{code,...upstreamStatus===undefined?{}:{upstreamStatus},
+      ...code==='COURSE_WIKI_UPSTREAM_NETWORK'&&upstreamStatus===undefined?{upstreamNetworkCode:upstreamNetworkErrorCode(error)}:{}});
   } finally {clearTimeout(timer);signal?.removeEventListener('abort',cancel);abort.abort();}
 }
 

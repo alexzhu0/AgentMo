@@ -1,0 +1,83 @@
+{
+  "schemaVersion": "agentmo.credential-free-network-diagnostic-result.v1",
+  "date": "2026-11-05",
+  "status": "FAILED_STOPPED_NO_RETRY",
+  "target": "api.minimax.cn",
+  "headUrl": "https://api.minimax.cn/",
+  "proposalDigest": "sha256:33d29f0b96f41e530d54412bbcd5c10ff006e80d9e6f63886cfdfb82702d3d3b",
+  "authorizationQuestionItemId": "call_292e3b202ef34250977e976694b59e7a:0",
+  "runnerInvocations": 1,
+  "hostExitCode": 1,
+  "steps": [
+    {
+      "step": "dns",
+      "status": "passed",
+      "count": 1,
+      "families": [
+        4
+      ]
+    },
+    {
+      "step": "tls",
+      "status": "passed",
+      "authorized": true
+    },
+    {
+      "step": "head",
+      "status": "failed",
+      "networkCode": "ETIMEDOUT"
+    }
+  ],
+  "upstreamHttpStatusObserved": false,
+  "rawUnderlyingFetchErrorRead": false,
+  "deadline": {
+    "dnsMs": 5000,
+    "tlsMs": 7000,
+    "headMs": 10000,
+    "processMs": 30000
+  },
+  "retry": false,
+  "followupProbes": 0,
+  "scopeClosed": true,
+  "resultDigest": "sha256:07819ac94a33001f851b408f3f45b6143c731f883ffc177150395b27b1d68975",
+  "privateRecord": {
+    "path": ".superpowers/sdd/2026-11-05-pi-upstream-network-offline-r1/NETWORK_EXECUTION_RECORD.json",
+    "digest": "sha256:fb0bd68a145c81e716560bc238a5ab77e79ee555b7febd36c78e98e6f85029c6"
+  },
+  "rawIpHeadersBodiesCertificatesOrErrorsStored": false,
+  "modelRequests": 0,
+  "newReservedFen": 0,
+  "budget": {
+    "reservations": 28,
+    "totalReservedFen": 4836,
+    "remainingFen": 5164,
+    "capFen": 10000
+  },
+  "authority": {
+    "consumptions": 14,
+    "decisions": 52,
+    "journalDigest": "sha256:2c3aad911a9d9717df71fe0f5bc7aa641610a2ee621f75e620786e47dbe2e04d",
+    "mutated": false
+  },
+  "preservation": {
+    "oldMetadataEntriesVerified": 115562,
+    "strictAgentmoTreeUnchanged": true,
+    "oldSddOutsideCurrentWorkspaceUnchanged": true,
+    "approvedPinsVerified": 5
+  },
+  "keyRead": false,
+  "envFileRead": false,
+  "sdkExecuted": false,
+  "agentInstalled": false,
+  "servicesActivated": false,
+  "backgroundServices": false,
+  "limits": [
+    "HEAD used a fresh connection and repeats resolution; prior TLS pass does not identify the stage that timed out inside fetch",
+    "HEAD root-path timeout cannot prove authenticated model POST failure or reconstruct the earlier lost underlying error",
+    "no supplier HTTP status, API test, model output or billing observation"
+  ],
+  "m3AcceptancePassed": false,
+  "fullRepositoryCheckPassed": false,
+  "committed": false,
+  "pushed": false
+}

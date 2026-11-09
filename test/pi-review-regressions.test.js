@@ -1,3 +1,4 @@
+import { stubPiUpstream } from './helpers/pi-https-fixture.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {readFile,mkdir,writeFile} from 'node:fs/promises';
@@ -42,15 +43,15 @@ test('owned child drains startup resources before disconnecting after shutdown',
 
 test('a prepared approved fresh session can submit its first turn exactly once',async t=>{
  const {piBudgetFixture}=await local('test/helpers/pi-budget-fixture.js');const {fakePiSdk,finalMessage}=await local('test/helpers/pi-sdk-fixture.js');
- const {createPiSessionHost}=await local('src/pi-session-host.js');const {createPiTurnController,createPiBudgetHandler}=await local('src/pi-budget-proxy.js');const {piHttpRequest}=await local('test/helpers/pi-http-fixture.js');
+ const {createPiSessionHost}=await local('src/pi-session-host.js');const {createPiTurnController,createPiBudgetHandler}=await local('src/pi-budget-proxy.js');const {piHttpRequest,piNativeRequest,piNativeResponse}=await local('test/helpers/pi-http-fixture.js');
  const priorMask=process.umask(0o077);t.after(()=>process.umask(priorMask));const f=await piBudgetFixture(t),fake=fakePiSdk();
  await mkdir(path.join(f.stateRoot,'sessions'),{mode:0o700});await writeFile(path.join(f.stateRoot,'system.md'),'合成会议助手',{mode:0o600});
  const initial=await createPiSessionHost({stateRoot:f.stateRoot,binding:f.binding,sdk:fake.sdk,turnClient:f.controller});const {id:sessionId}=await initial.createSession();await initial.close();const before=(await f.summary()).totalReservedFen;
  const approvedCases=[{caseId:'entry',sessionId,inputDigest:piHash(f.text)}],controller=await createPiTurnController({binding:f.binding,stateRoot:f.stateRoot,approvedCases});
  const host=await createPiSessionHost({stateRoot:f.stateRoot,binding:f.binding,sdk:fake.sdk,turnClient:controller,approvedCases});t.after(()=>host.close());
- const handler=createPiBudgetHandler({binding:f.binding,stateRoot:f.stateRoot,budgetRoot:f.budgetRoot,apiKey:'synthetic-only',controller});let requests=0;const prior=globalThis.fetch;
- globalThis.fetch=async()=>{requests++;return new Response(JSON.stringify({model:'MiniMax-M3',choices:[{index:0,message:{role:'assistant',content:'合成最终回复'},finish_reason:'stop'}],usage:{prompt_tokens:20,completion_tokens:3,total_tokens:23}}));};t.after(()=>{globalThis.fetch=prior;});
- fake.sequence(async()=>{const result=await piHttpRequest(handler,{model:'MiniMax-M3',stream:false,max_tokens:2048,messages:[{role:'user',content:f.text}]},{authorization:`Bearer ${fake.calls.credential.at(-1).credential}`});assert.equal(result.statusCode,200);return[{type:'message_end',message:finalMessage()},{type:'agent_settled',aborted:false}];});
+ const handler=createPiBudgetHandler({binding:f.binding,stateRoot:f.stateRoot,budgetRoot:f.budgetRoot,apiKey:'synthetic-only',controller});let requests=0;
+ stubPiUpstream(t,async()=>{requests++;return piNativeResponse();});
+ fake.sequence(async()=>{const result=await piHttpRequest(handler,piNativeRequest(f.text),{'x-api-key':fake.calls.credential.at(-1).credential});assert.equal(result.statusCode,200);return[{type:'message_end',message:finalMessage()},{type:'agent_settled',aborted:false}];});
  const turnId=randomUUID();await host.submit({caseId:'entry',sessionId,turnId,text:f.text});const events=[];for await(const value of host.events(turnId))events.push(value);
  assert.equal(events.at(-1).status,'completed');assert.equal(fake.calls.prompt.length,1);assert.equal(requests,1);assert.equal((await f.summary()).totalReservedFen-before,31);
  const {unlink}=await import('node:fs/promises');const meta=JSON.parse(await readFile(path.join(f.stateRoot,'sessions',sessionId,'sdk-session.json'),'utf8'));
@@ -62,7 +63,7 @@ test('conformance remembers every denied fetch and socket even when callers swal
  let fetches=0,sockets=0;const guard=script.createPiConformanceNetworkGuard({fetch:async()=>{fetches++;return new Response('{}');},connect:()=>{sockets++;},completion:async()=>new Response('{}')});
  await assert.rejects(guard.fetch('https://example.invalid/background'));assert.throws(()=>guard.connect({host:'example.invalid',port:443}));
  assert.equal(fetches,0);assert.equal(sockets,0);assert.equal(guard.counts().deniedAttempts,2);assert.throws(()=>guard.assertClean());
- await guard.fetch('https://api.minimax.cn/v1/chat/completions',{});assert.equal(guard.counts().upstreamRequests,1);assert.equal(guard.counts().deniedAttempts,2);assert.throws(()=>guard.assertClean());
+ await guard.fetch('https://api.minimax.cn/anthropic/v1/messages',{});assert.equal(guard.counts().upstreamRequests,1);assert.equal(guard.counts().deniedAttempts,2);assert.throws(()=>guard.assertClean());
 });
 test('conformance timeout waits for abort and disconnect fails after a partial stream',async()=>{
  const script=await local('scripts/pi-sdk-conformance.js');assert.equal(typeof script.piConformanceMockResponse,'function');
@@ -88,15 +89,15 @@ async function conformanceWithFakeSdk(t, deniedOnDispose = false) {
   const { writeNativeChatFile } = await local('src/native-chat-files.js');
   const { piFinalText } = await local('src/pi-sdk.js');
   const { fakePiSdk, finalMessage } = await local('test/helpers/pi-sdk-fixture.js');
-  const { piHttpRequest } = await local('test/helpers/pi-http-fixture.js');
+  const { piHttpRequest, piNativeRequest, piNativeResponse } = await local('test/helpers/pi-http-fixture.js');
   const workspaceRoot = await fs.realpath(await fs.mkdtemp(path.join(tmpdir(), 'pi-fake-conformance-')));
   t.after(() => fs.rm(workspaceRoot, { recursive: true, force: true }));
   const priorMask = process.umask(0o077); t.after(() => process.umask(priorMask));
   const fake = fakePiSdk(), priorFetch = globalThis.fetch;
   let handler;
   globalThis.fetch = async (input, init) => {
-    assert.equal(input, 'http://127.0.0.1:19593/v1/chat/completions');
-    const reply = await piHttpRequest(handler, Buffer.from(init.body), { host: '127.0.0.1:19593', authorization: init.headers.authorization });
+    assert.equal(input, 'http://127.0.0.1:19593/v1/messages');
+    const reply = await piHttpRequest(handler, Buffer.from(init.body), { host: '127.0.0.1:19593', 'x-api-key': init.headers['x-api-key'] });
     return new Response(reply.text(), { status: reply.statusCode, headers: reply.headers });
   };
   t.after(() => { globalThis.fetch = priorFetch; });
@@ -104,12 +105,12 @@ async function conformanceWithFakeSdk(t, deniedOnDispose = false) {
     const { context } = fake.calls.stream.at(-1);
     const messages = context.messages.map(message => ({ role: message.role, content: typeof message.content === 'string'
       ? message.content : message.content.map(part => part.text).join('') }));
-    const reply = await globalThis.fetch('http://127.0.0.1:19593/v1/chat/completions', {
-      headers: { authorization: `Bearer ${fake.calls.credential.at(-1).credential}` },
-      body: JSON.stringify({ model: 'MiniMax-M3', stream: true, max_tokens: 2048, messages }),
+    const reply = await globalThis.fetch('http://127.0.0.1:19593/v1/messages', {
+      headers: { 'x-api-key': fake.calls.credential.at(-1).credential },
+      body: JSON.stringify({ ...piNativeRequest(''), system: [{ type: 'text', text: messages[0].content }], messages: messages.slice(1).map(m => ({ ...m, content: [{ type: 'text', text: m.content }] })) }),
     });
     if (reply.status !== 200) throw new Error('synthetic SDK rejected proxy failure');
-    await reply.text();
+    if (!(await reply.text()).includes('"type":"message_stop"')) throw new Error('synthetic malformed SSE');
     return [{ type: 'message_end', message: finalMessage() }, { type: 'agent_settled', aborted: false }];
   });
   if (deniedOnDispose) {
@@ -129,7 +130,8 @@ async function conformanceWithFakeSdk(t, deniedOnDispose = false) {
   const inputs = {
     previewFor: async () => preview, piHash, piBytes, check: value => { if (!value) piReject(); },
     lstat: fs.lstat, process, admitCapturedArtifactBytes: () => ({ digest: piHash('fake-target') }),
-    net: await import('node:net').then(module => module.default), createPiConformanceNetworkGuard: script.createPiConformanceNetworkGuard,
+    net: await import('node:net').then(module => module.default), https: await import('node:https').then(module => module.default),
+    createPiConformanceHttpsRequest: script.createPiConformanceHttpsRequest, createPiConformanceNetworkGuard: script.createPiConformanceNetworkGuard,
     SYNTHETIC_INPUT: '合成会议', SYSTEM: '只输出合成会议结果，未知值写未说明。',
     piConformanceMockResponse: async (mode, signal, observe) => {
       if (mode !== 'timeout') return script.piConformanceMockResponse(mode, signal, observe);

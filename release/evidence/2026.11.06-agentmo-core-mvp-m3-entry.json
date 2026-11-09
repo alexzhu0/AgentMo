@@ -1,0 +1,106 @@
+{
+  "status": "single-entry-live-passed-reviewed-stopped",
+  "proposalDigest": "sha256:205d9881ee8ca04613ef5bdc179af52af4c4e4544c46044625324475982a8c4c",
+  "activationPlanDigest": "sha256:2bc1cddbb3d13d0df963ea85676b62293d07aeb73e16a3fe6a355663fce7a2f6",
+  "installedReceiptDigest": "sha256:3066fc461489416ccc3eccd74336a71971792016cec2e25e3cfd5c36af5da80c",
+  "startedAt": 1793956910164,
+  "completedAt": 1793956937810,
+  "reviewDeadline": 1793958110164,
+  "workError": null,
+  "sdkExecutionAttempted": true,
+  "ready": true,
+  "submitted": true,
+  "normalizedReplyAvailable": true,
+  "replyDigest": "sha256:f5b30c8fc083d1cf19596c3f9cf07e901bd0118c1839dbc1cb1df4f406c01e93",
+  "technicalChecks": {
+    "completed": true,
+    "validJson": true,
+    "exactKeys": true,
+    "exactValues": true
+  },
+  "terminal": {
+    "status": "completed"
+  },
+  "counts": {
+    "turnEntries": 4,
+    "requestClaims": 1,
+    "received": 1,
+    "reserved": 1,
+    "sent": 1,
+    "completed": 1
+  },
+  "authority": {
+    "consumptions": 17,
+    "decisions": 63,
+    "oldPrefixPreserved": true,
+    "journalDigest": "sha256:3c5ce619a7e486da77aeae08541d257aa4fe3867f1fd764b3c28efe1d472c23d"
+  },
+  "budget": {
+    "totalReservedFen": 4867,
+    "capFen": 10000,
+    "projectReservations": 29,
+    "newReservedFen": 31
+  },
+  "cleanup": {
+    "status": "stopped",
+    "ownChildExited": true,
+    "stopStatus": "stopped",
+    "reason": "requested"
+  },
+  "modelRequests": 1,
+  "independentContentReview": {
+    "reviewerId": "core-entry-m3-content-review",
+    "overallVerdict": "PASS",
+    "criteria": {
+      "valid_json_without_fences_or_extra_prose": "PASS",
+      "top_level_object_with_exactly_Product_and_Deadline": "PASS",
+      "Product_is_string_Atlas": "PASS",
+      "Deadline_is_json_null": "PASS",
+      "no_invented_date_or_extra_tool_system_content": "PASS",
+      "digest_matches_expected": "PASS"
+    },
+    "replyDigest": "sha256:f5b30c8fc083d1cf19596c3f9cf07e901bd0118c1839dbc1cb1df4f406c01e93",
+    "reviewedAt": "2026-11-06T09:23:03Z",
+    "reviewDigest": "sha256:e554167e362c760fef41c2333d62a63c9d3161102c891c42d947b1e9940ba04c"
+  },
+  "credentialValueExposed": false,
+  "retries": 0,
+  "restarts": 0,
+  "commit": false,
+  "push": false,
+  "date": "2026-11-06",
+  "agentId": "field-extractor",
+  "provider": "minimax-cn",
+  "model": "MiniMax-M3",
+  "sdkVersion": "1.2.0",
+  "authorization": {
+    "questionItemId": "call_0a471006720842409a244579d2f0fce2:0",
+    "answer": "批准首条M3验收",
+    "maximumRequests": 1,
+    "maximumNewReservedFen": 31,
+    "maximumCumulativeReservedFen": 4867
+  },
+  "resultDigest": "sha256:e9fee77e0ecfc9450fcb723be1f7c2da236c7b7b49264a5535f9b7ba7973befd",
+  "sessionIdDigest": "sha256:c0f434d31e04e310e7184573a1b062eb8b4d251a3684a8ea986c8f1ef398955b",
+  "runtimeSourceDigest": "sha256:3a101a8bfdc5a8a11893278af1343d984f9911762afc4c10eb7d06df7391b500",
+  "scope": {
+    "syntheticInput": "Product: Atlas",
+    "inputDigest": "sha256:85255405c7a74c40e416571edd4b46e4a9eb9ff693e8f47f04a2209cd51826f0",
+    "expected": {
+      "Product": "Atlas",
+      "Deadline": null
+    },
+    "verifiedCases": 1,
+    "totalPlannedCases": 4,
+    "newSessions": 0
+  },
+  "limits": [
+    "Only the fixed first real model request and its independently reviewed final text passed.",
+    "Native followup, new-session isolation and stop/resume require separate concrete approvals.",
+    "No raw supplier payload, SDK transcript, credential value or measured token bill is included.",
+    "Local sent/request claims and reservation counters are not a supplier invoice.",
+    "The prior full-repository check remains failing; no production or domain certification is granted."
+  ],
+  "supplierKeyHandling": "existing-parent-runner-memory-only; assistant-reviewer-and-sdk-child-do-not-read-value",
+  "previousFailures": "preserved"
+}

@@ -9,6 +9,8 @@ import { buildPiInstallApproval, buildPiSensitiveActionDecision, buildPiConflict
 import { validateNativeAuthorityBinding } from './native-chat-authority.js';
 import { writeNativeChatFile } from './native-chat-files.js';
 import { courseBudgetReference } from './course-wiki-budget.js';
+import { runPiChatCli } from './pi-chat-cli.js';
+import { loadPiInstalledSources } from './pi-native-runtime.js';
 import { loadPiNativeSources, startPiNative, stopPiNative } from './pi-native-runtime.js';
 
 const defs = {
@@ -47,6 +49,8 @@ function parse(command, args) {
     if (options.family === 'sensitive') flags.push('action-id'); else if (!['ordinary', 'conflicts'].includes(options.family)) reject();
   } else if (command === 'pi-install-apply') {
     fields = [...baseSources, 'activationPlan']; flags.push('target-root', 'authority-root', 'ordinary-approval', 'conflict-approval', 'apply'); subjects.push('pi-install-approval', 'pi-conflict-approval');
+  } else if (command === 'pi-chat') {
+    fields = [...baseSources, 'installPlan', 'installReceipt']; flags = [...targetFlags, 'target-root', 'authority-root', 'budget-root', 'runtime-env-file', 'source-root', 'chat-port', 'proxy-port'];
   } else if (command === 'pi-native-serve') {
     fields = Object.keys(defs); flags.push(...targetFlags, 'target-root', 'authority-root', 'budget-root', 'runtime-env-file', 'ordinary-approval', 'conflict-approval');
     subjects.push('pi-install-approval', 'pi-conflict-approval', ...sensitive.map((_, i) => `pi-sensitive-action-decision-${i + 1}`));
@@ -133,6 +137,14 @@ export async function runPiNativeCommand(command, args) {
         ...await decisions(planAdmission, parsed), stateRoot: absolute(o['target-root']), authorityRoot: absolute(o['authority-root']) });
       if (artifact.status !== 'complete') process.exitCode = 1;
       return { artifact, subject: artifact.status === 'complete' ? 'pi-install-receipt' : 'pi-install-incomplete', json: o.json === true };
+    }
+    if (command === 'pi-chat') {
+      const stateRoot = absolute(o['target-root']), authorityRoot = absolute(o['authority-root']);
+      const { sourceAdmissions } = await loadPiInstalledSources({ sourceFiles, stateRoot, authorityRoot });
+      await runPiChatCli({ installed: { sourceAdmissions, sourceFiles, stateRoot, authorityRoot, targetPaths: targetPaths(), budgetRoot: absolute(o['budget-root']) },
+        sourceRoot: absolute(o['source-root']), runtimeEnvFile: o['runtime-env-file'] ? absolute(o['runtime-env-file']) : undefined,
+        ports: { chat: Number(o['chat-port']), proxy: Number(o['proxy-port']) } });
+      return null;
     }
     if (command === 'pi-native-stop') {
       const planAdmission = await loadAdmittedArtifact({ ...sourceFiles.activationPlan, subject: 'pi-install-plan' });

@@ -32,10 +32,10 @@ const EXPECTED_GENERATED_CALLER_SURFACES = Object.freeze([
   "src/targets/openclaw.js:verificationHints",
 ]);
 const EXPECTED_MAINTAINED_CALLER_FILES = Object.freeze([
-  "README.md",
   "docs/MVP_RUNBOOK.md",
   "docs/OPENCLAW_RUNTIME_NOTES.md",
   "docs/RUNTIME_EXECUTION.md",
+  "docs/reference/CLI_REFERENCE.md",
 ]);
 const EXPECTED_AGGREGATE_TEST_LANES = Object.freeze([
   "npm run check:test:main",
@@ -391,18 +391,22 @@ describe("maintained command documentation", () => {
     }
 
     const currentStatus = await readFile(path.join(REPO_ROOT, "docs/CURRENT_STATUS.md"), "utf8");
-    assert.match(currentStatus, /8 个本地、尚未 push 的 commits/u);
-    assert.match(currentStatus, /当前 aggregate gate 收口批次\s+仍未 commit/u);
-    assert.match(currentStatus, /没有 push、PR、tag 或 GitHub Release/u);
+    const archivedStatus = await readFile(path.join(REPO_ROOT, "docs/archive/2026-11-09-status-history.md"), "utf8");
+    assert.match(archivedStatus, /8 个本地、尚未 push 的 commits/u);
+    assert.match(archivedStatus, /当前 aggregate gate 收口批次\s+仍未 commit/u);
+    assert.match(archivedStatus, /没有 push、PR、tag 或 GitHub Release/u);
+    assert.doesNotMatch(currentStatus, /8 个本地、尚未 push 的 commits/u);
+    assert.match(currentStatus, /archive\/2026-11-09-status-history\.md/u);
   });
 
   it("keeps Builder v1 docs on the append-only CLI and indexes every dated release once", async () => {
     const readme = await readFile(path.join(REPO_ROOT, "README.md"), "utf8");
+    const cliReference = await readFile(path.join(REPO_ROOT, "docs/reference/CLI_REFERENCE.md"), "utf8");
     const runbook = await readFile(path.join(REPO_ROOT, "docs/MVP_RUNBOOK.md"), "utf8");
     const currentRelease = await readFile(path.join(REPO_ROOT, "release/2026.07.22.md"), "utf8");
     const packageJson = JSON.parse(await readFile(path.join(REPO_ROOT, "package.json"), "utf8"));
     const documentedCommands = Array.from(
-      readme.matchAll(/```text\n([\s\S]*?)```/gu),
+      `${readme}\n${cliReference}`.matchAll(/```text\n([\s\S]*?)```/gu),
       (match) => match[1],
     ).join("\n");
 
@@ -431,7 +435,7 @@ describe("maintained command documentation", () => {
     );
     assertAggregateTestLaneChain(packageJson.scripts.check);
 
-    for (const markdown of [readme, runbook, currentRelease]) {
+    for (const markdown of [cliReference, runbook, currentRelease]) {
       assert.match(markdown, /projected-v2/u);
       assert.match(markdown, /immutable version-qualified/u);
       assert.match(markdown, /external (?:human )?decision authority|externalDecisionAuthorityRequired/iu);

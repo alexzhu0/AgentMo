@@ -26,11 +26,12 @@ export async function admitValue(root, value, subject, companions) {
   return loadAdmittedArtifact({ filePath, subject, expectedDigest: digest(bytes), ...(companions ? { companions } : {}) });
 }
 
-export async function withPiPlanningFixture(fn, need = piNeed()) {
+export async function withPiPlanningFixture(fn, need = piNeed(), sources = {}) {
   const root = await realpath(await mkdtemp(path.join(tmpdir(), 'agentmo-pi-planning-')));
+  let failed = false;
   try {
-    const manifest = { ...JSON.parse(await readFile(example('support-triage.discovery.json'), 'utf8')), agent_id: need.agent_id };
-    const db = { ...JSON.parse(await readFile(example('fixtures/support-triage/prebuilt-discovery-db.json'), 'utf8')), agentId: need.agent_id };
+    const manifest = sources.manifest ?? { ...JSON.parse(await readFile(example('support-triage.discovery.json'), 'utf8')), agent_id: need.agent_id };
+    const db = sources.db ?? { ...JSON.parse(await readFile(example('fixtures/support-triage/prebuilt-discovery-db.json'), 'utf8')), agentId: need.agent_id };
     const discoveryManifest = await admitValue(root, manifest, 'discovery-manifest');
     const discoveryDb = await admitValue(root, db, 'discovery-db');
     const userNeed = await admitValue(root, need, 'user-need');
@@ -54,14 +55,16 @@ export async function withPiPlanningFixture(fn, need = piNeed()) {
       runtime: Object.hasOwn(need, 'native_runtime') ? need.native_runtime : 'openclaw',
       manifest: discoveryManifest.value, discoveryApproval: discoveryApproval.value, decisionLedger, admissions,
     } });
-  } finally { await rm(root, { recursive: true, force: true }); }
+  } catch (error) { failed = true; throw error; }
+  finally { if (!failed || !sources.preserveFailure) await rm(root, { recursive: true, force: true }); else console.error(`Synthetic planning failure retained: ${root}`); }
 }
 
-export async function withPiTargetFixture(fn) {
+export async function withPiTargetFixture(fn, { preserveFailure = false } = {}) {
   const sdkRoot = await realpath(await mkdtemp(path.join(tmpdir(), 'agentmo-pi-target-')));
   const sdkDir = path.join(sdkRoot, 'node_modules/@earendil-works/pi-coding-agent');
   const coreDir = path.join(sdkRoot, 'node_modules/@earendil-works/pi-agent-core');
   const lockFilePath = path.join(sdkRoot, 'package-lock.json');
+  let failed = false;
   try {
     for (const dir of [sdkDir, coreDir]) await mkdir(path.join(dir, 'dist'), { recursive: true });
     const sdkPackage = { name: '@earendil-works/pi-coding-agent', version: '1.2.0', type: 'module',
@@ -78,10 +81,11 @@ export async function withPiTargetFixture(fn) {
     };
     await writeFile(lockFilePath, jsonBytes({ lockfileVersion: 3, packages }));
     return await fn({ sdkRoot, sdkDir, coreDir, lockFilePath, nodeExecutablePath: await realpath(process.execPath) });
-  } finally { await rm(sdkRoot, { recursive: true, force: true }); }
+  } catch (error) { failed = true; throw error; }
+  finally { if (!failed || !preserveFailure) await rm(sdkRoot, { recursive: true, force: true }); else console.error(`Synthetic SDK failure retained: ${sdkRoot}`); }
 }
 
-export async function withPiPackageFixture(fn) {
+export async function withPiPackageFixture(fn, sources = {}) {
   return withPiTargetFixture(({ sdkRoot, nodeExecutablePath, lockFilePath }) => withPiPlanningFixture(async f => {
     const targetPaths = { sdkRoot, nodeExecutablePath, lockFilePath };
     const designPlan = await admitValue(f.root, buildDesignPlan(f.db, f.need, f.options), 'design-plan');
@@ -110,5 +114,5 @@ export async function withPiPackageFixture(fn) {
         : path.join(f.root, `${a.subject}.json`), expectedDigest: a.digest ?? a.head.digest,
     }]));
     return fn({ ...f, admissions, targetPaths, artifacts });
-  }));
+  }, sources.need ?? piNeed(), sources), sources);
 }

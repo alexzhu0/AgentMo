@@ -186,6 +186,7 @@ export const CLI_OUTPUT_OWNERS = Object.freeze({
   "pi-install-approve": "artifact",
   "pi-install-apply": "artifact",
   "pi-native-serve": "non-artifact",
+  "pi-chat": "non-artifact",
   "pi-native-stop": "non-artifact",
   help: "non-artifact",
   "artifact-contract": "non-artifact",
@@ -272,7 +273,7 @@ export async function main(args) {
 
 async function runCommand(args) {
   const [command, ...rest] = args;
-  if (["pi-target-describe", "pi-target-admit", "pi-install-preview", "pi-install-approve", "pi-install-apply", "pi-native-serve", "pi-native-stop"].includes(command) && !rest.some(arg => ["--help", "-h"].includes(arg))) {
+  if (["pi-chat", "pi-target-describe", "pi-target-admit", "pi-install-preview", "pi-install-approve", "pi-install-apply", "pi-native-serve", "pi-native-stop"].includes(command) && !rest.some(arg => ["--help", "-h"].includes(arg))) {
     const { runPiNativeCommand } = await import("./pi-native-cli.js");
     const result = await runPiNativeCommand(command, rest);
     if (result) await (CLI_OUTPUT_OWNERS[command] === "artifact" ? emitArtifactOutput : emitNonArtifactOutput)(result.artifact, {

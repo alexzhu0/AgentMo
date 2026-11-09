@@ -7,7 +7,7 @@ import { admitValue, digest } from './pi-native-fixture.js';
 import { applyPiInstall, admitPiInstallReceipt } from '../../src/pi-install.js';
 import { buildPiInstallPlan } from '../../src/pi-install-plan.js';
 import { buildPiInstallApproval, buildPiSensitiveActionDecision, buildPiConflictApproval } from '../../src/pi-install-approval.js';
-export async function withPiRuntimeFixture(fn) {
+export async function withPiRuntimeFixture(fn, sources = { preserveFailure: true }) {
   return withPiInstallFixture(async f => {
     const receipt = await applyPiInstall(f.options); assert.equal(receipt.status, 'complete');
     const filePath = path.join(f.stateRoot, 'install-receipt.json'), expectedDigest = digest(await readFile(filePath));
@@ -29,6 +29,6 @@ export async function withPiRuntimeFixture(fn) {
       installReceipt: { filePath, expectedDigest }, activationPlan: { filePath: path.join(activationPath, 'pi-install-plan.json'), expectedDigest: planAdmission.digest } };
     return fn({ ...f, activationPlan: plan, runtimeOptions: { planAdmission, sourceAdmissions, sourceFiles,
       stateRoot: f.stateRoot, authorityRoot: f.authorityRoot, targetPaths: f.targetPaths, budgetRoot: f.budgetRoot }, decisions });
-  });
+  }, sources);
 }
 

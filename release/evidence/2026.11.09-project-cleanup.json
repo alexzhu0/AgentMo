@@ -1,0 +1,131 @@
+{
+  "date": "2026-11-09",
+  "status": "v0.1-alpha-source-checkpoint",
+  "scope": "Current Pi CLI implementation and documentation organization; no new production runtime operation",
+  "cleanup": {
+    "activeEntryLinesBefore": 2045,
+    "activeEntryLinesAfter": 191,
+    "activeEntryReductionPercent": 91,
+    "historicalStatusAndHandoffsArchived": true,
+    "cliAndRuntimeContractsMovedToReference": true,
+    "duplicateStaleEntryParagraphsRemoved": true,
+    "datedReleaseRecordsRetained": 55
+  },
+  "verification": {
+    "targeted": {
+      "exitCode": 0,
+      "offline": true,
+      "tmpPlacement": "outside-managed-state",
+      "files": [
+        "test/core-mvp.test.js",
+        "test/pi-upstream.test.js",
+        "test/pi-cli-client.test.js",
+        "test/pi-cli-run.test.js",
+        "test/pi-chat-cli.test.js",
+        "test/pi-native-provider.test.js",
+        "test/pi-budget-proxy.test.js",
+        "test/pi-package.test.js",
+        "test/pi-native-cli.test.js",
+        "test/pi-chat-acceptance.test.js",
+        "test/pi-chat.test.js",
+        "test/pi-session-host.test.js",
+        "test/pi-review-regressions.test.js",
+        "test/pi-preflight.test.js",
+        "test/command-docs.test.js",
+        "test/artifact-subjects.test.js",
+        "test/artifact-surface-coverage.test.js"
+      ],
+      "summaries": [
+        "ℹ tests 128",
+        "ℹ suites 3",
+        "ℹ pass 128",
+        "ℹ fail 0",
+        "ℹ cancelled 0",
+        "ℹ skipped 0",
+        "ℹ duration_ms 20531.387709"
+      ]
+    },
+    "documentation": {
+      "pass": 11,
+      "fail": 0
+    },
+    "packageDryRun": {
+      "files": 151,
+      "unpackedSize": 3531680,
+      "forbidden": 0,
+      "coreCliModulesPresent": true,
+      "mode": "dry-run-offline-no-install"
+    },
+    "fullRepository": {
+      "command": "npm run check",
+      "exitCode": -15,
+      "boundedStop": true,
+      "maximumSeconds": 180,
+      "offline": true,
+      "tmpPlacement": "outside-managed-state",
+      "summaries": [
+        "ℹ tests 574",
+        "ℹ suites 35",
+        "ℹ pass 324",
+        "ℹ fail 63",
+        "ℹ cancelled 185",
+        "ℹ skipped 2",
+        "ℹ duration_ms 175625.987375"
+      ]
+    },
+    "initialFullRepositoryAttempt": {
+      "command": "npm run check",
+      "exitCode": -15,
+      "boundedStop": true,
+      "maximumSeconds": 240,
+      "offline": true,
+      "summaries": [
+        "ℹ tests 640",
+        "ℹ suites 41",
+        "ℹ pass 359",
+        "ℹ fail 75",
+        "ℹ cancelled 201",
+        "ℹ skipped 5",
+        "ℹ duration_ms 235365.190042"
+      ]
+    },
+    "initialTargetedEnvironmentIssue": "Two failures were caused by TMPDIR under managed .superpowers; rerun in independent /private/tmp passed 128/128. Initial logs preserved.",
+    "fullRepositoryPassed": false
+  },
+  "publication": {
+    "original": "release/evidence/2026.11.05-pi-environment-repair-offline.json",
+    "originalDigest": "sha256:f0e7117525de28b37305202802ae984e0e680bb170a3c60df75fb0cec4196194",
+    "publicFile": "release/evidence/2026.11.05-pi-environment-repair-offline-public.json",
+    "publicFileDigest": "sha256:6a2fce81ceebe631815c71105edcd150639f8b0368434876092eb221ec3a9105",
+    "referencesUpdated": 3,
+    "originalUnchanged": true
+  },
+  "preservation": {
+    "sourceDigest": "sha256:3a101a8bfdc5a8a11893278af1343d984f9911762afc4c10eb7d06df7391b500",
+    "sourceFiles": 144,
+    "totalReservedFen": 4898,
+    "projectReservations": 30,
+    "journalDigest": "sha256:573f6c51a205c0f2f9a42f122d7b6eeaf6f4dcc51893d61a65ea0664c4e406f5",
+    "firstEvidenceDigest": "sha256:61315a43e241f4c658c0b605f1c44dc691014c4ab858db8753c2bed42ec93f06",
+    "failedFollowupDigest": "sha256:ed36947a45a843e4afef5917ed18e49db71b50bf32084ad91e405baa8d4b2c64",
+    "actualSdkExecution": false,
+    "modelRequests": 0
+  },
+  "deliveryBoundary": {
+    "containsKeys": false,
+    "containsLocalRuntimeRoots": false,
+    "containsRawProviderPayloads": false,
+    "containsSdkTranscripts": false,
+    "agentInstalled": false,
+    "actualSdkExecuted": false,
+    "agentActivated": false,
+    "modelRequests": 0,
+    "newReservedFen": 0,
+    "productionCertified": false
+  },
+  "limitations": [
+    "Full repository check did not pass; bounded interruption and cancelled cases are not passes.",
+    "Only first M3 acceptance case has passed. Followup failed with ECONNRESET; isolation and final restore remain untested.",
+    "Main-directory unrelated uncommitted work remains untouched; GitHub synchronization does not recreate local runtime or approval state."
+  ]
+}

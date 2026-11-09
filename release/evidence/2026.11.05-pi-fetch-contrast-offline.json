@@ -1,0 +1,119 @@
+{
+  "schemaVersion": "agentmo.pi-fetch-contrast-offline-preview.v1",
+  "date": "2026-11-05",
+  "status": "OFFLINE_CONTRAST_READY_UNAUTHORIZED",
+  "previousDiagnostic": {
+    "proposalDigest": "sha256:33d29f0b96f41e530d54412bbcd5c10ff006e80d9e6f63886cfdfb82702d3d3b",
+    "scopeClosed": true,
+    "dns": "passed",
+    "tls": "passed",
+    "head": "ETIMEDOUT",
+    "replayed": false
+  },
+  "offlineFindings": {
+    "node": "v24.18.0",
+    "undici": "7.28.0",
+    "localNodeSourceDigest": "sha256:05f87600c129195c685f43f6a90e5fb37316f1804ef1a881cfdb3ead7a672273",
+    "localSourceSnippets": [
+      {
+        "pattern": "channels.connected.publish",
+        "line": 9508
+      },
+      {
+        "pattern": "channels.beforeConnect.publish",
+        "line": 9461
+      },
+      {
+        "pattern": "channels.headers.publish",
+        "line": 3072
+      },
+      {
+        "pattern": "request.method === \"HEAD\" ||",
+        "line": 13236
+      }
+    ],
+    "confirmed": [
+      "HEAD response body is null in this installed fetch implementation",
+      "the old10second bound covers the entire fetch, including fresh resolution and connection",
+      "the old diagnostic masks the underlying aborted fetch error as ETIMEDOUT",
+      "fixed diagnostics channels are present in installed Node source"
+    ],
+    "productionTransportDefectProven": false,
+    "productionSourceChanged": false
+  },
+  "preview": {
+    "proposalDigest": "sha256:90dad75a59f005704834118977437a17409462afab8e74127df027b461d95077",
+    "filesPinned": 5,
+    "requests": [
+      {
+        "client": "https.request",
+        "method": "HEAD",
+        "url": "https://api.minimax.cn/",
+        "certificateValidation": true,
+        "timeoutMs": 10000
+      },
+      {
+        "client": "fetch",
+        "method": "HEAD",
+        "url": "https://api.minimax.cn/",
+        "redirect": "manual",
+        "timeoutMs": 10000,
+        "onlyAfterFirstHttpResponse": true
+      }
+    ],
+    "maximumApplicationHeadCalls": 2,
+    "processTimeoutMs": 30000,
+    "stopOnFirstFailure": true,
+    "retry": false,
+    "rawEventPayloadRead": false,
+    "networkCodesAndDeadlineKeptSeparate": true,
+    "approvalAbsent": true,
+    "operationAbsent": true,
+    "actualExternalNetworkOperations": 0
+  },
+  "validation": {
+    "privateProbeSelfcheck": {
+      "passed": true,
+      "checks": 6,
+      "networkOperations": 0
+    },
+    "productSourceFilesUnchanged": 377,
+    "sourceSnapshot": {
+      "path": "release/evidence/2026.11.05-pi-upstream-network-diagnostics-source-snapshot.json",
+      "digest": "sha256:de837b27c13f95055a91bc858b7bf3456b4492ae0cecff624422a0acbd04c304"
+    },
+    "fullRepositoryCheck": "not-rerun-for-private-diagnostic-and-docs; prior check remains incomplete"
+  },
+  "preservation": {
+    "oldMetadataEntriesVerified": 115607,
+    "strictAgentmoAndOldSdd": true,
+    "allPriorFailedScopesPreserved": true,
+    "authorityJournalDigest": "sha256:2c3aad911a9d9717df71fe0f5bc7aa641610a2ee621f75e620786e47dbe2e04d",
+    "authorityConsumptions": 14,
+    "authorityDecisions": 52,
+    "budget": {
+      "reservations": 28,
+      "totalReservedFen": 4836,
+      "remainingFen": 5164,
+      "capFen": 10000,
+      "newReservedFen": 0
+    }
+  },
+  "independentReview": {
+    "path": ".superpowers/sdd/2026-11-05-pi-fetch-contrast-r1/FINAL_INDEPENDENT_REVIEW.json",
+    "digest": "sha256:8578f2dcc54279b399350e2c0ac0f18d0aa21e47180f52aee568d13c656ec67f"
+  },
+  "keyRead": false,
+  "envFileRead": false,
+  "realSdkExecuted": false,
+  "agentInstalled": false,
+  "activated": false,
+  "modelRequests": 0,
+  "committed": false,
+  "pushed": false,
+  "limits": [
+    "platform-generated headers and fresh resolution can differ between clients",
+    "one HTTP status does not prove key or model API availability",
+    "the comparison cannot retroactively establish the older M3 failure cause"
+  ]
+}

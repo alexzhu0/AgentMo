@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import { randomUUID } from 'node:crypto';
 import net from 'node:net';
+import https from 'node:https';
+import { Readable, Writable } from 'node:stream';
 import { buildPiTargetDescriptor } from '../src/pi-target-descriptor.js';
 import { piHash, piBytes, piKeys, piReject, readPiPrivateFile } from '../src/pi-install-plan.js';
 import { admitCapturedArtifactBytes } from '../src/artifact-admission.js';
@@ -16,7 +18,7 @@ import { writeNativeChatFile, assertNativeChatAbsentRoot } from '../src/native-c
 import { loadPiSdk, piFinalText } from '../src/pi-sdk.js';
 
 const MODULE = fileURLToPath(import.meta.url), PORT = 19593;
-const LOCAL = `http://127.0.0.1:${PORT}/v1/chat/completions`, UPSTREAM = 'https://api.minimax.cn/v1/chat/completions';
+const LOCAL = `http://127.0.0.1:${PORT}/v1/messages`, UPSTREAM = 'https://api.minimax.cn/anthropic/v1/messages';
 // v1.2.0 cache warming has a 60-minute maximum horizon; observe beyond that horizon.
 export const PI_CONFORMANCE_IDLE_MS = 61 * 60000;
 export const PI_CONFORMANCE_MAX_MS = 75 * 60000;
@@ -34,6 +36,25 @@ export function piConformanceExpectedCase(id) {
   const invalid = ['empty-input', 'over-limit-input'].includes(id), boundary = isBoundary(id);
   return { id, pass: true, setupRequests: boundary ? 1 : 0, proxyRequests: invalid ? 0 : boundary ? 2 : 1,
     modelRequests: invalid ? 0 : 1, reservations: invalid ? 0 : 1 };
+}
+
+export function createPiConformanceHttpsRequest(handler) {
+  return (url, options, onResponse) => {
+    const chunks = [];
+    const request = new Writable({ autoDestroy: false, write(chunk, encoding, done) { chunks.push(Buffer.from(chunk)); done(); } });
+    request.on('finish', async () => {
+      if (request.destroyed) return;
+      try {
+        const response = await handler(String(url), { ...options, body: Buffer.concat(chunks).toString('utf8') });
+        if (request.destroyed) { await response.body?.cancel(); return; }
+        const incoming = response.body ? Readable.fromWeb(response.body) : Readable.from([]);
+        incoming.statusCode = response.status;
+        incoming.headers = Object.fromEntries(response.headers);
+        onResponse(incoming);
+      } catch (error) { request.emit('error', error); }
+    });
+    return request;
+  };
 }
 
 export function createPiConformanceNetworkGuard({ fetch, connect, completion }) {
@@ -59,10 +80,7 @@ export function createPiConformanceNetworkGuard({ fetch, connect, completion }) 
   };
 }
 
-const chunk = (content, finish_reason = null) => ({ id: 'synthetic', object: 'chat.completion.chunk', model: 'MiniMax-M3',
-  choices: [{ index: 0, delta: content === null ? {} : { role: 'assistant', content }, finish_reason }],
-  ...(finish_reason ? { usage: { prompt_tokens: 20, completion_tokens: 20, total_tokens: 40 } } : {}) });
-const sse = value => `data: ${JSON.stringify(value)}\n\n`;
+const sse = value => `event: ${value.type}\ndata: ${JSON.stringify(value)}\n\n`;
 export async function piConformanceMockResponse(mode, signal, onObservation) {
   check(['success', '401', '429', '500', 'timeout', 'disconnect', 'malformed'].includes(mode));
   if (['401', '429', '500'].includes(mode)) return new Response('{}', { status: Number(mode) });
@@ -71,12 +89,20 @@ export async function piConformanceMockResponse(mode, signal, onObservation) {
     if (signal.aborted) aborted(); else signal.addEventListener('abort', aborted, { once: true });
   });
   if (mode === 'disconnect') return new Response(new ReadableStream({
-    start(controller) { controller.enqueue(new TextEncoder().encode(sse(chunk('合成部分')))); },
+    start(controller) { controller.enqueue(new TextEncoder().encode(sse({ type: 'message_start', message: { id: 'synthetic', role: 'assistant', model: 'MiniMax-M3', content: [], usage: { input_tokens: 20, output_tokens: 0 } } }))); },
     async pull(controller) { await wait(0); onObservation('partial-stream-disconnect'); controller.error(new Error('synthetic partial stream disconnected')); },
   }, { highWaterMark: 0 }), { headers: { 'content-type': 'text/event-stream' } });
   if (mode === 'malformed') return new Response('data: invalid\n\ndata: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream' } });
-  return new Response(sse(chunk('摘要：合成。决策：未说明。行动项：未说明。未决问题：未说明。'))
-    + sse(chunk(null, 'stop')) + 'data: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream' } });
+  const events = [
+    { type: 'message_start', message: { id: 'synthetic', type: 'message', role: 'assistant', model: 'MiniMax-M3', content: [],
+      stop_reason: null, stop_sequence: null, usage: { input_tokens: 20, output_tokens: 0 } } },
+    { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } },
+    { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'Synthetic summary. Decision: unspecified. Action: unspecified. Questions: unspecified.' } },
+    { type: 'content_block_stop', index: 0 },
+    { type: 'message_delta', delta: { stop_reason: 'end_turn', stop_sequence: null }, usage: { output_tokens: 20 } },
+    { type: 'message_stop' },
+  ];
+  return new Response(events.map(sse).join(''), { headers: { 'content-type': 'text/event-stream' } });
 }
 
 async function previewFor(targetPaths, workspaceRoot) {
@@ -138,18 +164,19 @@ async function ownedConformance(options, abort) {
   check(stat.isDirectory() && !stat.isSymbolicLink() && stat.uid === process.getuid() && (stat.mode & 0o777) === 0o700);
   process.umask(0o077);
   const descriptor = admitCapturedArtifactBytes({ subject: 'pi-target-descriptor', bytes: piBytes(preview.target), expectedDigest: piHash(piBytes(preview.target)) });
-  const originalFetch = globalThis.fetch, originalConnect = net.Socket.prototype.connect;
+  const originalFetch = globalThis.fetch, originalConnect = net.Socket.prototype.connect, originalHttps = https.request;
   let mode = 'success', currentInput = SYNTHETIC_INPUT, proxy = null, host = null;
   const observations = [], results = [];
   const guard = createPiConformanceNetworkGuard({ fetch: originalFetch, connect: originalConnect,
     completion: async (input, init) => {
       const body = JSON.parse(init.body);
-      check(body.model === 'MiniMax-M3' && body.max_completion_tokens === 2048 && body.n === 1
-        && body.thinking?.type === 'disabled' && body.service_tier === 'standard' && body.messages[0]?.role === 'system'
-        && body.messages[0]?.content === SYSTEM && body.messages.at(-1)?.content === currentInput && !body.tools && !body.tool_choice);
+      check(body.model === 'MiniMax-M3' && body.max_tokens === 2048 && body.stream === true
+        && body.thinking?.type === 'disabled' && body.system?.map(p => p.text).join('') === SYSTEM
+        && body.messages.at(-1)?.content?.map(p => p.text).join('') === currentInput && !body.tools && !body.tool_choice);
       return piConformanceMockResponse(mode, init.signal, observation => observations.push(observation));
     } });
   globalThis.fetch = guard.fetch; net.Socket.prototype.connect = guard.connect;
+  https.request = createPiConformanceHttpsRequest(guard.fetch);
   const close = async () => {
     const closingProxy = proxy, closingHost = host; proxy = null; host = null;
     const settled = await Promise.allSettled([closingProxy?.close(), closingHost?.close()]);
@@ -240,7 +267,7 @@ async function ownedConformance(options, abort) {
   } catch (error) { failure = error; }
   try { await close(); guard.assertClean(); } catch (error) { failure ??= error; }
   abort.signal.removeEventListener('abort', stopped);
-  globalThis.fetch = originalFetch; net.Socket.prototype.connect = originalConnect;
+  globalThis.fetch = originalFetch; net.Socket.prototype.connect = originalConnect; https.request = originalHttps;
   if (failure) throw failure; check(!abort.signal.aborted);
   const result = { schemaVersion: 'agentmo.pi-sdk-conformance-result.v1', ok: true, caseResults: results,
     idleWindowMs: PI_CONFORMANCE_IDLE_MS, maxDurationMs: PI_CONFORMANCE_MAX_MS, extraRequests: 0, realProviderRequests: 0,

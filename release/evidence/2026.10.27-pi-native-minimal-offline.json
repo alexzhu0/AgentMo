@@ -1,0 +1,115 @@
+{
+  "schemaVersion": "agentmo.pi-native-minimal-offline-evidence.v1",
+  "scope": "native-miniMax-provider-session-manager-existing-cli",
+  "baselineCommit": "42caec1",
+  "nativeModel": "minimax-cn/MiniMax-M3",
+  "protocol": "anthropic-messages",
+  "endpoint": "https://api.minimax.cn/anthropic/v1/messages",
+  "sourceSnapshot": {
+    "path": "release/evidence/2026.10.27-pi-native-minimal-source-snapshot.json",
+    "digest": "sha256:f3c35315f975d5f7ef51adc6e3fa909fd8780e9ae7fb3c5e05356d07da9558c7",
+    "fileCount": 375,
+    "changedExistingFiles": 17
+  },
+  "targetRuntimeSourceDigest": "sha256:a12aeb13ba24f222382b0e34290663f3c2f86189303ea3aa0ccb7ccd768ac614",
+  "packageArchiveDigest": "sha256:b004aa6a7ac9ed3faf334538df274fa02807a92cd065a35252bc86e843360937",
+  "installPlanDigest": "sha256:3f4892c472cfa467403781838bc9412e3d1bd5b14bf3b47e5e6a7935fe56e64b",
+  "installPreparationProposalDigest": "sha256:ee0cd7bb6e2347b8941df1ad9298ca94b65a9053b86b5526a2d580c2800cc3d7",
+  "tests": {
+    "finalRegression": {
+      "passed": 207,
+      "failed": 0,
+      "command": "node --test --test-timeout=60000 test/pi-*.test.js test/design-plan.test.js test/user-need.test.js test/blueprint-draft.test.js test/blueprint.test.js test/stage-contracts.test.js test/discovery-source-workspace.test.js test/course-wiki-budget.test.js test/native-chat-minimax.test.js"
+    },
+    "docsAndIoSurfaces": {
+      "passed": 36,
+      "failed": 0,
+      "command": "node --test test/command-docs.test.js test/artifact-surface-coverage.test.js"
+    },
+    "isolatedReleaseAssertion": {
+      "passed": 1,
+      "failed": 0
+    },
+    "fullNpmCheck": {
+      "passed": false,
+      "exitCode": 1,
+      "mainObservedPass": 444,
+      "mainObservedFailures": 2,
+      "mainCancelled": 135,
+      "mainSkipped": 4,
+      "mainDurationMs": 1138877,
+      "disposition": "stopped-after-failure-and-source-edits; not a final full-suite pass",
+      "initialFailures": [
+        "exact-IO-line-inventory",
+        "same-version-release-hash-after-source-edits"
+      ],
+      "targetedFollowupBothPassed": true,
+      "subsequentLanesRun": false
+    }
+  },
+  "independentReview": {
+    "critical": 0,
+    "importantFound": 2,
+    "importantFixedWithRedGreen": 2,
+    "minor": 0,
+    "scope": "SDK, proxy, request budget and session admission; not whole-project or actual SDK acceptance"
+  },
+  "preservation": {
+    "originalAgentmoMetadataEntries": 104403,
+    "oldSddMetadataEntries": 4253,
+    "metadataBeforeAfterEqual": true,
+    "sensitiveSessionFilesRead": "metadata-only",
+    "oldFailuresKept": true,
+    "oldFrozenSnapshotKept": true,
+    "noOriginalStateWrites": true
+  },
+  "originalBudget": {
+    "projectReservations": 27,
+    "totalReservedFen": 4805,
+    "remainingFen": 5195,
+    "capFen": 10000,
+    "newReservations": 0
+  },
+  "futureFiveCases": {
+    "maximumRequests": 5,
+    "maximumNewReservedFen": 155,
+    "maximumCumulativeReservedFen": 4960,
+    "conditionalRestart": 1,
+    "approvalActive": false
+  },
+  "realEffects": {
+    "sdkExecuted": false,
+    "installed": false,
+    "activated": false,
+    "modelRequests": 0,
+    "authorityConsumptions": 0,
+    "secretsRead": false,
+    "committed": false,
+    "pushed": false
+  },
+  "preparationFailuresPreserved": 2,
+  "certificationBoundary": {
+    "actualSdkVerified": false,
+    "modelAcceptancePassed": false,
+    "domainCertified": false,
+    "productionApproved": false
+  },
+  "verificationLogDigests": {
+    "finalRegression": {
+      "sha256": "sha256:569827513ee2a73c013abfd888f5c990df6fa17298d79bc9011601e661a3b26c",
+      "byteLength": 19304
+    },
+    "docsAndSurfaces": {
+      "sha256": "sha256:166904100c6a9dca9b034f0487e34ebf35de2d61e2958fd08384754f20b1bcc6",
+      "byteLength": 3987
+    },
+    "isolatedRelease": {
+      "sha256": "sha256:e888eb10c23c8f16cb99cf83a657a2bbd636adb04f36195331cbe23a687f0aec",
+      "byteLength": 326
+    },
+    "fullNpmCheck": {
+      "sha256": "sha256:1ec4a933b934409aec1c9347527ae366d79cbba4d8a3ee3bafccd717bffb3de8",
+      "byteLength": 102055
+    }
+  }
+}

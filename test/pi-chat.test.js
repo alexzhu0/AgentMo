@@ -154,3 +154,14 @@ test('uses the approved next case from the server without hidden UI edits', asyn
   assert.equal(posted?.caseId, 'correction');
   assert.equal(posted.text, '更正合成材料');
 });
+
+
+test('exposes validated failure categories without raw diagnostic fields', async () => {
+  const f = await fixture(true);
+  f.sessionHost.events = async function* () { yield { turnId, sessionId, status: 'failed', causeCode: 'COURSE_WIKI_UPSTREAM_NETWORK', upstreamNetworkCode: 'ETIMEDOUT' }; };
+  const response = await request(f.handler, 'GET', `/api/turns/${turnId}/events`, undefined, { cookie: f.cookie });
+  assert.match(response.text(), /ETIMEDOUT/);
+  f.sessionHost.events = async function* () { yield { turnId, sessionId, status: 'failed', causeCode: 'SYNTHETIC_SECRET' }; };
+  const refused = await request(f.handler, 'GET', `/api/turns/${turnId}/events`, undefined, { cookie: f.cookie });
+  assert.equal(refused.statusCode, 500); assert.doesNotMatch(refused.text(), /SYNTHETIC_SECRET/);
+});

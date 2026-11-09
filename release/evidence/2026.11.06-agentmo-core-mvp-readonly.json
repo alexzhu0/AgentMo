@@ -1,0 +1,70 @@
+{
+  "status": "readonly-verified-stopped",
+  "proposalDigest": "sha256:c323f6d2a97c8b9ea4436aa26bbf3a83962e400d718dd49b4c1aa5dee9320e6a",
+  "activationPlanDigest": "sha256:d07f6bc6a87c428a374b0cfc8f0c7305a447837201faa38b577607dd735145b1",
+  "receiptDigest": "sha256:3066fc461489416ccc3eccd74336a71971792016cec2e25e3cfd5c36af5da80c",
+  "workError": null,
+  "ready": true,
+  "sdkExecutionAttempted": true,
+  "actualSdkImported": true,
+  "idleObservedMs": 60003,
+  "observedTurnEntries": 0,
+  "observedModelClaims": 0,
+  "modelRequests": 0,
+  "newReservedFen": 0,
+  "budget": {
+    "totalReservedFen": 4836,
+    "capFen": 10000,
+    "projectReservations": 28
+  },
+  "authority": {
+    "consumptions": 16,
+    "decisions": 58,
+    "oldPrefixPreserved": true,
+    "journalDigest": "sha256:b159cf5e0533fc36a89f844032b2a3d6a8159743083413f1dfc758ca8660f88f"
+  },
+  "cleanup": {
+    "status": "stopped",
+    "ownChildExited": true,
+    "stopStatus": "stopped",
+    "reason": "requested"
+  },
+  "supplierKeyRead": false,
+  "chatMessages": 0,
+  "restarts": 0,
+  "retries": 0,
+  "commit": false,
+  "push": false,
+  "date": "2026-11-06",
+  "authorization": {
+    "questionItemId": "call_ec06bd7b309b494fa42ec26480101365:0",
+    "answer": "批准只读激活检查"
+  },
+  "sessionCount": 1,
+  "sessionIdDigest": "sha256:c0f434d31e04e310e7184573a1b062eb8b4d251a3684a8ea986c8f1ef398955b",
+  "postStopVerification": {
+    "status": "verified-after-stop",
+    "stopReceiptDigest": "sha256:4b69ac518ccbf4eec53c99ce82c93f876072b9d5f43dfacdff056183c136461d",
+    "ownChildExited": true,
+    "turns": 0,
+    "modelClaims": 0,
+    "reservedFen": 4836,
+    "authorityHead": "sha256:b159cf5e0533fc36a89f844032b2a3d6a8159743083413f1dfc758ca8660f88f",
+    "sessionIdDigest": "sha256:c0f434d31e04e310e7184573a1b062eb8b4d251a3684a8ea986c8f1ef398955b"
+  },
+  "futureM3": {
+    "proposalDigest": "sha256:205d9881ee8ca04613ef5bdc179af52af4c4e4544c46044625324475982a8c4c",
+    "activationPlanDigest": "sha256:2bc1cddbb3d13d0df963ea85676b62293d07aeb73e16a3fe6a355663fce7a2f6",
+    "maximumRequests": 1,
+    "maximumNewReservedFen": 31,
+    "maximumCumulativeReservedFen": 4867,
+    "executed": false
+  },
+  "limits": {
+    "realInteractiveTtyNotVerified": true,
+    "modelAccepted": false,
+    "domainCertified": false,
+    "fullRepositoryCheckNotGreen": true,
+    "arbitraryBackgroundNetworkNotCertified": true
+  }
+}

@@ -45,10 +45,11 @@ export async function runPiStartupStep(stage, operation, record) {
   }
 }
 
-export async function loadPiNativeSources(options) {
+export async function loadPiInstalledSources(options) {
   if (!piKeys(options, ['sourceFiles', 'stateRoot', 'authorityRoot'])) reject();
   const { sourceFiles, stateRoot, authorityRoot } = options;
-  if (!piKeys(sourceFiles, SOURCE_KEYS) || Object.values(sourceFiles).some(b => !piKeys(b, ['filePath', 'expectedDigest']))) reject();
+  if (!piKeys(sourceFiles, SOURCE_KEYS.filter(k => k !== 'activationPlan'))
+    || Object.values(sourceFiles).some(b => !piKeys(b, ['filePath', 'expectedDigest']))) reject();
   const sources = {};
   for (const k of ['blueprint', 'buildContract', 'planApproval', 'targetDescriptor']) sources[k] = await loadAdmittedArtifact({ ...sourceFiles[k], subject: sourceSubject[k] });
   sources.targetCarrierAdmission = await loadAdmittedArtifact({ ...sourceFiles.targetCarrierAdmission, subject: sourceSubject.targetCarrierAdmission,
@@ -57,8 +58,15 @@ export async function loadPiNativeSources(options) {
   sources.installPlan = await loadAdmittedArtifact({ ...sourceFiles.installPlan, subject: 'pi-install-plan' });
   sources.installReceipt = await admitPiInstallReceipt({ ...sourceFiles.installReceipt,
     admissions: { ...planning(sources), plan: sources.installPlan }, stateRoot, authorityRoot });
-  const planAdmission = await loadAdmittedArtifact({ ...sourceFiles.activationPlan, subject: 'pi-install-plan' });
-  return { planAdmission, sourceAdmissions: sources };
+  return { sourceAdmissions: sources };
+}
+
+export async function loadPiNativeSources(options) {
+  if (!piKeys(options, ['sourceFiles', 'stateRoot', 'authorityRoot']) || !piKeys(options.sourceFiles, SOURCE_KEYS)) reject();
+  const { activationPlan, ...installedFiles } = options.sourceFiles;
+  const { sourceAdmissions } = await loadPiInstalledSources({ ...options, sourceFiles: installedFiles });
+  const planAdmission = await loadAdmittedArtifact({ ...activationPlan, subject: 'pi-install-plan' });
+  return { planAdmission, sourceAdmissions };
 }
 
 export async function preflightPiNative(options) {

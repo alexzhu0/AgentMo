@@ -1,6 +1,7 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
+import { validatePiPublicTurn } from './pi-budget-proxy.js';
 
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 const STATES = new Set(['received', 'reserved', 'sent', 'completed', 'failed', 'interrupted']);
@@ -33,8 +34,9 @@ async function body(req) {
   } catch { fail(); }
 }
 function publicTurn(value, text = false) {
-  if (!value || !UUID.test(value.turnId) || !UUID.test(value.sessionId) || !STATES.has(value.status)) fail(500);
-  const result = { turnId: value.turnId, sessionId: value.sessionId, status: value.status };
+  const { text: replyText, ...state } = value ?? {};
+  if (!validatePiPublicTurn(state)) fail(500);
+  const result = { ...state };
   if (text && value.status === 'completed') {
     if (typeof value.text !== 'string' || Buffer.byteLength(value.text) > 128 * 1024) fail(500);
     result.text = value.text;

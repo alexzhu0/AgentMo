@@ -3,12 +3,14 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 
 export const finalMessage = () => ({ role: 'assistant', content: [{ type: 'text', text: '合成最终回复' }],
-  api: 'openai-completions', provider: 'agentmo-budget', model: 'MiniMax-M3', stopReason: 'stop', timestamp: 1,
+  api: 'anthropic-messages', provider: 'minimax-cn', model: 'MiniMax-M3', stopReason: 'stop', rawStopReason: 'end_turn', responseId: 'synthetic', timestamp: 1,
   usage: { input: 20, output: 3, cacheRead: 0, cacheWrite: 0, totalTokens: 23,
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } } });
 export function fakePiSdk() {
-  const calls = { create: [], runtime: [], credential: [], prompt: [], stream: [], abort: 0, dispose: 0 };
+  const calls = { create: [], open: [], runtime: [], credential: [], prompt: [], stream: [], abort: 0, dispose: 0 };
   let sequence = () => [{ type: 'message_end', message: finalMessage() }, { type: 'agent_end', willRetry: false }, { type: 'agent_settled', aborted: false }];
+  let providerEvents = [{ type: 'message_start', message: { model: 'MiniMax-M3', id: 'synthetic', usage: { input_tokens: 20, output_tokens: 0 } } },
+    { type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { output_tokens: 3 } }, { type: 'message_stop' }];
   class Manager {
     constructor(cwd, dir, id, file) { this.cwd = cwd; this.id = id; this.file = file ?? path.join(dir, `synthetic_${id}.jsonl`); this.entries = [];
       if (existsSync(this.file)) this.entries = readFileSync(this.file, 'utf8').trim().split('\n').map(JSON.parse).slice(1); }
@@ -28,17 +30,21 @@ export function fakePiSdk() {
       getEnableSkillCommands: () => value.enableSkillCommands,
     }; } },
     SessionManager: { create: (cwd, dir, options) => new Manager(cwd, dir, options.id),
-      open: (file, dir, cwd) => new Manager(cwd, dir, JSON.parse(readFileSync(file, 'utf8').split('\n')[0]).id, file) },
-    ModelRuntime: { async create(options) { calls.runtime.push(options); let model;
+      open: (file, dir, cwd) => { calls.open.push(file); return new Manager(cwd, dir, JSON.parse(readFileSync(file, 'utf8').split('\n')[0]).id, file); } },
+    ModelRuntime: { async create(options) { calls.runtime.push(options);
+      const model = { id: 'MiniMax-M3', provider: 'minimax-cn', api: 'anthropic-messages', reasoning: true,
+        baseUrl: 'https://api.minimaxi.com/anthropic', contextWindow: 1000000, maxTokens: 512000 };
       // The fixed SDK creates its default auth file even before the first prompt.
       if (!options.credentials) {
         if (typeof options.authPath !== 'string') throw new Error('Synthetic default auth path missing');
         if (!existsSync(options.authPath)) writeFileSync(options.authPath, '{}', { mode: 0o600 });
       }
-      return { registerProvider(id, config) { calls.provider = { id, config }; model = { ...config.models[0], provider: id, api: config.api }; },
-        getModel: () => model, setRuntimeApiKey: async (provider, credential) => { calls.credential.push({ provider, credential }); },
+      return { registerProvider() { throw new Error('Use the built-in provider'); },
+        getModel: (provider, id) => provider === model.provider && id === model.id ? model : undefined,
+        setRuntimeApiKey: async (provider, credential) => { calls.credential.push({ provider, credential }); },
         removeRuntimeApiKey: async () => {},
-        streamSimple(model, context, options) { calls.stream.push({ model, context, options }); return {}; },
+        streamSimple(model, context, options) { calls.stream.push({ model, context, options });
+          for (const event of providerEvents) options.onProviderStreamEvent?.(event, model); return {}; },
       }; } },
     async createAgentSession(options) {
       calls.create.push(options); const listeners = new Set(), manager = options.sessionManager;
@@ -58,5 +64,6 @@ export function fakePiSdk() {
       } };
     },
   };
-  return { sdk, calls, sequence: value => { sequence = typeof value === 'function' ? value : () => value; } };
+  return { sdk, calls, sequence: value => { sequence = typeof value === 'function' ? value : () => value; },
+    providerEvents: value => { providerEvents = value; } };
 }

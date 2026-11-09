@@ -1,5 +1,7 @@
 # AgentMo MVP Runbook
 
+本页为三阶段机制与历史运行时参考。当前Pi CLI Alpha的实测状态见[当前状态](CURRENT_STATUS.md)，用户操作见[Pi CLI手册](CORE_MVP_RUNBOOK.md)。旧日期记录和预览不授予再次运行；历史状态已归档。
+
 ## Native-chat exact delivery evidence (2026-10-12)
 
 The explicit native `delivery-report` branch consumes exact Blueprint, archive,
@@ -1067,6 +1069,14 @@ M3固定国内按量地址、MINIMAX_API_KEY变量、standard、thinking关闭�
 原生聊天Package发布使用现有native-chat专用文件发布路径。该路径不接受Linux `--fs-helper`/receipt授权；不要为macOS原生聊天构建Linux filesystem kernel。通用native-plugin的Linux helper流程保持独立，不能混入native-chat发布。
 
 ## Pi browser native-chat path (2026-10-16)
+
+2026-11-05: `observeNativeAuthorityStore` is read-only. It requires the previous path, inode/birth identities, anchor and complete canonical journal hash, and returns the currently observed binding without rewriting old bindings or consuming approvals. A new exact plan and fresh decisions remain necessary. The fixed install and runtime preflights use `scripts/pi-install-preflight.js`: check critical identities first, then stream metadata hashes with explicitly bound change/exclusion paths. No whole-tree row arrays or error diffs are needed. See [current preview](poc/native-chat/pi-environment-repair-preview.md); real SDK/install/activation/M3 remain unexecuted during this repair, and the full npm check did not pass.
+
+2026-10-27 offline repair: the proxy now accepts exactly the bare Messages route and the installed SDK's `?beta=true` route. Other queries remain rejected, and the fixed upstream URL receives no local query. RED→GREEN regression and 114 host synthetic tests pass; this does not establish the sole cause of the earlier live failure. The [repair/install and M3 preview](poc/native-chat/pi-native-m3-query-repair-preview.md) requires a new installed receipt for the changed source closure before final activation/payment approval. No real runtime ran during this repair; original budget and failures are preserved. The full check was stopped after Builder failures (359 passed, 24 failed, 140 cancelled, 2 skipped in main); later lanes did not run. The following execution record is historical.
+
+2026-10-27 execution update: the approved native M3 proposal `de29abc2…` ran once. SDK startup and CLI readiness passed; the first entry failed locally with `PI_REQUEST_INVALID` before any model request claim or reservation. The scope is closed; the remaining four cases and restart did not run. Budget remains 4805 fen. Preserve the original controller `cleanup=failed` and durable failed receipt; the later refused-port observation is separate. The installed SDK's `/v1/messages?beta=true` route is statically incompatible with the proxy's exact `/v1/messages` gate; the actual rejected URL was not captured, so a sole root cause is not established. See [failure evidence](../release/evidence/2026.10.27-pi-native-m3-local-request-failure.json). Do not replay this proposal or its controller; the following preview links are historical, not current authorization.
+
+2026-10-27: Pi uses the installed SDK's built-in `minimax-cn/MiniMax-M3` provider and `anthropic-messages` protocol. The existing CLI can drive acceptance without launching a browser. The budget/key boundary forwards native events unchanged; Pi parses them, and AgentMo checks parsed start/end markers, actual model, bounded usage and raw `end_turn`. SessionManager owns conversation persistence; private path, permissions, version and identity admission remain required. The current install and five-case preview is [Pi native M3](poc/native-chat/pi-native-m3-preview.md); old consumed approvals cannot authorize the changed runtime.
 
 Explicit Pi/M3 selection follows the same Discover → Plan → Produce chain. Omitted `native_runtime` retains legacy OpenClaw bytes. Fixed SDK 1.2.0 belongs to a separate private toolchain; the core npm package has no SDK dependency. Source implementation and synthetic fixtures do not authorize any real install or runtime.
 

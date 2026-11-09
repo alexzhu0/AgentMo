@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "agentmo.pi-install-precheck-drift-diagnosis.v1",
+  "date": "2026-11-04",
+  "method": "Read first 8192 baseline bytes and lstat three roots; no installer or actual SDK execution.",
+  "proposalDigest": "sha256:ebd40d41487c744218384bc947b9a3df9af5222397b405e53c4b11e96cb376d6",
+  "observations": {
+    "baselineBytes": 48922151,
+    "stateRoot": {
+      "expectedDevice": "16777229",
+      "actualDevice": "16777230",
+      "inodeUnchanged": true,
+      "birthUnchanged": true
+    },
+    "authorityRoot": {
+      "expectedDevice": "16777229",
+      "actualDevice": "16777230",
+      "inodeUnchanged": true,
+      "birthUnchanged": true
+    },
+    "sdkRoot": {
+      "expectedDevice": "16777229",
+      "actualDevice": "16777230",
+      "inodeUnchanged": true,
+      "birthUnchanged": true
+    }
+  },
+  "confirmedConclusion": "Exact physical metadata in this old proposal is stale. The current whole-tree equality precheck cannot pass; authority and SDK physical root bindings are stale as well.",
+  "codeEvidence": [
+    {
+      "path": ".superpowers/sdd/2026-10-27-pi-native-query-repair-r1/install-once.mjs",
+      "line": 23,
+      "claim": "Whole-tree deepEqual precedes operation claim."
+    },
+    {
+      "path": ".superpowers/sdd/2026-10-27-pi-native-query-repair-r1/install-once.mjs",
+      "line": 35,
+      "claim": "Operation directory is created after all prechecks."
+    }
+  ],
+  "resourceHypothesis": {
+    "baselineAndWholeTreeDiffAreLarge": true,
+    "nodeAssertionMaxArrayLength": "Infinity",
+    "actualExit137CauseProven": false
+  },
+  "systemTerminationEvidence": {
+    "systemLogReadStatus": "unavailable",
+    "commandExitCode": 64,
+    "matchingOutputBytes": 0,
+    "oomProven": false
+  },
+  "limits": [
+    "No original step-level trace exists, so this is a definite current precheck blocker, not proof of the exact termination point or cause of exit137.",
+    "Device-number change does not establish who changed the environment.",
+    "No identity fields or historical evidence were rewritten."
+  ],
+  "effects": {
+    "installerRetries": 0,
+    "sourceEdits": 0,
+    "actualSdk": false,
+    "activated": false,
+    "keyValuesRead": false,
+    "modelRequests": 0,
+    "newReservedFen": 0,
+    "committed": false,
+    "pushed": false
+  }
+}

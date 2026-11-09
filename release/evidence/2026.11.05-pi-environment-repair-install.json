@@ -1,0 +1,253 @@
+{
+  "schemaVersion": "agentmo.pi-environment-repair-install-evidence.v1",
+  "status": "INSTALLED_ONCE_FINAL_M3_PREVIEW_AWAITS_SEPARATE_APPROVAL",
+  "date": "2026-11-05",
+  "authorization": {
+    "proposalDigest": "sha256:daae0710c5e6f7a10bf70fe8f1b6d61a794690c456c91e2358ee517c455efa5f",
+    "questionItemId": "call_92ca71475b064b70a088876e14285dfc:0",
+    "installationCalls": 1,
+    "retryAllowed": false,
+    "hostExitCode": 0
+  },
+  "sourceSnapshot": "sha256:23f8d51c1d04c5f244c1425176836e4a1f2243d4997598a86060376ce2fbfb2d",
+  "installPlanDigest": "sha256:88423c5f3227edc21935423851e48d2cca0433b6173f1f678bb0f8996d40b258",
+  "archiveDigest": "sha256:6d6fce59f67198ab4e77dee23326900108e076a38626aac946ec550a4b8c6278",
+  "receiptDigest": "sha256:268aa1c691563078d2ac17c23916159151c346102789147521515046fea69a3f",
+  "stateRoot": ".agentmo/meeting-text-pi-minimax-m3-native-2026-11-05-r1",
+  "installed": {
+    "managedFiles": 6,
+    "managedSubdirectories": 4,
+    "stateEntries": 18,
+    "emptySessionRegistrations": 2,
+    "sdkAccesses": 0,
+    "networkAttempts": 0
+  },
+  "authority": {
+    "consumptionsBefore": 12,
+    "decisionsBefore": 45,
+    "consumptionsAfter": 13,
+    "decisionsAfter": 47,
+    "consumptionsAdded": 1,
+    "decisionsAdded": 2,
+    "journalBefore": "sha256:753284c7740acdef177da6e10f277a395e6a6d106a3bfcdeb6450e4f87860a41",
+    "journalAfter": "sha256:a2edc21e913146a0b1b56a704e32419325c2d4d9d9afd4e97889d20f2963c99c",
+    "originalBytePrefixPreserved": true
+  },
+  "retention": {
+    "oldMetadataEntriesVerified": 115371,
+    "approvedMutablePathsOnly": true,
+    "oldFailureScopesReplayed": false,
+    "sourceFilesUnchanged": 377
+  },
+  "budget": {
+    "reservations": 27,
+    "totalReservedFen": 4805,
+    "remainingFen": 5195,
+    "capFen": 10000,
+    "newReservedFen": 0
+  },
+  "nextPreview": {
+    "proposalDigest": "sha256:8ae76eb7540a1ec963dd40d152d63ba3d3fe25923a8e0c25594ca918c21130c1",
+    "activationPlanDigest": "sha256:f945effd68a5027b6ffa928bb0ea6f88c1f5321e8071972e6075a17424c8c8d6",
+    "activationPlanRawDigest": "sha256:c525f8a9d8a020dfa0c0e6eb25540c0b7f16dccd61471f15692e48e827963d62",
+    "previewDigest": "sha256:93f9f4f501bb9a2be3836257585218109179ea48ac871f084e77cb8838997d45",
+    "previewPath": "docs/poc/native-chat/pi-environment-m3-run-preview.md",
+    "frozenFiles": 429,
+    "manifestFiles": 17,
+    "identityChecks": 8,
+    "baselineBytes": 2716,
+    "protectedMetadataEntries": 115389,
+    "maximumRequests": 5,
+    "maximumNewReservedFen": 155,
+    "maximumCumulativeReservedFen": 4960,
+    "restart": "one-only-after-first-four-technical-and-independent-content-passes",
+    "approvalAbsent": true,
+    "operationAbsent": true,
+    "browserRequired": false
+  },
+  "checks": {
+    "static-selfcheck": {
+      "path": ".superpowers/sdd/2026-11-05-pi-environment-repair-r1/model-preview/static-selfcheck.log",
+      "digest": "sha256:83f35a32cd702b39c693c1db02a0f7360f1e421f8faccf2a92d04627e682d295",
+      "result": {
+        "passed": true,
+        "frozenFiles": 429,
+        "manifestFiles": 17,
+        "identityChecks": 8,
+        "modelRequests": 0,
+        "sdkExecuted": false,
+        "approvalAbsent": true,
+        "operationAbsent": true
+      }
+    },
+    "policy-selfcheck": {
+      "path": ".superpowers/sdd/2026-11-05-pi-environment-repair-r1/model-preview/policy-selfcheck.log",
+      "digest": "sha256:fcba953b455e2b31d9e5174088577747cd61151336eb15eff75fba43b1fd5e0a",
+      "result": {
+        "kind": "pure-fake-no-runtime",
+        "passed": 16,
+        "total": 16,
+        "results": [
+          {
+            "name": "missing approval causes no frozen/claim/spawn/key effects",
+            "passed": true
+          },
+          {
+            "name": "exact new paid approval scope only",
+            "passed": true
+          },
+          {
+            "name": "startup deadline remains live during unresolved IO",
+            "passed": true
+          },
+          {
+            "name": "45 minute batch includes review waits and both phases",
+            "passed": true
+          },
+          {
+            "name": "one cleanup per phase cannot extend itself",
+            "passed": true
+          },
+          {
+            "name": "second readiness has its own 300s bound without reset batch",
+            "passed": true
+          },
+          {
+            "name": "invalid command is rejected; no input override",
+            "passed": true
+          },
+          {
+            "name": "failure permanently halts sends and restart",
+            "passed": true
+          },
+          {
+            "name": "missing review halts next case and restart",
+            "passed": true
+          },
+          {
+            "name": "restart cannot precede first four cases",
+            "passed": true
+          },
+          {
+            "name": "all four reviews rechecked before restart effect",
+            "passed": true
+          },
+          {
+            "name": "five sends one restart final review no sixth or second restart",
+            "passed": true
+          },
+          {
+            "name": "abort closes gate",
+            "passed": true
+          },
+          {
+            "name": "self review cannot pass new role binding",
+            "passed": true
+          },
+          {
+            "name": "failed stop receipt never repeated; live own stop at most once",
+            "passed": true
+          },
+          {
+            "name": "signals only still-live owned handle",
+            "passed": true
+          }
+        ],
+        "network": 0,
+        "sdk": 0,
+        "keyLoader": 0
+      }
+    },
+    "cli-selfcheck": {
+      "path": ".superpowers/sdd/2026-11-05-pi-environment-repair-r1/model-preview/cli-selfcheck.log",
+      "digest": "sha256:c010b128d23a6bebc30bd2906adea5fab3f61dd17f40d55c9ac78468dbf933e1",
+      "result": {
+        "kind": "injected-transport-only",
+        "passed": 11,
+        "results": [
+          {
+            "mode": "ok",
+            "passed": true,
+            "posts": 1
+          },
+          {
+            "mode": "pending",
+            "passed": true,
+            "posts": 1
+          },
+          {
+            "mode": "login",
+            "passed": true,
+            "posts": 0
+          },
+          {
+            "mode": "case",
+            "passed": true,
+            "posts": 0
+          },
+          {
+            "mode": "session",
+            "passed": true,
+            "posts": 0
+          },
+          {
+            "mode": "http",
+            "passed": true,
+            "posts": 1
+          },
+          {
+            "mode": "turn",
+            "passed": true,
+            "posts": 1
+          },
+          {
+            "mode": "completed-turn",
+            "passed": true,
+            "posts": 1
+          },
+          {
+            "mode": "completed-session",
+            "passed": true,
+            "posts": 1
+          },
+          {
+            "mode": "failed",
+            "passed": true,
+            "posts": 1
+          },
+          {
+            "mode": "input",
+            "passed": true,
+            "posts": 1
+          }
+        ],
+        "network": 0,
+        "sdk": 0,
+        "keyReads": 0
+      }
+    }
+  },
+  "independentReview": {
+    "path": ".superpowers/sdd/2026-11-05-pi-environment-repair-r1/MODEL_PREVIEW_REVIEW_RESULT.json",
+    "digest": "sha256:ac07b4680cf978cb680ec0067214957ad1a147649c6ad25328976a0c26d77fda"
+  },
+  "notExecuted": {
+    "actualSdk": true,
+    "activation": true,
+    "providerModels": true,
+    "secretRead": true,
+    "commit": true,
+    "push": true
+  },
+  "remaining": {
+    "realM3Acceptance": "not-run",
+    "fullRepositoryCheck": "failed-stopped; main285pass11fail147cancel1skip; later lanes not run",
+    "sourceGaps": {
+      "currentPlan": 11,
+      "legacy": 15
+    },
+    "otherRealAcceptanceCategories": 14,
+    "wholeDeliveryReview": "open",
+    "domainQualityOrProductionCertification": false
+  }
+}

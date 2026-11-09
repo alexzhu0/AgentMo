@@ -40,7 +40,7 @@ async function fixture(fn) {
         conflictApproval:buildPiConflictApproval({...common,conflicts:[],useNonce:`case-${i}-conflict`})})).consumptionDigest;
     }
     const plan=f.activationPlan;
-    const runtime={native_runtime:'pi',agentId:'meeting-text',targetVersion:'1.2.0',model:'agentmo-budget/MiniMax-M3',mainSessionKey:uuid(1),freshSessionKey:uuid(2),caseSessions,caseActivationDigests,caseConsumptionDigests,
+    const runtime={native_runtime:'pi',agentId:'meeting-text',targetVersion:'1.2.0',model:'minimax-cn/MiniMax-M3',mainSessionKey:uuid(1),freshSessionKey:uuid(2),caseSessions,caseActivationDigests,caseConsumptionDigests,
       blueprintDigest:f.sourceAdmissions.blueprint.digest,packageArchiveDigest:plan.archiveBinding.archiveDigest,installReceiptDigest:f.runtimeOptions.sourceAdmissions.installReceipt.digest,
       activationPlanDigest:plan.installPlanDigest,nativeBindingDigest:hash(plan.nativeBinding),targetDescriptorDigest:plan.nativeBinding.targetDescriptorDigest,sdkClosureDigest:f.sourceAdmissions.targetDescriptor.value.closure.sdkClosureDigest,runtimeSourceDigest:plan.nativeBinding.runtimeSourceDigest};
     const admissions={blueprint:f.sourceAdmissions.blueprint,packageManifest:f.sourceAdmissions.archive.manifest,activationPlan:f.runtimeOptions.planAdmission,installReceipt:f.runtimeOptions.sourceAdmissions.installReceipt,acceptance:null};

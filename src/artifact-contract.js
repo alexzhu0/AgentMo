@@ -2040,7 +2040,7 @@ function piLifecycleTemplates() {
 
 function piAcceptanceTemplate() {
   const uuid=n=>`00000000-0000-4000-8000-${String(n).padStart(12,"0")}`,zero=`sha256:${"0".repeat(64)}`;
-  return {schemaVersion:"agentmo.pi-native-chat-acceptance.v1",observedAt:0,cases:[],runtime:{native_runtime:"pi",agentId:"meeting-preview",targetVersion:"1.2.0",model:"agentmo-budget/MiniMax-M3",mainSessionKey:uuid(1),freshSessionKey:uuid(2),
+  return {schemaVersion:"agentmo.pi-native-chat-acceptance.v1",observedAt:0,cases:[],runtime:{native_runtime:"pi",agentId:"meeting-preview",targetVersion:"1.2.0",model:"minimax-cn/MiniMax-M3",mainSessionKey:uuid(1),freshSessionKey:uuid(2),
     caseSessions:Object.fromEntries(NATIVE_CHAT_CASES.map((s,i)=>[s.id,s.sessionRole==="main"?uuid(1):s.sessionRole==="fresh"?uuid(2):uuid(i+10)])),
     ...Object.fromEntries(["caseActivationDigests","caseConsumptionDigests"].map(k=>[k,Object.fromEntries(NATIVE_CHAT_CASES.map(s=>[s.id,zero]))])),
     ...Object.fromEntries(["blueprintDigest","packageArchiveDigest","installReceiptDigest","activationPlanDigest","nativeBindingDigest","targetDescriptorDigest","sdkClosureDigest","runtimeSourceDigest"].map(k=>[k,zero]))}};

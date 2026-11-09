@@ -6,8 +6,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { validatePiNativeBinding, validatePiApprovedCases, piHash, piBytes, piKeys, piIdentity, piReject, readPiPrivateFile } from './pi-install-plan.js';
 export { validatePiApprovedCases } from './pi-install-plan.js';
 import { writeNativeChatFile } from './native-chat-files.js';
-import { validateNativeChatRequest } from './native-chat-proxy.js';
-import { validateCourseBudgetBinding, sendBudgetedCompletion } from './course-wiki-budget.js';
+import { validateCourseBudgetBinding, validatePiBudgetRequest, sendBudgetedCompletion, UPSTREAM_NETWORK_CODES } from './course-wiki-budget.js';
 
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/u;
 const DIGEST = /^sha256:[a-f0-9]{64}$/u;
@@ -19,13 +18,18 @@ const CAUSES = new Set(['PI_REQUEST_INVALID', 'PI_SDK_FAILURE', 'PI_INTERRUPTED'
   'COURSE_WIKI_UPSTREAM_DENIED', 'COURSE_WIKI_UPSTREAM_NETWORK', 'COURSE_WIKI_UPSTREAM_RESPONSE_INVALID', 'COURSE_WIKI_BUDGET_REJECTED']);
 const controllers = new WeakMap();
 const fail = (httpStatus = 400) => { throw Object.assign(new Error('Pi request rejected.'), { httpStatus }); };
+const validNetworkDetail = value => value.upstreamNetworkCode === undefined || value.status === 'failed'
+  && value.causeCode === 'COURSE_WIKI_UPSTREAM_NETWORK' && value.upstreamStatus === undefined
+  && UPSTREAM_NETWORK_CODES.includes(value.upstreamNetworkCode);
 const publicTurn = row => ({ turnId: row.turnId, sessionId: row.sessionId, status: row.status,
-  ...(row.causeCode ? { causeCode: row.causeCode } : {}), ...(row.upstreamStatus === undefined ? {} : { upstreamStatus: row.upstreamStatus }) });
+  ...(row.causeCode ? { causeCode: row.causeCode } : {}), ...(row.upstreamStatus === undefined ? {} : { upstreamStatus: row.upstreamStatus }),
+  ...(row.upstreamNetworkCode === undefined ? {} : { upstreamNetworkCode: row.upstreamNetworkCode }) });
 export function validatePiPublicTurn(value) {
-  return piKeys(value, ['turnId', 'sessionId', 'status', ...['causeCode', 'upstreamStatus'].filter(k => Object.hasOwn(value ?? {}, k))])
+  return piKeys(value, ['turnId', 'sessionId', 'status', ...['causeCode', 'upstreamStatus', 'upstreamNetworkCode'].filter(k => Object.hasOwn(value ?? {}, k))])
     && UUID.test(value.turnId) && UUID.test(value.sessionId) && STAGES.includes(value.status)
     && (value.causeCode === undefined || CAUSES.has(value.causeCode))
-    && (value.upstreamStatus === undefined || Number.isInteger(value.upstreamStatus) && value.upstreamStatus >= 100 && value.upstreamStatus <= 599);
+    && (value.upstreamStatus === undefined || Number.isInteger(value.upstreamStatus) && value.upstreamStatus >= 100 && value.upstreamStatus <= 599)
+    && validNetworkDetail(value);
 }
 
 export async function createPiTurnController(options) {
@@ -96,13 +100,13 @@ export async function createPiTurnController(options) {
   }
   for (const name of names.filter(n => !n.endsWith('.received.json'))) {
     const value = JSON.parse((await readPiPrivateFile(path.join(stateRoot, 'turns', name))).bytes), row = rows.get(name.slice(0, 36));
-    const optional = ['causeCode', 'upstreamStatus', 'finalEntryId'].filter(k => Object.hasOwn(value, k));
+    const optional = ['causeCode', 'upstreamStatus', 'upstreamNetworkCode', 'finalEntryId'].filter(k => Object.hasOwn(value, k));
     if (!row || !piKeys(value, ['schemaVersion', 'bindingDigest', 'scopeDigest', 'sessionId', 'turnId', 'status', ...optional])
       || value.schemaVersion !== row.schemaVersion || value.bindingDigest !== bindingDigest || value.scopeDigest !== row.scopeDigest
       || value.sessionId !== row.sessionId || value.turnId !== row.turnId || name !== `${row.turnId}.${value.status}.json`
       || !STAGES.includes(value.status) || value.causeCode !== undefined && !CAUSES.has(value.causeCode)
       || value.upstreamStatus !== undefined && (!Number.isInteger(value.upstreamStatus) || value.upstreamStatus < 100 || value.upstreamStatus > 599)
-      || value.status === 'completed' && !/^[A-Za-z0-9_-]{1,128}$/u.test(value.finalEntryId ?? '')) piReject();
+      || !validNetworkDetail(value) || value.status === 'completed' && !/^[A-Za-z0-9_-]{1,128}$/u.test(value.finalEntryId ?? '')) piReject();
     row.observed ??= new Map(); row.observed.set(value.status, value);
   }
   for (const row of rows.values()) {
@@ -179,6 +183,8 @@ export async function createPiTurnController(options) {
       if (error.httpStatus === 409 || TERMINAL.has(row.status)) { await closeScope(row.scopeDigest); return; }
       const details = { causeCode: CAUSES.has(error.code) ? error.code : error.httpStatus ? 'PI_REQUEST_INVALID' : 'PI_LOCAL_FAILURE' };
       if (Number.isInteger(error.upstreamStatus) && error.upstreamStatus >= 100 && error.upstreamStatus <= 599) details.upstreamStatus = error.upstreamStatus;
+      if (details.causeCode === 'COURSE_WIKI_UPSTREAM_NETWORK' && details.upstreamStatus === undefined
+        && UPSTREAM_NETWORK_CODES.includes(error.upstreamNetworkCode)) details.upstreamNetworkCode = error.upstreamNetworkCode;
       await stage(row, 'failed', details);
     }),
   });
@@ -198,20 +204,19 @@ export function createPiBudgetHandler(options) {
     pending.add(abort);
     res.once('close', cancel); let phase = 'request';
     const timer = setTimeout(() => abort.abort(), 90000); timer.unref();
-    const token = /^Bearer ([a-f0-9]{64})$/u.exec(req.headers.authorization ?? '')?.[1];
+    const token = /^[a-f0-9]{64}$/u.test(req.headers['x-api-key'] ?? '') ? req.headers['x-api-key'] : undefined;
     try {
-      if (closed || req.method !== 'POST' || req.url !== '/v1/chat/completions' || req.headers.host !== `127.0.0.1:${binding.proxyPort}`
+      if (closed || req.method !== 'POST' || !['/v1/messages', '/v1/messages?beta=true'].includes(req.url) || req.headers.host !== `127.0.0.1:${binding.proxyPort}`
         || req.headers['content-type']?.split(';')[0] !== 'application/json' || !token) fail();
       const chunks = []; let length = 0;
       for await (const chunk of req) { length += chunk.length; if (length > 48 * 1024) fail(); chunks.push(Buffer.from(chunk)); }
       const value = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks)));
-      const { request, requestDigest } = validateNativeChatRequest(value, binding.modelProfile);
-      if (request.messages.some(m => !m.content.isWellFormed())) fail();
+      const input = validatePiBudgetRequest(value), request = value, requestDigest = piHash(JSON.stringify(request));
       await validateCourseBudgetBinding({ root: budgetRoot, budgetReference: binding.budgetReference });
-      const row = await control.begin(token, piHash(request.messages.at(-1).content), requestDigest);
+      const row = await control.begin(token, piHash(input), requestDigest);
       phase = 'upstream';
       const result = await sendBudgetedCompletion({ root: budgetRoot, budgetReference: binding.budgetReference, apiKey,
-        request, modelProfile: binding.modelProfile, deadline: Date.now() + 90000, signal: abort.signal,
+        request, modelProfile: binding.modelProfile, protocol: 'anthropic-messages', deadline: Date.now() + 90000, signal: abort.signal,
         onReserved: () => { counts.newReservations++; return control.reserved(row); },
         onSent: () => { counts.modelRequests++; return control.sent(row); } });
       if (abort.signal.aborted) fail(502);
