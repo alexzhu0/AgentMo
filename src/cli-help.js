@@ -183,7 +183,7 @@ const OPENCLAW_RECEIPT_COMPANION_HELP = [
 ].join("\n");
 
 export function commandHelpText(command) {
-  if (command === "pi-chat") return `AgentMo pi-chat\nInteractive TTY only; no --json, --yes or --approve-all.\nUses 8 installed Pi sources with exact digests; no activation plan or old run approvals.\n/sessions, /use <UUID>, /new, /paste (ends at /end), /file <relative.txt|md>, /quit.\nEach activation/request requires a fresh exact preview and confirmation. Each operation stops its owned services.\n--runtime-env-file is the only environment-file option; only the approved parent runner reads it.\nCore help never imports the SDK. SDK execution requires Node >=22.19.0.\n`;
+  if (command === "pi-chat") return `AgentMo pi-chat\nInteractive TTY only; no --json, --yes or --approve-all.\nUses 8 installed Pi sources with exact digests; no activation plan or old run approvals.\nCommands use a slash prefix: sessions, use <UUID>, new, paste (ends with slash + end), file <relative.txt|md>, quit.\nEach activation/request requires a fresh exact preview and confirmation. Each operation stops its owned services.\n--runtime-env-file is the only environment-file option; only the approved parent runner reads it.\nCore help never imports the SDK. SDK execution requires Node >=22.19.0.\n`;
   if (["pi-target-describe", "pi-target-admit", "pi-install-preview", "pi-install-approve", "pi-install-apply", "pi-native-serve", "pi-native-stop"].includes(command)) {
     return `AgentMo ${command}\nPi SDK requires an independently approved toolchain and Node >=22.19.0.\nUse agentmo --help for fixed source flags and Pi digest subjects. Installation, activation and model acceptance each require their own exact approved preview.\n`;
   }

@@ -1,0 +1,122 @@
+{
+  "date": "2026-11-09",
+  "status": "offline-investigation-complete-awaiting-curl-network-approval",
+  "priorNodeProposalDigest": "sha256:875e5fd1be2e7cd8112ca9035c1b14be336ce7e36c12e6881e1817b56f32e1ca",
+  "priorNodeResultDigest": "sha256:d777e6744ed77ef8438ffff70995a240443e1a5954d79ec8748153c14b04b8d7",
+  "priorNodeScopeClosed": true,
+  "priorNodeRetries": 0,
+  "systemProxyObservation": {
+    "source": "host SystemConfiguration fixed switch keys",
+    "enableFlags": {
+      "HTTPEnable": 0,
+      "HTTPSEnable": 0,
+      "SOCKSEnable": 0,
+      "ProxyAutoConfigEnable": 0,
+      "ProxyAutoDiscoveryEnable": null
+    },
+    "proxyEnvironmentKeyPresence": {
+      "HTTP_PROXY": false,
+      "HTTPS_PROXY": false,
+      "ALL_PROXY": false,
+      "http_proxy": false,
+      "https_proxy": false,
+      "all_proxy": false,
+      "NODE_USE_ENV_PROXY": false
+    },
+    "proxySwitchValuesRead": true,
+    "proxyAddressOrPacUrlValuesRead": false,
+    "environmentValuesRead": false,
+    "credentialsRead": false,
+    "keychainRead": false,
+    "scopedDictionaryPresent": true,
+    "scopedSettingsValuesRead": false,
+    "transparentOrVpnRoutingInspected": false,
+    "sandboxMissingFlagsNotTreatedAsDisabled": true
+  },
+  "nodeRouteAudit": {
+    "nodeVersion": "24.18.0",
+    "opensslVersion": "3.5.7",
+    "source": "installed Node embedded _http_client and _http_agent",
+    "agentFalseCreatesDefaultAgent": true,
+    "explicitProxyEnvSupplied": false,
+    "inference": "The approved Node request used an explicit direct path; this does not determine transparent or scoped routing."
+  },
+  "installedComparisonClient": {
+    "curlVersion": "8.7.1",
+    "reportedTlsBackend": "SecureTransport",
+    "installedLocally": true,
+    "downloaded": false
+  },
+  "candidate": {
+    "proposalDigest": "sha256:e50afa88cdc310570117f7b2cb09bac35c09cbd84d81ed82de631df47d6182e5",
+    "preview": "docs/poc/core-mvp/tls-client-contrast-preview.md",
+    "pinsVerified": 4,
+    "selfcheckCases": 4,
+    "selfcheckActualHttpCalls": 0,
+    "method": "HEAD",
+    "target": "https://api.minimax.cn/anthropic/v1/messages",
+    "maximumApplicationHeadCalls": 1,
+    "httpVersion": "1.1",
+    "directConnection": true,
+    "serverCertificateVerification": true,
+    "curlUserConfigDisabled": true,
+    "childEnvironmentIsFixedAllowlist": true,
+    "authentication": false,
+    "cookies": false,
+    "requestBody": false,
+    "redirects": 0,
+    "retries": 0,
+    "transferDeadlineMs": 10000,
+    "childDeadlineMs": 15000,
+    "controllerDeadlineMsIncludingIo": 20000,
+    "savedFields": [
+      "curlExitCode",
+      "httpStatus",
+      "boundedCumulativeDnsTcpTlsFirstByteMs",
+      "deadlineFlag",
+      "fixedStatus"
+    ],
+    "rawHeadersBodyIpCertificatesOrErrorsCollected": false,
+    "stderrRead": false,
+    "rawStdoutStored": false,
+    "humanApprovalAbsent": true,
+    "operationDirectoryAbsent": true,
+    "networkExecuted": false
+  },
+  "conclusion": "No explicit proxy configuration cause was found. The cause of the Node TLS deadline and old M3 ECONNRESET remains unproven.",
+  "singleClientContrastProvesUniqueCause": false,
+  "modelReadinessProven": false,
+  "checks": {
+    "offlineFakeRequestCasesPassed": 4,
+    "commandDocsTestsPassed": 11,
+    "commandDocsTestsFailed": 0,
+    "gitDiffCheckPassed": true,
+    "oldR2PinsPreserved": 7
+  },
+  "budget": {
+    "totalReservedFen": 4898,
+    "projectReservations": 30,
+    "remainingFen": 5102,
+    "capFen": 10000,
+    "newReservedFen": 0
+  },
+  "authority": {
+    "consumptions": 18,
+    "decisions": 68,
+    "journalDigest": "sha256:573f6c51a205c0f2f9a42f122d7b6eeaf6f4dcc51893d61a65ea0664c4e406f5",
+    "mutated": false
+  },
+  "sourceDigest": "sha256:c0b4f2359c79c8d6f648795376f9e0e03fd7de6e29f77fc98d06f60ebad9f5eb",
+  "productionSourceChangedThisInvestigation": false,
+  "networkCallsThisInvestigation": 0,
+  "modelRequests": 0,
+  "envFileRead": false,
+  "keyRead": false,
+  "sdkExecuted": false,
+  "agentInstalled": false,
+  "agentActivated": false,
+  "systemProxyOrCaChanged": false,
+  "oldFailureArtifactsPreserved": true,
+  "committed": false,
+  "pushed": false
+}

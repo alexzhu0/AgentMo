@@ -1,3 +1,4 @@
+import { piWorkspaceDigest } from '../pi-workspace-policy.js';
 import { readFileSync } from 'node:fs';
 import { isDeepStrictEqual } from 'node:util';
 import { validateBlueprint } from '../blueprint.js';
@@ -12,6 +13,7 @@ import { buildPiSystemPrompt } from '../scaffold-files.js';
 export function buildPiPackageProjection({ blueprint, buildContract, carrierSelection, targetAdmission }) {
   if (!validateBlueprint(blueprint).ok || blueprint.native_runtime !== 'pi' || blueprint.native_model_profile !== 'minimax-m3-cn-v1'
     || !validateBuildContract(buildContract).ok || buildContract.native_runtime !== 'pi'
+    || !isDeepStrictEqual(blueprint.pi_workspace, buildContract.pi_workspace)
     || blueprint.agent_id !== buildContract.agentId || !validatePiTargetCarrierAdmission(targetAdmission).ok
     || targetAdmission.target.descriptorDigest !== buildContract.targetRuntime.descriptorDigest
     || !isDeepStrictEqual(carrierSelection, selectPackageCarriers(buildContract))) {
@@ -20,9 +22,11 @@ export function buildPiPackageProjection({ blueprint, buildContract, carrierSele
   const json = (name, value) => ({ relativePath: `projections/pi/${name}`, mode: 0o644,
     bytes: Buffer.from(serializePersistableJson(value, { subject: 'pi-package-projection' })) });
   return [
+    ...(blueprint.pi_workspace ? [json('workspace-policy.json', blueprint.pi_workspace), { relativePath: `projections/pi/skills/${blueprint.pi_workspace.skill.name}/SKILL.md`, mode: 0o644, bytes: Buffer.from(blueprint.pi_workspace.skill.body) }] : []),
     json('agent.json', { schemaVersion: 'agentmo.pi-agent-intent.v1', agentId: blueprint.agent_id,
       execution_profile: 'native-chat', native_runtime: 'pi', modelProfile: 'minimax-m3-cn-v1',
-      model: 'minimax-cn/MiniMax-M3', tools: [], extensions: [], mcp: false,
+      model: 'minimax-cn/MiniMax-M3', tools: blueprint.pi_workspace ? ['read','write'] : [], extensions: [], mcp: false,
+      ...(blueprint.pi_workspace ? { pi_workspace: { digest: piWorkspaceDigest(blueprint.pi_workspace) } } : {}),
       retry: { enabled: false, maxRetries: 0 }, providerRetry: 0, cacheWarming: false,
       compaction: false, promptTemplates: false, fallback: [], proposalOnly: true }),
     { relativePath: 'projections/pi/system.md', mode: 0o644, bytes: Buffer.from(buildPiSystemPrompt(blueprint)) },

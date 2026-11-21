@@ -33,8 +33,8 @@ test('limits the external SDK import to the reviewed Pi loader expression',async
   const {analyzeJavaScriptSource}=await import('../src/javascript-static-analysis.js');
   const source=await readFile(new URL('src/pi-sdk.js',root),'utf8');
   const loaders=analyzeJavaScriptSource(source,{file:'src/pi-sdk.js'}).loaders;
-  assert.equal(loaders.filter(l=>l.kind==='pi-sdk-import').length,1);
-  for(const changed of [source.replace("'dist/index.js'","'arbitrary.js'"),source.replace('targetPaths.sdkRoot','unapprovedRoot')])assert.throws(()=>analyzeJavaScriptSource(changed,{file:'src/pi-sdk.js'}));
+  assert.equal(loaders.filter(l=>l.kind==='pi-sdk-import').length,2);
+  for(const changed of [source.replace("'dist/index.js'","'arbitrary.js'"),source.replace('targetPaths.sdkRoot','unapprovedRoot'),source.replace('dist/core/extensions/loader.js','dist/core/extensions/arbitrary.js')])assert.throws(()=>analyzeJavaScriptSource(changed,{file:'src/pi-sdk.js'}));
   assert.throws(()=>analyzeJavaScriptSource(source,{file:'src/other.js'}));
 });
 

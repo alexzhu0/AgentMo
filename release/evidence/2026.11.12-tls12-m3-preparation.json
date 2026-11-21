@@ -1,0 +1,98 @@
+{
+  "schemaVersion": "agentmo.bounded-evidence-summary.v1",
+  "date": "2026-11-12",
+  "scope": "pi-tls12-m3-four-fixed-cases",
+  "status": "prepared-not-approved-not-executed",
+  "proposalDigest": "sha256:ab5c87aadd137c7937945c9d2c792b488c681acba81f412d84341228f8c0f8d3",
+  "activationPlanDigest": "sha256:08023ef145d3cb5b79941b47047de9f39e55cdfd7563a47069ed8ecfca8a5c80",
+  "activationPlanFileDigest": "sha256:929c7f2c9a54d6dc8f9e76d9ea32311bc4760621911e93d71db656247a6be244",
+  "driverDigest": "sha256:b17295fa666d9e484dafbd092e6d6507f42cead02eac8197b1a1bbe058924bb5",
+  "inputsHelperDigest": "sha256:af055d8d781eb87de830195ee9c9f306e3c77a9205c84fa54f6286f7f67b11c0",
+  "installedReceiptDigest": "sha256:f6b89292c1b04ef3628e02d5375f8d9bc63ce1764da72d93cfef7acc2d57b161",
+  "readonlyResultDigest": "sha256:9025f7705b5c792fc9d78d29358d434997327a6d032c70da68a26f0a1b856c0c",
+  "runtimeSourceDigest": "sha256:b67b3feefd5487fc2dcd7140631ecf0d5b723a0e3a636562a99b58e2935e57d7",
+  "packageArchiveDigest": "sha256:5cbc0685790a4e1b9fcbf20b0c9c0609dfd759dcf6ce44043128c906e8f26bf7",
+  "sessionIdDigests": [
+    "sha256:6a6ac7bbe4dc5e607176ce079a9ef7cee57fa42e01ed62e4ec1e8ee499dee58d",
+    "sha256:39e094ff82b6fca7230f181bb53f341cd9d5f9ea893e54097cd94ae7bfb0425b"
+  ],
+  "sourceArtifactsAdmitted": 9,
+  "preflightPassed": true,
+  "plannedModel": "minimax-cn/MiniMax-M3",
+  "fixedCases": [
+    {
+      "caseId": "core-entry",
+      "sessionIdDigest": "sha256:6a6ac7bbe4dc5e607176ce079a9ef7cee57fa42e01ed62e4ec1e8ee499dee58d",
+      "inputDigest": "sha256:85255405c7a74c40e416571edd4b46e4a9eb9ff693e8f47f04a2209cd51826f0",
+      "expected": {
+        "Product": "Atlas",
+        "Deadline": null
+      }
+    },
+    {
+      "caseId": "core-followup",
+      "sessionIdDigest": "sha256:6a6ac7bbe4dc5e607176ce079a9ef7cee57fa42e01ed62e4ec1e8ee499dee58d",
+      "inputDigest": "sha256:9acf1f84221a33b2b99a60ecf7c450928a9887580276fa0879d126a03c3a1205",
+      "expected": {
+        "Product": "Atlas",
+        "Deadline": "Friday"
+      }
+    },
+    {
+      "caseId": "core-isolation",
+      "sessionIdDigest": "sha256:39e094ff82b6fca7230f181bb53f341cd9d5f9ea893e54097cd94ae7bfb0425b",
+      "inputDigest": "sha256:53643d71abd1a4c44bdd169bd8c5387695b0d6daf6d5bbdce8caaa7f638c2bc2",
+      "expected": {
+        "Product": null,
+        "Deadline": null
+      }
+    },
+    {
+      "caseId": "core-recovery",
+      "sessionIdDigest": "sha256:6a6ac7bbe4dc5e607176ce079a9ef7cee57fa42e01ed62e4ec1e8ee499dee58d",
+      "inputDigest": "sha256:26565d15b8b49ad47c326d6cc7a6fa116ecd6a9d41d004350898fb12922bee48",
+      "expected": {
+        "Product": "Atlas",
+        "Deadline": "Friday"
+      }
+    }
+  ],
+  "maximumRequestsAfterSeparateApproval": 4,
+  "maximumNewReservedFenAfterSeparateApproval": 124,
+  "baselineReservedFen": 4898,
+  "maximumCumulativeReservedFenAfterSeparateApproval": 5022,
+  "capFen": 10000,
+  "authorityBefore": {
+    "consumptions": 20,
+    "decisions": 74,
+    "oldPrefixPreserved": true,
+    "journalDigest": "sha256:c9da990437b3643e91dd83d71fb52e1d7c3fde3633ecc20f7649864c6e6facf6"
+  },
+  "maximumNewDecisionSets": 2,
+  "maximumNewDecisions": 10,
+  "conditionalRestartAfterIndependentPasses": 3,
+  "maximumRestarts": 1,
+  "preparation": {
+    "modelRequests": 0,
+    "newReservedFen": 0,
+    "sdkExecuted": false,
+    "keyRead": false,
+    "activated": false,
+    "grantAbsent": true,
+    "attemptAbsent": true
+  },
+  "privatePreparationFailurePreserved": {
+    "code": "AGENTMO_PERSISTABILITY_SENSITIVE_MATERIAL",
+    "phase": "private-proposal-serialization",
+    "sdkExecuted": false,
+    "modelRequests": 0,
+    "originalLifecyclePlanBytesRetained": true
+  },
+  "certification": {
+    "modelAccepted": false,
+    "domainCertified": false,
+    "productionApproved": false
+  },
+  "commit": false,
+  "push": false
+}

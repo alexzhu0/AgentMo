@@ -293,7 +293,7 @@ function parseImport(tokens, pairs, index, file) {
     const expression = ["pathToFileURL", "(", "path", ".", "join", "(", "targetPaths", ".", "sdkRoot", ",", "node_modules", ",", "PI_SDK_NAME", ",", "dist/index.js", ")", ")", ".", "href"];
     const actual = tokens.slice(index + 2, closeIndex);
     if (file === "src/pi-sdk.js" && actual.length === expression.length
-      && actual.every((token, i) => token.value === expression[i] && !token.escaped)) {
+      && actual.every((token, i) => (token.value === expression[i] || expression[i] === "dist/index.js" && token.type === "string" && token.value === "dist/core/extensions/loader.js") && !token.escaped)) {
       return { kind: "pi-sdk-import", specifier: "@earendil-works/pi-coding-agent", bindings: [], endIndex: closeIndex };
     }
     const specifier = singlePlainStringArgument(tokens, index + 1, closeIndex);

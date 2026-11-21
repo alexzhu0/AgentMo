@@ -1,6 +1,6 @@
 # CLI与历史运行时参考
 
-本页保留现有命令契约、Codex Builder/UAT和OpenClaw参考，命令从仓库根目录执行。当前产品方向为[Pi CLI Alpha](../../README.md)，旧POC和历史命令不代表当前运行授权；真实安装、激活和模型调用仍需具体预览。
+本页保留现有命令契约、Codex Builder/UAT 和 OpenClaw 参考，命令从仓库根目录执行。Pi CLI Alpha 当前暂停，入口和已验证行为见[Pi CLI 手册](../CORE_MVP_RUNBOOK.md)与[当前状态](../CURRENT_STATUS.md)。真实安装、激活和模型调用仍需新的具体预览和批准。
 
 AgentMo has three explicit stages connected by artifact contracts, not mandatory command ancestry:
 

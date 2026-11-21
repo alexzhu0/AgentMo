@@ -55,7 +55,7 @@ export async function createPiSessionHost({ stateRoot, binding, sdk, turnClient,
     const meta = await optionalFile(path.join(dir, 'sdk-session.json'));
     if (meta && (!piKeys(meta, ['sessionId', 'bindingDigest', 'fileName']) || meta.sessionId !== id || meta.bindingDigest !== bindingDigest
       || typeof meta.fileName !== 'string' || path.basename(meta.fileName) !== meta.fileName || !meta.fileName.endsWith(`_${id}.jsonl`))) piReject();
-    const allowed = ['registration.json', 'sdk-session.json', 'sdk-file.json', ...(meta ? [meta.fileName] : [])];
+    const allowed = [...(binding.pi_workspace?['workspace-binding.json']:[]), 'registration.json', 'sdk-session.json', 'sdk-file.json', ...(meta ? [meta.fileName] : [])];
     if ((await readdir(dir)).some(name => !allowed.includes(name))) piReject();
     return meta;
   }
@@ -103,7 +103,9 @@ export async function createPiSessionHost({ stateRoot, binding, sdk, turnClient,
     }
     if (adapters.has(id)) return adapters.get(id);
     if (!meta && !forPrompt) return null;
-    const value = await createPiSession({ sdk, config: { stateRoot, sessionDir: roomPath(id), sessionId: id, proxyPort: binding.proxyPort, systemPrompt },
+    const workspace=binding.pi_workspace?await turnClient.workspace(id):null;
+    if(workspace && (!isDeepStrictEqual(workspace.policy,binding.pi_workspace) || workspace.sessionId!==id))piReject();
+    const value = await createPiSession({ sdk, config: { stateRoot, sessionDir: roomPath(id), sessionId: id, proxyPort: binding.proxyPort, systemPrompt, ...(workspace?{workspace:{...workspace,execute:input=>turnClient.tool(input)}}:{}) },
       sessionFile, proxyCredential: '0'.repeat(64) });
     if (!meta) {
       unpersisted.add(id);
@@ -173,7 +175,7 @@ export async function createPiSessionHost({ stateRoot, binding, sdk, turnClient,
             ? m.content.map(p => p.text).join('\n') : null;
           if (content === null) piReject(); history.push({ role: 'user', content });
         } else if (m.role === 'assistant') { try { history.push({ role: 'assistant', content: piFinalText(m) }); } catch { /* An incomplete assistant message is not a final reply. */ } }
-        else if (m.role !== 'system') piReject();
+        else if (m.role !== 'system' && !(binding.pi_workspace && m.role==='toolResult')) piReject();
       }
       const states = await turns(id); for (const state of states.filter(s => s.status === 'completed')) await finalText(state);
       return { id, messages: history, turns: states };

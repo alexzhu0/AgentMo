@@ -1,0 +1,196 @@
+{
+  "schemaVersion": "agentmo.pi-workspace-m3-cost-preparation.v1",
+  "date": "2026-11-17",
+  "status": "offline-reviewed-awaiting-public-docs-approval",
+  "sources": [
+    {
+      "path": "src/pi-workspace-policy.js",
+      "digest": "sha256:370a3594be630db7a23014602bac6f00b2c522dd16b78b448c5ea49824f07b80"
+    },
+    {
+      "path": "src/pi-workspace-protocol.js",
+      "digest": "sha256:fbea647a96dddd5305a20e165a380516a4fb918f8a4c0b709def2280271f84f2"
+    },
+    {
+      "path": "src/pi-sdk.js",
+      "digest": "sha256:c5588c8653aaed27b87e9d3fcd7471e5271e2fc4d0f9efa098da13b2b7ec8c14"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-10-13-native-chat-minimax-m3-design.md",
+      "digest": "sha256:fde7dfedb3e1f460bb6361b5c01b0b2f79da52f275edb310052e61b5f085515d"
+    },
+    {
+      "path": "docs/poc/native-chat/pi-environment-repair-preview.md",
+      "digest": "sha256:03d4046f1c76a6f0ecb3ce1b2c2866ae08cc70aadb0c66312fb03692de82553f"
+    },
+    {
+      "path": ".agentmo/pi-sdk-1.2.0-toolchain-2026-10-16-r1/node_modules/@earendil-works/pi-ai/dist/providers/data/minimax-cn.json",
+      "digest": "sha256:1bbfbd11c3edbd141841d3cef027e12157218f1aec92477e15772116c1fabe7a"
+    },
+    {
+      "path": ".agentmo/pi-sdk-1.2.0-toolchain-2026-10-16-r1/node_modules/@earendil-works/pi-ai/dist/utils/estimate.js",
+      "digest": "sha256:b5b606011ab0dce2a5db309dd812c9b8ddd0bbcbc9416de699fb9cd087cc84d6"
+    },
+    {
+      "path": ".agentmo/pi-sdk-1.2.0-toolchain-2026-10-16-r1/node_modules/@earendil-works/pi-coding-agent/dist/core/compaction/compaction.js",
+      "digest": "sha256:573f0321e9a93a4e8dca8c327f6459082ac438d1bc8b6c3c171d90894dd1543c"
+    },
+    {
+      "path": ".agentmo/pi-sdk-1.2.0-toolchain-2026-10-16-r1/node_modules/@anthropic-ai/sdk/resources/messages/messages.mjs",
+      "digest": "sha256:4fe9e7993358b30e2b7e3bc2939ff06b973b1eb7e05645e38e585c636f67d351"
+    }
+  ],
+  "hardLocalLimits": {
+    "maxWireBytes": 49152,
+    "maxMessages": 32,
+    "maxOutputTokens": 2048,
+    "maxRequests": 6,
+    "maxTools": 8,
+    "maxWrites": 1,
+    "maxReportBytes": 8192,
+    "requestMs": 90000,
+    "taskMs": 600000,
+    "cleanupMs": 300000,
+    "reservationFen": 31,
+    "maxReservedFen": 186
+  },
+  "tokenProof": {
+    "vendorInputBoundVerified": false,
+    "wireBytesAreNotBillableTokens": true,
+    "sdkEstimatorDivisors": [
+      3.5,
+      4
+    ],
+    "sdkCatalogContextWindow": 1000000,
+    "sdkCatalogTierInputAbove": 512000,
+    "sdkCatalogIsVendorGuarantee": false,
+    "genericCountTokensMethodFound": true,
+    "minimaxCountTokensSupportVerified": false,
+    "postResponseUsageInputLimit": 53248,
+    "postResponseUsageIsPreSpendGuard": false
+  },
+  "conditionalPrices": [
+    {
+      "observedDate": "2026-10-13",
+      "inputCnyPerMillion": "4.20",
+      "outputCnyPerMillion": "16.80",
+      "conditionalPerRequestCny": "0.258048",
+      "ceilFen": 26,
+      "conditionalSixRequestCny": "1.548288"
+    },
+    {
+      "observedDate": "2026-11-05",
+      "inputCnyPerMillion": "2.10",
+      "outputCnyPerMillion": "8.40",
+      "conditionalPerRequestCny": "0.129024",
+      "ceilFen": 13,
+      "conditionalSixRequestCny": "0.774144"
+    }
+  ],
+  "conditionalInputTokens": 53248,
+  "conditionalOutputTokens": 2048,
+  "currentVendorPricingVerified": false,
+  "vendorCostEnvelopeProven": false,
+  "productionCostGateChanged": false,
+  "reportPreparation": {
+    "materials": [
+      {
+        "path": "docs/poc/pi-workspace/materials/atlas-plan.md",
+        "bytes": 152,
+        "digest": "sha256:5c91264d5f07d0bb8d80f957f2448a5175d85a2e656928443173b3ce3b0f5ab7"
+      },
+      {
+        "path": "docs/poc/pi-workspace/materials/atlas-status.md",
+        "bytes": 217,
+        "digest": "sha256:b9fa5f3bc9d5540b11588c7d4c09cae0479d83dde5e0c68e4e0b084662b61946"
+      }
+    ],
+    "skillBytes": 200,
+    "skillDigest": "sha256:65908f111203326fd9fdc2fab18eb7aeea343043596ce6a07d2991383806f770",
+    "tasks": 1,
+    "artifact": "report.md",
+    "realReportGenerated": false,
+    "newReservedFenIfSeparatelyApproved": 186,
+    "maximumCumulativeReservedFenIfSeparatelyApproved": 5239,
+    "maximumProjectReservationsIfSeparatelyApproved": 41,
+    "executableApproval": false,
+    "currentSourceHasNewInstallReceipt": false
+  },
+  "networkPreview": {
+    "path": "docs/poc/pi-workspace/m3-pricing-preview.md",
+    "digest": "sha256:bb9296c7e32110873c81a4e0db2c887da1327fb780e52b6828d4b0c90dfcb3d1",
+    "proposalPath": ".superpowers/sdd/2026-11-16-pi-workspace-agent/m3-public-docs-proposal-r1.json",
+    "proposalDigest": "sha256:681e76253371b6ed7e9280d3c37693a99d2939463d508d928ff039b45c158300",
+    "applicationGetCountMax": 2,
+    "modelRequests": 0,
+    "newReservedFen": 0,
+    "executed": false,
+    "noRedirectOrRetry": true
+  },
+  "preservation": {
+    "budget": {
+      "totalReservedFen": 5053,
+      "projectReservations": 35,
+      "capFen": 10000
+    },
+    "remainingFen": 4947,
+    "authorityJournalDigest": "sha256:4443f14fde204003f020df86cbfa89bee1d4df630562a8dd059923fbc0215fbc",
+    "productFrozenFilesVerified": 45,
+    "historicalResults": [
+      {
+        "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/tools-check-run-r1/result.json",
+        "digest": "sha256:bf2f36e30c7e0ad0ad1e81fa17299cdb743da33545f3eb1521e28fb4ad292034"
+      },
+      {
+        "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/readonly-attempt-r1/result.json",
+        "digest": "sha256:2af64d3c732ebb75457cd14e61e5384b8df82f64ca9a62b08f16e6de68908762"
+      },
+      {
+        "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/tools-check-run-r2/result.json",
+        "digest": "sha256:3b51b5bd81f24446f11ec196fa7f1f1650c4910376c94560fbad87f67389817a"
+      },
+      {
+        "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/tools-check-run-r2/wire-diagnostics.json",
+        "digest": "sha256:b4d0b99d294b5cc4194a00109039418242a11681897f860a87557037fc488637"
+      }
+    ],
+    "publicDocsRunRootAbsent": true,
+    "failureFilesModified": false
+  },
+  "actionsThisTask": {
+    "networkRequests": 0,
+    "sdkExecutions": 0,
+    "agentInstallations": 0,
+    "activations": 0,
+    "modelRequests": 0,
+    "newReservedFen": 0,
+    "keyRead": false,
+    "commit": false,
+    "push": false
+  },
+  "validation": {
+    "conditionalArithmetic": "passed",
+    "fixedNetworkArgvAndUrls": "passed",
+    "sourceFreeze": "45 of 45 unchanged",
+    "documentationTests": {
+      "command": "node --test test/command-docs.test.js",
+      "pass": 11,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "localLinks": {
+      "files": 6,
+      "checked": 100,
+      "missing": 0
+    },
+    "gitDiffCheck": "passed",
+    "newAndChangedDocsWhitespace": "passed",
+    "proposalAndSourceDigests": "passed",
+    "historicalResultDigests": "unchanged",
+    "authorityJournalDigest": "unchanged",
+    "stagedFiles": 0,
+    "headUnchanged": "2979a7086b522e114a766efd5e17b7ac2a2b6e55",
+    "budgetFreshRead": "5053 fen / 35 reservations / cap 10000 unchanged"
+  }
+}

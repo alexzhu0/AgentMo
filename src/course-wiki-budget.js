@@ -1,3 +1,4 @@
+import { isValidatedWorkspaceRequest } from './pi-workspace-protocol.js';
 import { createServer } from 'node:http';
 import { createHash, randomBytes } from 'node:crypto';
 import { closeSync, fsyncSync, openSync, writeFileSync } from 'node:fs';
@@ -212,7 +213,7 @@ export function validatePiBudgetRequest(request) {
   return input;
 }
 
-export async function sendBudgetedCompletion({root,budgetReference,apiKey,request,deadline,signal,onReserved,onSent,modelProfile,protocol}) {
+export async function sendBudgetedCompletion({root,budgetReference,apiKey,request,deadline,signal,onReserved,onSent,modelProfile,protocol,workspaceRequest}) {
   let phase='request',upstreamStatus;const abort=new AbortController();let timer;
   const cancel=()=>abort.abort();
   try {
@@ -222,7 +223,8 @@ export async function sendBudgetedCompletion({root,budgetReference,apiKey,reques
     const model=nativeChatModelProfile(modelProfile);
     const native = protocol === 'anthropic-messages';
     if (protocol !== undefined && !native || native && modelProfile !== 'minimax-m3-cn-v1') fail();
-    if (native) validatePiBudgetRequest(request); else validateCourseBudgetRequest(request,modelProfile);
+    if (workspaceRequest !== undefined) { if (!native || !isValidatedWorkspaceRequest(workspaceRequest,request)) fail(); }
+    else if (native) validatePiBudgetRequest(request); else validateCourseBudgetRequest(request,modelProfile);
     const {max_completion_tokens:unusedMax,max_tokens:unusedLegacyMax,...normalized}=request;
     const wire=JSON.stringify(native ? request : {...normalized,[model.outputLimitKey]:2048,n:1,...modelProfile===undefined?{}:{thinking:{type:'disabled'},service_tier:'standard'}});if(Buffer.byteLength(wire)>BODY_LIMIT)fail();
     signal?.addEventListener('abort',cancel,{once:true});
@@ -230,7 +232,7 @@ export async function sendBudgetedCompletion({root,budgetReference,apiKey,reques
     await reserve(root,budgetReference);await onReserved?.();
     if(abort.signal.aborted||Date.now()>=deadline)throw {code:'COURSE_WIKI_NATIVE_TIMEOUT'};
     phase='network';
-    const endpoint = native ? 'https://api.minimax.cn/anthropic/v1/messages' : model.endpoint;
+    const endpoint = native ? 'https://api.minimaxi.com/anthropic/v1/messages' : model.endpoint;
     const headers = native ? {'x-api-key':apiKey,'anthropic-version':'2023-06-01','content-type':'application/json'}
       : {authorization:`Bearer ${apiKey}`,'content-type':'application/json'};
     const pendingUpstream=Promise.resolve(native ? postPiMessages({body:wire,apiKey,signal:abort.signal})

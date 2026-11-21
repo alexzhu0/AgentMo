@@ -125,7 +125,7 @@ export function selectPackageCarriers(buildContract) {
   const hookConsistency = assertApprovedHookCarrierConsistency(buildContract);
   const entries = [];
   for (const resource of buildContract.resources) {
-    const selection = selectionForResource(resource.kind, hookConsistency);
+    const selection = selectionForResource(resource.kind, hookConsistency, buildContract.pi_workspace);
     entries.push({
       capabilityId: resource.id,
       resourceId: resource.id,
@@ -284,13 +284,13 @@ function validateRecipe(recipe, errors) {
   }
 }
 
-function selectionForResource(kind, hookConsistency) {
+function selectionForResource(kind, hookConsistency, workspace) {
   if (hookConsistency.carrier === "native-runtime") {
     const runtime = ["harness", "agent-loop", "runtime-binding"].includes(kind);
     return {
       carrier: runtime ? "native-runtime" : "workspace-content",
       owner: runtime ? hookConsistency.owner : "agent-package",
-      necessity: ["skills", "plugins", "memory", "rag", "schedules"].includes(kind)
+      necessity: ["skills", "plugins", "memory", "rag", "schedules"].includes(kind) && !(workspace && kind === "skills")
         ? "disabled" : "portable-declarative-resource",
       trust: runtime ? "runtime-owned" : "workspace-content",
       rationale: "Native chat uses the existing runtime without package executable capabilities.",

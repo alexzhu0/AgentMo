@@ -5190,7 +5190,7 @@ reconcileExactModuleSurfaces(IO_SURFACE_ALLOWLIST, [
 // Core MVP: exact reviewed rows for the changed source closure.
 reconcileExactModuleSurfaces(IO_SURFACE_ALLOWLIST, [
   exactModuleSurfaceGroup("src/pi-upstream.js", "agentmo-core-mvp-2026-11-05", "transient-runtime", `
-    31:stream-write:request.end
+    32:stream-write:request.end
   `),
   exactModuleSurfaceGroup("src/pi-cli-client.js", "agentmo-core-mvp-2026-11-05", "transient-runtime", `
     42:stream-write:req.end
@@ -5412,5 +5412,225 @@ reconcileExactModuleSurfaces(IO_SURFACE_ALLOWLIST, [
     163:filesystem-read:fs.lstat
     192:filesystem-lifecycle:fs.mkdir
     198:filesystem-lifecycle:fs.mkdir
+  `),
+]);
+
+// Workspace profile: exact reviewed source, private file and owned runtime surfaces.
+reconcileExactModuleSurfaces(IO_SURFACE_ALLOWLIST, [
+  exactModuleSurfaceGroup("src/blueprint-draft.js", "phase-01.1-plan-04", "gated", `
+    182:managed-writer:persistability.writePersistableJsonAtomic
+  `),
+  exactModuleSurfaceGroup("src/blueprint.js", "phase-01.1-plan-13", "gated", `
+    119:durable-loader:loadAdmittedArtifact
+  `),
+  exactModuleSurfaceGroup("src/build-contract.js", "phase-03-plan-05", "gated", `
+    322:durable-loader:loadAdmittedArtifact
+    431:managed-writer:persistability.writePersistableJsonAtomic
+  `),
+  exactModuleSurfaceGroup("src/design-plan.js", "phase-03-plan-03", "gated", `
+    65:durable-loader:loadAdmittedArtifact
+    265:managed-writer:persistability.writePersistableJsonAtomic
+  `),
+  exactModuleSurfaceGroup("src/user-need.js", "phase-01.1-plan-13", "gated", `
+    13:durable-loader:loadAdmittedArtifact
+  `),
+  exactModuleSurfaceGroup("src/pi-workspace-files.js", "pi-browser-agent-2026-10-16", "gated", `
+    22:filesystem-read:fs.realpath
+    24:filesystem-read:fs.readdir
+    26:filesystem-read:fs.lstat
+    125:filesystem-read:fs.lstat
+    126:filesystem-read:fs.realpath
+    132:filesystem-read:fs.lstat
+    133:filesystem-read:fs.realpath
+    139:filesystem-read:fs.lstat
+    140:filesystem-read:fs.realpath
+    220:filesystem-read:fs.lstat
+  `),
+  exactModuleSurfaceGroup("src/pi-sdk.js", "pi-browser-agent-2026-10-16", "gated", `
+    74:filesystem-read:fs.lstat
+    75:filesystem-read:fs.realpath
+    93:filesystem-read:fs.lstat
+    232:filesystem-open:fs.open
+    233:file-handle-lifecycle:FileHandle.sync
+    234:filesystem-open:fs.open
+    235:file-handle-lifecycle:FileHandle.sync
+  `),
+  exactModuleSurfaceGroup("src/pi-session-host.js", "pi-browser-agent-2026-10-16", "gated", `
+    26:filesystem-read:fs.lstat
+    27:filesystem-read:fs.realpath
+    59:filesystem-read:fs.readdir
+    62:filesystem-read:fs.readdir
+    123:filesystem-read:fs.readdir
+    161:filesystem-lifecycle:fs.mkdir
+  `),
+  exactModuleSurfaceGroup("src/pi-native-runtime.js", "pi-browser-agent-2026-10-16", "gated", `
+    57:durable-loader:loadAdmittedArtifact
+    58:durable-loader:loadAdmittedArtifact
+    61:durable-loader:loadAdmittedArtifact
+    71:durable-loader:loadAdmittedArtifact
+    97:filesystem-read:fs.lstat
+    133:filesystem-read:fs.readdir
+    184:filesystem-read:fs.readdir
+    420:filesystem-read:fs.lstat
+  `),
+  exactModuleSurfaceGroup("src/pi-cli-run.js", "agentmo-core-mvp-2026-11-05", "gated", `
+    27:filesystem-read:fs.realpath
+    28:filesystem-read:fs.readdir
+    30:filesystem-read:fs.lstat
+    130:filesystem-lifecycle:fs.mkdir
+    136:durable-loader:loadAdmittedArtifact
+  `),
+  exactModuleSurfaceGroup("src/pi-chat-cli.js", "agentmo-core-mvp-2026-11-05", "gated", `
+    21:filesystem-read:fs.realpath
+    25:filesystem-read:fs.lstat
+    27:filesystem-read:fs.lstat
+    94:filesystem-read:fs.lstat
+  `),
+  exactModuleSurfaceGroup("src/pi-chat-cli.js", "agentmo-core-mvp-2026-11-05", "non-artifact", `
+    38:process-output:process.stdout.write
+    39:process-output:process.stdout.write
+    49:managed-writer:io.write
+    54:managed-writer:io.write
+    57:managed-writer:io.write
+    58:managed-writer:io.write
+    63:managed-writer:io.write
+    64:managed-writer:io.write
+    67:managed-writer:io.write
+    69:managed-writer:io.write
+    77:managed-writer:io.write
+    83:managed-writer:io.write
+    84:managed-writer:io.write
+    85:managed-writer:io.write
+    88:managed-writer:io.write
+    89:managed-writer:io.write
+    96:managed-writer:io.write
+    99:managed-writer:io.write
+    101:managed-writer:io.write
+    103:managed-writer:io.write
+    106:managed-writer:io.write
+    108:managed-writer:io.write
+    109:managed-writer:io.write
+    110:managed-writer:io.write
+    111:managed-writer:io.write
+    113:managed-writer:io.write
+  `),
+  exactModuleSurfaceGroup("src/pi-budget-proxy.js", "pi-browser-agent-2026-10-16", "gated", `
+    51:filesystem-read:fs.lstat
+    52:filesystem-read:fs.realpath
+    85:filesystem-read:fs.readdir
+    99:filesystem-read:fs.readdir
+  `),
+  exactModuleSurfaceGroup("src/pi-budget-proxy.js", "pi-browser-agent-2026-10-16", "transient-runtime", `
+    274:stream-write:res.end
+    280:stream-write:res.end
+  `),
+  exactModuleSurfaceGroup("src/pi-install.js", "pi-browser-agent-2026-10-16", "gated", `
+    35:filesystem-read:fs.realpath
+    36:filesystem-read:fs.lstat
+    53:filesystem-read:fs.readdir
+    54:filesystem-read:fs.readdir
+    57:filesystem-read:fs.readdir
+    58:filesystem-read:fs.readdir
+    88:filesystem-lifecycle:fs.mkdir
+    121:durable-loader:loadAdmittedArtifact
+  `),
+  exactModuleSurfaceGroup("src/pi-install-plan.js", "pi-browser-agent-2026-10-16", "gated", `
+    45:filesystem-read:fs.realpath
+    46:filesystem-read:fs.lstat
+    47:filesystem-open:fs.open
+    48:file-handle-read:FileHandle.stat
+    53:file-handle-read:FileHandle.read
+    54:file-handle-read:FileHandle.stat
+    54:filesystem-read:fs.lstat
+    207:filesystem-read:fs.realpath
+    208:filesystem-read:fs.lstat
+  `),
+  exactModuleSurfaceGroup("src/package-produce.js", "phase-04-plan-17", "gated", `
+    253:filesystem-lifecycle:fs.mkdir
+    262:filesystem-lifecycle:fs.mkdir
+    496:durable-loader:loadAdmittedArtifact
+    700:filesystem-open:fs.open
+    706:file-handle:FileHandle.writeFile
+    707:file-handle-lifecycle:FileHandle.sync
+    708:file-handle-read:FileHandle.stat
+    716:filesystem-read:fs.stat
+    777:filesystem-read:fs.lstat
+    804:filesystem-read:fs.lstat
+    814:filesystem-read:fs.lstat
+    819:filesystem-open:fs.open
+    823:file-handle-read:FileHandle.stat
+    824:file-handle-read:FileHandle.readFile
+    825:file-handle-read:FileHandle.stat
+    826:filesystem-read:fs.lstat
+    848:filesystem-open:fs.open
+    854:file-handle-lifecycle:FileHandle.sync
+  `),
+  exactModuleSurfaceGroup("src/targets/pi-package.js", "pi-browser-agent-2026-10-16", "gated", `
+    37:filesystem-read:fs.readFileSync
+  `),
+  exactModuleSurfaceGroup("src/builder-package.js", "phase-02-plan-17", "gated", `
+    348:filesystem-read:fs.lstat
+    353:filesystem-open:fs.open
+    354:file-handle-read:FileHandle.stat
+    357:file-handle-read:FileHandle.stat
+    358:filesystem-read:fs.lstat
+    666:filesystem-read:fs.lstat
+    674:filesystem-read:fs.lstat
+    697:filesystem-read:fs.realpath
+    745:filesystem-read:fs.lstat
+    746:filesystem-read:fs.lstat
+    777:filesystem-read:fs.readdir
+    778:filesystem-read:fs.lstat
+    785:filesystem-read:fs.lstat
+    786:filesystem-read:fs.lstat
+    965:file-handle-read:FileHandle.read
+    1362:filesystem-read:fs.readdir
+    1375:filesystem-read:fs.lstat
+    1376:filesystem-read:fs.realpath
+    2119:filesystem-read:fs.lstat
+    2123:filesystem-read:fs.realpath
+    2134:filesystem-read:fs.lstat
+    2144:filesystem-read:fs.lstat
+    2170:filesystem-read:fs.realpath
+    2229:filesystem-read:fs.lstat
+    2230:filesystem-read:fs.realpath
+    2482:filesystem-read:fs.lstat
+    2568:filesystem-read:fs.lstat
+    2572:filesystem-read:fs.realpath
+    2575:filesystem-open:fs.open
+    2576:file-handle-read:FileHandle.stat
+    2581:file-handle-read:FileHandle.stat
+    2582:filesystem-read:fs.lstat
+    2702:filesystem-read:fs.realpath
+    2731:filesystem-read:fs.lstat
+    2732:filesystem-read:fs.realpath
+  `),
+  exactModuleSurfaceGroup("src/course-wiki-budget.js", "course-wiki-poc-2026-09-14", "non-artifact", `
+    53:filesystem-read:fs.lstat
+    60:filesystem-read:fs.lstat
+    61:filesystem-read:fs.realpath
+    78:filesystem-read:fs.readFile
+    94:filesystem-read:fs.readdir
+    100:filesystem-read:fs.readFile
+    109:filesystem-lifecycle:fs.mkdir
+    110:filesystem-open:fs.open
+    111:file-handle:FileHandle.writeFile
+    111:file-handle-lifecycle:FileHandle.sync
+    135:filesystem-lifecycle:fs.mkdir
+    136:filesystem-open:fs.open
+    137:file-handle:FileHandle.writeFile
+    137:file-handle-lifecycle:FileHandle.sync
+    173:filesystem:fs.writeFileSync
+    173:filesystem-lifecycle:fs.closeSync
+    173:filesystem-lifecycle:fs.fsyncSync
+    173:filesystem-open:fs.openSync
+    175:filesystem-lifecycle:fs.closeSync
+    177:filesystem-read:fs.readFile
+    182:file-handle-lifecycle:FileHandle.sync
+    182:filesystem-open:fs.open
+  `),
+  exactModuleSurfaceGroup("src/course-wiki-budget.js", "course-wiki-poc-2026-09-14", "transient-runtime", `
+    294:stream-write:res.end
+    299:stream-write:res.end
   `),
 ]);

@@ -35,6 +35,7 @@ export async function loadCoreModule(relative, overrides = {}) {
     else bindings[match[1]] = module.default;
   }
   const exports = [...source.matchAll(/^export (?:async )?function (\w+)/gmu)].map(m => m[1]);
+  source = source.replaceAll('import.meta.url', JSON.stringify(url.href));
   source = source.replace(/^import .+ from '[^']+';\n/gmu, '').replace(/^export /gmu, '');
   Object.assign(bindings, overrides);
   return new Function(...Object.keys(bindings), `${source}\nreturn {${exports.join(',')}};`)(...Object.values(bindings));

@@ -1,17 +1,20 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import tls from 'node:tls';
 import { stubPiUpstream } from './helpers/pi-https-fixture.js';
 import { piBudgetFixture } from './helpers/pi-budget-fixture.js';
 import { piHttpRequest, piNativeRequest, piNativeResponse } from './helpers/pi-http-fixture.js';
 import { postPiMessages } from '../src/pi-upstream.js';
 
-test('dispatches one bounded native HTTPS request after reservation', async t => {
-  const f = await piBudgetFixture(t), admitted = await f.admit(); let calls = 0;
+test('uses the native MiniMax CN endpoint and Node TLS defaults after reservation', async t => {
+  const defaultMaxVersion = tls.DEFAULT_MAX_VERSION;
+  const f = await piBudgetFixture(t), admitted = await f.admit(); let calls = 0, tlsRange;
   stubPiUpstream(t, async (url, options) => {
     calls++;
-    assert.equal(url, 'https://api.minimax.cn/anthropic/v1/messages');
+    assert.equal(url, 'https://api.minimaxi.com/anthropic/v1/messages');
     assert.equal(options.method, 'POST');
     assert.equal(options.rejectUnauthorized, true);
+    tlsRange = [options.minVersion, options.maxVersion];
     assert.equal(options.agent, false);
     assert.equal(options.headers['content-length'], Buffer.byteLength(options.body));
     assert.equal(options.headers['x-api-key'], 'SYNTHETIC_KEY_MARKER');
@@ -20,6 +23,8 @@ test('dispatches one bounded native HTTPS request after reservation', async t =>
   });
   const result = await piHttpRequest(f.handler, piNativeRequest(f.text), { 'x-api-key': admitted.turnToken });
   assert.equal(result.statusCode, 200); assert.equal(calls, 1);
+  assert.deepEqual(tlsRange, [undefined, undefined]);
+  assert.equal(tls.DEFAULT_MAX_VERSION, defaultMaxVersion);
 });
 
 test('preserves failures without retry or secret output', async t => {

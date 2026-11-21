@@ -1,3 +1,4 @@
+import { listWorkspaceSources } from './pi-workspace-files.js';
 import path from 'node:path';
 import { lstat, realpath } from 'node:fs/promises';
 import { createInterface } from 'node:readline';
@@ -45,7 +46,7 @@ export async function runPiChatCli({ installed, sourceRoot, runtimeEnvFile, port
   if (ownIo) io.onInterrupt(stop);
   process.on('SIGINT', stop); process.on('SIGTERM', stop);
   let sessionId = null;
-  io.write(`Agent ${installed.sourceAdmissions.blueprint.value.agent_id} · Pi 1.2.0\n/sessions /use <id> /new /paste /file <relative.txt|md> /quit\n`);
+  io.write(`Agent ${installed.sourceAdmissions.blueprint.value.agent_id} · Pi 1.2.0\n/sessions /use <id> /new /paste /file <relative.txt|md> /workspace /quit\n`);
   try {
     while (!abort.signal.aborted) {
       const line = await io.readLine('任务> ');
@@ -56,8 +57,15 @@ export async function runPiChatCli({ installed, sourceRoot, runtimeEnvFile, port
         if (!(await listPiCliSessions({ installed })).some(s => s.id === id)) { io.write('未知会话，未切换。\n'); continue; }
         sessionId = id; io.write(`当前会话 ${id}\n`); continue;
       }
-      let text = line, file, relativePath;
-      const kind = line === '/new' ? 'create-session' : 'turn';
+      let text=line,file,relativePath,workspace;
+      const kind=line==='/new'?'create-session':line==='/workspace'?'workspace':'turn';
+      if(kind==='workspace'){
+        if(!sessionId){io.write('先用 /new 创建会话或 /use 选择会话。\n');continue;}
+        try{io.write(`候选资料（未读取正文）：${JSON.stringify(await listWorkspaceSources({sourceRoot}))}\n`);}catch{io.write('资料目录被拒绝，未运行。\n');continue;}
+        text=await io.readLine('任务文字> ');const paths=await io.readLine('资料相对路径（JSON数组，1–2份）> '),outputRoot=await io.readLine('成果根目录（绝对路径）> ');
+        if(text===null || paths===null || outputRoot===null)break;
+        try{workspace={sourceRoot,relativePaths:JSON.parse(paths),outputRoot};}catch{io.write('资料路径格式无效，未运行。\n');continue;}
+      }
       if (kind === 'turn' && !sessionId) { io.write('先用 /new 创建会话或 /use 选择会话。\n'); continue; }
       if (line === '/paste') {
         const lines = [];
@@ -73,10 +81,10 @@ export async function runPiChatCli({ installed, sourceRoot, runtimeEnvFile, port
         relativePath = line.slice(6);
         try { file = await readPiCliText({ sourceRoot, relativePath }); text = file.text; }
         catch { io.write('文件读取被拒绝，未发送。\n'); continue; }
-      } else if (line.startsWith('/') && kind !== 'create-session') { io.write('未知命令，未发送。\n'); continue; }
-      if (kind === 'turn' && !validText(text)) { io.write('需要非空且不超过8000码点的文字，未发送。\n'); continue; }
+      } else if (line.startsWith('/') && kind === 'turn') { io.write('未知命令，未发送。\n'); continue; }
+      if (kind !== 'create-session' && !validText(text)) { io.write('需要非空且不超过8000码点的文字，未发送。\n'); continue; }
       const preview = await preparePiCliRequest({ installed, kind, ports,
-        ...(kind === 'turn' ? { sessionId, text, runtimeEnvFile } : {}) });
+        ...(kind !== 'create-session' ? { sessionId, text, runtimeEnvFile } : {}),...(workspace?{workspace}:{}) });
       io.write(`本次预览 ${JSON.stringify(preview)}\n`);
       if (kind === 'turn') io.write(`发送范围：当前会话已保存历史和本条文字。原文（JSON转义展示）：${JSON.stringify(text)}\n`);
       const confirmation = await io.readLine(`确认本次操作请输入 ${preview.confirmationCode}；其他输入取消> `);
@@ -89,12 +97,19 @@ export async function runPiChatCli({ installed, sourceRoot, runtimeEnvFile, port
       }
       const result = await runApprovedPiCliRequest({ preview, confirmation, signal: abort.signal });
       if (result.status === 'declined') { io.write('已取消，未运行。\n'); continue; }
-      if (!['created', 'completed'].includes(result.status) || result.cleanup?.status !== 'stopped') {
+      if (!['created', 'completed', 'passed'].includes(result.status) || result.cleanup?.status !== 'stopped') {
+        if(result.outputDirectory)io.write(`成果位置：${JSON.stringify(result.outputDirectory)}；摘要 ${result.artifact?.contentDigest ?? result.contentDigest ?? '未确认'}；状态 ${result.status}\n`);
         const stopped = result.cleanup?.status === 'stopped' ? '自有服务已停止' : result.cleanup?.status === 'not-started' ? '服务未启动' : '停止未确认';
         io.write(`请求失败，${stopped}，不重试。${result.failureCode ?? 'AGENTMO_PI_CLI_REQUEST_FAILED'}；新增预留 ${result.newReservedFen ?? '未知'}分\n`);
         throw Object.assign(new Error('Pi CLI operation failed.'), { code: 'AGENTMO_PI_CLI_REQUEST_FAILED' });
       }
       if (result.status === 'created') { sessionId = result.sessionId; io.write(`新会话 ${sessionId}\n`); }
+      else if(result.status==='passed'){
+        io.write(`回复：${JSON.stringify(result.replyText)}\n`);
+        io.write(`成果：${JSON.stringify(result.outputDirectory)}；摘要 ${result.artifact.contentDigest}；实际请求 ${result.artifact.requests}；新增预留 ${result.newReservedFen}分\n`);
+        io.write(`来源摘要：${JSON.stringify(preview.sources.map(({sourceId,contentDigest})=>({sourceId,contentDigest})))}\n`);
+        io.write(`停止结果：${result.cleanup.status}\n`);
+      }
       else if (result.status === 'completed') io.write(`回复：${JSON.stringify(result.replyText)}\n本次新增预留 ${result.newReservedFen}分\n`);
     }
   } finally { abort.abort(); process.off('SIGINT', stop); process.off('SIGTERM', stop); if (ownIo) io.close(); }

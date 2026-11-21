@@ -46,7 +46,7 @@ const RELEASE_EVIDENCE_CLASSES = Object.freeze([
   "target-executed",
 ]);
 const RELEASE_STATUSES = Object.freeze(["tested", "failed", "untested"]);
-const RELEASE_INDEX_ROW = "| 2026.09.28 | Native-chat 基础支持 + Course Wiki 历史原生证据 | 无工具规划/精简 scaffold 已实现；Node20 已验证，全量检查阻塞；原生交付仍未完成 | [`2026.09.28.md`](./2026.09.28.md) | 未发布 |";
+const RELEASE_INDEX_ROW = "| [`2026.09.28.md`](./2026.09.28.md) | Native-chat基础支持与Course Wiki历史证据；Node20已验证，全量检查阻塞、原生交付仍未完成（当日状态） |";
 const VERIFY_FLAG = "--verify-published-evidence";
 
 const verifyIndex = process.argv.indexOf(VERIFY_FLAG);

@@ -1,0 +1,303 @@
+{
+  "date": "2026-11-10",
+  "status": "offline-todo-composed-validation-complete-installation-awaits-approval",
+  "scope": "MiniMax-specific TLS1.2 compatibility, existing Pi CLI MVP, no architecture/model expansion",
+  "change": {
+    "minVersion": "TLSv1.2",
+    "maxVersion": "TLSv1.2",
+    "fixedEndpoint": "https://api.minimax.cn/anthropic/v1/messages",
+    "certificateVerification": true,
+    "globalTlsDefaultsChanged": false,
+    "retryAdded": false,
+    "tls13RootCauseProven": false,
+    "realM3PostAccepted": false
+  },
+  "baseCommit": "2979a7086b522e114a766efd5e17b7ac2a2b6e55",
+  "sourceFreeze": {
+    "digest": "sha256:b67b3feefd5487fc2dcd7140631ecf0d5b723a0e3a636562a99b58e2935e57d7",
+    "fileCount": 144,
+    "memberManifestDigest": "sha256:442ed939c82a2252175578df340b46502a79311df4a4b3903f74833c73a1f766"
+  },
+  "validation": {
+    "type": "composed-across-recorded-runs",
+    "allRequiredComponentsCovered": true,
+    "singleCleanFullInvocation": false,
+    "originalInterruptedRun": {
+      "command": "npm run check",
+      "exitCode": -2,
+      "deadlineExpired": false,
+      "elapsedSeconds": 1043.84,
+      "offlineGuard": true,
+      "temporaryRootPreserved": true
+    },
+    "fullMainRun": {
+      "command": "npm run check",
+      "exitCode": 1,
+      "deadlineExpired": false,
+      "elapsedSeconds": 2164.02,
+      "offlineGuard": true,
+      "hostProcessControls": true,
+      "temporaryRootPreserved": true,
+      "counts": {
+        "tests": 1556,
+        "pass": 1493,
+        "fail": 3,
+        "cancelled": 0,
+        "skipped": 60
+      },
+      "originalFailureCount": 3,
+      "failureRecordPreserved": true
+    },
+    "originalFailuresCorrected": [
+      "stale packed runtime asset counts144/139 replaced with fixed inventory148/143 and explicit4member checks",
+      "README sole --runtime-env-file statement restored",
+      "historical release index exact-row fixture updated to maintained2column format with evidence facts retained"
+    ],
+    "freshRegressions": {
+      "tls-green.log": {
+        "tests": 7,
+        "pass": 7,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "inventory-green.log": {
+        "tests": 25,
+        "pass": 25,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "packed-count-green.log": {
+        "tests": 1,
+        "pass": 1,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "runtime-docs-green.log": {
+        "tests": 17,
+        "pass": 17,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      }
+    },
+    "remainingOfficialLanes": [
+      {
+        "lane": "check:test:durable-fs",
+        "exitCode": 0,
+        "deadlineExpired": false,
+        "elapsedSeconds": 47.03,
+        "counts": {
+          "tests": 2,
+          "pass": 2,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "lane": "check:test:packed-hook-chain",
+        "exitCode": 0,
+        "deadlineExpired": false,
+        "elapsedSeconds": 154.86,
+        "counts": {
+          "tests": 1,
+          "pass": 1,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "lane": "check:test:packed-behavior",
+        "exitCode": 0,
+        "deadlineExpired": false,
+        "elapsedSeconds": 1040.63,
+        "counts": {
+          "tests": 8,
+          "pass": 7,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 1
+        }
+      },
+      {
+        "lane": "check:test:immutable-successor",
+        "exitCode": 0,
+        "deadlineExpired": false,
+        "elapsedSeconds": 316.99,
+        "counts": {
+          "tests": 1,
+          "pass": 1,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      }
+    ],
+    "npmRunCheckPassed": false,
+    "originalExitCode": 1,
+    "cancelledCasesInFullMain": 0,
+    "limitation": "The original full npm invocation failed. Corrected cases passed fresh targeted reruns; all four remaining official lanes passed separately. This is composed coverage, not one clean full invocation."
+  },
+  "coldPackage": {
+    "status": "passed",
+    "archiveDigest": "sha256:1b33b6dfb3ea7917f4b09f9f6349095be82716138aad8074d595115504eb9f82",
+    "archiveMembers": 151,
+    "nodeModulesAbsent": true,
+    "runtimeStateAbsent": true,
+    "runs": [
+      {
+        "args": [
+          "--help"
+        ],
+        "exitCode": 0,
+        "stdoutDigest": "sha256:2724f3e21f4cdc4f13ddfcc98d8c92396c9d83abc66c1e51c17ce0d5b73ea764",
+        "stderrDigest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "args": [
+          "pi-chat",
+          "--help"
+        ],
+        "exitCode": 0,
+        "stdoutDigest": "sha256:be6f65dc30cfd68560fab30f2c15fd3f52e365675f99cef6c6c1e52cbbb0dc2a",
+        "stderrDigest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "args": [
+          "pi-chat",
+          "-h"
+        ],
+        "exitCode": 0,
+        "stdoutDigest": "sha256:be6f65dc30cfd68560fab30f2c15fd3f52e365675f99cef6c6c1e52cbbb0dc2a",
+        "stderrDigest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "args": [
+          "help",
+          "pi-chat"
+        ],
+        "exitCode": 0,
+        "stdoutDigest": "sha256:be6f65dc30cfd68560fab30f2c15fd3f52e365675f99cef6c6c1e52cbbb0dc2a",
+        "stderrDigest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "args": [
+          "pi-chat"
+        ],
+        "exitCode": 1,
+        "stdoutDigest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderrDigest": "sha256:3e4f72c4dfc09d347ab1a6783033602f3c50eeed2439693864a4aa1878292205"
+      }
+    ],
+    "agentInstalled": false,
+    "sdkExecuted": false,
+    "networkCalls": 0,
+    "keyRead": false
+  },
+  "independentReview": {
+    "sourceAndPreviewReviewed": true,
+    "testAndDocumentationCorrectionsReviewed": true,
+    "critical": 0,
+    "important": 0,
+    "minor": 0,
+    "reviewerExecutedSdkOrNetwork": false,
+    "modelContentReviewPerformedThisTask": false
+  },
+  "installationPreview": {
+    "proposalDigest": "sha256:7d267afc57286a2dea9def906eb3743a93cb512ea7cd6271071b2b4b0af73fd6",
+    "planDigest": "sha256:2fd764bc7d33a479954aec5b226db83f446c91ef9a3c975c9c9243ac2284b04b",
+    "planFileDigest": "sha256:3a8645d7a2d2b0f074604aa38b0071cdd7085cac9095b54fee8c38f662739208",
+    "archiveDigest": "sha256:5cbc0685790a4e1b9fcbf20b0c9c0609dfd759dcf6ce44043128c906e8f26bf7",
+    "targetDescriptorDigest": "sha256:769e76d29bad7e6aabd0774feb50813663d7ac0f51fd693c746f0008cb4630fd",
+    "planPreviewDigest": "sha256:8ca675ba5e16e4ebca5767777e78855132589a9655bda96b6fbcae070be75df1",
+    "sourceInputs": {
+      "manifest": "sha256:41e33c51132ad34fea0cb74610205a8578d29dcec546da85c9b7ccb208dcb1ad",
+      "discoveryDb": "sha256:6a7cefe2e24d105e454307cf095ee0db219c5163f227cc7d94d79c46f08740ed",
+      "userNeed": "sha256:0a063405fb8524d15471cfb39665449831a9fd8e4d3ebccccb727b2811f41e55",
+      "blueprint": "sha256:584c290fee7f589fc5a55391324e62ab1d770a7b6967105be924fa177524d6e5",
+      "buildContract": "sha256:7c098d7abcc9f473754e3abcd5e4742ae3134bcbc50c2c0f4e8cf12367df81d3"
+    },
+    "preview": "docs/poc/core-mvp/tls12-install-preview.md",
+    "previewDigest": "sha256:f43bb950ca5f0cb4384381c97030448f7a133356b9c57e8c98dc01b5026a8cce",
+    "sourceCount": 6,
+    "files": 6,
+    "directories": 4,
+    "newDecisionsIfApproved": 2,
+    "newConsumptionsIfApproved": 1,
+    "targetRootAbsent": true,
+    "humanApprovalAbsent": true,
+    "attemptAbsent": true,
+    "finalPreflightPassed": true,
+    "reviewedExecutionFiles": [
+      {
+        "name": "install-inputs.mjs",
+        "digest": "sha256:af055d8d781eb87de830195ee9c9f306e3c77a9205c84fa54f6286f7f67b11c0"
+      },
+      {
+        "name": "apply-approved-install.mjs",
+        "digest": "sha256:54f62af86b9d70880f92a2bf8f9c9b18ed57fb258ec93c62bdeb0b09cd4b0d3a"
+      }
+    ]
+  },
+  "m3Preparation": {
+    "preview": "docs/poc/core-mvp/tls12-m3-preparation.md",
+    "previewDigest": "sha256:3f8eb570477caf447fdcc3d6c832b5b48d0d728cd4eb1fe5f76d1b4fcee490b4",
+    "maximumRequests": 4,
+    "maximumNewReservedFen": 124,
+    "maximumCumulativeReservedFen": 5022,
+    "actualReceiptBound": false,
+    "actualSessionsBound": false,
+    "executable": false,
+    "separateRuntimeApprovalRequired": true
+  },
+  "budget": {
+    "totalReservedFen": 4898,
+    "projectReservations": 30,
+    "remainingFen": 5102,
+    "capFen": 10000,
+    "newReservedFen": 0
+  },
+  "authority": {
+    "consumptions": 18,
+    "decisions": 68,
+    "journalDigest": "sha256:573f6c51a205c0f2f9a42f122d7b6eeaf6f4dcc51893d61a65ea0664c4e406f5",
+    "mutated": false
+  },
+  "preservedEvidence": {
+    "release/evidence/2026.11.09-node-tls12-execution.json": "sha256:f85ec080081f8af8f295db861eeae3df8a5ab0bf7838e6746e50e2755d2bf1c5",
+    "release/evidence/2026.11.09-tls-client-contrast-execution.json": "sha256:5a17ecc1995a410d4d438995e478407a2187e7ba59dcc570e4d03eb1f2e8b989",
+    "release/evidence/2026.11.09-mvp-network-r2-execution.json": "sha256:6e1d75e58bf93b095cd6165df9822e797e4f025b49e0251ce1693a4bf14c01a4",
+    "release/evidence/2026.10.23-node20-pi-child-startup-repair-core-receipt.json": "sha256:9a5cd347085823b755256375b0eaa0d771e39ebec099517109681f08ab49d378"
+  },
+  "privateLogDigests": {
+    "tls-red-boundary.log": "sha256:9875bcc2e9273d40650a138016b45d53b80833a935557df48413990baff25efa",
+    "tls-green.log": "sha256:9331e02c8b0b2bef3c1e12ae54b65fe6459a0e0c5e6b41d507214f0f827644a9",
+    "inventory-red.log": "sha256:73617d381caac367f909792760c66d86deb2e25840b99760bd60aae9974510ce",
+    "inventory-green.log": "sha256:1b474a8cba4232affdd2d7b8295e5944e6b3ea20e6dd147041e9812a3898cc36",
+    "packed-count-red.log": "sha256:c3e8024f1159e2cf3d35d4f47512c3d504608c8ca43f6dce7381606a5d9e5a96",
+    "packed-count-green.log": "sha256:1b41efff1f86baa396f7fd221d15d3d27d61ffe96a1fbb8a745eef679b01fb01",
+    "runtime-docs-red.log": "sha256:5a5ab661f2f168b7d958073b87442f465fce8676d467fc24f71cb6084803c760",
+    "runtime-docs-green.log": "sha256:6ae54758fa0cbce25563d9dad73fa63834368e62ee2042bffb60f9c5598248b6",
+    "npm-check.log": "sha256:65a5288b4b073079791dbf45bb3824f64955ee7730eb6d712ec320dacf1fcf3a",
+    "npm-check-final.log": "sha256:f58ea023190be4255d1ef398e9c0a1015ec61f74fa33c52a0f9b0f2d94bc7b37",
+    "lane-durable-fs.log": "sha256:82a844fdb1001633a4f7651951e50b9ca43c791abaf0ed30f8c8c7b85e7909ad",
+    "lane-packed-hook-chain.log": "sha256:c4491e05c9688e9ffa4ae4f8aec74e9fc6690dd1202e1cf61d4c8e43437f84cc",
+    "lane-packed-behavior.log": "sha256:4987f45efe7add5c0e92ff9aa33fc3516f5d6bf60a18cad3acb8e091555b22ff",
+    "lane-immutable-successor.log": "sha256:bd533bf0d47ed41f54a4736688a2e200b3a0d2c4c93467e863d4f45a2c39d917"
+  },
+  "envFileRead": false,
+  "keyRead": false,
+  "actualSdkExecuted": false,
+  "realAgentInstalled": false,
+  "realAgentActivated": false,
+  "externalNetworkCalls": 0,
+  "realModelRequests": 0,
+  "syntheticFixturesOnly": true,
+  "oldFailureArtifactsPreserved": true,
+  "committed": false,
+  "pushed": false
+}

@@ -1,0 +1,105 @@
+{
+  "date": "2026-11-11",
+  "status": "readonly-r2-ready-awaiting-separate-approval",
+  "proposalDigest": "sha256:d753646aec8a0494a8ba25d30b76a8902075ffa5d2775f594c614172d3d1b05c",
+  "activationPlanDigest": "sha256:1864410c967826b9774af5b3e68a2ef5e57757a716e4faea1f99aeaef28ee784",
+  "activationPlanFileDigest": "sha256:fa36c898615c0e019a3f41320f4e61f8b1491a7942f0781651998fd222394592",
+  "installedReceiptDigest": "sha256:f6b89292c1b04ef3628e02d5375f8d9bc63ce1764da72d93cfef7acc2d57b161",
+  "sourceDigest": "sha256:b67b3feefd5487fc2dcd7140631ecf0d5b723a0e3a636562a99b58e2935e57d7",
+  "driverDigest": "sha256:189e36eed1124db48874056b495f0fa71d3d3712f7b22e70c7596439f0e95302",
+  "inputsHelperDigest": "sha256:af055d8d781eb87de830195ee9c9f306e3c77a9205c84fa54f6286f7f67b11c0",
+  "sourceFilesVerified": 9,
+  "preflightPassed": true,
+  "preview": "docs/poc/core-mvp/tls12-readonly-preview.md",
+  "previewDigest": "sha256:c743de21b5a583483f70efeae274c39520af5fba90e0677aeafbbde901a4b760",
+  "scope": "pi-tls12-readonly-two-empty-sessions",
+  "effectsIfApproved": {
+    "ordinaryDecisions": 1,
+    "sensitiveActions": [
+      {
+        "id": "start-budget-proxy"
+      },
+      {
+        "id": "start-pi-child"
+      }
+    ],
+    "conflictDecisions": 1,
+    "newConsumptionRecords": 1,
+    "sdkVersion": "1.2.0",
+    "sdkExecution": true,
+    "ports": {
+      "chat": "127.0.0.1:19492",
+      "proxy": "127.0.0.1:19493"
+    },
+    "localLogin": "client-memory-only-not-output",
+    "clientAuthentications": 2,
+    "runtimeEnvFile": false,
+    "providerKeyRead": false,
+    "chatMessages": 0,
+    "modelRequests": 0,
+    "newReservedFen": 0,
+    "newEmptySessions": 2,
+    "idleObserveMs": 60000,
+    "totalWorkLimitMs": 1200000,
+    "ownedCleanupLimitMs": 300000,
+    "restartAllowance": 0,
+    "retry": false
+  },
+  "authorityBefore": {
+    "consumptions": 19,
+    "decisions": 70,
+    "journalDigest": "sha256:e495cf78968127f0c5353789ec027418dcdf8e3fec85dd232f135004fb1c7621"
+  },
+  "authorityAfterIfApproved": {
+    "consumptions": 20,
+    "decisions": 74
+  },
+  "budgetBefore": {
+    "totalReservedFen": 4898,
+    "capFen": 10000,
+    "projectReservations": 30
+  },
+  "clientGuardPreserved": true,
+  "separateClientPerSession": true,
+  "syntheticClientRegression": {
+    "tests": 6,
+    "pass": 6,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0
+  },
+  "syntheticRegressionUsesVirtualHttpOnly": true,
+  "actualSdkExecuted": false,
+  "activated": false,
+  "envFileRead": false,
+  "supplierKeyRead": false,
+  "externalNetworkCalls": 0,
+  "realModelRequests": 0,
+  "newReservedFen": 0,
+  "approvalAbsent": true,
+  "attemptAbsent": true,
+  "priorCandidate": {
+    "proposalDigest": "sha256:fda047d48c3b1bc40681866961785f3c9ff53f5162cad18317e6f94720c2d540",
+    "status": "superseded-after-source-review-before-runtime",
+    "reason": "single-use client could not create two sessions; corrected to separate clients",
+    "sdkExecuted": false,
+    "authorityConsumed": false,
+    "preserved": true
+  },
+  "r2PreparationSummary": {
+    "initialSummaryWrite": "EEXIST-after-proposal-generation",
+    "originalLogPreserved": true,
+    "existingArtifactsFreshlyReadmitted": true,
+    "summary": "readonly-summary-r2.json"
+  },
+  "independentReview": {
+    "priorImportantResolved": true,
+    "remainingCritical": 0,
+    "remainingImportant": 0,
+    "runtimeExecutedDuringReview": false
+  },
+  "originalNpmExitCode": 1,
+  "singleCleanFullInvocation": false,
+  "commit": false,
+  "push": false
+}

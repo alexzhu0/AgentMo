@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "agentmo.pi-workspace-readonly-execution.v1",
+  "status": "failed-preserved-no-retry",
+  "scopeClosed": true,
+  "activationPlanDigest": "sha256:6e5edf788df8355fcd3548b6cca2f2e1439ef0c244684969ec09f89ecb27c1b6",
+  "receiptDigest": "sha256:c1c5af6de7e95b94b268c32ee8a4cfb08d818e71d4224f3580d9ef02ebce2621",
+  "proposalDigest": "sha256:78b20b9f726f66be4246e124eda5dd015b3b28316ea2210aaf4c6b44492b2583",
+  "originalResultDigest": "sha256:2af64d3c732ebb75457cd14e61e5384b8df82f64ca9a62b08f16e6de68908762",
+  "failure": {
+    "stage": "preflight",
+    "code": "AGENTMO_PI_LIFECYCLE_REJECTED",
+    "rootCause": "private-input-helper-mode-mismatch",
+    "helper": "install-inputs.mjs",
+    "observedMode": "0644",
+    "requiredMode": "0600",
+    "isolatedReadOnlyReproduction": "expected-rejection",
+    "preflightCoverageGap": "prepare-readonly checked product preflight but not runner private-file reads"
+  },
+  "sourceBindingsUnchanged": true,
+  "authority": {
+    "consumptions": 24,
+    "decisions": 91,
+    "newConsumptions": 0,
+    "newDecisions": 0,
+    "journalUnchanged": true,
+    "journalDigest": "sha256:30f45d8c40fc5e98e8eaf4ec9a15a872a0f886aa560f61898ca1d19ee0d47d2a"
+  },
+  "budget": {
+    "totalReservedFen": 5053,
+    "projectReservations": 35,
+    "capFen": 10000,
+    "newReservedFen": 0
+  },
+  "runtimeDirectories": {
+    "attempts": 0,
+    "sessions": 0,
+    "turns": 0
+  },
+  "actualSdkExecuted": false,
+  "activation": false,
+  "newSessions": 0,
+  "modelRequests": 0,
+  "modelRequestBasis": "runner stopped before startPiNative; no runtime or turn files; budget unchanged, not packet capture",
+  "supplierKeyRead": false,
+  "retries": 0,
+  "restarts": 0,
+  "installationUnchanged": true,
+  "failureScenePreserved": true,
+  "repairPerformed": false,
+  "commit": false,
+  "push": false
+}

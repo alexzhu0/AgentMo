@@ -8,6 +8,7 @@ export const finalMessage = () => ({ role: 'assistant', content: [{ type: 'text'
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } } });
 export function fakePiSdk() {
   const calls = { create: [], open: [], runtime: [], credential: [], prompt: [], stream: [], abort: 0, dispose: 0 };
+  let workspaceSteps = null, workspaceRequest = null;
   let sequence = () => [{ type: 'message_end', message: finalMessage() }, { type: 'agent_end', willRetry: false }, { type: 'agent_settled', aborted: false }];
   let providerEvents = [{ type: 'message_start', message: { model: 'MiniMax-M3', id: 'synthetic', usage: { input_tokens: 20, output_tokens: 0 } } },
     { type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { output_tokens: 3 } }, { type: 'message_stop' }];
@@ -23,7 +24,7 @@ export function fakePiSdk() {
       this.entries.push(row); writeFileSync(this.file, [this.getHeader(), ...this.entries].map(JSON.stringify).join('\n') + '\n', { mode: 0o600 }); return row.id; }
     buildSessionContext() { return { messages: this.entries.map(e => e.message), model: null, thinkingLevel: 'off' }; }
   }
-  const sdk = { CURRENT_SESSION_VERSION: 3, createExtensionRuntime: () => ({ synthetic: true }),
+  const sdk = { createEventBus:()=>({}), async loadExtensionFromFactory(factory) { const extension={tools:new Map()};await factory({registerTool:definition=>extension.tools.set(definition.name,{definition})});return extension; }, CURRENT_SESSION_VERSION: 3, createExtensionRuntime: () => ({ synthetic: true }),
     SettingsManager: { inMemory(value) { calls.settings = structuredClone(value); return {
       getCacheWarmingMode: () => value.cacheWarming, getRetrySettings: () => value.retry,
       getProviderRetrySettings: () => value.retry.provider, getCompactionEnabled: () => value.compaction.enabled,
@@ -48,11 +49,31 @@ export function fakePiSdk() {
       }; } },
     async createAgentSession(options) {
       calls.create.push(options); const listeners = new Set(), manager = options.sessionManager;
-      return { extensionsResult: { extensions: [], errors: [] }, session: {
+      return { extensionsResult: { extensions: options.resourceLoader.getExtensions().extensions, errors: [] }, session: {
         model: options.model, thinkingLevel: 'off', pendingMessageCount: 0,
-        getActiveToolNames: () => [], subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
+        getActiveToolNames: () => options.tools, subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
         async prompt(text, promptOptions) {
           calls.prompt.push({ text, options: promptOptions });
+          if (workspaceSteps) {
+            manager.appendMessage({role:'user',content:[{type:'text',text}],timestamp:1});
+            for (const [i,step] of workspaceSteps.entries()) {
+              const message=step.name ? {...finalMessage(),stopReason:'toolUse',rawStopReason:'tool_use',content:[{type:'toolCall',id:`call-${i}`,name:step.name,arguments:step.args}]} : finalMessage();
+              Object.assign(message,step.messagePatch??{});
+              const prior=providerEvents;
+              providerEvents=[{type:'message_start',message:{model:'MiniMax-M3',id:`response-${i}`,usage:{input_tokens:20,output_tokens:0}}},{type:'message_delta',delta:{stop_reason:message.rawStopReason},usage:{output_tokens:3}},{type:'message_stop'}];
+              try { options.modelRuntime.streamSimple(options.model,{messages:manager.buildSessionContext().messages},{}); } finally { providerEvents=prior; }
+              if(workspaceRequest)await workspaceRequest(calls.stream.at(-1));
+              manager.appendMessage(message);
+              for(const listener of listeners)listener({type:'message_end',message});
+              if(step.name){
+                const definition=options.resourceLoader.getExtensions().extensions[0].tools.get(step.name).definition;
+                const result=await definition.execute(`call-${i}`,step.args,new AbortController().signal);
+                manager.appendMessage({role:'toolResult',toolCallId:`call-${i}`,toolName:step.name,content:result.content,isError:false,timestamp:1});
+              }
+            }
+            for(const listener of listeners){listener({type:'agent_end',willRetry:false});listener({type:'agent_settled',aborted:false});}
+            return;
+          }
           options.modelRuntime.streamSimple(options.model, { messages: [{ role: 'system', content: 'Default cwd /SYNTHETIC/HOST', timestamp: 0 },
             ...manager.buildSessionContext().messages, { role: 'user', content: [{ type: 'text', text }], timestamp: 1 }] }, { maxRetries: 2, maxTokens: 4096 });
           manager.appendMessage({ role: 'user', content: [{ type: 'text', text }], timestamp: 1 });
@@ -65,5 +86,5 @@ export function fakePiSdk() {
     },
   };
   return { sdk, calls, sequence: value => { sequence = typeof value === 'function' ? value : () => value; },
-    providerEvents: value => { providerEvents = value; } };
+    workspaceSteps: value => { workspaceSteps=value; }, workspaceRequest: value => { workspaceRequest=value; }, providerEvents: value => { providerEvents = value; } };
 }

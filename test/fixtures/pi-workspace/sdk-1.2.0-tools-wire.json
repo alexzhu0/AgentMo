@@ -1,0 +1,53 @@
+{
+  "provenance": {
+    "version": "1.2.0",
+    "sourcePath": "node_modules/@earendil-works/pi-ai/dist/api/anthropic-messages.js",
+    "sourceSha256": "2a61739aa1e42d42c0351f10fef371b3efd544bc746a97cf6d6f68e4dfc0ef96",
+    "method": "Static source inspection only; SDK not imported or executed",
+    "excerpt": "        const legacyInputSchema = {\n            type: \"object\",\n            properties: schema.properties ?? {},\n            required: schema.required ?? [],\n        };\n        const inputSchema = strict === true\n            ? {\n                ...parameters,\n                ...legacyInputSchema,\n            }\n            : legacyInputSchema;\n",
+    "eagerInputStreaming": {
+      "default": true,
+      "providerCatalog": "node_modules/@earendil-works/pi-ai/dist/providers/data/minimax-cn.json",
+      "modelCompatOverride": false,
+      "sourceLine": 1325
+    }
+  },
+  "tools": [
+    {
+      "name": "read",
+      "description": "Read one approved source or the packaged skill.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "eager_input_streaming": true
+    },
+    {
+      "name": "write",
+      "description": "Stage a Markdown report with source references in its body.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "content"
+        ]
+      },
+      "eager_input_streaming": true
+    }
+  ]
+}

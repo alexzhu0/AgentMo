@@ -1,0 +1,91 @@
+{
+  "schemaVersion": "agentmo.pi-workspace-install-evidence.v1",
+  "date": "2026-11-16",
+  "approval": "explicit-installation-and-exact-source-plan-tuples-only",
+  "stateRoot": ".agentmo/project-brief-pi-minimax-m3-workspace-2026-11-16-r1",
+  "status": "installed-verified",
+  "proposalDigest": "sha256:e23676517581d4080da4094d814c09eb4153bf2bb7d1828b4bb4eab9d1ece614",
+  "installPlanDigest": "sha256:efe3eaa689d7fad7c75a636f8ca88abdd7ec0bcf4372a7006671f6d4e33483b6",
+  "receiptDigest": "sha256:c1c5af6de7e95b94b268c32ee8a4cfb08d818e71d4224f3580d9ef02ebce2621",
+  "files": 8,
+  "directories": 6,
+  "emptyRuntimeDirectories": {
+    "attempts": 0,
+    "sessions": 0,
+    "turns": 0
+  },
+  "authority": {
+    "before": {
+      "consumptions": 23,
+      "decisions": 89
+    },
+    "consumptions": 24,
+    "decisions": 91,
+    "newConsumptions": 1,
+    "newDecisions": 2,
+    "oldPrefixPreserved": true,
+    "journalDigest": "sha256:30f45d8c40fc5e98e8eaf4ec9a15a872a0f886aa560f61898ca1d19ee0d47d2a"
+  },
+  "budget": {
+    "totalReservedFen": 5053,
+    "projectReservations": 35,
+    "capFen": 10000,
+    "remainingFen": 4947,
+    "newReservedFen": 0
+  },
+  "actualSdkExecuted": false,
+  "keyRead": false,
+  "activation": false,
+  "externalNetworkRequests": 0,
+  "modelRequests": 0,
+  "retry": false,
+  "commit": false,
+  "push": false,
+  "sourceClosure": {
+    "digest": "sha256:045db6db7bc44b7edcc27450b648818d3617f21781bfa460dd1cf8c0a39c3201",
+    "fileCount": 147
+  },
+  "sourceFreezeDigest": "sha256:fcec49536509002072f9235b4f9542e1bc4a978a9c69eda1000af293c7670efc",
+  "validationReused": {
+    "fullCheckExitCode": 0,
+    "productFilesChangedSinceCheck": 0,
+    "focusedTestsPassed": 271,
+    "fullMainPassed": 1535,
+    "fullMainSkipped": 60,
+    "fullMainFailed": 0
+  },
+  "nextPreview": {
+    "status": "prepared-not-executed",
+    "proposalDigest": "sha256:78b20b9f726f66be4246e124eda5dd015b3b28316ea2210aaf4c6b44492b2583",
+    "activationPlanDigest": "sha256:6e5edf788df8355fcd3548b6cca2f2e1439ef0c244684969ec09f89ecb27c1b6",
+    "activationPlanFileDigest": "sha256:d18221ff87a8104387b96aa1e83fd9f4205a92edc4c5b644e4f3927367a35c2b",
+    "receiptDigest": "sha256:c1c5af6de7e95b94b268c32ee8a4cfb08d818e71d4224f3580d9ef02ebce2621",
+    "driverDigest": "sha256:849cec5b551f5160e973b70bb21d1b614efe69dfe018a129e01344b03469c9d4",
+    "preflightPassed": true,
+    "actualSdkExecuted": false,
+    "activated": false,
+    "keyRead": false,
+    "modelRequests": 0,
+    "newReservedFen": 0
+  },
+  "certificationBoundary": {
+    "installed": true,
+    "actualSdkExecuted": false,
+    "workspaceToolsVerified": false,
+    "modelAccepted": false,
+    "domainCertified": false,
+    "productionApproved": false
+  },
+  "costEnvelope": "unproven-production-workspace-blocked",
+  "preserved": {
+    "historicalInstallations": true,
+    "allFailures": true,
+    "originalRealBudget": true
+  },
+  "runnerDigests": {
+    "install-inputs.mjs": "sha256:e4e0e70fd6cb0b2162d3a10bb751da4adc09d07a57e09be295c7a0f79879a706",
+    "apply-approved-install.mjs": "sha256:892bbd0680900adc24b602b3b941bd08b95f9f8269443452d78b9bf676949621",
+    "prepare-readonly.mjs": "sha256:994f250268255b4a333d265421257f18c42eaead594295893f84a8771c4ab97d",
+    "run-approved-readonly.mjs": "sha256:849cec5b551f5160e973b70bb21d1b614efe69dfe018a129e01344b03469c9d4"
+  }
+}

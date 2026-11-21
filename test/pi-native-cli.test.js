@@ -67,6 +67,11 @@ test('executes exact describe admit preview approve and apply against synthetic 
 test('pi-chat is public and rejects noninteractive or blanket approvals', async () => {
   const { commandHelpText } = await import('../src/cli-help.js');
   assert.match(commandHelpText('pi-chat'), /Interactive TTY/);
+  for (const args of [['pi-chat', '--help'], ['pi-chat', '-h'], ['help', 'pi-chat']]) {
+    const help = spawnSync(process.execPath, ['bin/agentmo.js', ...args], { encoding: 'utf8' });
+    assert.equal(help.status, 0, args.join(' '));
+    assert.match(help.stdout, /Interactive TTY/);
+  }
   assert.equal(subjectsForCommand('pi-chat').length, 8);
   for (const flags of [['--yes'], ['--approve-all'], ['--json']]) await assert.rejects(runPiNativeCommand('pi-chat', flags));
 });

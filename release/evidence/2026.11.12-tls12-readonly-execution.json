@@ -1,0 +1,64 @@
+{
+  "schemaVersion": "agentmo.bounded-evidence-summary.v1",
+  "date": "2026-11-12",
+  "scope": "pi-tls12-readonly-two-empty-sessions",
+  "status": "readonly-verified-stopped",
+  "proposalDigest": "sha256:d753646aec8a0494a8ba25d30b76a8902075ffa5d2775f594c614172d3d1b05c",
+  "activationPlanDigest": "sha256:1864410c967826b9774af5b3e68a2ef5e57757a716e4faea1f99aeaef28ee784",
+  "installationReceiptDigest": "sha256:f6b89292c1b04ef3628e02d5375f8d9bc63ce1764da72d93cfef7acc2d57b161",
+  "runtimeSourceDigest": "sha256:b67b3feefd5487fc2dcd7140631ecf0d5b723a0e3a636562a99b58e2935e57d7",
+  "privateResultDigest": "sha256:9025f7705b5c792fc9d78d29358d434997327a6d032c70da68a26f0a1b856c0c",
+  "sdkVersion": "1.2.0",
+  "actualSdkImported": true,
+  "sdkReady": true,
+  "registeredEmptySessions": 2,
+  "sessionIdDigests": [
+    "sha256:6a6ac7bbe4dc5e607176ce079a9ef7cee57fa42e01ed62e4ec1e8ee499dee58d",
+    "sha256:39e094ff82b6fca7230f181bb53f341cd9d5f9ea893e54097cd94ae7bfb0425b"
+  ],
+  "clientAuthentications": 2,
+  "idleObservedMs": 60002,
+  "observedTurnEntries": 0,
+  "observedModelClaims": 0,
+  "chatMessages": 0,
+  "modelRequests": 0,
+  "newReservedFen": 0,
+  "budget": {
+    "totalReservedFen": 4898,
+    "capFen": 10000,
+    "projectReservations": 30
+  },
+  "authority": {
+    "before": {
+      "consumptions": 19,
+      "decisions": 70
+    },
+    "after": {
+      "consumptions": 20,
+      "decisions": 74,
+      "oldPrefixPreserved": true,
+      "journalDigest": "sha256:c9da990437b3643e91dd83d71fb52e1d7c3fde3633ecc20f7649864c6e6facf6"
+    }
+  },
+  "cleanup": {
+    "status": "stopped",
+    "ownChildExited": true,
+    "stopStatus": "stopped",
+    "reason": "requested"
+  },
+  "portsUnoccupiedAfterStop": true,
+  "supplierKeyRead": false,
+  "supplierApiRequests": 0,
+  "retries": 0,
+  "restarts": 0,
+  "controllerExitCode": 0,
+  "commit": false,
+  "push": false,
+  "certification": {
+    "boundedEmptySessionCheckPassed": true,
+    "modelAccepted": false,
+    "domainCertified": false,
+    "productionApproved": false
+  },
+  "approvalScopeClosed": true
+}

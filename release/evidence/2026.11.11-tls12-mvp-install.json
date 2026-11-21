@@ -1,0 +1,81 @@
+{
+  "date": "2026-11-11",
+  "status": "installed-verified-not-activated",
+  "authorizationQuestionItemId": "call_840fad7f92cd4cc699b46712036f9d26:0",
+  "userAnswer": "批准仅安装此修复包",
+  "proposalDigest": "sha256:7d267afc57286a2dea9def906eb3743a93cb512ea7cd6271071b2b4b0af73fd6",
+  "installPlanDigest": "sha256:2fd764bc7d33a479954aec5b226db83f446c91ef9a3c975c9c9243ac2284b04b",
+  "receiptDigest": "sha256:f6b89292c1b04ef3628e02d5375f8d9bc63ce1764da72d93cfef7acc2d57b161",
+  "archiveDigest": "sha256:5cbc0685790a4e1b9fcbf20b0c9c0609dfd759dcf6ce44043128c906e8f26bf7",
+  "sourceDigest": "sha256:b67b3feefd5487fc2dcd7140631ecf0d5b723a0e3a636562a99b58e2935e57d7",
+  "installerInvocations": 1,
+  "hostExitCode": 0,
+  "resultDigest": "sha256:85adffdd9d6e1e5a868dec2efafbfea7a1dce31ae66b843424524e06d8c94f1f",
+  "installedFiles": 6,
+  "installedDirectories": 4,
+  "rootAndDirectoryModes": "0700",
+  "installedFileModes": "0600",
+  "durableFiles": [
+    "installation.started.json",
+    "installation.complete.json",
+    "install-receipt.json"
+  ],
+  "receiptReadmittedAgainstActualArchiveAndPlan": true,
+  "emptyRuntimeDirectories": {
+    "attempts": 0,
+    "sessions": 0,
+    "turns": 0
+  },
+  "authority": {
+    "before": {
+      "consumptions": 18,
+      "decisions": 68
+    },
+    "consumptions": 19,
+    "decisions": 70,
+    "newConsumptions": 1,
+    "newDecisions": 2,
+    "oldPrefixPreserved": true,
+    "journalDigest": "sha256:e495cf78968127f0c5353789ec027418dcdf8e3fec85dd232f135004fb1c7621"
+  },
+  "budget": {
+    "totalReservedFen": 4898,
+    "remainingFen": 5102,
+    "capFen": 10000,
+    "projectReservations": 30,
+    "newReservedFen": 0
+  },
+  "readonlyPreparation": {
+    "proposalDigest": "sha256:fda047d48c3b1bc40681866961785f3c9ff53f5162cad18317e6f94720c2d540",
+    "activationPlanDigest": "sha256:65344628b9ada3df2e21cad7d9d081c2f6687eaccaa3bf6a2709257e48df13d9",
+    "actualReceiptBound": true,
+    "preflightPassed": true,
+    "newEmptySessionsIfApproved": 2,
+    "authorityDecisionsIfApproved": 4,
+    "humanApprovalAbsent": true,
+    "attemptAbsent": true,
+    "executed": false
+  },
+  "originalInstallScopeClosed": true,
+  "retry": false,
+  "oldFailureArtifactsPreserved": true,
+  "actualSdkExecuted": false,
+  "envFileRead": false,
+  "keyRead": false,
+  "externalNetworkRequests": 0,
+  "activation": false,
+  "modelRequests": 0,
+  "newReservedFen": 0,
+  "commit": false,
+  "push": false,
+  "certification": {
+    "installed": true,
+    "activated": false,
+    "modelAccepted": false,
+    "domainCertified": false,
+    "productionApproved": false
+  },
+  "priorOfflineEvidenceDigest": "sha256:7b0fb0f95ec0621c66acd0881efbf2cccf07ee9a111bd03c1aa7d09927e18eb4",
+  "originalNpmRunCheckExitCode": 1,
+  "singleCleanFullInvocation": false
+}

@@ -1,0 +1,117 @@
+{
+  "schemaVersion": "agentmo.pi-report-delivery-preparation.v1",
+  "date": "2026-11-17",
+  "status": "awaiting-exact-runtime-approval-after-auto-review-rejection",
+  "userDirection": "Supplier cost proof is no longer a prerequisite; complete existing Pi report task",
+  "sourceChanges": [
+    {
+      "path": "test/pi-workspace-integration.test.js",
+      "beforeDigest": "sha256:2f035991d48f5f614241e9ef94d0a23e5b590664116cdec7c283fa1eba7d92f2",
+      "afterDigest": "sha256:f62f7211b75cee282d3407c2f5ee550b3f1c3a1fa87d4a546053e621a46187f7"
+    },
+    {
+      "path": "test/helpers/io-surface-inventory.js",
+      "beforeDigest": "sha256:70ae4903e5726f5a77ede6bf0f84fc0aa797234dcfbf0734485dee35bfb255f4",
+      "afterDigest": "sha256:4032525950bc1ae8ccf6403bf564807048f15447b125964cb1f64c1e68730bbd"
+    },
+    {
+      "path": "test/helpers/pi-workspace-cli-fixture.js",
+      "beforeDigest": "sha256:30a0c7daa23e76768e7564a3fcebaf2c0d20d927c2681ae9fa4e5ed694b8e6de",
+      "afterDigest": "sha256:b77d851a072cafbb224c631e734f31464a962a659988a4b88a1243bf12fde27e"
+    },
+    {
+      "path": "src/pi-chat-cli.js",
+      "beforeDigest": "sha256:587b35ca69f709382a93617949ca4a43a9f51dd802937256ab294cf4f0dadf6f",
+      "afterDigest": "sha256:66607f46654ef79657ec5d85f7feab13cbd36aa30c1c350983150f0269469860"
+    },
+    {
+      "path": "src/pi-workspace-policy.js",
+      "beforeDigest": "sha256:370a3594be630db7a23014602bac6f00b2c522dd16b78b448c5ea49824f07b80",
+      "afterDigest": "sha256:73af42f2a0e7e5fb5f1d07519c20401838bf3520b0339596cd9e87721aa03070"
+    },
+    {
+      "path": "src/pi-cli-run.js",
+      "beforeDigest": "sha256:9d3546e412fcd8534a9b0211dc70ab290cb0737e636ae1f87f0cc2d48a43dae5",
+      "afterDigest": "sha256:04714a04bdee678e2687bf802bea88c1b6b12699e534d38ca08d6d5d7bf34610"
+    },
+    {
+      "path": "src/pi-native-runtime.js",
+      "beforeDigest": "sha256:ced73820af512a8bef5b1edd2e5a75484f55265eae61f7c489a45ded67ff57e9",
+      "afterDigest": "sha256:6f00f720914bfae9541d02e006b241fcb9f688d9f3143045258bb6aaebc649aa"
+    }
+  ],
+  "runtimeSourceDigest": "sha256:36fb08593f6aca214a389a7610dae4ea478fe866554bd90b7b2012295a8c0e64",
+  "packageArchiveDigest": "sha256:943832556821492a0144d249bc0ff8c5da6300262ebe0121cc67360c9d45c7f0",
+  "installPlanDigest": "sha256:097d1b281c245f63a7dc0aa86a3c9effc83ae0ecba0ce6457482c460e530d155",
+  "driverDigest": "sha256:6898386e558450dd33dde15a9d93e5a7df2f7412757fcd2b7fd801a4e1393323",
+  "previewDigest": "sha256:7455b0e6d2dbf8e56ed3c60a32b19c474f8e5a1a5a021c0ff8e3639bb9ed64b5",
+  "proposalPath": ".superpowers/sdd/2026-11-17-pi-report-delivery/delivery-proposal-r1.json",
+  "proposalDigest": "sha256:cabd8be90cdcf250012f70842f812e1ddd66972066d64aaa2d4b9a5efe8706bb",
+  "maximumModelRequests": 6,
+  "sourceBytes": 369,
+  "newAgentRootAbsent": true,
+  "executionRootAbsent": true,
+  "exactApprovalAbsent": true,
+  "supplierCostProofFalsified": false,
+  "supplierCostProofNoLongerRequired": true,
+  "localLedgerAndAllOtherGuardsRetained": true,
+  "autoReview": {
+    "action": "run-report.mjs --execute",
+    "rejectedBeforeProcessCreation": true,
+    "reason": "Requires explicit approval for concrete new source, install and real model scope; general go-ahead not accepted",
+    "workaroundAttempted": false
+  },
+  "actualActions": {
+    "sdkExecutions": 0,
+    "agentInstallations": 0,
+    "activations": 0,
+    "modelRequests": 0,
+    "keyRead": false,
+    "newReservedFen": 0,
+    "commit": false,
+    "push": false
+  },
+  "budget": {
+    "totalReservedFen": 5053,
+    "projectReservations": 35,
+    "capFen": 10000
+  },
+  "authorityJournalDigest": "sha256:4443f14fde204003f020df86cbfa89bee1d4df630562a8dd059923fbc0215fbc",
+  "validation": {
+    "focusedTests": {
+      "pass": 17,
+      "fail": 0
+    },
+    "ioAndDocsTests": {
+      "pass": 36,
+      "fail": 0
+    },
+    "independentCodeReview": "pass; actual admitted install plan bound to precise approval",
+    "runnerPreflight": "passed with final driver; SDK/model 0",
+    "npmRunCheck": {
+      "status": "running",
+      "singleAllGreenClaim": false,
+      "observedFailedTests": [
+        "classifies every current repository write/output surface with one exact owner and status",
+        "builds verifier-inclusive releases and keeps caller decisions nonterminal"
+      ],
+      "fixedAndRetested": [
+        "stale I/O source line inventory; 36 checks pass"
+      ],
+      "otherFailureCause": "not yet determined; original full log retained"
+    },
+    "officialSpecializedChecks": {
+      "durableFs": "2 passed",
+      "packedHookChain": "1 passed",
+      "packedBehavior": "running",
+      "immutableSuccessor": "not yet started"
+    },
+    "localLinksChecked": 244,
+    "proposalAndDriverDigests": "passed",
+    "historicalResultDigests": "unchanged",
+    "gitDiffCheck": "passed"
+  },
+  "historicalFailuresPreserved": true,
+  "snapshotKind": "before exact execution; historical preparation",
+  "subsequentExecutionEvidence": "release/evidence/2026.11.17-pi-report-delivery-execution.json"
+}

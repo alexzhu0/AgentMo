@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "agentmo.pi-workspace-tools-execution.v1",
+  "date": "2026-11-16",
+  "status": "failed-preserved-no-retry",
+  "proposalDigest": "sha256:fee3a0cd08fce0e13da051a3bf1001903b61c84ec2e89e4d1e64cfcb6ec92268",
+  "phase": "native-wire",
+  "code": "CHILD_PROTOCOL_OR_TOOL_REJECTED",
+  "mockRequests": 0,
+  "actualProviderRequests": 0,
+  "realSdkAttempted": true,
+  "cleanup": "stopped",
+  "ownChildExited": true,
+  "retries": 0,
+  "restarts": 0,
+  "scopeClosed": true,
+  "originalResultDigest": "sha256:bf2f36e30c7e0ad0ad1e81fa17299cdb743da33545f3eb1521e28fb4ad292034",
+  "postrun": {
+    "budget": {
+      "totalReservedFen": 5053,
+      "projectReservations": 35,
+      "capFen": 10000,
+      "newReservedFen": 0
+    },
+    "authority": {
+      "consumptions": 25,
+      "decisions": 95,
+      "newConsumptions": 0,
+      "newDecisions": 0,
+      "journalDigest": "sha256:4443f14fde204003f020df86cbfa89bee1d4df630562a8dd059923fbc0215fbc",
+      "journalUnchanged": true
+    },
+    "reportStaged": false,
+    "newSyntheticSessions": 1,
+    "sessionMetadata": [
+      {
+        "directoryIdDigest": "sha256:45d47fd31992f7e801c1b8940b500dfc42d97abba02fb287a6b097334e193e90",
+        "fileCount": 1,
+        "nativeJsonlFiles": 1
+      }
+    ],
+    "productFilesUnchanged": 45,
+    "installationReceiptUnchanged": true,
+    "oldFailureFilesUnchanged": 7,
+    "runnerBytesUnchanged": true
+  },
+  "diagnosis": {
+    "boundary": "First SDK request reached parent mock IPC and failed native-wire assertions before any mock SSE reply.",
+    "exactFieldMismatch": "unobserved; request shape and assertion detail were not persisted",
+    "toolCalls": 0,
+    "readWriteVerified": false,
+    "rawRequestPersisted": false
+  },
+  "certificationBoundary": {
+    "fixedSdkStarted": true,
+    "firstRequestReachedHost": true,
+    "nativeWireVerified": false,
+    "workspaceToolsVerified": false,
+    "modelAccepted": false,
+    "costEnvelopeProven": false
+  },
+  "providerRequestEvidence": "In-memory fetch accepts only logical loopback mock URL; all socket/TLS/HTTP/listen calls denied by fixed guard; not packet capture",
+  "keyRead": false,
+  "productionCostGateChanged": false,
+  "commit": false,
+  "push": false
+}

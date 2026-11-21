@@ -1,3 +1,4 @@
+import { validatePiWorkspace } from './pi-workspace-policy.js';
 import { createHash } from 'node:crypto';
 import { constants } from 'node:fs';
 import { lstat, open, realpath } from 'node:fs/promises';
@@ -26,6 +27,12 @@ const DIGEST = /^sha256:[a-f0-9]{64}$/u;
 const archives = new WeakMap();
 export const PI_INSTALL_PATHS = Object.freeze(['agent.json', 'browser/client.js', 'browser/index.html', 'browser/style.css', 'runtime-binding.json', 'system.md']);
 export const PI_STATE_DIRECTORIES = Object.freeze(['attempts', 'browser', 'sessions', 'turns']);
+export function piInstallLayout({ admittedWorkspace } = {}) {
+  if (admittedWorkspace === undefined) return { files: [...PI_INSTALL_PATHS], directories: [...PI_STATE_DIRECTORIES] };
+  if (!validatePiWorkspace(admittedWorkspace).ok) piReject();
+  return { files: [...PI_INSTALL_PATHS, 'workspace-policy.json', `skills/${admittedWorkspace.skill.name}/SKILL.md`].sort(),
+    directories: [...PI_STATE_DIRECTORIES, 'skills', `skills/${admittedWorkspace.skill.name}`].sort() };
+}
 export const PI_RUNTIME_WRITES = Object.freeze(['sessions/<uuid>/registration.json', 'sessions/<uuid>/sdk-session.json',
   'sessions/<uuid>/sdk-file.json', 'sessions/<uuid>/*_<uuid>.jsonl', 'sessions/<uuid>/auth.json.lock',
   'turns/<uuid>.<state>.json', 'attempts/pi-*']);
@@ -62,8 +69,11 @@ export async function admitPiPackageArchive({ filePath, expectedDigest }) {
     relativePath: m.relativePath.slice('projections/pi/'.length), mode: 0o600,
     byteLength: m.byteLength, sha256: m.sha256, bytes: Buffer.from(m.contentBase64, 'base64'),
   }));
-  if (!isDeepStrictEqual(files.map(f => f.relativePath), PI_INSTALL_PATHS)) piReject();
-  archives.set(admission, { files, binding: { archiveDigest: expectedDigest, manifestDigest: snapshot.manifestDigest,
+  const workspace = snapshot.manifest.value.pi_workspace;
+  if (!isDeepStrictEqual(files.map(f => f.relativePath), piInstallLayout({ admittedWorkspace: workspace }).files)) piReject();
+  if (workspace && (!isDeepStrictEqual(JSON.parse(files.find(f => f.relativePath === 'workspace-policy.json').bytes), workspace)
+    || files.find(f => f.relativePath.endsWith('/SKILL.md')).bytes.toString('utf8') !== workspace.skill.body)) piReject();
+  archives.set(admission, { files, ...(workspace ? { workspace } : {}), binding: { archiveDigest: expectedDigest, manifestDigest: snapshot.manifestDigest,
     inventoryDigest: snapshot.inventoryDigest }, identity: observed.identity });
   return admission;
 }
@@ -99,7 +109,8 @@ export function piPlanningSources(admissions) {
 }
 
 export function validatePiNativeBinding(v) {
-  return piKeys(v, ['native_runtime', 'agentId', 'stateRootDigest', 'modelProfile', 'chatPort', 'proxyPort', 'budgetReference', 'targetDescriptorDigest', 'runtimeSourceDigest', 'packageArchiveDigest', 'buildContractDigest'])
+  return piKeys(v, ['native_runtime', 'agentId', 'stateRootDigest', 'modelProfile', 'chatPort', 'proxyPort', 'budgetReference', 'targetDescriptorDigest', 'runtimeSourceDigest', 'packageArchiveDigest', 'buildContractDigest', ...Object.hasOwn(v ?? {}, 'pi_workspace') ? ['pi_workspace'] : []])
+    && (!Object.hasOwn(v, 'pi_workspace') || validatePiWorkspace(v.pi_workspace).ok)
     && v.native_runtime === 'pi' && /^[a-z][a-z0-9-]{0,63}$/u.test(v.agentId ?? '') && v.modelProfile === 'minimax-m3-cn-v1'
     && ['stateRootDigest', 'targetDescriptorDigest', 'runtimeSourceDigest', 'packageArchiveDigest', 'buildContractDigest'].every(k => DIGEST.test(v[k]))
     && [v.chatPort, v.proxyPort].every(p => Number.isInteger(p) && p >= 1024 && p <= 65535) && v.chatPort !== v.proxyPort
@@ -139,11 +150,11 @@ export function buildPiInstallPlan(options) {
   }
   const value = { schemaVersion: PI_INSTALL_PLAN_SCHEMA_VERSION, execution_profile: 'native-chat', native_runtime: 'pi',
     lifecycle: options.lifecycle, sourceBindings: sources, archiveBinding: archive.binding, authorityRootBinding: options.authorityRootBinding,
-    nativeBinding: { native_runtime: 'pi', agentId, stateRootDigest: piHash(options.stateRoot), modelProfile: 'minimax-m3-cn-v1', chatPort: options.ports.chat,
+    nativeBinding: { ...(archive.workspace ? { pi_workspace: archive.workspace } : {}), native_runtime: 'pi', agentId, stateRootDigest: piHash(options.stateRoot), modelProfile: 'minimax-m3-cn-v1', chatPort: options.ports.chat,
       proxyPort: options.ports.proxy, budgetReference: options.budgetReference, targetDescriptorDigest: sources.targetDescriptor.digest,
       runtimeSourceDigest: target.runtimeSourceDigest, packageArchiveDigest: archive.binding.archiveDigest, buildContractDigest: sources.buildContract.digest },
     operations: options.lifecycle === 'install' ? archive.files.map(({ bytes, ...file }) => ({ kind: 'write', ...file })) : [],
-    directories: [...PI_STATE_DIRECTORIES], durableFiles: ['installation.started.json', 'installation.complete.json', 'installation.incomplete.json', 'install-receipt.json'],
+    directories: piInstallLayout({ admittedWorkspace: archive.workspace }).directories, durableFiles: ['installation.started.json', 'installation.complete.json', 'installation.incomplete.json', 'install-receipt.json'],
     sensitiveActions: options.lifecycle === 'install' ? [] : [...(approvedCases.length ? ['load-minimax-key-in-memory'] : []), 'start-budget-proxy', 'start-pi-child'].map(id => ({ id })),
     conflicts: [], predecessor, activationId, approvedCases, restartAllowance,
     runtimeWrites: options.lifecycle === 'activate' ? [...PI_RUNTIME_WRITES] : [], certificationBoundary: { ...boundary } };
@@ -167,7 +178,7 @@ export function validatePiInstallPlan(v) {
       || v.nativeBinding.targetDescriptorDigest !== v.sourceBindings.targetDescriptor.digest
       || v.nativeBinding.buildContractDigest !== v.sourceBindings.buildContract.digest
       || v.nativeBinding.packageArchiveDigest !== v.archiveBinding.archiveDigest
-      || !isDeepStrictEqual(v.directories, PI_STATE_DIRECTORIES)
+      || !isDeepStrictEqual(v.directories, piInstallLayout({ admittedWorkspace: v.nativeBinding.pi_workspace }).directories)
       || !isDeepStrictEqual(v.durableFiles, ['installation.started.json', 'installation.complete.json', 'installation.incomplete.json', 'install-receipt.json'])
       || !isDeepStrictEqual(v.conflicts, []) || !isDeepStrictEqual(v.certificationBoundary, boundary)) piReject();
     const install = v.lifecycle === 'install';
@@ -175,7 +186,7 @@ export function validatePiInstallPlan(v) {
     if (!validatePiApprovedCases(v.approvedCases) || ![0, 1].includes(v.restartAllowance)
       || install && (v.approvedCases.length || v.restartAllowance) || !v.approvedCases.length && v.restartAllowance
       || !isDeepStrictEqual(v.runtimeWrites, install ? [] : PI_RUNTIME_WRITES)) piReject();
-    if (!Array.isArray(v.operations) || !isDeepStrictEqual(v.operations.map(op => op.relativePath), install ? PI_INSTALL_PATHS : [])
+    if (!Array.isArray(v.operations) || !isDeepStrictEqual(v.operations.map(op => op.relativePath), install ? piInstallLayout({ admittedWorkspace: v.nativeBinding.pi_workspace }).files : [])
       || v.operations.some(op => !piKeys(op, ['kind', 'relativePath', 'mode', 'byteLength', 'sha256']) || op.kind !== 'write'
         || op.mode !== 0o600 || !DIGEST.test(op.sha256) || !Number.isSafeInteger(op.byteLength) || op.byteLength < 1 || op.byteLength > 1024 * 1024)
       || !isDeepStrictEqual(v.sensitiveActions, install ? [] : [...(v.approvedCases.length ? ['load-minimax-key-in-memory'] : []), 'start-budget-proxy', 'start-pi-child'].map(id => ({ id })))

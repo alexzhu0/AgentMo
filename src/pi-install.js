@@ -5,7 +5,7 @@ import { admittedArtifactProvenance, loadAdmittedArtifact } from './artifact-adm
 import { consumeNativeAuthoritySet, verifyNativeAuthorityConsumption } from './native-chat-authority.js';
 import { publishNativeChatFiles, writeNativeChatFile } from './native-chat-files.js';
 import { admitPiPackageArchive, buildPiInstallPlan, piArchiveSnapshot, piPlanningSources, piBytes, piHash, piKeys,
-  piIdentity, piReject, readPiPrivateFile, validatePiNativeBinding, PI_INSTALL_PATHS } from './pi-install-plan.js';
+  piIdentity, piReject, readPiPrivateFile, validatePiNativeBinding, piInstallLayout } from './pi-install-plan.js';
 
 export const PI_INSTALL_RECEIPT_SCHEMA_VERSION = 'agentmo.pi-install-receipt.v1';
 const receipts = new WeakSet();
@@ -22,10 +22,10 @@ export function validatePiInstallReceipt(value) {
       || !isDeepStrictEqual(value.certificationBoundary, boundary) || !DIGEST.test(value.authorityConsumption?.consumptionDigest)
       || value.authorityConsumption.installPlanDigest !== value.installPlanDigest
       || !piKeys(value.rootIdentity, ['device', 'inode', 'birthtimeNs'])
-      || !Array.isArray(value.files) || !isDeepStrictEqual(value.files.map(f => f.relativePath), PI_INSTALL_PATHS)
+      || !Array.isArray(value.files) || !isDeepStrictEqual(value.files.map(f => f.relativePath), piInstallLayout({ admittedWorkspace: value.nativeBinding.pi_workspace }).files)
       || value.files.some(f => !piKeys(f, ['relativePath', 'sha256', 'byteLength', 'identity']) || !DIGEST.test(f.sha256)
         || !Number.isSafeInteger(f.byteLength) || f.byteLength < 1 || !piKeys(f.identity, ['device', 'inode', 'birthtimeNs']))
-      || !Array.isArray(value.directories) || !isDeepStrictEqual(value.directories.map(d => d.relativePath), ['attempts', 'browser', 'sessions', 'turns'])
+      || !Array.isArray(value.directories) || !isDeepStrictEqual(value.directories.map(d => d.relativePath), piInstallLayout({ admittedWorkspace: value.nativeBinding.pi_workspace }).directories)
       || value.directories.some(d => !piKeys(d, ['relativePath', 'identity']) || !piKeys(d.identity, ['device', 'inode', 'birthtimeNs']))) piReject();
     return { ok: true, errors: [] };
   } catch { return { ok: false, errors: ['Pi complete receipt requires exact installation facts.'] }; }
@@ -48,7 +48,12 @@ export async function verifyPiInstallation({ receipt, plan, stateRoot, authority
   if (!isDeepStrictEqual(sources, plan.sourceBindings) || !isDeepStrictEqual(archive.binding, plan.archiveBinding)) piReject();
   await verifyNativeAuthorityConsumption({ authorityRoot, plan, consumptionDigest: receipt.authorityConsumption.consumptionDigest });
   await directory(stateRoot, receipt.rootIdentity);
-  const allowed = ['agent.json', 'attempts', 'browser', 'install-receipt.json', 'installation.complete.json', 'installation.started.json', 'runtime-binding.json', 'sessions', 'system.md', 'turns'];
+  const workspace = receipt.nativeBinding.pi_workspace;
+  if (workspace) {
+    if (!isDeepStrictEqual((await readdir(path.join(stateRoot, 'skills'))).sort(), [workspace.skill.name])
+      || !isDeepStrictEqual(await readdir(path.join(stateRoot, 'skills', workspace.skill.name)), ['SKILL.md'])) piReject();
+  }
+  const allowed = [...(workspace ? ['skills', 'workspace-policy.json'] : []), 'agent.json', 'attempts', 'browser', 'install-receipt.json', 'installation.complete.json', 'installation.started.json', 'runtime-binding.json', 'sessions', 'system.md', 'turns'];
   if ((await readdir(stateRoot)).some(name => !allowed.includes(name))) piReject();
   if (!isDeepStrictEqual((await readdir(path.join(stateRoot, 'browser'))).sort(), ['client.js', 'index.html', 'style.css'])) piReject();
   for (const row of receipt.files) {

@@ -9,12 +9,12 @@ import { connectPiCli } from '../src/pi-cli-client.js';
 import { createPiConformanceHttpsRequest } from '../scripts/pi-sdk-conformance.js';
 import { digest } from './helpers/pi-native-fixture.js';
 
-async function fixture(t, terminal = {}) {
+async function fixture(t, terminal = {}, createdSessionIds) {
   const root = await realpath(await mkdtemp(path.join(tmpdir(), 'pi-cli-client-')));
   t.after(() => rm(root, { recursive: true, force: true }));
   const accessFile = path.join(root, `pi-run-${'a'.repeat(64)}-1.login.txt`), secret = '1'.repeat(48);
   await writeFile(accessFile, secret, { mode: 0o600 });
-  const sessionId = randomUUID(), turnId = randomUUID(), text = 'Product: Atlas', calls = [];
+  const sessionId = randomUUID(), turnId = randomUUID(), text = 'Product: Atlas', calls = []; let creates = 0;
   t.mock.method(http, 'request', createPiConformanceHttpsRequest(async (url, init) => {
     calls.push({ url, method: init.method });
     const route = new URL(url).pathname;
@@ -25,7 +25,7 @@ async function fixture(t, terminal = {}) {
     assert.equal(init.headers.cookie, `agentmo_pi_session=${'2'.repeat(64)}`);
     if (route === '/api/turns') return Response.json({ sessionId, turnId, status: 'received' }, { status: 202 });
     if (route.endsWith('/events')) return new Response(`event: turn\ndata: ${JSON.stringify({ sessionId, turnId, status: 'completed', text: 'actual reply', ...terminal })}\n\n`, { headers: { 'content-type': 'text/event-stream' } });
-    if (route === '/api/sessions' && init.method === 'POST') return Response.json({ id: sessionId }, { status: 201 });
+    if (route === '/api/sessions' && init.method === 'POST') return Response.json({ id: createdSessionIds?.[creates++] ?? sessionId }, { status: 201 });
     return Response.json({ sessions: [{ id: sessionId, createdAt: '2026-11-06T00:00:00.000Z' }], canSend: true, nextCaseId: 'cli-turn' });
   }));
   const caseSpec = { caseId: 'cli-turn', sessionId, inputDigest: digest(text) };
@@ -56,4 +56,19 @@ test('session creation cannot send a turn or create twice', async t => {
   const f = await fixture(t), client = await connectPiCli({ accessFile: f.accessFile, port: 19492, mode: 'create-session', caseSpec: null });
   assert.equal((await client.createSession()).id, f.sessionId);
   await assert.rejects(client.createSession()); await assert.rejects(client.submit({})); await client.close();
+});
+
+test('separate authenticated clients each create one session without sharing their single-use guard', async t => {
+  const ids = ['11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222'];
+  const f = await fixture(t, {}, ids);
+  for (const id of ids) {
+    const client = await connectPiCli({ accessFile: f.accessFile, port: 19492, mode: 'create-session', caseSpec: null });
+    try {
+      assert.equal((await client.createSession()).id, id);
+      await assert.rejects(client.createSession());
+    } finally { await client.close(); }
+  }
+  assert.equal(f.calls.filter(c => c.url.endsWith('/api/login')).length, 2);
+  assert.equal(f.calls.filter(c => c.url.endsWith('/api/sessions') && c.method === 'POST').length, 2);
+  assert.equal(f.calls.some(c => c.url.includes('/api/turns')), false);
 });

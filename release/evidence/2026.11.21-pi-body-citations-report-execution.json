@@ -1,0 +1,203 @@
+{
+  "schemaVersion": "agentmo.pi-workspace-report-execution.v1",
+  "date": "2026-11-21",
+  "status": "execution-passed-content-review-failed",
+  "proposalDigest": "sha256:ed75a92931128c3ab2a059f12babf91f7fef562b2e48efea2d92fb2dc01134f5",
+  "proposalScopeClosed": true,
+  "executions": 1,
+  "retries": 0,
+  "restarts": 0,
+  "runnerExitCode": 0,
+  "installation": {
+    "status": "installed-verified",
+    "receiptDigest": "sha256:d4316effc1b2928ae61eca169c881a95ceba34a841bfd6044fcd122e21be5e4a",
+    "files": 8,
+    "directories": 6,
+    "runtimeSourceDigest": "sha256:f2f0dba6f9493c16055eebc925f36531c2641b0cd7ada904f72ad242e864def2",
+    "packageArchiveDigest": "sha256:c5d58de2bfc0d42d1736f0998ba5e89d74a8c827e57111920100905be0682e4a",
+    "installPlanDigest": "sha256:9adff7434cde5631448dc5f8779c95f7fd00aed21f6c299836e53af092e81a8c"
+  },
+  "emptySession": {
+    "status": "created",
+    "cleanup": "stopped",
+    "modelRequests": 0,
+    "newReservedFen": 0
+  },
+  "reportTask": {
+    "technicalStatus": "passed",
+    "model": "MiniMax-M3",
+    "requests": 3,
+    "maximumRequests": 6,
+    "tools": 4,
+    "writes": 1,
+    "httpStatuses": [
+      200,
+      200,
+      200
+    ],
+    "artifactLocallyPublished": true,
+    "reportBytes": 3668,
+    "reportDigest": "sha256:555f0bbd59e5557d38b066cde636e595e0e204768dceb5e86b156176288caf69",
+    "copyMatchesNative": true,
+    "bodyMarkerOccurrences": 29,
+    "generatedCitationRows": 12,
+    "allCanonicalAndWithinSourceLineRanges": true,
+    "review": {
+      "status": "FAIL",
+      "reviewer": "atlas_report_review",
+      "scope": "One independent read-only review of the generated report and the two approved synthetic sources",
+      "reportDigest": "sha256:555f0bbd59e5557d38b066cde636e595e0e204768dceb5e86b156176288caf69",
+      "structureAndCoreFacts": "passed",
+      "citationSupport": "failed",
+      "findings": [
+        {
+          "reportLine": 16,
+          "claim": "project name",
+          "cited": [
+            {
+              "sourceId": "source-1",
+              "startLine": 2,
+              "endLine": 2
+            },
+            {
+              "sourceId": "source-2",
+              "startLine": 2,
+              "endLine": 2
+            }
+          ],
+          "finding": "Both cited lines are blank.",
+          "support": {
+            "sourceId": "source-1",
+            "startLine": 3,
+            "endLine": 3
+          }
+        },
+        {
+          "reportLine": 17,
+          "claim": "owner",
+          "cited": [
+            {
+              "sourceId": "source-1",
+              "startLine": 3,
+              "endLine": 3
+            }
+          ],
+          "finding": "Cited line contains the project name.",
+          "support": {
+            "sourceId": "source-1",
+            "startLine": 4,
+            "endLine": 4
+          }
+        },
+        {
+          "reportLine": 18,
+          "claim": "deadline",
+          "cited": [
+            {
+              "sourceId": "source-1",
+              "startLine": 4,
+              "endLine": 4
+            }
+          ],
+          "finding": "Cited line names the owner.",
+          "support": {
+            "sourceId": "source-1",
+            "startLine": 5,
+            "endLine": 5
+          }
+        },
+        {
+          "reportLine": 19,
+          "claim": "project goal",
+          "cited": [
+            {
+              "sourceId": "source-1",
+              "startLine": 5,
+              "endLine": 5
+            }
+          ],
+          "finding": "Cited line gives the deadline.",
+          "support": {
+            "sourceId": "source-1",
+            "startLine": 6,
+            "endLine": 6
+          }
+        },
+        {
+          "reportLine": 42,
+          "claim": "implementation in progress",
+          "finding": "The plan states the desired goal and does not establish implementation progress."
+        }
+      ],
+      "sourceDigests": {
+        "source-1": "sha256:5c91264d5f07d0bb8d80f957f2448a5175d85a2e656928443173b3ce3b0f5ab7",
+        "source-2": "sha256:b9fa5f3bc9d5540b11588c7d4c09cae0479d83dde5e0c68e4e0b084662b61946"
+      }
+    },
+    "acceptedReportDelivered": false,
+    "cliHandoffDelivered": false,
+    "artifactPreservedForReview": true
+  },
+  "cleanup": {
+    "stopReceipts": [
+      {
+        "status": "stopped",
+        "reason": "requested",
+        "ownChildExited": true,
+        "digest": "sha256:3df62b82b209135fbc2fb944160650d2317344f3f3c5148c726c7980cd351b30"
+      },
+      {
+        "status": "stopped",
+        "reason": "requested",
+        "ownChildExited": true,
+        "digest": "sha256:92eb9fdcc814b40977f0959b5b8d195e0db6561ca49d019efbce7fc32fa0b200"
+      }
+    ],
+    "ownedChildrenExited": true,
+    "noListenersOn19492Or19493": true,
+    "observerRestored": true
+  },
+  "budget": {
+    "beforeFen": 5208,
+    "addedFen": 93,
+    "afterFen": 5301,
+    "reservations": 43,
+    "capFen": 10000
+  },
+  "authority": {
+    "before": {
+      "consumptions": 34,
+      "decisions": 128
+    },
+    "after": {
+      "consumptions": 37,
+      "decisions": 139
+    },
+    "oldPrefixPreserved": true,
+    "journalDigest": "sha256:7c7531d7d15d3cbeba4caa84e1130aa9db10428e79dbf9d549d47567c0d6416b"
+  },
+  "verification": {
+    "focusedPassed": 90,
+    "offlinePreflight": "passed",
+    "fullNpmCheck": "running-at-execution-closeout",
+    "currentFullPassClaim": false
+  },
+  "evidenceDigests": {
+    "approval": "sha256:f733b5ea06e839462efb2aef0b84d5e05c7ee69835534e9737316de4f78ff255",
+    "driver": "sha256:54665c817401229c018fc024ca8d3b062e6f09a8746f1fc603c3a23888729b8d",
+    "preview": "sha256:b4119f7f8752ada0481c626425a92fc7ae81c8928fcc5582b551f3b1c52bdc42",
+    "observer": "sha256:9be9725b6b4e2c46d2bd9e11c3c453e49ec170a478675b26513be1d5dcc944dc",
+    "runnerRecords": {
+      "single-run-claim.json": "sha256:fd06b24c4d6b2b02de1af4d708e87eb51f12266753e52a6c29122c778dd5bf34",
+      "installation.json": "sha256:29a19204361fe7967f0f22f1b2b73d9c258bfde297062335649b3b7a0c061c17",
+      "session-result.json": "sha256:c8417a460717f423586f495e2946ed5db66db5e5a95c5770a14451b1deca9c58",
+      "report-result.json": "sha256:9bd401013dd5a3832732ce5e921dd41f305eda23595d440e0b3c47eeba4f4a1d",
+      "connection-observation.json": "sha256:1d32619e639168619a6feb3941ec89ba20d888ff9b8fb3eebc8f94c68ceb85cb",
+      "result.json": "sha256:d696d9192c2f958ec49a32660666506752a8be21eacad0172051f466410f53df"
+    }
+  },
+  "supplierKeyHandling": "existing-parent-runtime-only",
+  "olderFailuresPreserved": true,
+  "commit": false,
+  "push": false
+}

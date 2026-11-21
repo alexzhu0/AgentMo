@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util';
 import { createHash } from "node:crypto";
 import path from "node:path";
 import {
@@ -34,7 +35,8 @@ export function draftBlueprint(discoveryDb, userNeed, options = {}) {
   if (nativeChat && runtime !== nativeChatRuntime(userNeed)) throw new Error("native-chat target runtime must match its explicit source selection.");
   if (designPlan !== null) {
     assertDesignPlanForDraft(designPlan, { agentId, domain: userNeed.domain, runtime });
-    if (designPlan.execution_profile !== userNeed.execution_profile
+    if (!isDeepStrictEqual(designPlan.pi_workspace, userNeed.pi_workspace)
+      || designPlan.execution_profile !== userNeed.execution_profile
       || designPlan.native_model_profile !== userNeed.native_model_profile
       || Object.hasOwn(designPlan, "native_runtime") !== Object.hasOwn(userNeed, "native_runtime")
       || designPlan.native_runtime !== userNeed.native_runtime) {
@@ -68,6 +70,7 @@ export function draftBlueprint(discoveryDb, userNeed, options = {}) {
     ...(nativeChat ? { execution_profile: "native-chat" } : {}),
     ...(Object.hasOwn(userNeed, "native_model_profile") ? { native_model_profile: userNeed.native_model_profile } : {}),
     ...(Object.hasOwn(userNeed, "native_runtime") ? { native_runtime: userNeed.native_runtime } : {}),
+    ...(Object.hasOwn(userNeed, "pi_workspace") ? { pi_workspace: structuredClone(userNeed.pi_workspace) } : {}),
     agent_id: agentId,
     runtime,
     status: "draft",

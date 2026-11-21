@@ -1,0 +1,113 @@
+{
+  "date": "2026-11-09",
+  "status": "offline-complete-awaiting-explicit-network-approval",
+  "proposalDigest": "sha256:4c253aab03befea68504b52e61cbee7706c72b5d06c4849d1ec4868cf563798b",
+  "preview": "docs/poc/core-mvp/node-tls12-preview.md",
+  "pinsVerified": 7,
+  "offlineObservation": {
+    "nodeVersion": "v24.18.0",
+    "opensslVersion": "3.5.7",
+    "nodeTlsMin": "TLSv1.2",
+    "nodeTlsMax": "TLSv1.3",
+    "tls12ContextMaxProto": 771,
+    "nodeDnsOrder": "verbatim",
+    "nodeAutoSelectFamily": true,
+    "nodeAutoSelectFamilyAttemptTimeoutMs": 250,
+    "nodeDomainSniDerivedByAgent": true,
+    "httpsPassesOptionsToTls": true,
+    "secureTransportHeaderDigest": "sha256:66dddef1036cf3c6eaa691c54c77587ec39f8d495575d4ed7df40c607ecb1835",
+    "secureTransportHeaderNamesTls12": true,
+    "secureTransportHeaderNamesTls13": false,
+    "curlBackend": "SecureTransport",
+    "curlObservedProtocol": null
+  },
+  "hypothesis": "One new Node HEAD capped at TLS 1.2 may complete TLS/HTTP where the earlier default-range Node sample did not. This is a candidate, not a proven cause.",
+  "sniInference": "Installed Node agent source derives domain SNI and forwards options to tls.connect; no explicit SNI omission was found in the retained request options. No wire capture was taken.",
+  "limits": [
+    "The prior curl sample did not record negotiated TLS version.",
+    "Local SecureTransport headers list TLS 1.2, but do not prove what the earlier connection negotiated.",
+    "DNS/family, ALPN, cipher suites, trust implementation and time remain uncontrolled differences.",
+    "A single new sample cannot prove the old ECONNRESET cause or model readiness."
+  ],
+  "selfcheck": {
+    "casesPassed": 8,
+    "actualHostWhitelistPassed": true,
+    "syntaxCheckPassed": true,
+    "actualNetworkCalls": 0,
+    "sensitiveFieldGettersRefused": true
+  },
+  "plannedOperation": {
+    "method": "HEAD",
+    "url": "https://api.minimax.cn/anthropic/v1/messages",
+    "maximumApplicationCalls": 1,
+    "maxVersion": "TLSv1.2",
+    "unchangedDefaultMinVersion": "TLSv1.2",
+    "requestDeadlineMs": 10000,
+    "executionBranchDeadlineMs": 15000,
+    "executionBranchDeadlineIncludesPreflightIo": true,
+    "agent": false,
+    "certificateVerification": true,
+    "authorizationHeader": false,
+    "cookie": false,
+    "body": false,
+    "redirects": 0,
+    "retries": 0,
+    "explicitAddressOrFamily": false,
+    "explicitAlpn": false,
+    "explicitCiphers": false,
+    "proxyOrCaChanges": false
+  },
+  "plannedObservations": {
+    "stageBooleans": [
+      "socketAssigned",
+      "lookupObserved",
+      "tcpConnected",
+      "tlsConnected",
+      "responseHeaders"
+    ],
+    "tlsProtocolLabels": [
+      "TLSv1.2",
+      "UNEXPECTED",
+      null
+    ],
+    "httpStatus": true,
+    "existingWhitelistedNetworkCode": true,
+    "elapsedMsBound": 15000,
+    "rawIpHeadersBodyCertificatesErrors": false
+  },
+  "humanApprovalAbsent": true,
+  "operationDirectoryAbsent": true,
+  "networkExecuted": false,
+  "priorExecutionEvidence": {
+    "release/evidence/2026.11.09-mvp-network-r2-execution.json": "sha256:6e1d75e58bf93b095cd6165df9822e797e4f025b49e0251ce1693a4bf14c01a4",
+    "release/evidence/2026.11.09-tls-client-contrast-execution.json": "sha256:5a17ecc1995a410d4d438995e478407a2187e7ba59dcc570e4d03eb1f2e8b989"
+  },
+  "priorScopesClosed": true,
+  "oldRunnerPreviewAndProposalPinsPreserved": 11,
+  "budget": {
+    "totalReservedFen": 4898,
+    "projectReservations": 30,
+    "remainingFen": 5102,
+    "capFen": 10000,
+    "newReservedFen": 0
+  },
+  "authority": {
+    "consumptions": 18,
+    "decisions": 68,
+    "journalDigest": "sha256:573f6c51a205c0f2f9a42f122d7b6eeaf6f4dcc51893d61a65ea0664c4e406f5",
+    "mutated": false
+  },
+  "sourceDigest": "sha256:c0b4f2359c79c8d6f648795376f9e0e03fd7de6e29f77fc98d06f60ebad9f5eb",
+  "productionSourceChanged": false,
+  "envFileRead": false,
+  "keyRead": false,
+  "sdkExecuted": false,
+  "agentInstalled": false,
+  "agentActivated": false,
+  "modelRequests": 0,
+  "newReservedFen": 0,
+  "systemSettingsChanged": false,
+  "oldFailureArtifactsPreserved": true,
+  "committed": false,
+  "pushed": false
+}

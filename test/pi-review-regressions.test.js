@@ -63,7 +63,8 @@ test('conformance remembers every denied fetch and socket even when callers swal
  let fetches=0,sockets=0;const guard=script.createPiConformanceNetworkGuard({fetch:async()=>{fetches++;return new Response('{}');},connect:()=>{sockets++;},completion:async()=>new Response('{}')});
  await assert.rejects(guard.fetch('https://example.invalid/background'));assert.throws(()=>guard.connect({host:'example.invalid',port:443}));
  assert.equal(fetches,0);assert.equal(sockets,0);assert.equal(guard.counts().deniedAttempts,2);assert.throws(()=>guard.assertClean());
- await guard.fetch('https://api.minimax.cn/anthropic/v1/messages',{});assert.equal(guard.counts().upstreamRequests,1);assert.equal(guard.counts().deniedAttempts,2);assert.throws(()=>guard.assertClean());
+ await guard.fetch('https://api.minimaxi.com/anthropic/v1/messages',{});assert.equal(guard.counts().upstreamRequests,1);
+ await assert.rejects(guard.fetch('https://api.minimax.cn/anthropic/v1/messages',{}));assert.equal(guard.counts().deniedAttempts,3);assert.throws(()=>guard.assertClean());
 });
 test('conformance timeout waits for abort and disconnect fails after a partial stream',async()=>{
  const script=await local('scripts/pi-sdk-conformance.js');assert.equal(typeof script.piConformanceMockResponse,'function');

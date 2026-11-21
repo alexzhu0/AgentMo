@@ -18,7 +18,7 @@ import { writeNativeChatFile, assertNativeChatAbsentRoot } from '../src/native-c
 import { loadPiSdk, piFinalText } from '../src/pi-sdk.js';
 
 const MODULE = fileURLToPath(import.meta.url), PORT = 19593;
-const LOCAL = `http://127.0.0.1:${PORT}/v1/messages`, UPSTREAM = 'https://api.minimax.cn/anthropic/v1/messages';
+const LOCAL = `http://127.0.0.1:${PORT}/v1/messages`, UPSTREAM = 'https://api.minimaxi.com/anthropic/v1/messages';
 // v1.2.0 cache warming has a 60-minute maximum horizon; observe beyond that horizon.
 export const PI_CONFORMANCE_IDLE_MS = 61 * 60000;
 export const PI_CONFORMANCE_MAX_MS = 75 * 60000;

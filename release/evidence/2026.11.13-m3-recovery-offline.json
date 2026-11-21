@@ -1,0 +1,144 @@
+{
+  "schemaVersion": "agentmo.bounded-evidence-summary.v1",
+  "date": "2026-11-13",
+  "scope": "offline-investigation-of-closed-core-recovery-failure",
+  "status": "failure-layer-narrowed-reset-origin-unresolved",
+  "runtimeSourceDigest": "sha256:b67b3feefd5487fc2dcd7140631ecf0d5b723a0e3a636562a99b58e2935e57d7",
+  "originalProposalDigest": "sha256:ab5c87aadd137c7937945c9d2c792b488c681acba81f412d84341228f8c0f8d3",
+  "originalResultDigest": "sha256:019e33aad9e0a117f3d4fba7a4531297adfad40a797d6b5a3e0c7989acdb3366",
+  "originalPublicEvidenceDigest": "sha256:f92450d6762b0cd21c7b843462ee687e4444b42eaaa705578f4da4e96ed37554",
+  "timing": [
+    {
+      "caseId": "core-entry",
+      "terminal": "completed",
+      "sentMarkerToTerminalMs": 5931,
+      "measurement": "filesystem marker mtime interval, not isolated wire latency"
+    },
+    {
+      "caseId": "core-followup",
+      "terminal": "completed",
+      "sentMarkerToTerminalMs": 10178,
+      "measurement": "filesystem marker mtime interval, not isolated wire latency"
+    },
+    {
+      "caseId": "core-isolation",
+      "terminal": "completed",
+      "sentMarkerToTerminalMs": 15919,
+      "measurement": "filesystem marker mtime interval, not isolated wire latency"
+    },
+    {
+      "caseId": "core-recovery",
+      "terminal": "failed",
+      "sentMarkerToTerminalMs": 43045,
+      "measurement": "filesystem marker mtime interval, not isolated wire latency"
+    }
+  ],
+  "sessionMetadata": [
+    {
+      "role": "A",
+      "registered": true,
+      "historyFilePresent": true,
+      "historyPrivateRegularSingleLink": true,
+      "markerIdentityMatches": true,
+      "historyContentsRead": false
+    },
+    {
+      "role": "B",
+      "registered": true,
+      "historyFilePresent": true,
+      "historyPrivateRegularSingleLink": true,
+      "markerIdentityMatches": true,
+      "historyContentsRead": false
+    }
+  ],
+  "confirmed": {
+    "approvedRestartReturnedReadyBeforeFourthSubmit": true,
+    "officialSessionOpenAndLocalAdmissionCompletedBeforeDispatch": true,
+    "localRequestContractAcceptedBeforeReservation": true,
+    "acceptedHttpStatusAbsentOnFailedRequest": true,
+    "failureClassification": "COURSE_WIKI_UPSTREAM_NETWORK",
+    "networkCode": "ECONNRESET",
+    "configuredLocalDeadlineCauseObserved": false,
+    "perRequestAgentInsteadOfReusedConnectionPool": true
+  },
+  "limits": {
+    "failedRequestLocalSentDoesNotProveBodyReachedSupplier": true,
+    "sessionContentsNotInspected": true,
+    "recoverySemanticAcceptanceStillFailed": true,
+    "resetOriginUnknown": true,
+    "dnsTcpTlsSubstageUnknown": true,
+    "vendorRequestReceiptOrGenerationStartUnknown": true,
+    "simulatedProbesDoNotReproduceExternalRootCause": true
+  },
+  "checks": {
+    "beforeHeadersResetProbe": "COURSE_WIKI_UPSTREAM_NETWORK / ECONNRESET / no upstreamStatus",
+    "afterHeadersResetProbe": "COURSE_WIKI_UPSTREAM_RESPONSE_INVALID / upstreamStatus=200",
+    "classificationProbes": {
+      "passed": 2,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "logDigest": "sha256:be4a1b08b91a09e5bd8503e4f54810ea61128af759bfc9ca159062bfbf7287d1"
+    },
+    "existingSyntheticRegressions": {
+      "files": [
+        "test/pi-sdk.test.js",
+        "test/pi-session-host.test.js",
+        "test/pi-upstream.test.js",
+        "test/pi-budget-proxy.test.js"
+      ],
+      "passed": 39,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "logDigest": "sha256:9046bf23c14aee9fe95af991131e61dda8650847e431c0ef217a4abe7079793f"
+    }
+  },
+  "codeReferences": {
+    "upstream": "src/pi-upstream.js:14",
+    "requestState": "src/course-wiki-budget.js:232",
+    "httpStatusAndResponseState": "src/course-wiki-budget.js:242",
+    "errorClassification": "src/course-wiki-budget.js:270",
+    "nativeSessionOpen": "src/pi-sdk.js:129",
+    "prewarm": "src/pi-native-runtime.js:403"
+  },
+  "budget": {
+    "totalReservedFen": 5022,
+    "projectReservations": 34,
+    "capFen": 10000,
+    "newReservedFen": 0
+  },
+  "authority": {
+    "consumptions": 22,
+    "decisions": 84,
+    "journalDigest": "sha256:b6445850a360e2f508a20bba93c571b8b4224349167db4c3769c0d995b10fe40",
+    "newConsumptionRecords": 0
+  },
+  "preservation": {
+    "oldFailureEvidenceBytesUnchanged": true,
+    "failedBatchClosed": true,
+    "noRetryOrRerun": true
+  },
+  "today": {
+    "runtimeSourceChanged": false,
+    "installation": false,
+    "actualSdkExecuted": false,
+    "activated": false,
+    "externalRequests": 0,
+    "modelRequests": 0,
+    "newReservedFen": 0,
+    "realKeyRead": false,
+    "rawSdkHistoryRead": false,
+    "providerPayloadRead": false
+  },
+  "nextStep": "Prepare a separate minimal preview for one future recovery request with value-blind DNS/TCP/TLS/request-finish/HTTP-header timing; any live execution requires new explicit approval. Do not replay the closed batch or repeat installation without a proven source change.",
+  "certification": {
+    "rootCauseConfirmed": false,
+    "networkFixed": false,
+    "recoveryCasePassed": false,
+    "entireMvpAccepted": false,
+    "productionApproved": false
+  },
+  "commit": false,
+  "push": false
+}

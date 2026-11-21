@@ -1,0 +1,150 @@
+{
+  "schemaVersion": "agentmo.bounded-evidence-summary.v1",
+  "date": "2026-11-13",
+  "scope": "pi-m3-one-recovery-diagnostic",
+  "status": "passed-bounded-single-recovery-stopped",
+  "proposalDigest": "sha256:8a37878adc6efde90ceb7379e18b08d80bb42684c3f4ba175a6e6375fa7ce0af",
+  "activationPlanDigest": "sha256:3a91b223e20c37d83de0e851a9c592f54221df3ea26d22e4056e8639c76de603",
+  "driverDigest": "sha256:47c1bbdf51615f4e0c5a727ee283afe391c3bda079d69748e81a9b8a978e3e57",
+  "observerDigest": "sha256:4b10e90222aae415bf6c0ca9465c1363a550fd23a00f7a9e69dcabf84d0dd6fd",
+  "runtimeSourceDigest": "sha256:b67b3feefd5487fc2dcd7140631ecf0d5b723a0e3a636562a99b58e2935e57d7",
+  "installedReceiptDigest": "sha256:f6b89292c1b04ef3628e02d5375f8d9bc63ce1764da72d93cfef7acc2d57b161",
+  "packageArchiveDigest": "sha256:5cbc0685790a4e1b9fcbf20b0c9c0609dfd759dcf6ce44043128c906e8f26bf7",
+  "previousFailedResultDigest": "sha256:019e33aad9e0a117f3d4fba7a4531297adfad40a797d6b5a3e0c7989acdb3366",
+  "privateResultDigest": "sha256:01f664610d1a19a5ab53de834a370d73871e62abc679d1c2639a2868a2746bca",
+  "configuredModel": "minimax-cn/MiniMax-M3",
+  "endpoint": "https://api.minimax.cn/anthropic/v1/messages",
+  "case": {
+    "caseId": "core-recovery-diagnostic",
+    "sessionIdDigest": "sha256:6a6ac7bbe4dc5e607176ce079a9ef7cee57fa42e01ed62e4ec1e8ee499dee58d",
+    "inputDigest": "sha256:861f52f9945101a30c986e5946183d222799d26c026082de7c0cb55fc4e40214",
+    "newTurnIdentityDistinctFromOldCase": true,
+    "expected": {
+      "Product": "Atlas",
+      "Deadline": "Friday"
+    },
+    "replyDigest": "sha256:48fc597c9c32313b94ab85e038c3021f27e0a3f416b943c83dc1b9ee2c5c0524",
+    "technicalChecks": {
+      "validJson": true,
+      "exactKeys": true,
+      "expectedValues": true
+    },
+    "independentReview": {
+      "caseId": "core-recovery-diagnostic",
+      "replyDigest": "sha256:48fc597c9c32313b94ab85e038c3021f27e0a3f416b943c83dc1b9ee2c5c0524",
+      "reviewDigest": "sha256:ddb811b65635ff76f01eb6a2af68ce7e4d9f553756f6cb088f0b2441ff7a4225",
+      "verdict": "PASS"
+    }
+  },
+  "newRequestsSent": 1,
+  "newCompletedReplies": 1,
+  "newIndependentContentPasses": 1,
+  "starts": 1,
+  "restarts": 0,
+  "retries": 0,
+  "ownedStops": [
+    {
+      "status": "stopped",
+      "ownChildExited": true,
+      "stopStatus": "stopped",
+      "reason": "requested"
+    }
+  ],
+  "portsUnoccupiedAfterStop": true,
+  "observerRestored": true,
+  "connectionObservation": {
+    "targetRequestsCappedAtTwo": 1,
+    "extraTargetRequestObserved": false,
+    "requests": [
+      {
+        "socketAssignedMs": 0,
+        "dnsLookupMs": 5,
+        "tcpConnectMs": 7,
+        "tlsSecureMs": 3366,
+        "requestFinishedMs": 3367,
+        "httpHeadersMs": 4731,
+        "closedMs": 4975,
+        "httpStatus": 200,
+        "requestErrorCode": "UNKNOWN",
+        "responseErrorCode": null
+      }
+    ]
+  },
+  "observationBoundary": {
+    "stageTimesAreRelativeToTheSingleTargetRequest": true,
+    "unclassifiedRequestErrorCodePreserved": true,
+    "unclassifiedErrorCodeIsNotEvidenceOfECONNRESET": true,
+    "fullResponseAndContentChecksPassed": true,
+    "missingOrUnknownEventsDoNotIdentifyTheResetOrigin": true,
+    "stableNetworkAvailabilityNotEstablished": true
+  },
+  "startedAtEpochMs": 1794557818250,
+  "finishedAtEpochMs": 1794558169329,
+  "workElapsedMs": 351079,
+  "controllerExitCode": 0,
+  "budgetBefore": {
+    "totalReservedFen": 5022,
+    "projectReservations": 34,
+    "capFen": 10000
+  },
+  "budgetAfter": {
+    "totalReservedFen": 5053,
+    "projectReservations": 35,
+    "capFen": 10000,
+    "newReservedFen": 31
+  },
+  "remainingFen": 4947,
+  "budgetIsLocalReservationNotSupplierBill": true,
+  "authorityBefore": {
+    "consumptions": 22,
+    "decisions": 84,
+    "journalDigest": "sha256:b6445850a360e2f508a20bba93c571b8b4224349167db4c3769c0d995b10fe40",
+    "oldPrefixPreserved": true
+  },
+  "authorityAfter": {
+    "consumptions": 23,
+    "decisions": 89,
+    "journalDigest": "sha256:22ed74e091080d612041f11b8c1b6faa69680dd5805262b642f511794155f9e4",
+    "oldPrefixPreserved": true
+  },
+  "cumulativeCountsInThisInstalledRoot": {
+    "claims": 5,
+    "sent": 5,
+    "completed": 4
+  },
+  "preservation": {
+    "originalSixteenTurnFilesUnchanged": true,
+    "oldFourCaseBatchStillFailedAndClosed": true,
+    "allOldFailuresAndSuccessfulEvidenceRetained": true,
+    "oldAuthorityPrefixPreserved": true,
+    "noRefundOrBudgetReset": true,
+    "sourceAndInstallationUnchanged": true
+  },
+  "credentialHandling": {
+    "existingParentRunnerMemoryLoadOnly": true,
+    "assistantReadKeyValue": false,
+    "reviewerReadKeyValue": false,
+    "sdkChildReceivedSupplierKey": false,
+    "supplierKeyValueExposed": false
+  },
+  "combinedFixedSampleEvidence": {
+    "firstThreeCases": "release/evidence/2026.11.12-tls12-m3-execution.json",
+    "recoveryCase": "this separately approved single run",
+    "fourCoreBehaviorsHaveIndividualRealRepliesAndIndependentPasses": true,
+    "singleFourCaseBatchPassed": false,
+    "evidenceSpansSeparateAuthorizations": true
+  },
+  "approvalScopeClosed": true,
+  "rerunAuthorized": false,
+  "certification": {
+    "boundedSingleRecoveryPassed": true,
+    "domainCertified": false,
+    "globalBirthOrDeliveryCertificationGranted": false,
+    "productionApproved": false,
+    "historicalResetRootCauseConfirmed": false,
+    "networkFixed": false,
+    "singleFullNpmCheckGreen": false
+  },
+  "commit": false,
+  "push": false
+}

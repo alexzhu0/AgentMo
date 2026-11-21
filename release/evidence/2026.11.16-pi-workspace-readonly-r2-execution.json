@@ -1,0 +1,80 @@
+{
+  "schemaVersion": "agentmo.pi-workspace-readonly-execution.v1",
+  "date": "2026-11-16",
+  "status": "readonly-verified-stopped",
+  "proposalDigest": "sha256:35cc87e74f24024d420575466a8790a1896da6257009724d5b2d67b265cbd272",
+  "activationPlanDigest": "sha256:9d929145add1992d65f15dc58df2e48dcca1d3d51f09baabc52263f0568573cd",
+  "receiptDigest": "sha256:c1c5af6de7e95b94b268c32ee8a4cfb08d818e71d4224f3580d9ef02ebce2621",
+  "workError": null,
+  "ready": true,
+  "sdkExecutionAttempted": true,
+  "actualSdkImported": true,
+  "idleObservedMs": 60001,
+  "observedTurnEntries": 0,
+  "observedModelClaims": 0,
+  "modelRequests": 0,
+  "newReservedFen": 0,
+  "budget": {
+    "totalReservedFen": 5053,
+    "capFen": 10000,
+    "projectReservations": 35
+  },
+  "authority": {
+    "consumptions": 25,
+    "decisions": 95,
+    "oldPrefixPreserved": true,
+    "journalDigest": "sha256:4443f14fde204003f020df86cbfa89bee1d4df630562a8dd059923fbc0215fbc"
+  },
+  "cleanup": {
+    "status": "stopped",
+    "ownChildExited": true,
+    "stopStatus": "stopped",
+    "reason": "requested"
+  },
+  "supplierKeyRead": false,
+  "chatMessages": 0,
+  "restarts": 0,
+  "retries": 0,
+  "commit": false,
+  "push": false,
+  "scopeClosed": true,
+  "sessionIdDigests": [
+    "sha256:a7c4cf1a218b38e86cada7d1e396c7814abb5c585597521e3945552581bfc0e2"
+  ],
+  "newSessions": 1,
+  "originalResultDigest": "sha256:d8f741513381edf01ffbe1ca99e5811173185da9fbcfdd7c32aee5f0b9b194f6",
+  "postrun": {
+    "budgetConfirmed": true,
+    "authorityConfirmed": true,
+    "oldPrefixConfirmed": true,
+    "newConsumptionRecords": 1,
+    "newDecisions": 4,
+    "stopReceiptDigest": "sha256:03ad7903bb054d41eb5694cdd430a1973ccb5b693d5b44442036b955800916fd",
+    "stopConfirmed": true,
+    "installationReceiptUnchanged": true,
+    "productFilesUnchanged": 45,
+    "oldFailureFilesUnchanged": 7,
+    "turnEntries": 0,
+    "modelClaims": 0,
+    "hostListenerCheck": {
+      "ports": [
+        19492,
+        19493
+      ],
+      "command": "lsof -nP -iTCP:19492 -iTCP:19493 -sTCP:LISTEN",
+      "exitCode": 1,
+      "listenersObserved": 0
+    }
+  },
+  "certificationBoundary": {
+    "installed": true,
+    "actualSdkStartupVerified": true,
+    "emptySessionVerified": true,
+    "workspaceToolsVerified": false,
+    "modelAccepted": false,
+    "domainCertified": false,
+    "productionApproved": false
+  },
+  "modelRequestEvidence": "No approved chat cases, zero turns/claims and unchanged budget; not network packet capture",
+  "costEnvelope": "unproven-production-workspace-blocked"
+}

@@ -1,0 +1,123 @@
+{
+  "schemaVersion": "agentmo.pi-workspace-tools-preparation.v1",
+  "date": "2026-11-16",
+  "status": "offline-prepared-awaiting-sdk-approval",
+  "preview": {
+    "proposalDigest": "sha256:fee3a0cd08fce0e13da051a3bf1001903b61c84ec2e89e4d1e64cfcb6ec92268",
+    "driverDigest": "sha256:e4ee30c2a5e072095cc301d0f7efb76cc383aebbd886eee977b1ce7f5826db79",
+    "fixtureDigest": "sha256:ebd109c4f260af354578da69857f8676d0ac4977a8c7c8f540a0fe7ff1569d70",
+    "receiptDigest": "sha256:c1c5af6de7e95b94b268c32ee8a4cfb08d818e71d4224f3580d9ef02ebce2621",
+    "state": "prepared-not-executed"
+  },
+  "staticSdkAudit": {
+    "method": "static-file-read-only-no-sdk-import",
+    "files": [
+      {
+        "path": ".agentmo/pi-sdk-1.2.0-toolchain-2026-10-16-r1/node_modules/@earendil-works/pi-coding-agent/dist/core/sdk.js",
+        "sha256": "sha256:8155c0b7d819d2248a1bbf0fa4b8e40d15552ff7fa6a772154cbbccb6ae59235"
+      },
+      {
+        "path": ".agentmo/pi-sdk-1.2.0-toolchain-2026-10-16-r1/node_modules/@earendil-works/pi-coding-agent/dist/core/extensions/loader.js",
+        "sha256": "sha256:44a356da552c9cf2ea619c61944cfb28f81b45f09b325f152c91a914bfce1bc0"
+      },
+      {
+        "path": ".agentmo/pi-sdk-1.2.0-toolchain-2026-10-16-r1/node_modules/@earendil-works/pi-ai/dist/api/anthropic-messages.js",
+        "sha256": "sha256:2a61739aa1e42d42c0351f10fef371b3efd544bc746a97cf6d6f68e4dfc0ef96"
+      },
+      {
+        "path": "src/pi-sdk.js",
+        "sha256": "sha256:c5588c8653aaed27b87e9d3fcd7471e5271e2fc4d0f9efa098da13b2b7ec8c14"
+      },
+      {
+        "path": "src/pi-workspace-files.js",
+        "sha256": "sha256:696efe34efe423f6f6222fc239c08254c744e52f0d31ac2770e50ab3fbbcc989"
+      },
+      {
+        "path": "src/pi-workspace-protocol.js",
+        "sha256": "sha256:4d1f75ffd5070110c2ea1d14f729eb727ad299c0baadd0015b0074f8411272aa"
+      },
+      {
+        "path": "src/pi-workspace-policy.js",
+        "sha256": "sha256:370a3594be630db7a23014602bac6f00b2c522dd16b78b448c5ea49824f07b80"
+      },
+      {
+        "path": "docs/superpowers/specs/2026-10-13-native-chat-minimax-m3-design.md",
+        "sha256": "sha256:fde7dfedb3e1f460bb6361b5c01b0b2f79da52f275edb310052e61b5f085515d"
+      }
+    ],
+    "sdkExecution": false,
+    "network": false,
+    "costEnvelopeProven": false
+  },
+  "offlineTests": {
+    "runnerTests": 5,
+    "runnerPassed": 5,
+    "runnerFailed": 0,
+    "productFocusedTests": {
+      "tests": 18,
+      "pass": 18,
+      "fail": 0,
+      "skipped": 0,
+      "actualSdkUsed": false
+    }
+  },
+  "costAudit": {
+    "historicalInputCnyPerMillion": "4.20",
+    "historicalOutputCnyPerMillion": "16.80",
+    "assumedInputTokenUpperBound": 53248,
+    "outputTokenCap": 2048,
+    "conditionalCnyPerRequest": "0.258048",
+    "conditionalSixCny": "1.548288",
+    "sixLocalReservationFen": 186,
+    "currentPricingReverified": false,
+    "inputTokenizerOrServerToolOverheadBoundProven": false,
+    "preSpendCostProof": false,
+    "productionGateChanged": false
+  },
+  "baseline": {
+    "realReservedFen": 5053,
+    "reservations": 35,
+    "capFen": 10000,
+    "authorityConsumptions": 25,
+    "authorityDecisions": 95,
+    "authorityJournalDigest": "sha256:4443f14fde204003f020df86cbfa89bee1d4df630562a8dd059923fbc0215fbc"
+  },
+  "newRealReservedFen": 0,
+  "newAuthorityConsumptions": 0,
+  "realSdkExecuted": false,
+  "activated": false,
+  "modelRequests": 0,
+  "providerNetworkRequests": 0,
+  "keyRead": false,
+  "productSourceChanged": false,
+  "frozenFilesUnchanged": 45,
+  "failuresPreserved": true,
+  "approvalFileCreated": false,
+  "syntheticRuntimeRootCreated": false,
+  "firstPreflightRefusal": {
+    "status": "offline-preflight-refused",
+    "reason": "controller supplied a nonmatching draft digest",
+    "suppliedDigest": "sha256:6c5eca48c23d6e27e96b7ed249175ff16be14a4f85368f3d85952d2757b637b5",
+    "expectedDigest": "sha256:fee3a0cd08fce0e13da051a3bf1001903b61c84ec2e89e4d1e64cfcb6ec92268",
+    "sdkExecuted": false,
+    "syntheticRootCreated": false
+  },
+  "commit": false,
+  "push": false,
+  "documentationValidation": {
+    "tests": 11,
+    "pass": 11,
+    "fail": 0,
+    "localLinksChecked": 240,
+    "previewDigestsMatched": 4,
+    "gitDiffCheck": "passed",
+    "stagedFiles": 0,
+    "headUnchanged": "2979a7086b522e114a766efd5e17b7ac2a2b6e55"
+  },
+  "verificationReused": {
+    "productFilesChanged": 0,
+    "priorCompleteNpmRunExitCode": 0,
+    "freshPrivateRunnerTests": 5,
+    "freshProductFocusedTests": 18
+  }
+}

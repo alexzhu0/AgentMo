@@ -1,0 +1,157 @@
+{
+  "schemaVersion": "agentmo.pi-workspace-report-execution.v1",
+  "date": "2026-11-21",
+  "status": "failed-preserved-no-retry",
+  "proposalDigest": "sha256:f5976a9420bd4301665951a01515dcde3dfedbcd61ac69afee535d5c3a2cde4a",
+  "proposalScopeClosed": true,
+  "executions": 1,
+  "retries": 0,
+  "restarts": 0,
+  "runnerExitCode": 1,
+  "installation": {
+    "status": "installed-verified",
+    "receiptDigest": "sha256:46b2446b7bde837ab5cd662d380d4c1788616e41190d5964b9f7df2fdfedc1d7",
+    "files": 8,
+    "directories": 6,
+    "runtimeSourceDigest": "sha256:4b4bc5ef8fa463ea085283171da1ad49d58859c988d4033d51c39aa34df5fe40",
+    "packageArchiveDigest": "sha256:a414f070663ef5b5468603e5ac9bf7b09bf8643f7f4375dcfd88fb99337b84ab",
+    "installPlanDigest": "sha256:acff0a1be4db584e7a525c75bd048b547688a7491d9f54c02069c1ee17cf518d"
+  },
+  "emptySession": {
+    "status": "created",
+    "cleanup": "stopped",
+    "modelRequests": 0,
+    "newReservedFen": 0
+  },
+  "reportTask": {
+    "status": "failed",
+    "model": "MiniMax-M3",
+    "maximumRequests": 6,
+    "actualRequests": 2,
+    "proxyCompletions": 2,
+    "httpStatuses": [
+      200,
+      200
+    ],
+    "successfulReads": 3,
+    "readAllApprovedInputs": true,
+    "writeToolCallsObserved": 1,
+    "successfulWriteResults": 0,
+    "stagedReport": false,
+    "publishedReport": false,
+    "independentContentReview": "not-run-no-published-report",
+    "durableTurnCause": "PI_SDK_FAILURE",
+    "cliFailureCode": "AGENTMO_PI_CLI_REQUEST_FAILED",
+    "outerFailureCode": "ERR_ASSERTION",
+    "citationCheck": {
+      "historyDigest": "sha256:5a89942e6e4027cc22675939cbcf08f38cde4d226ffc0c5db17ac9e160550bdc",
+      "bodyMarkerOccurrences": 21,
+      "distinctBodyMarkers": 14,
+      "citationRows": 8,
+      "rowsWithExactBodyMarker": 8,
+      "rowsMissingBodyMarker": 0,
+      "distinctUnlistedMarkers": 6,
+      "unlistedSingleLineShorthand": 5,
+      "unlistedCanonicalRange": 1,
+      "fieldsAndApprovedPathValid": true,
+      "approvedReadSourcesAndLineRangesValid": true,
+      "duplicateRows": 0
+    },
+    "failureBoundary": "All listed rows occur in the report body. Six distinct source markers in the body have no exact row. The unchanged validator rejects that write shape and neither a staged file nor publication claim exists."
+  },
+  "connectionObservation": {
+    "targetRequestsCappedAtSeven": 2,
+    "extraTargetRequestObserved": false,
+    "requests": [
+      {
+        "socketAssignedMs": 0,
+        "dnsLookupMs": 2,
+        "tcpConnectMs": 3,
+        "tlsSecureMs": 189,
+        "requestFinishedMs": 190,
+        "httpHeadersMs": 1330,
+        "closedMs": 1766,
+        "httpStatus": 200,
+        "requestErrorCode": "UNKNOWN",
+        "responseErrorCode": null
+      },
+      {
+        "socketAssignedMs": 0,
+        "dnsLookupMs": 1,
+        "tcpConnectMs": 2,
+        "tlsSecureMs": 190,
+        "requestFinishedMs": 190,
+        "httpHeadersMs": 934,
+        "closedMs": 5420,
+        "httpStatus": 200,
+        "requestErrorCode": "UNKNOWN",
+        "responseErrorCode": null
+      }
+    ],
+    "observerRestored": true
+  },
+  "cleanup": {
+    "cliLabel": "failed",
+    "stopReceipts": [
+      {
+        "status": "failed",
+        "reason": "case-failed",
+        "ownChildExited": true,
+        "digest": "sha256:6a104fac9b2847612460692d2d83d80581afbed7ccec874e917757d74158afd5"
+      },
+      {
+        "status": "stopped",
+        "reason": "requested",
+        "ownChildExited": true,
+        "digest": "sha256:7240e6048c6e78562fb163315a73dc62bbfc22b9f28f3114402cfb93e4305e64"
+      }
+    ],
+    "noListenersOn19492Or19493": true,
+    "ownedChildrenExited": true
+  },
+  "budget": {
+    "beforeFen": 5146,
+    "addedFen": 62,
+    "afterFen": 5208,
+    "reservations": 40,
+    "capFen": 10000
+  },
+  "authority": {
+    "before": {
+      "consumptions": 31,
+      "decisions": 117
+    },
+    "after": {
+      "consumptions": 34,
+      "decisions": 128
+    },
+    "oldPrefixPreserved": true,
+    "journalDigest": "sha256:779fc49dbf63b0aeab57eeea35b3ffdf33a0f10cde7ecd78d3a1034223fb3953"
+  },
+  "verification": {
+    "focusedPassed": 66,
+    "offlinePreflight": "passed",
+    "fullNpmCheck": "running-at-report-execution-record",
+    "currentFullPassClaim": false
+  },
+  "evidenceDigests": {
+    "approval": "sha256:b5755426de0e6241dfc5dada35ea4c717acf76120fd007ca1c90c503630a9a67",
+    "driver": "sha256:54665c817401229c018fc024ca8d3b062e6f09a8746f1fc603c3a23888729b8d",
+    "observer": "sha256:9be9725b6b4e2c46d2bd9e11c3c453e49ec170a478675b26513be1d5dcc944dc",
+    "preview": "sha256:9cc337bf4d65390ae7abd594bdd572d1debde1e949b360339d8e4aef65790f1a",
+    "runnerRecords": {
+      "single-run-claim.json": "sha256:dc0ca33e87c63d432b546a26c1cc6272b17584425daa1f7c683f06030398303b",
+      "installation.json": "sha256:7a012fd17f8886beac4c8d1a7d5efdb247d11eef0d52b0f84f2653b7f1474c8e",
+      "session-result.json": "sha256:2ffabb329397addcb07c6c410eeeff26d0a32d496688e30eaf2149e14e87fa57",
+      "report-result.json": "sha256:db9b1be65823ebcd2f10e0fd6e44423bf83eca6d243e51098b29933d2085dc19",
+      "connection-observation.json": "sha256:a9d8bcc582549e5a180969f6e6976ee8041015aaf6fefef7b18b6af7c7be907b",
+      "failure.json": "sha256:38884bdb91edbc75e5bfc269ad20c4574703f10c183d3430eb3dd548c04839c2"
+    },
+    "failedTurn": "sha256:bfb8d5a774496023be545fb5ee5d7d4a39bede09ec775c506a1f7d0a5436fb25",
+    "priorReportResult": "sha256:9be99ca8fd7c3d059ad0273c3fe2810510b705c65a80832dfdf91eea48fbfc71"
+  },
+  "supplierKeyHandling": "existing-parent-runtime-only",
+  "olderFailurePreserved": true,
+  "commit": false,
+  "push": false
+}

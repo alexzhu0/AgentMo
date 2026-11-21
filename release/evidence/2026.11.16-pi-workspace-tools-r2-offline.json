@@ -1,0 +1,206 @@
+{
+  "schemaVersion": "agentmo.pi-workspace-tools-repair.v1",
+  "date": "2026-11-16",
+  "status": "offline-repair-accepted-sdk-preview-awaiting-approval",
+  "staticDefect": "Pinned M3 SDK defaults supportsEagerToolInputStreaming to true and adds eager_input_streaming:true; local exact wire schema omitted it.",
+  "oldUniqueRootCauseProven": false,
+  "repair": "Exact true flag required; missing/false/unknown rejected.",
+  "changedProductFile": "src/pi-workspace-protocol.js",
+  "focusedRegression": {
+    "tests": 19,
+    "pass": 19,
+    "fail": 0
+  },
+  "runnerRegression": {
+    "tests": 7,
+    "pass": 7,
+    "fail": 0
+  },
+  "npmCheck": {
+    "command": "npm run check",
+    "exitCode": 1,
+    "sourceDrift": [],
+    "logSha256": "000953d630770b0cb86e207e07d81e290d91f6b6e8532aacba14bb6f5615d352",
+    "main": {
+      "tests": 1595,
+      "pass": 1433,
+      "fail": 101,
+      "cancelled": 0,
+      "skipped": 61
+    },
+    "log": ".superpowers/sdd/2026-11-16-pi-workspace-agent/npm-check-tools-wire-r2.log"
+  },
+  "preview": {
+    "proposalDigest": "sha256:d99971a32500a0777d71f98e9ccd9323ce784b4f18df1c06a11ff8113bd90c30",
+    "driverDigest": "sha256:2deff618d4c8460b5d0023483ee93f52cedd69c059a6cb022b076f79a0f29d60",
+    "fixtureDigest": "sha256:ebd109c4f260af354578da69857f8676d0ac4977a8c7c8f540a0fe7ff1569d70",
+    "receiptDigest": "sha256:c1c5af6de7e95b94b268c32ee8a4cfb08d818e71d4224f3580d9ef02ebce2621",
+    "runtimeDescriptorDigest": "sha256:84803cafeae95e7fff6a0dcbc60be187d6f03812c068028c970289200b6799a8",
+    "sourceClosure": {
+      "digest": "sha256:e1f34bc5ea6ca25a3237f9ac59334122643dabe4a83bd6c07e601d21ea9c61e3",
+      "fileCount": 147
+    },
+    "state": "prepared-not-executed"
+  },
+  "baseline": {
+    "reservedFen": 5053,
+    "reservations": 35,
+    "capFen": 10000,
+    "authorityConsumptions": 25,
+    "authorityDecisions": 95
+  },
+  "realSdkExecutedThisRepair": false,
+  "activated": false,
+  "modelRequests": 0,
+  "keyRead": false,
+  "newReservedFen": 0,
+  "failuresPreserved": true,
+  "oldInstallationOverwritten": false,
+  "newApprovalCreated": false,
+  "newSyntheticRootCreated": false,
+  "commit": false,
+  "push": false,
+  "preservation": {
+    "oldRunnerProposalFixtureMatched": true,
+    "oldFailedRootPreserved": true,
+    "oldReceiptMatched": true,
+    "authorityJournalUnchanged": true
+  },
+  "sourceFreezeDigest": "sha256:49e6cdd550686c97750fdd8a8f6603a1ecb5b44e316421f4752ad3e6021dfe90",
+  "environmentFailures": {
+    "failedBlocks": 100,
+    "directListenEPERM": 99,
+    "childMarkerExitMismatch": 1,
+    "affectedFiles": [
+      "test/course-wiki-budget.test.js",
+      "test/course-wiki-gateway.test.js",
+      "test/course-wiki-generations.test.js",
+      "test/course-wiki-openclaw.test.js",
+      "test/course-wiki-server.test.js",
+      "test/native-chat-acceptance.test.js",
+      "test/native-chat-cli.test.js",
+      "test/native-chat-install.test.js",
+      "test/native-chat-minimax.test.js",
+      "test/native-chat-proxy.test.js",
+      "test/native-chat-runtime.test.js"
+    ],
+    "hostRetestAndOfficialLanes": "all-exit-zero",
+    "singleFullGreenClaim": false,
+    "all100FailurePositionsHaveMatchingHostTestNames": true
+  },
+  "hostSupplementalValidation": [
+    {
+      "lane": "affected-main",
+      "exitCode": 0,
+      "log": "npm-check-tools-wire-r2-host-affected-main.log",
+      "logSha256": "abdd504bff02560ae647b5b8b431f979c49ee984c52884d648771ff9424c5861",
+      "summary": {
+        "tests": 178,
+        "pass": 173,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 5
+      }
+    },
+    {
+      "lane": "durable-fs",
+      "exitCode": 0,
+      "log": "npm-check-tools-wire-r2-host-durable-fs.log",
+      "logSha256": "da849e9feb8b7ae038b1f9a78f6f7f3b1eb0ad8164983481623985b2ff1fefca",
+      "summary": {
+        "tests": 2,
+        "pass": 2,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "lane": "packed-hook-chain",
+      "exitCode": 0,
+      "log": "npm-check-tools-wire-r2-host-packed-hook-chain.log",
+      "logSha256": "f5e8407f958c026c00e683ca09fa7117b6f533bdd3f9457b29be8668a8ce6f91",
+      "summary": {
+        "tests": 1,
+        "pass": 1,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "lane": "packed-behavior",
+      "exitCode": 0,
+      "log": "npm-check-tools-wire-r2-host-packed-behavior.log",
+      "logSha256": "1693b8b475e1672078d3f54bb95636e84e3483a213df48196d76476f616633a9",
+      "summary": {
+        "tests": 8,
+        "pass": 7,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 1
+      }
+    },
+    {
+      "lane": "immutable-successor",
+      "exitCode": 0,
+      "log": "npm-check-tools-wire-r2-host-immutable-successor.log",
+      "logSha256": "b1656ebf80387ca6d22da09254a625d6a848dc0cd3063a78fea3d8b18bf6dde9",
+      "summary": {
+        "tests": 1,
+        "pass": 1,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      }
+    }
+  ],
+  "singleFullGreenClaim": false,
+  "finalPreservation": {
+    "frozenFiles": 45,
+    "sourceDrift": 0,
+    "freezeDigest": "sha256:49e6cdd550686c97750fdd8a8f6603a1ecb5b44e316421f4752ad3e6021dfe90",
+    "sourceClosure": {
+      "digest": "sha256:e1f34bc5ea6ca25a3237f9ac59334122643dabe4a83bd6c07e601d21ea9c61e3",
+      "fileCount": 147
+    },
+    "oldFailurePreserved": true,
+    "receiptUnchanged": true,
+    "budgetFen": 5053,
+    "reservations": 35,
+    "capFen": 10000,
+    "authorityUnchanged": true,
+    "newGrantAbsent": true,
+    "newRootAbsent": true,
+    "actualSdkExecuted": false
+  },
+  "staticSdkSources": {
+    "method": "static-read-only-sdk-not-imported",
+    "sources": [
+      {
+        "path": ".agentmo/pi-sdk-1.2.0-toolchain-2026-10-16-r1/node_modules/@earendil-works/pi-ai/dist/api/anthropic-messages.js",
+        "sha256": "sha256:2a61739aa1e42d42c0351f10fef371b3efd544bc746a97cf6d6f68e4dfc0ef96"
+      },
+      {
+        "path": ".agentmo/pi-sdk-1.2.0-toolchain-2026-10-16-r1/node_modules/@earendil-works/pi-ai/dist/providers/data/minimax-cn.json",
+        "sha256": "sha256:1bbfbd11c3edbd141841d3cef027e12157218f1aec92477e15772116c1fabe7a"
+      },
+      {
+        "path": ".agentmo/pi-sdk-1.2.0-toolchain-2026-10-16-r1/node_modules/@earendil-works/pi-ai/dist/providers/minimax-cn.js",
+        "sha256": "sha256:a4287d33e5dc3b91b63c18a0dae07bb3f113b11a8f748343b073b098af84113f"
+      }
+    ],
+    "modelCompatOverridePresent": false
+  },
+  "documentationValidation": {
+    "linksChecked": 260,
+    "previewDigestsMatched": 4,
+    "gitDiffCheck": "passed",
+    "stagedFiles": 0,
+    "headUnchanged": "2979a7086b522e114a766efd5e17b7ac2a2b6e55",
+    "tests": {
+      "pass": 11,
+      "fail": 0
+    }
+  }
+}

@@ -1,3 +1,4 @@
+import { validatePiWorkspace } from './pi-workspace-policy.js';
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import {
@@ -96,7 +97,7 @@ export function validateAgentPackageManifest(value, context = {}) {
   try {
     const nativeChat = value?.execution_profile === "native-chat";
     const pi = value?.native_runtime === "pi";
-    const manifestKeys = nativeChat ? [...MANIFEST_KEYS, "execution_profile", ...(pi ? ["native_runtime"] : [])] : MANIFEST_KEYS;
+    const manifestKeys = nativeChat ? [...MANIFEST_KEYS, "execution_profile", ...(pi ? ["native_runtime"] : []), ...(Object.hasOwn(value ?? {}, "pi_workspace") ? ["pi_workspace"] : [])] : MANIFEST_KEYS;
     if (!plainObject(value) || !hasExactKeys(value, manifestKeys)) {
       return result(["package manifest must contain only canonical fields."]);
     }
@@ -105,6 +106,7 @@ export function validateAgentPackageManifest(value, context = {}) {
     }
     if (!ID_PATTERN.test(value.packageId ?? "")) errors.push("invalid packageId.");
     if (!VERSION_PATTERN.test(value.packageVersion ?? "")) errors.push("invalid packageVersion.");
+    if (Object.hasOwn(value, "pi_workspace") && (!pi || !validatePiWorkspace(value.pi_workspace).ok)) errors.push("invalid workspace policy");
     validateSourceBindings(value.sourceBindings, errors);
     validateTargetCompatibility(value.targetCompatibility, errors, pi);
     validateMembers(value.members, errors);
@@ -121,6 +123,7 @@ export function validateAgentPackageManifest(value, context = {}) {
       allowMcp: false,
       ...(nativeChat ? { execution_profile: "native-chat" } : {}),
       ...(pi ? { native_runtime: "pi" } : {}),
+      ...(value.pi_workspace ? { pi_workspace: value.pi_workspace } : {}),
     });
     errors.push(...ledger.errors);
     validateOwnership(value.ownership, value.members, errors);
@@ -156,7 +159,7 @@ export function validatePackageCapabilityLedger(value, context = {}) {
   try {
     if (!Array.isArray(value)
       || !plainObject(context)
-      || !hasOnlyKeys(context, ["capabilityIds", "members", "allowMcp", "execution_profile", "native_runtime"])
+      || !hasOnlyKeys(context, ["capabilityIds", "members", "allowMcp", "execution_profile", "native_runtime", "pi_workspace"])
       || (Object.hasOwn(context, "native_runtime") && (context.native_runtime !== "pi" || context.execution_profile !== "native-chat"))
       || (Object.hasOwn(context, "execution_profile") && context.execution_profile !== "native-chat")) {
       return result(["capability ledger or validation context is invalid."]);
@@ -182,7 +185,7 @@ export function validatePackageCapabilityLedger(value, context = {}) {
       if (nativeChat) {
         const kind = entry?.resourceId?.replace(/^resource:/u, "");
         const runtime = ["harness", "agent-loop", "runtime-binding"].includes(kind);
-        const disabled = ["skills", "plugins", "memory", "rag", "schedules"].includes(kind);
+        const disabled = ["skills", "plugins", "memory", "rag", "schedules"].includes(kind) && !(context.pi_workspace && kind === "skills");
         if (entry?.capabilityId !== entry?.resourceId
           || entry?.carrier !== (runtime ? "native-runtime" : "workspace-content")
           || entry?.owner !== (runtime ? (context.native_runtime === "pi" ? "pi" : "openclaw") : "agent-package")

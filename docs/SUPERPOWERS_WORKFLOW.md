@@ -2,6 +2,7 @@
 
 AgentMo 使用 Superpowers 处理设计、实施与验证，使用 Orchivane 管理控制器、TODO 和交付验收。
 项目的角色与 TODO 索引复用 `docs/handoffs/README.md`，由当前控制器独占维护；接续时先读该入口。
+项目自 2026-11-21 暂停，新会话先查[当前状态](CURRENT_STATUS.md)再判断是否有新的明确任务。
 每个新的 AgentMo Codex 开发 session 都必须先调用
 `superpowers:using-superpowers`，再按任务选择并使用适用的 Superpowers skills。不要调用
 GSD 命令、恢复 GSD runtime，或按旧规划工作流的待办执行。`docs/superpowers/` 保留
@@ -23,14 +24,14 @@ Superpowers 的设计与计划文档；角色与当前待办仍以交接入口�
 ## 当前产品与 POC
 
 AgentMo 的规范主线是 `Discover -> Plan -> Produce`：把有边界的发现证据、经人确认的
-规划和可验证的 Agent Package 连接成可复现的软件产物。当前白领研究 OpenClaw POC
-已完成受限验收：首次收集 20 条、二次收集 0 条重复、重启后 DB/brief 可读，并能让
+规划和可验证的 Agent Package 连接成可复现的软件产物。当前交接以 Pi CLI Alpha 为准。
+历史白领研究 OpenClaw POC 完成过受限验收：首次收集 20 条、二次收集 0 条重复、重启后 DB/brief 可读，并能让
 DeepSeek/OpenClaw 仅依据本地证据短答或在缺证据时拒答。它仍是隔离、临时 workspace
 中的 POC，不是默认 OpenClaw 安装、持续服务或生产发布。
 
 ## 未完成项与人工授权边界
 
-- 当前 Dashboard/测试/文档改动仍在隔离 worktree；先由人审阅并决定是否分组提交。
+- 当前暂停快照位于 `codex/course-wiki`，工作区报告的引用内容与整库检查仍有未通过项。
 - Phase 4 的 Linux native 机制证据、审计历史和 POC 结果互不替代。Linux CI、真实
   OpenClaw 生命周期、schedule activation、delivery、完整来源健康、领域质量和生产
   认证都需要单独的明确授权与证据。

@@ -1,3 +1,4 @@
+import { validatePiWorkspaceSource } from './pi-workspace-policy.js';
 import { containsSecretLikeValue } from "./secret-redaction.js";
 
 export const AGENTMO_PRODUCT_NAME = "AgentMo";
@@ -157,6 +158,7 @@ export function validateBlueprint(blueprint) {
     errors.push("execution_profile must be native-chat when supplied.");
   }
   if (!validNativeModelProfileSource(blueprint)) errors.push("native_model_profile must select the fixed native-chat model.");
+  errors.push(...validatePiWorkspaceSource(blueprint));
   if (!validNativeRuntimeSource(blueprint)) errors.push("native_runtime must explicitly select Pi with the fixed native-chat M3 profile.");
   if (blueprint.execution_profile === "native-chat" && !isNativeChatBlueprint(blueprint)) {
     errors.push("native-chat requires the selected runtime, tools: [], and architecture.specialists: [].");

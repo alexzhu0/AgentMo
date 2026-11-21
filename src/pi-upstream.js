@@ -10,7 +10,8 @@ export function postPiMessages({ body, apiKey, signal }) {
     const abortError = () => new DOMException('Request aborted', 'AbortError');
     const cancel = () => { incoming?.destroy(abortError()); request.destroy(abortError()); };
     const cleanup = () => signal?.removeEventListener('abort', cancel);
-    const request = https.request(new URL('https://api.minimax.cn/anthropic/v1/messages'), {
+    // Follow the pinned Pi minimax-cn provider endpoint and Node TLS defaults.
+    const request = https.request(new URL('https://api.minimaxi.com/anthropic/v1/messages'), {
       method: 'POST', agent: false, rejectUnauthorized: true, signal,
       headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json',
         'content-length': Buffer.byteLength(body) },

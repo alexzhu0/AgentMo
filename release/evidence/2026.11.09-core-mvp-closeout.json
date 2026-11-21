@@ -1,0 +1,202 @@
+{
+  "date": "2026-11-09",
+  "status": "offline-core-gate-passed-real-acceptance-pending",
+  "baseCommit": "2979a7086b522e114a766efd5e17b7ac2a2b6e55",
+  "fixes": [
+    {
+      "files": [
+        "package.json",
+        "test/core-mvp.test.js"
+      ],
+      "rootCause": "Package members matched the existing 153-entry allowlist, but four newly appended Pi modules broke its exact canonical order.",
+      "change": "Reorder the existing file list; preserve membership and strict Builder validation.",
+      "red": true,
+      "green": true
+    },
+    {
+      "files": [
+        "src/cli-help.js",
+        "test/pi-native-cli.test.js"
+      ],
+      "rootCause": "The subcommand help listed slash commands as path-like strings, so the existing output safety guard refused the help text.",
+      "change": "Describe the slash prefix in words; preserve output safety and exercise all three actual CLI help routes.",
+      "red": true,
+      "green": true
+    }
+  ],
+  "previousFullCheckClassification": {
+    "summary": {
+      "packageAdmission": 46,
+      "assertion": 6,
+      "uatSubprocess": 11,
+      "cancelled": 185,
+      "suiteContainers": 3,
+      "unclassified": 0
+    },
+    "concreteFailureGroups": {
+      "test/builder-cli.test.js": 1,
+      "test/builder-codex-host.test.js": 1,
+      "test/builder-codex-uat-prior-attempt.test.js": 11,
+      "test/builder-doctor.test.js": 15,
+      "test/builder-install-security.test.js": 19,
+      "test/builder-lifecycle-v1.test.js": 9,
+      "test/builder-lifecycle.test.js": 5,
+      "test/builder-package-security.test.js": 2
+    }
+  },
+  "coreGate": {
+    "exitCode": 0,
+    "files": [
+      "test/artifact-subjects.test.js",
+      "test/artifact-surface-coverage.test.js",
+      "test/command-docs.test.js",
+      "test/core-mvp.test.js",
+      "test/course-wiki-budget.test.js",
+      "test/pi-budget-proxy.test.js",
+      "test/pi-chat-acceptance.test.js",
+      "test/pi-chat-cli.test.js",
+      "test/pi-chat.test.js",
+      "test/pi-cli-client.test.js",
+      "test/pi-cli-run.test.js",
+      "test/pi-install.test.js",
+      "test/pi-native-cli.test.js",
+      "test/pi-native-planning.test.js",
+      "test/pi-native-provider.test.js",
+      "test/pi-native-runtime.test.js",
+      "test/pi-package.test.js",
+      "test/pi-preflight.test.js",
+      "test/pi-review-regressions.test.js",
+      "test/pi-sdk-conformance-contract.test.js",
+      "test/pi-sdk.test.js",
+      "test/pi-session-host.test.js",
+      "test/pi-target.test.js",
+      "test/pi-upstream.test.js"
+    ],
+    "offline": true,
+    "summaries": [
+      "ℹ tests 188",
+      "ℹ suites 3",
+      "ℹ pass 188",
+      "ℹ fail 0",
+      "ℹ cancelled 0",
+      "ℹ skipped 0",
+      "ℹ duration_ms 54892.693625"
+    ]
+  },
+  "coldPackage": {
+    "status": "passed",
+    "archiveMembers": 151,
+    "noNodeModules": true,
+    "noRuntimeState": true,
+    "commands": {
+      "help": {
+        "exitCode": 0,
+        "expected": true
+      },
+      "piChatHelp": {
+        "exitCode": 0,
+        "expected": true
+      },
+      "piChatShortHelp": {
+        "exitCode": 0,
+        "expected": true
+      },
+      "helpPiChat": {
+        "exitCode": 0,
+        "expected": true
+      },
+      "missingInputs": {
+        "exitCode": 1,
+        "expected": true
+      }
+    },
+    "sdkExecuted": false,
+    "modelRequests": 0,
+    "installed": false
+  },
+  "fullRepository": {
+    "final": {
+      "command": "npm run check",
+      "exitCode": -15,
+      "boundedStop": true,
+      "maximumSeconds": 90,
+      "offline": true,
+      "summaries": [
+        "ℹ tests 407",
+        "ℹ suites 18",
+        "ℹ pass 248",
+        "ℹ fail 0",
+        "ℹ cancelled 158",
+        "ℹ skipped 1",
+        "ℹ duration_ms 83121.643125"
+      ]
+    },
+    "previousLongerAfterManifestFix": {
+      "command": "npm run check",
+      "exitCode": -15,
+      "boundedStop": true,
+      "maximumSeconds": 300,
+      "offline": true,
+      "summaries": [
+        "ℹ tests 458",
+        "ℹ suites 22",
+        "ℹ pass 302",
+        "ℹ fail 0",
+        "ℹ cancelled 155",
+        "ℹ skipped 1",
+        "ℹ duration_ms 294765.054125"
+      ]
+    },
+    "passed": false,
+    "limit": "No observed assertion failures in these bounded runs does not make cancelled or unexecuted cases pass."
+  },
+  "source": {
+    "previousDigest": "sha256:3a101a8bfdc5a8a11893278af1343d984f9911762afc4c10eb7d06df7391b500",
+    "digest": "sha256:c0b4f2359c79c8d6f648795376f9e0e03fd7de6e29f77fc98d06f60ebad9f5eb",
+    "fileCount": 144,
+    "productionFilesChanged": [
+      "package.json",
+      "src/cli-help.js"
+    ],
+    "oldInstallPreserved": true,
+    "oldApprovalsNotReusableForNewSource": true
+  },
+  "preservation": {
+    "totalReservedFen": 4898,
+    "projectReservations": 30,
+    "capFen": 10000,
+    "journalDigest": "sha256:573f6c51a205c0f2f9a42f122d7b6eeaf6f4dcc51893d61a65ea0664c4e406f5",
+    "firstSuccessEvidenceDigest": "sha256:61315a43e241f4c658c0b605f1c44dc691014c4ab858db8753c2bed42ec93f06",
+    "failedFollowupEvidenceDigest": "sha256:ed36947a45a843e4afef5917ed18e49db71b50bf32084ad91e405baa8d4b2c64",
+    "oldFailuresRetained": true
+  },
+  "networkPreview": {
+    "proposalDigest": "sha256:87aacf5a8e971c5146e2be26637bfdccd77595e33e914799d671d87f337108c1",
+    "pinnedFiles": 7,
+    "method": "HEAD",
+    "target": "https://api.minimax.cn/anthropic/v1/messages",
+    "maximumApplicationCalls": 1,
+    "requestDeadlineMs": 10000,
+    "processDeadlineMs": 15000,
+    "selfcheckCases": 4,
+    "executed": false
+  },
+  "boundaries": {
+    "envFileRead": false,
+    "keyRead": false,
+    "actualSdkExecuted": false,
+    "realAgentInstalled": false,
+    "realAgentActivated": false,
+    "realNetworkCalls": 0,
+    "modelRequests": 0,
+    "newReservedFen": 0,
+    "committed": false,
+    "pushed": false
+  },
+  "remaining": [
+    "Approve a concrete network diagnostic before connecting.",
+    "Authenticated M3 followup, isolation and restore remain unpassed.",
+    "New source needs fresh package/install/activation bindings before any real Agent run.",
+    "Full repository check and later aggregate lanes remain incomplete."
+  ]
+}

@@ -1,3 +1,4 @@
+import { validatePiWorkspaceSource, piWorkspaceDigest } from './pi-workspace-policy.js';
 import path from "node:path";
 import { PI_TARGET_DESCRIPTOR_SCHEMA_VERSION, validatePiTargetDescriptor } from "./pi-target-descriptor.js";
 import { createHash } from "node:crypto";
@@ -51,6 +52,7 @@ const CONTRACT_KEYS = Object.freeze([
   "schemaVersion",
   "execution_profile",
   "native_runtime",
+  "pi_workspace",
   "agentId",
   "status",
   "targetDescriptor",
@@ -67,7 +69,7 @@ const CONTRACT_KEYS = Object.freeze([
   "certificationBoundary",
 ]);
 const REQUIRED_CONTRACT_KEYS = Object.freeze(
-  CONTRACT_KEYS.filter((key) => !["execution_profile", "native_runtime", "targetDescriptor", "nativePluginRecipe"].includes(key)),
+  CONTRACT_KEYS.filter((key) => !["execution_profile", "native_runtime", "pi_workspace", "targetDescriptor", "nativePluginRecipe"].includes(key)),
 );
 const NATIVE_PLUGIN_RECIPE_KEYS = Object.freeze([
   "schemaVersion",
@@ -182,7 +184,8 @@ export function buildBuildContract(
     options.admissions,
   );
   const planTrace = designPlan.traceGraph;
-  if (blueprint.execution_profile !== designPlan.execution_profile
+  if (!isDeepStrictEqual(blueprint.pi_workspace, designPlan.pi_workspace)
+    || blueprint.execution_profile !== designPlan.execution_profile
     || blueprint.native_model_profile !== designPlan.native_model_profile
     || Object.hasOwn(blueprint, "native_runtime") !== Object.hasOwn(designPlan, "native_runtime")
     || blueprint.native_runtime !== designPlan.native_runtime) {
@@ -194,7 +197,7 @@ export function buildBuildContract(
   const decisionIds = [...planTrace.decisionIds].sort();
   const capabilityIds = [...planTrace.capabilityIds].sort();
   const evalCaseIds = [...planTrace.evalCaseIds].sort();
-  const resources = buildResources(requirementIds, sourceIds, decisionIds, nativeChat, targetRuntime.id);
+  const resources = buildResources(requirementIds, sourceIds, decisionIds, nativeChat, targetRuntime.id, blueprint.pi_workspace);
   const permissions = resources.map((resource) => ({
     id: `permission:${resource.kind}`,
     resourceId: resource.id,
@@ -227,6 +230,7 @@ export function buildBuildContract(
     schemaVersion: BUILD_CONTRACT_SCHEMA_VERSION,
     ...(nativeChat ? { execution_profile: "native-chat" } : {}),
     ...(blueprint.native_runtime === "pi" ? { native_runtime: "pi" } : {}),
+    ...(Object.hasOwn(blueprint, "pi_workspace") ? { pi_workspace: structuredClone(blueprint.pi_workspace) } : {}),
     agentId: designPlan.agentId,
     status: "construction-intent",
     targetDescriptor: structuredClone(targetDescriptor),
@@ -265,6 +269,7 @@ export function validateBuildContract(value) {
       return { ok: false, errors: ["build contract must contain only canonical fields."] };
     }
     if (value.schemaVersion !== BUILD_CONTRACT_SCHEMA_VERSION) errors.push("invalid schemaVersion.");
+    errors.push(...validatePiWorkspaceSource(value));
     const nativeChat = value.execution_profile === "native-chat";
     const pi = value.native_runtime === "pi";
     if (Object.hasOwn(value, "native_runtime") && (!pi || !nativeChat)
@@ -291,12 +296,13 @@ export function validateBuildContract(value) {
       const runtime = value.specification?.runtimeBinding;
       const selected = { agent_id: value.agentId, execution_profile: "native-chat",
         ...(pi ? { native_runtime: "pi" } : {}),
+        ...(Object.hasOwn(value, "pi_workspace") ? { pi_workspace: value.pi_workspace } : {}),
         ...(runtime && Object.hasOwn(runtime, "modelProfile") ? { native_model_profile: runtime.modelProfile } : {}) };
       if (!isDeepStrictEqual(value.specification, buildNativeChatSpecification(selected))) {
         errors.push("native-chat specification must exactly match the no-tools native runtime contract.");
       }
     } else validateSpecification(value.specification, errors);
-    validateResources(value.resources, errors, nativeChat, value.targetRuntime?.id);
+    validateResources(value.resources, errors, nativeChat, value.targetRuntime?.id, value.pi_workspace);
     validatePermissions(value.permissions, value.resources, errors);
     validateAcceptanceCases(value.acceptanceCases, errors);
     validateEvidenceObligations(value.evidenceObligations, value.resources, errors);
@@ -553,8 +559,8 @@ function buildNativeChatSpecification(blueprint) {
   }
   return {
     prompt,
-    skills: { enabled: false },
-    tools: { declaredNames: [], deny: ["*"], toolsMdIsAuthority: false },
+    skills: blueprint.pi_workspace ? { enabled: true, name: blueprint.pi_workspace.skill.name, digest: blueprint.pi_workspace.skill.digest, policyDigest: piWorkspaceDigest(blueprint.pi_workspace) } : { enabled: false },
+    tools: { declaredNames: blueprint.pi_workspace ? ["read", "write"] : [], deny: blueprint.pi_workspace ? ["all-other-tools"] : ["*"], toolsMdIsAuthority: false },
     plugins: { enabled: false },
     memory: { enabled: false },
     rag: { enabled: false },
@@ -562,8 +568,8 @@ function buildNativeChatSpecification(blueprint) {
     schedules: { enabled: false },
     harness: { id: runtime, owner: runtime, fallback: "fail-closed" },
     loop: {
-      mechanism: pi ? "pi-sdk-native-chat" : "openclaw-native-chat", hooks: [], tools: [], fallbacks: [],
-      maximumAttempts: 1, automaticRetries: 0, thinking: "disabled",
+      mechanism: pi ? "pi-sdk-native-chat" : "openclaw-native-chat", hooks: [], tools: blueprint.pi_workspace ? ["read", "write"] : [], fallbacks: [],
+      maximumAttempts: blueprint.pi_workspace ? 6 : 1, automaticRetries: 0, thinking: "disabled",
       compaction: { enabled: false }, automaticPromotion: false,
     },
     runtimeBinding: {
@@ -885,11 +891,11 @@ function promptFilePurpose(name) {
   }[name];
 }
 
-function buildResources(requirementRefs, sourceRefs, decisionRefs, nativeChat = false, target = "openclaw") {
+function buildResources(requirementRefs, sourceRefs, decisionRefs, nativeChat = false, target = "openclaw", workspace) {
   return OPENCLAW_RESOURCE_KINDS.map((kind) => ({
     id: `resource:${kind}`,
     kind,
-    necessity: nativeChat && disabledNativeResource(kind) ? "disabled" : resourceNecessity(kind),
+    necessity: nativeChat && disabledNativeResource(kind, workspace) ? "disabled" : resourceNecessity(kind),
     owner: "phase-3",
     lifecycle: {
       declared: "phase-3",
@@ -902,16 +908,18 @@ function buildResources(requirementRefs, sourceRefs, decisionRefs, nativeChat = 
     trustSemantics: "declaration-is-not-runtime-or-domain-proof",
     permissionSemantics: permissionAuthority(kind),
     failureSemantics: "fail-closed-when-missing-stale-or-unapproved",
-    projection: projectionFor(kind, nativeChat, target),
+    projection: projectionFor(kind, nativeChat, target, workspace),
     evidenceObligationRefs: [`evidence:${kind}`],
   }));
 }
 
-function disabledNativeResource(kind) {
+function disabledNativeResource(kind, workspace) {
+  if (workspace && kind === "skills") return false;
   return ["skills", "plugins", "memory", "rag", "schedules"].includes(kind);
 }
 
-function projectionFor(kind, nativeChat = false, target = "openclaw") {
+function projectionFor(kind, nativeChat = false, target = "openclaw", workspace) {
+  if (workspace && kind === "skills") return { disposition: "generated-file", target: `pi/skills/${workspace.skill.name}/SKILL.md` };
   if (nativeChat && disabledNativeResource(kind)) {
     return { disposition: "explicit-unsupported", target: `native-chat.disabled.${kind}` };
   }
@@ -1226,7 +1234,7 @@ function validateSpecification(value, errors) {
   }
 }
 
-function validateResources(value, errors, nativeChat = false, target = "openclaw") {
+function validateResources(value, errors, nativeChat = false, target = "openclaw", workspace) {
   if (!Array.isArray(value)
     || !sameArray(value.map((resource) => resource?.kind), OPENCLAW_RESOURCE_KINDS)
     || new Set(value.map((resource) => resource?.id)).size !== OPENCLAW_RESOURCE_KINDS.length) {
@@ -1242,7 +1250,7 @@ function validateResources(value, errors, nativeChat = false, target = "openclaw
         "projection", "evidenceObligationRefs",
       ])
       || resource.id !== `resource:${expectedKind}`
-      || (nativeChat && resource.necessity !== (disabledNativeResource(expectedKind) ? "disabled" : resourceNecessity(expectedKind)))
+      || (nativeChat && resource.necessity !== (disabledNativeResource(expectedKind, workspace) ? "disabled" : resourceNecessity(expectedKind)))
       || resource.owner !== "phase-3"
       || !sameObject(resource.lifecycle, {
         declared: "phase-3",
@@ -1257,8 +1265,8 @@ function validateResources(value, errors, nativeChat = false, target = "openclaw
       || !plainObject(resource.projection)
       || !hasExactKeys(resource.projection, ["disposition", "target"])
       || !PROJECTION_DISPOSITIONS.has(resource.projection.disposition)
-      || resource.projection.disposition !== projectionFor(expectedKind, nativeChat, target).disposition
-      || resource.projection.target !== projectionFor(expectedKind, nativeChat, target).target
+      || resource.projection.disposition !== projectionFor(expectedKind, nativeChat, target, workspace).disposition
+      || resource.projection.target !== projectionFor(expectedKind, nativeChat, target, workspace).target
       || !sameArray(resource.evidenceObligationRefs, [`evidence:${expectedKind}`])) {
       errors.push(`invalid resource projection ${expectedKind}.`);
     }

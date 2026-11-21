@@ -1,0 +1,82 @@
+{
+  "schemaVersion": "agentmo.pi-connection-comparison-execution.v1",
+  "date": "2026-11-17",
+  "status": "comparison-completed-scope-closed",
+  "proposalDigest": "sha256:2563c6304ee284bdf5deccdeea297be1a1547e7bc700457146d1957c616d91ae",
+  "driverDigest": "sha256:e2a1dea4ef86584b053a41fe85853cc3f57ccf2bf3c332d2c0404a5b384cfa16",
+  "originalResultDigest": "sha256:a33b628b612af7d518c87b4da5ff8a1a01dbe5cab87ff6880d0273315e4e393b",
+  "originalPreviewDigest": "sha256:44f03ac32141cce4c8d3bf95d7cfe757cc5e4ff01f008ed5bbab8a8548dc95fd",
+  "results": [
+    {
+      "caseId": "agentmo-current",
+      "outcome": "network-error",
+      "stages": {
+        "socketMs": 8,
+        "dnsMs": 9,
+        "tcpMs": 10,
+        "tlsMs": null,
+        "httpMs": null,
+        "closedMs": 35657
+      },
+      "tlsProtocol": null,
+      "httpStatus": null,
+      "networkCode": "ECONNRESET",
+      "deadlineExpired": false,
+      "ownSocketClosed": true,
+      "elapsedMs": 35657
+    },
+    {
+      "caseId": "pi-default-parameters",
+      "outcome": "http-response",
+      "stages": {
+        "socketMs": 2,
+        "dnsMs": 5,
+        "tcpMs": 6,
+        "tlsMs": 619,
+        "httpMs": 844,
+        "closedMs": 845
+      },
+      "tlsProtocol": "TLSv1.2",
+      "httpStatus": 404,
+      "networkCode": null,
+      "deadlineExpired": false,
+      "ownSocketClosed": true,
+      "elapsedMs": 845
+    }
+  ],
+  "applicationRequests": 2,
+  "method": "HEAD",
+  "noCredentialsUsed": true,
+  "modelRequests": 0,
+  "sdkExecuted": false,
+  "agentActivated": false,
+  "newReservedFen": 0,
+  "budget": {
+    "totalReservedFen": 5084,
+    "projectReservations": 36,
+    "capFen": 10000
+  },
+  "authorityJournalDigest": "sha256:04b4c31d9144a4dd968c371bcbab527988c467f63aa61b52cad7023f6a31e2fe",
+  "authorityUnchanged": true,
+  "retries": 0,
+  "redirects": 0,
+  "allOwnSocketsClosed": true,
+  "scopeClosed": true,
+  "claimBoundary": {
+    "currentPathResetAfterTcpBeforeTlsObserved": true,
+    "piDefaultParameterPathReachedHttp": true,
+    "defaultParameterPathNegotiatedTls": "TLSv1.2",
+    "http404ProvesModelWorks": false,
+    "severalConnectionParametersDiffer": true,
+    "uniqueHistoricalResetCauseProven": false,
+    "resetResponsibleParty": "unknown"
+  },
+  "configurationAction": "Offline align current Pi upstream with the measured native-provider endpoint and Node TLS defaults; no model execution authorized by this comparison",
+  "commit": false,
+  "push": false,
+  "validation": {
+    "priorOfflineSelfchecks": 9,
+    "gitDiffCheck": "pending",
+    "documentationTests": "pending"
+  }
+}

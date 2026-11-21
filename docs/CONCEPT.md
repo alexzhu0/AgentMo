@@ -1,11 +1,12 @@
 # AgentMo Concept and Canonical Architecture
 
-2026-11-05 MVP refinement: the user selected a usable Pi CLI Agent as the first
-delivery endpoint. The [short specification](superpowers/specs/2026-11-05-agentmo-core-mvp-design.md)
-is approved for offline planning. The [implementation plan](superpowers/plans/2026-11-05-agentmo-core-mvp.md)
-was approved for offline implementation on 2026-11-06. Offline implementation and one independent batch review are complete; three important findings were repaired and regression-tested by the author. Actual SDK execution, installation, activation, network access and model calls remain separately gated; full repository checks are not green.
-The historical OpenClaw-first mappings below are reference context, not a
-requirement to resume that runtime or the stopped meeting-assistant workline.
+The first delivery target is a bounded Pi CLI Agent. The November 2026
+[specification](superpowers/specs/2026-11-05-agentmo-core-mvp-design.md) and
+[implementation plan](superpowers/plans/2026-11-05-agentmo-core-mvp.md) led to
+verified text-task samples. The work is paused as of 2026-11-21. The later
+workspace report was generated, but its citation evidence did not pass review.
+The [current status](CURRENT_STATUS.md) records what was verified. The earlier
+OpenClaw mappings below explain the architecture's original adapter.
 
 Product-design clarification: 2026-09-28. The architecture below describes the
 target, not completed product capability. The researched first-delivery design,
@@ -75,7 +76,7 @@ permission to invent dummy tools or bypass validation.
 
 These are logical ownership boundaries, not a requirement for four new services
 or databases. AgentMo's build controller is also distinct from the produced
-Agent's conversation loop. OpenClaw owns that loop for the first target.
+Agent's conversation loop. The Pi SDK owns that loop for the Pi CLI target.
 
 ### What a delivered Agent must specify
 
@@ -250,9 +251,9 @@ AgentMo target-neutral Agent Specification
  OpenClaw     Pi     Hermes   business-provided Agent specification
 ```
 
-OpenClaw is the first implementation target, not the permanent definition of an
-AgentMo package. Future adapters may target Pi, Hermes, or an architecture
-contract supplied by a business team. Each adapter must declare:
+OpenClaw was the first implementation target. The bounded Pi adapter is used by
+the CLI MVP. Other adapters may target Hermes or an architecture contract
+supplied by a business team. Each adapter must declare:
 
 - who owns the model and execution loop;
 - native versus bridged prompts, skills, tools, hooks, memory, and plugins;
@@ -288,7 +289,10 @@ without the corresponding human authority.
 This document defines the canonical architecture and direction. Current product
 evidence is narrower:
 
-- OpenClaw is the first implemented runtime adapter;
+- OpenClaw was the first implemented runtime adapter;
+- Pi provides the current CLI path. Text-task samples passed across separate
+  approved runs. The workspace report passed generation and file checks, with
+  citation support still open at the pause;
 - scaffold and package projection are not a completed natural-language-to-Agent
   product: `src/targets/openclaw-package.js` still contains a bounded
   support-triage projection and native-plugin prerequisites;
@@ -296,7 +300,7 @@ evidence is narrower:
 - the POC demonstrates controlled collection, local Research DB persistence,
   deduplication, restart recovery, evidence-bounded answers, and refusal;
 - broad internal-database, business-API, MCP, Cursor, Claude Code, Kimi Code,
-  Pi, Hermes, and business-specific adapters are architectural extension points,
+  Hermes, and business-specific adapters are architectural extension points,
   not completed integrations;
 - automated Agent Idea discovery and the complete portable Evaluation Contract
   / Test Dataset flow are canonical requirements that must be productized and
@@ -304,10 +308,9 @@ evidence is narrower:
 - schedule activation, delivery, domain certification, and production approval
   remain separate human-authorized gates.
 
-The isolated Course Wiki `definition` result recorded in `release/2026.09.28.md`
-adds one reviewed native behavior result, not generic Agent creation or a completed
-user-entry delivery. The smallest-delivery design above remains to be implemented
-and verified through the canonical pipeline.
+The isolated Course Wiki `definition` result in [the September record](../release/2026.09.28.md)
+is one reviewed native behavior result. The Pi CLI evidence covers the bounded
+first-delivery workflow described in [the acceptance record](CORE_MVP_ACCEPTANCE.md).
 
 The primary output is therefore not a model response. It is a reviewed,
 versioned, test-bound production path:

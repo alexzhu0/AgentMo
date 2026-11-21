@@ -1,3 +1,4 @@
+import { validateWorkspaceRequest } from './pi-workspace-protocol.js';
 import { randomBytes } from 'node:crypto';
 import { createServer } from 'node:http';
 import { lstat, readdir, realpath } from 'node:fs/promises';
@@ -6,7 +7,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { validatePiNativeBinding, validatePiApprovedCases, piHash, piBytes, piKeys, piIdentity, piReject, readPiPrivateFile } from './pi-install-plan.js';
 export { validatePiApprovedCases } from './pi-install-plan.js';
 import { writeNativeChatFile } from './native-chat-files.js';
-import { validateCourseBudgetBinding, validatePiBudgetRequest, sendBudgetedCompletion, UPSTREAM_NETWORK_CODES } from './course-wiki-budget.js';
+import { courseBudgetSummary, validateCourseBudgetBinding, validatePiBudgetRequest, sendBudgetedCompletion, UPSTREAM_NETWORK_CODES } from './course-wiki-budget.js';
 
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/u;
 const DIGEST = /^sha256:[a-f0-9]{64}$/u;
@@ -33,8 +34,13 @@ export function validatePiPublicTurn(value) {
 }
 
 export async function createPiTurnController(options) {
-  if (!piKeys(options, ['binding', 'stateRoot', 'approvedCases', ...['activationId'].filter(k => Object.hasOwn(options, k))]) || !validatePiNativeBinding(options.binding)
+  if (!piKeys(options, ['binding', 'stateRoot', 'approvedCases', ...['activationId', 'workspace'].filter(k => Object.hasOwn(options, k))]) || !validatePiNativeBinding(options.binding)
     || piHash(options.stateRoot) !== options.binding.stateRootDigest || !validatePiApprovedCases(options.approvedCases)) piReject();
+  const workspace = options.workspace;
+  if (workspace && (!options.binding.pi_workspace || typeof workspace.records !== 'function' || !Number.isFinite(workspace.deadline)
+    || workspace.deadline <= Date.now() || workspace.deadline > Date.now()+600000 || options.approvedCases.length !== 1
+    || workspace.binding.sessionId !== options.approvedCases[0].sessionId || piHash(workspace.approvedText) !== options.approvedCases[0].inputDigest)) piReject();
+  if (options.binding.pi_workspace && options.approvedCases.length && !workspace) piReject();
   const { stateRoot } = options, binding = structuredClone(options.binding), approvedCases = structuredClone(options.approvedCases);
   const activationId = options.activationId ?? null;
   if (activationId !== null && !UUID.test(activationId)) piReject();
@@ -147,7 +153,7 @@ export async function createPiTurnController(options) {
       try { await writeNativeChatFile({ filePath: path.join(stateRoot, 'turns', `${input.turnId}.received.json`), bytes: piBytes(row) }); }
       catch (error) { await closeScope().catch(() => {}); throw error; }
       rows.set(input.turnId, row);
-      const turnToken = randomBytes(32).toString('hex'); credentials.set(turnToken, { row, used: false });
+      const turnToken = randomBytes(32).toString('hex'); credentials.set(turnToken, { row, used: false, requestCount: 0, busy: false, previousMessages: null });
       return { kind: 'admitted', turnToken };
     }),
     finish: input => exclusive(async () => {
@@ -157,13 +163,28 @@ export async function createPiTurnController(options) {
       const row = rows.get(input.turnId);
       if (!row || row.sessionId !== input.sessionId) fail(409);
       if (TERMINAL.has(row.status)) return publicTurn(row);
-      if (input.status === 'completed' && (!succeeded.has(row.turnId) || !/^[A-Za-z0-9_-]{1,128}$/u.test(input.finalEntryId ?? ''))) fail(409);
+      if (input.status === 'completed' && (workspace && (closed || Date.now()>=workspace.deadline || [...credentials.values()].some(c=>c.row===row&&c.busy)) || !succeeded.has(row.turnId) || !/^[A-Za-z0-9_-]{1,128}$/u.test(input.finalEntryId ?? ''))) fail(409);
       return stage(row, input.status, input.status === 'completed' ? { finalEntryId: input.finalEntryId }
         : { causeCode: input.causeCode ?? (input.status === 'interrupted' ? 'PI_INTERRUPTED' : 'PI_SDK_FAILURE') });
     }),
   };
   controllers.set(controller, {
     binding,
+    workspace,
+    beginWorkspace: (token, request) => exclusive(async () => {
+      const credential = credentials.get(token); if (!credential) fail(401);
+      if (!workspace || closed || TERMINAL.has(credential.row.status) || credential.busy || credential.requestCount >= 6 || Date.now() >= workspace.deadline) fail(409);
+      const validated = validateWorkspaceRequest({ request, binding: workspace.binding, approvedText: workspace.approvedText,
+        previousMessages: credential.previousMessages, toolRecords: workspace.records(), policy: binding.pi_workspace });
+      credential.busy = true;
+      const requestIndex = credential.requestCount++;
+      const row = { turnRow: credential.row, credential, requestIndex, requestDigest: validated.requestDigest, validated, status: 'claimed' };
+      await writeNativeChatFile({ filePath: path.join(stateRoot, 'attempts', `pi-request-${row.turnRow.turnId}-${requestIndex}.claim.json`),
+        bytes: piBytes({ bindingDigest, scopeDigest, turnId: row.turnRow.turnId, sessionId: row.turnRow.sessionId, requestIndex, requestDigest: row.requestDigest }) });
+      credential.activeRequest = row;
+      credential.previousMessages = structuredClone(validated.messages);
+      return row;
+    }),
     begin: (token, inputDigest, requestDigest) => exclusive(async () => {
       const credential = credentials.get(token); if (!credential) fail(401);
       if (credential.used) fail(409);
@@ -175,11 +196,34 @@ export async function createPiTurnController(options) {
         bytes: piBytes({ bindingDigest, scopeDigest, sessionId: row.sessionId, turnId: row.turnId, requestDigest }) });
       return row;
     }),
-    reserved: row => exclusive(() => stage(row, 'reserved')),
-    sent: row => exclusive(() => stage(row, 'sent')),
-    succeeded: row => exclusive(() => { if (row.status !== 'sent') fail(); succeeded.add(row.turnId); }),
+    reserved: row => exclusive(async () => {
+      if (!row.turnRow) return stage(row, 'reserved');
+      await once(path.join(stateRoot,'attempts',`pi-request-${row.turnRow.turnId}-${row.requestIndex}.reserved.json`),
+        { turnId:row.turnRow.turnId, requestIndex:row.requestIndex, requestDigest:row.requestDigest, reservedFen:31 });
+      row.status='reserved'; if(row.requestIndex===0) await stage(row.turnRow,'reserved');
+    }),
+    sent: row => exclusive(async () => {
+      if (!row.turnRow) return stage(row, 'sent');
+      if(row.status!=='reserved') fail();
+      await once(path.join(stateRoot,'attempts',`pi-request-${row.turnRow.turnId}-${row.requestIndex}.sent.json`),
+        { turnId:row.turnRow.turnId, requestIndex:row.requestIndex, requestDigest:row.requestDigest });
+      row.status='sent'; if(row.requestIndex===0) await stage(row.turnRow,'sent');
+    }),
+    succeeded: row => exclusive(async () => {
+      if(row.status!=='sent' || row.turnRow && (closed || Date.now()>=workspace.deadline)) fail();
+      if (!row.turnRow) { succeeded.add(row.turnId); return; }
+      await once(path.join(stateRoot,'attempts',`pi-request-${row.turnRow.turnId}-${row.requestIndex}.completed.json`),
+        {turnId:row.turnRow.turnId,requestIndex:row.requestIndex,requestDigest:row.requestDigest});
+      row.status='completed';row.credential.busy=false;row.credential.activeRequest=null;succeeded.add(row.turnRow.turnId);
+    }),
     failure: (token, error) => exclusive(async () => {
-      const row = credentials.get(token)?.row; if (!row) return;
+      const credential = credentials.get(token), row = credential?.row; if (!row) return;
+      const request = credential.activeRequest;
+      if (request) {
+        await once(path.join(stateRoot,'attempts',`pi-request-${row.turnId}-${request.requestIndex}.failed.json`),
+          {turnId:row.turnId,requestIndex:request.requestIndex,requestDigest:request.requestDigest,status:'failed'});
+        credential.activeRequest=null;credential.busy=false;
+      }
       if (error.httpStatus === 409 || TERMINAL.has(row.status)) { await closeScope(row.scopeDigest); return; }
       const details = { causeCode: CAUSES.has(error.code) ? error.code : error.httpStatus ? 'PI_REQUEST_INVALID' : 'PI_LOCAL_FAILURE' };
       if (Number.isInteger(error.upstreamStatus) && error.upstreamStatus >= 100 && error.upstreamStatus <= 599) details.upstreamStatus = error.upstreamStatus;
@@ -203,7 +247,7 @@ export function createPiBudgetHandler(options) {
     const abort = new AbortController(), cancel = () => { if (!res.writableFinished) abort.abort(); };
     pending.add(abort);
     res.once('close', cancel); let phase = 'request';
-    const timer = setTimeout(() => abort.abort(), 90000); timer.unref();
+    const timer = setTimeout(() => abort.abort(), Math.max(1,Math.min(90000,(control.workspace?.deadline ?? Infinity)-Date.now()))); timer.unref();
     const token = /^[a-f0-9]{64}$/u.test(req.headers['x-api-key'] ?? '') ? req.headers['x-api-key'] : undefined;
     try {
       if (closed || req.method !== 'POST' || !['/v1/messages', '/v1/messages?beta=true'].includes(req.url) || req.headers.host !== `127.0.0.1:${binding.proxyPort}`
@@ -211,18 +255,25 @@ export function createPiBudgetHandler(options) {
       const chunks = []; let length = 0;
       for await (const chunk of req) { length += chunk.length; if (length > 48 * 1024) fail(); chunks.push(Buffer.from(chunk)); }
       const value = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks)));
-      const input = validatePiBudgetRequest(value), request = value, requestDigest = piHash(JSON.stringify(request));
+      const request = value;
+      const input = control.workspace ? null : validatePiBudgetRequest(value), requestDigest = piHash(JSON.stringify(request));
       await validateCourseBudgetBinding({ root: budgetRoot, budgetReference: binding.budgetReference });
-      const row = await control.begin(token, piHash(input), requestDigest);
+      if (control.workspace && counts.newReservations === 0) {
+        const summary = await courseBudgetSummary({root:budgetRoot,budgetReference:binding.budgetReference});
+        if (summary.remainingFen < 186) fail();
+      }
+      const row = control.workspace ? await control.beginWorkspace(token,request) : await control.begin(token, piHash(input), requestDigest);
       phase = 'upstream';
       const result = await sendBudgetedCompletion({ root: budgetRoot, budgetReference: binding.budgetReference, apiKey,
-        request, modelProfile: binding.modelProfile, protocol: 'anthropic-messages', deadline: Date.now() + 90000, signal: abort.signal,
+        request, modelProfile: binding.modelProfile, protocol: 'anthropic-messages', deadline: Math.min(Date.now() + 90000,control.workspace?.deadline ?? Infinity), signal: abort.signal,
+        ...(row.validated ? {workspaceRequest:row.validated} : {}),
         onReserved: () => { counts.newReservations++; return control.reserved(row); },
         onSent: () => { counts.modelRequests++; return control.sent(row); } });
       if (abort.signal.aborted) fail(502);
       await control.succeeded(row);
       res.writeHead(200, { 'content-type': result.contentType, 'cache-control': 'no-store', 'x-should-retry': 'false' }); res.end(result.body);
     } catch (error) {
+      if(control.workspace){closed=true;for(const other of pending)other.abort();}
       await control.failure(token, error).catch(() => {});
       const status = [401, 409].includes(error.httpStatus) ? error.httpStatus : phase === 'upstream' ? 502 : 400;
       if (!res.destroyed) { res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store', 'x-should-retry': 'false' });

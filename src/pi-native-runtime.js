@@ -1,3 +1,6 @@
+import { createWorkspaceTools, revalidateWorkspace, revalidateWorkspaceOutput, workspaceTaskCase, publishWorkspaceArtifact, finishWorkspaceArtifact } from './pi-workspace-files.js';
+import { validateWorkspaceHistory } from './pi-workspace-protocol.js';
+import { workspaceSystemPrompt, piFinalText } from './pi-sdk.js';
 import { spawn } from 'node:child_process';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { lstat, readdir } from 'node:fs/promises';
@@ -163,8 +166,103 @@ async function deadline(promise, ms) {
   finally { clearTimeout(timer); }
 }
 
+export async function readPiWorkspaceHistory({binding,sessionId,snapshot,stateRoot}) {
+  if(!UUID.test(sessionId) || !binding.pi_workspace || piHash(stateRoot)!==binding.stateRootDigest)reject();
+  const sessionDir=path.join(stateRoot,'sessions',sessionId),identity={sessionId,bindingDigest:piHash(piBytes(binding)),
+    snapshotDigest:snapshot.snapshotDigest,skillDigest:binding.pi_workspace.skill.digest};
+  const prior=await existing(path.join(sessionDir,'workspace-binding.json'));
+  if(prior && !isDeepStrictEqual(prior,identity))reject();
+  const meta=await existing(path.join(sessionDir,'sdk-session.json')),records=[],tasks=[];
+  let entries=[];
+  if(meta){
+    if(!prior || meta.sessionId!==sessionId || meta.bindingDigest!==identity.bindingDigest || path.basename(meta.fileName)!==meta.fileName)reject();
+    const bytes=(await readPiPrivateFile(path.join(sessionDir,meta.fileName))).bytes;
+    const raw=new TextDecoder('utf-8',{fatal:true}).decode(bytes);if(!raw.endsWith('\n'))reject();
+    const all=raw.trimEnd().split('\n').map(JSON.parse);
+    if(all[0]?.type!=='session' || all[0].id!==sessionId || all[0].cwd!==stateRoot)reject();entries=all.slice(1);
+  }
+  for(const name of await readdir(path.join(stateRoot,'attempts'))){
+    if(!/^pi-workspace-[a-f0-9-]{36}$/u.test(name))continue;
+    const base=path.join(stateRoot,'attempts',name),task=await existing(path.join(base,'task.json'));
+    if(!task || task.sessionId!==sessionId)continue;
+    if(!piKeys(task,['schemaVersion','taskId','sessionId','bindingDigest','snapshotDigest','skillDigest','inputDigest'])
+      || task.schemaVersion!=='agentmo.pi-workspace-task.v1' || !UUID.test(task.taskId) || name!==`pi-workspace-${task.taskId}`
+      || task.bindingDigest!==identity.bindingDigest || task.snapshotDigest!==identity.snapshotDigest || task.skillDigest!==identity.skillDigest
+      || !/^sha256:[a-f0-9]{64}$/u.test(task.inputDigest))reject();
+    const complete=await existing(path.join(base,'result.json')),saved=await existing(path.join(base,'tool-records.json'));
+    if(!meta || !complete || complete.taskId!==task.taskId || complete.sessionId!==sessionId || complete.status!=='passed'
+      || complete.cleanup!=='stopped' || complete.publication!=='published' || complete.snapshotDigest!==identity.snapshotDigest
+      || complete.skillDigest!==identity.skillDigest || complete.agentDigest!==binding.packageArchiveDigest
+      || !piKeys(saved,['taskId','sessionId','turnId','finalEntryId','records']) || saved.taskId!==task.taskId || saved.sessionId!==sessionId
+      || !UUID.test(saved.turnId) || !/^[A-Za-z0-9_-]{1,128}$/u.test(saved.finalEntryId) || !Array.isArray(saved.records)
+      || saved.records.some(r=>r.taskId!==task.taskId || r.sessionId!==sessionId || r.snapshotDigest!==identity.snapshotDigest || r.skillDigest!==identity.skillDigest || !['read','write'].includes(r.name))
+      || saved.records.filter(r=>r.name==='write').length!==1 || complete.tools!==saved.records.length
+      || saved.records.find(r=>r.name==='write').result.contentDigest!==complete.contentDigest)reject();
+    const completion=await existing(path.join(stateRoot,'turns',`${saved.turnId}.completed.json`));
+    if(!completion || completion.sessionId!==sessionId || completion.finalEntryId!==saved.finalEntryId || completion.status!=='completed' || completion.bindingDigest!==identity.bindingDigest)reject();
+    tasks.push({task,saved});records.push(...saved.records.map(r=>({...r,taskStatus:'passed'})));
+  }
+  // Every native user/final segment must belong to one successful task, including zero-tool histories.
+  let input=null,calls=[];const used=new Set();
+  for(const entry of entries){
+    if(entry.type!=='message')continue;const m=entry.message;
+    if(m?.role==='user'){
+      if(input!==null)reject();
+      input=typeof m.content==='string'?m.content:Array.isArray(m.content)&&m.content.every(p=>p.type==='text'&&typeof p.text==='string')?m.content.map(p=>p.text).join(''):null;
+      if(input===null)reject();calls=[];
+    }
+    if(m?.role==='assistant'){
+      if(Array.isArray(m.content))calls.push(...m.content.filter(p=>p.type==='toolCall').map(p=>p.id));
+      if(m.rawStopReason==='end_turn'){
+        const owner=tasks.find(t=>t.saved.finalEntryId===entry.id);
+        if(!owner || used.has(owner.task.taskId) || input===null || piHash(input)!==owner.task.inputDigest
+          || !isDeepStrictEqual(calls,owner.saved.records.map(r=>r.toolCallId)))reject();
+        piFinalText(m);used.add(owner.task.taskId);input=null;calls=[];
+      }
+    }
+  }
+  if(input!==null || used.size!==tasks.length)reject();
+  validateWorkspaceHistory({entries,binding:identity,toolRecords:records});
+  return {sessionDir,identity,prior,entries,records,historyDigest:piHash(JSON.stringify({entries,records,identity}))};
+}
+
+// The owned parent alone holds source bytes and executes tools. The child gets logical names and exact results.
+export async function createPiWorkspaceBridge({ binding, workspace, stateRoot, signal }) {
+  const { taskId,sessionId,snapshot,attemptRoot,deadline }=workspace;
+  if(!binding.pi_workspace || !UUID.test(taskId) || !UUID.test(sessionId) || !Number.isFinite(deadline)
+    || deadline<=Date.now() || deadline>Date.now()+600000 || signal?.aborted
+    || attemptRoot!==path.join(stateRoot,'attempts',`pi-workspace-${taskId}`))reject();
+  await revalidateWorkspace({snapshot});
+  const {sessionDir,identity,prior,entries,records,historyDigest}=await readPiWorkspaceHistory({binding,sessionId,snapshot,stateRoot});
+  if(workspace.historyDigest!==undefined && workspace.historyDigest!==historyDigest)reject();
+  await writeNativeChatFile({filePath:path.join(attemptRoot,'task.json'),bytes:Buffer.from(JSON.stringify({schemaVersion:'agentmo.pi-workspace-task.v1',taskId,sessionId,bindingDigest:identity.bindingDigest,snapshotDigest:identity.snapshotDigest,skillDigest:identity.skillDigest,inputDigest:piHash(workspace.approvedText)}))});
+  if(!prior)await writeNativeChatFile({filePath:path.join(sessionDir,'workspace-binding.json'),bytes:Buffer.from(JSON.stringify(identity))});
+  const sources=snapshot.sources.map(({sourceId,logicalPath})=>({sourceId,logicalPath}));
+  const taskBinding={taskId,sessionId,snapshotDigest:snapshot.snapshotDigest,policy:binding.pi_workspace};
+  const tools=createWorkspaceTools({binding:taskBinding,snapshot,attemptRoot,signal,admittedHistoryRecords:records.filter(r=>r.name==='read')});
+  const check=()=>{if(signal?.aborted || Date.now()>=deadline) {tools.close();reject();}};
+  const systemPrompt=workspaceSystemPrompt(new TextDecoder('utf-8',{fatal:true}).decode((await readPiPrivateFile(path.join(stateRoot,'system.md'))).bytes),binding.pi_workspace,sources);
+  const historyMessages=[];
+  for(const {message:m} of entries.filter(e=>e.type==='message')){
+    if(m.role==='system')continue;
+    if(m.role==='toolResult'){
+      const p={type:'tool_result',tool_use_id:m.toolCallId,content:m.content,is_error:false};
+      const last=historyMessages.at(-1);
+      if(last?.role==='user' && Array.isArray(last.content) && last.content.every(p=>p.type==='tool_result'))last.content.push(p);
+      else historyMessages.push({role:'user',content:[p]});
+    }else historyMessages.push({role:m.role,content:typeof m.content==='string'?m.content:m.content.map(p=>p.type==='text'?{type:'text',text:p.text}:{type:'tool_use',id:p.id,name:p.name,input:p.arguments})});
+  }
+  return {
+    controller:{binding:{...taskBinding,systemPrompt,historyMessages},approvedText:workspace.approvedText,deadline,records:()=>[...records,...tools.records]},
+    context(input){check();if(!piKeys(input,['sessionId']) || input.sessionId!==sessionId)reject();return {...taskBinding,sources,records:structuredClone(records)};},
+    async execute(input){check();if(Buffer.byteLength(JSON.stringify(input))>16384)reject();return tools.execute(input);},
+    async complete(input){check();if(input?.sessionId!==sessionId || !UUID.test(input.turnId) || !/^[A-Za-z0-9_-]{1,128}$/u.test(input.finalEntryId))reject();await writeNativeChatFile({filePath:path.join(attemptRoot,'tool-records.json'),bytes:Buffer.from(JSON.stringify({taskId,sessionId,turnId:input.turnId,finalEntryId:input.finalEntryId,records:tools.records}))});},
+    get staged(){return tools.staged;}, get count(){return tools.count;}, close:()=>tools.close(),
+  };
+}
+
 export async function startPiNative(options) {
-  const optional = ['apiKey', 'runtimeEnvFile', 'signal'].filter(k => Object.hasOwn(options ?? {}, k));
+  const optional = ['apiKey', 'runtimeEnvFile', 'signal', 'workspace'].filter(k => Object.hasOwn(options ?? {}, k));
   if (!piKeys(options, [...INPUT_KEYS, 'ordinaryApproval', 'sensitiveDecisions', 'conflictApproval', 'approvedCases', ...optional])
     || options.apiKey !== undefined && options.runtimeEnvFile !== undefined || options.signal?.aborted) reject();
   const preflightArgs = Object.fromEntries(INPUT_KEYS.map(k => [k, options[k]]));
@@ -172,18 +270,25 @@ export async function startPiNative(options) {
   if (!isDeepStrictEqual(options.approvedCases, plan.approvedCases)
     || options.runtimeEnvFile !== undefined && (!plan.approvedCases.length || !path.isAbsolute(options.runtimeEnvFile))
     || options.apiKey !== undefined && (typeof options.apiKey !== 'string' || !options.apiKey || /[\r\n]/u.test(options.apiKey))) reject();
+  if(plan.nativeBinding.pi_workspace && plan.approvedCases.length){
+    if(!options.workspace || plan.restartAllowance!==0 || !isDeepStrictEqual(plan.approvedCases,[workspaceTaskCase({binding:plan.nativeBinding,workspace:options.workspace})]))reject();
+    await revalidateWorkspace({snapshot:options.workspace.snapshot});await revalidateWorkspaceOutput(options.workspace.output);
+    const history=await readPiWorkspaceHistory({binding:plan.nativeBinding,sessionId:options.workspace.sessionId,snapshot:options.workspace.snapshot,stateRoot:options.stateRoot});
+    if(history.historyDigest!==options.workspace.historyDigest)reject();
+  }else if(options.workspace)reject();
   assertDecisions(plan, options);
   const { stateRoot, authorityRoot, budgetRoot } = options, { base, index } = await nextRun(stateRoot, plan, authorityRoot), runId = randomUUID();
   const budgetBefore = await courseBudgetSummary({ root: budgetRoot, budgetReference: plan.nativeBinding.budgetReference });
   if (options.signal?.aborted) reject();
   const consumed = await consumeNativeAuthoritySet({ authorityRoot, stateRoot, plan, ordinaryApproval: options.ordinaryApproval,
     sensitiveDecisions: options.sensitiveDecisions, conflictApproval: options.conflictApproval });
-  let proxy, child, stopping, closing = false, resolveCompletion, key = '', ownChildExited = true;
+  let workspaceBridge, workspaceTimer, proxy, child, stopping, closing = false, resolveCompletion, key = '', ownChildExited = true;
   const completion = new Promise(resolve => { resolveCompletion = resolve; });
   let childExit = Promise.resolve({ code: 0 });
   const stop = (reason = 'requested') => {
     if (stopping) return stopping;
     closing = true;
+    clearTimeout(workspaceTimer);workspaceBridge?.close();
     stopping = (async () => {
       let clean = true;
       try { await proxy?.close(); } catch { clean = false; }
@@ -216,7 +321,11 @@ export async function startPiNative(options) {
     const controlBytes = Buffer.from(`${JSON.stringify(control)}\n`);
     await writeNativeChatFile({ filePath: `${base}.control.json`, bytes: controlBytes });
     await writeNativeChatFile({ filePath: `${base}.login.txt`, bytes: Buffer.from(loginSecret) });
-    const controller = await createPiTurnController({ binding: plan.nativeBinding, stateRoot, approvedCases: plan.approvedCases, activationId: plan.activationId });
+    if(options.workspace) {
+      workspaceBridge=await createPiWorkspaceBridge({binding:plan.nativeBinding,workspace:options.workspace,stateRoot,signal:options.signal});
+      workspaceTimer=setTimeout(()=>{void stop('case-failed');},Math.max(1,options.workspace.deadline-Date.now()));
+    }
+    const controller = await createPiTurnController({ binding: plan.nativeBinding, stateRoot, approvedCases: plan.approvedCases, activationId: plan.activationId, ...(workspaceBridge?{workspace:workspaceBridge.controller}:{}) });
     proxy = await startPiBudgetProxy({ binding: plan.nativeBinding, stateRoot, budgetRoot, apiKey: key, controller }); key = '';
     let readyResolve, readyReject, becameReady = false;
     const ready = new Promise((resolve, rejectReady) => { readyResolve = resolve; readyReject = rejectReady; });
@@ -226,7 +335,7 @@ export async function startPiNative(options) {
     }); ownChildExited = false;
     childExit = new Promise(resolve => { child.once('exit', (code, signal) => { resolve({ code, signal }); if (!closing) void stop('child-exit'); });
       child.once('error', () => { readyReject(new Error('owned child failed')); resolve({ code: 1 }); if (!closing) void stop('child-error'); }); });
-    const seen = new Set(); let startupSequence = 0, startupFailed = false;
+    const seen = new Set(); let workspaceTurnId = null, startupSequence = 0, startupFailed = false;
     child.on('message', message => {
       void (async () => {
         if (message?.type === 'startup') {
@@ -247,12 +356,14 @@ export async function startPiNative(options) {
         }
         if (!piKeys(message, ['type', 'runId', 'requestId', 'method', 'input']) || message.type !== 'call' || message.runId !== runId
           || !UUID.test(message.requestId) || seen.has(message.requestId) || seen.size >= 50000
-          || !['admit', 'finish', 'state', 'status', 'stop'].includes(message.method)) reject();
+          || !['admit', 'finish', 'state', 'status', 'stop', 'workspace', 'tool'].includes(message.method)) reject();
         seen.add(message.requestId);
         let value;
         try {
-          if (message.method === 'admit') { if (closing) reject(); value = await controller.admit(message.input); }
-          else if (message.method === 'finish') value = await controller.finish(message.input);
+          if (message.method === 'admit') { if (closing) reject(); value = await controller.admit(message.input); if(workspaceBridge && value.kind==='admitted')workspaceTurnId=message.input.turnId; }
+          else if (message.method === 'finish') { if(workspaceBridge && message.input?.status==='completed')await workspaceBridge.complete(message.input); value = await controller.finish(message.input); }
+          else if(message.method==='workspace'){if(closing || !workspaceBridge)reject();value=workspaceBridge.context(message.input);}
+          else if(message.method==='tool'){if(closing || !workspaceBridge || !workspaceTurnId)reject();const state=await controller.state(workspaceTurnId);if(!['received','reserved','sent'].includes(state.status))reject();value=await workspaceBridge.execute(message.input);}
           else if (message.method === 'state') { if (!piKeys(message.input, ['turnId'])) reject(); value = await controller.state(message.input.turnId); }
           else if (message.method === 'status') { if (!piKeys(message.input, [])) reject(); value = closing ? { canSend: false, nextCaseId: null } : await controller.status(); }
           else { if (!piKeys(message.input, [])) reject(); value = { stopping: true }; }
@@ -275,9 +386,30 @@ export async function startPiNative(options) {
     const budgetAfter = await courseBudgetSummary({ root: budgetRoot, budgetReference: plan.nativeBinding.budgetReference });
     if (budgetAfter.projectReservations !== budgetBefore.projectReservations || proxy.summary().modelRequests !== 0
       || proxy.summary().proxyRequests !== 0) throw new Error('unexpected startup request');
+    let artifact;
+    const artifactBinding=workspaceBridge?{...options.workspace,policy:plan.nativeBinding.pi_workspace,
+      snapshotDigest:options.workspace.snapshot.snapshotDigest,agentDigest:plan.nativeBinding.packageArchiveDigest}:null;
+    const workspaceOperations=workspaceBridge?{
+      workspaceSummary:()=>proxy.summary(),
+      async publishWorkspace({sessionId,turnId}){
+        if(closing || artifact || sessionId!==options.workspace.sessionId)reject();
+        const state=await controller.state(turnId);if(state.status!=='completed' || state.sessionId!==sessionId)reject();
+        const completion=await existing(path.join(stateRoot,'turns',`${turnId}.completed.json`));
+        const meta=await existing(path.join(stateRoot,'sessions',sessionId,'sdk-session.json'));
+        if(!meta || path.basename(meta.fileName)!==meta.fileName)reject();
+        const raw=new TextDecoder('utf-8',{fatal:true}).decode((await readPiPrivateFile(path.join(stateRoot,'sessions',sessionId,meta.fileName))).bytes);
+        const entry=raw.trimEnd().split('\n').map(JSON.parse).find(e=>e.id===completion.finalEntryId);
+        const counts=proxy.summary();
+        artifact=await publishWorkspaceArtifact({binding:artifactBinding,staged:workspaceBridge.staged,finalReply:piFinalText(entry?.message),sessionDurable:true,
+          taskState:{status:'completed',activeRequests:0,toolsBusy:false,skillInContext:true,requests:counts.modelRequests,tools:workspaceBridge.count,reservations:counts.newReservations},signal:options.signal});
+        return artifact;
+      },
+      async finalizeWorkspace(){if(!artifact || !stopping)reject();const stopResult=await stopping;
+        return finishWorkspaceArtifact({binding:artifactBinding,manifest:artifact,cleanup:stopResult.status==='stopped'&&stopResult.ownChildExited?'stopped':'failed'});}
+    }:{};
     return { entry: { schemaVersion: 'agentmo.pi-native-entry.v1', agentId: plan.nativeBinding.agentId,
       activationPlanDigest: plan.installPlanDigest, url: `http://127.0.0.1:${plan.nativeBinding.chatPort}/`, accessFile: `${base}.login.txt`,
-      canSend: (await controller.status()).canSend, modelRequests: 0, newReservations: 0 }, completion, stop: () => stop() };
+      canSend: (await controller.status()).canSend, modelRequests: 0, newReservations: 0 }, completion, stop: () => stop(), ...workspaceOperations };
   } catch { await stop('startup-failed'); reject(); }
 }
 
@@ -340,6 +472,9 @@ async function runOwnedPiChild() {
     })();
   };
   const validResult = (method, value) => {
+    if(method==='workspace')return piKeys(value,['taskId','sessionId','snapshotDigest','policy','sources','records']) && UUID.test(value.taskId) && UUID.test(value.sessionId) && Array.isArray(value.sources) && value.sources.length>=1 && value.sources.length<=2 && Array.isArray(value.records) && Buffer.byteLength(JSON.stringify(value))<=524288;
+    if(method==='tool')return (piKeys(value,['sourceId','contentDigest','startLine','endLine','text']) && typeof value.text==='string' && Buffer.byteLength(value.text)<=4096)
+      || (piKeys(value,['status','contentDigest','byteLength','citations']) && value.status==='staged' && value.byteLength<=8192 && Array.isArray(value.citations));
     if (method === 'state' || method === 'finish') return validatePiPublicTurn(value);
     if (method === 'admit') return piKeys(value, ['kind', 'turnToken']) && value.kind === 'admitted' && /^[a-f0-9]{64}$/u.test(value.turnToken)
       || piKeys(value, ['kind', 'turn']) && value.kind === 'existing' && validatePiPublicTurn(value.turn);
@@ -399,7 +534,7 @@ async function runOwnedPiChild() {
         });
         if (closing) return;
         const turnClient = { admit: input => call('admit', input), finish: input => call('finish', input),
-          state: turnId => call('state', { turnId }), status: () => call('status', {}) };
+          state: turnId => call('state', { turnId }), status: () => call('status', {}), workspace:sessionId=>call('workspace',{sessionId}), tool:input=>call('tool',input) };
         await step('session-prewarm', async () => {
           host = await createPiSessionHost({ stateRoot: message.stateRoot, binding: plan.nativeBinding, sdk, turnClient, approvedCases: plan.approvedCases });
         });

@@ -1,0 +1,177 @@
+{
+  "schemaVersion": "agentmo.pi-report-delivery-execution.v1",
+  "date": "2026-11-17",
+  "status": "failed-preserved-no-retry",
+  "proposalDigest": "sha256:cabd8be90cdcf250012f70842f812e1ddd66972066d64aaa2d4b9a5efe8706bb",
+  "driverDigest": "sha256:6898386e558450dd33dde15a9d93e5a7df2f7412757fcd2b7fd801a4e1393323",
+  "userApprovedExactExecution": true,
+  "initialAutoReviewRejectionResolvedByExactApproval": true,
+  "installation": {
+    "status": "installed-verified",
+    "stateRoot": ".agentmo/project-brief-pi-minimax-m3-report-2026-11-17-r1",
+    "files": 8,
+    "directories": 6,
+    "receiptDigest": "sha256:b4c276c75dce57dc5994fb7872d9496e32172fc3656960f523cb7735bbad9dbc",
+    "installPlanDigest": "sha256:097d1b281c245f63a7dc0aa86a3c9effc83ae0ecba0ce6457482c460e530d155",
+    "archiveDigest": "sha256:943832556821492a0144d249bc0ff8c5da6300262ebe0121cc67360c9d45c7f0",
+    "runtimeSourceDigest": "sha256:36fb08593f6aca214a389a7610dae4ea478fe866554bd90b7b2012295a8c0e64"
+  },
+  "emptySession": {
+    "status": "created-and-stopped",
+    "modelRequests": 0,
+    "newReservedFen": 0,
+    "sessionRecorded": true
+  },
+  "reportTask": {
+    "status": "failed",
+    "upstreamAttempts": 1,
+    "failureCode": "COURSE_WIKI_UPSTREAM_NETWORK",
+    "upstreamNetworkCode": "ECONNRESET",
+    "savedUpstreamHttpStatus": null,
+    "reportGenerated": false,
+    "realContentReview": "not-performed-no-report",
+    "preciseNetworkStage": "unknown",
+    "resetResponsibleParty": "unknown",
+    "newReservedFen": 31,
+    "automaticRetry": false,
+    "restart": false
+  },
+  "cleanup": {
+    "status": "stopped",
+    "runs": [
+      {
+        "file": ".agentmo/project-brief-pi-minimax-m3-report-2026-11-17-r1/attempts/pi-run-8ea292aae25b80f182309e2ff8b673e62be18ad15728e19a266de90fd529bf82-0.stopped.json",
+        "digest": "sha256:39abaa615f19fab8c6acaeff414cfb01c5ea0f3929be2ed9f7227a166e4974c2",
+        "status": "stopped",
+        "ownChildExited": true
+      },
+      {
+        "file": ".agentmo/project-brief-pi-minimax-m3-report-2026-11-17-r1/attempts/pi-run-8bcdfd33a1246093867849286dc57a1ec7fc738dd552ad2347f2fc51b72cb3ff-0.stopped.json",
+        "digest": "sha256:c32e94098ca5d833245c6aba36f14c3524d1ed61b8bab3becfc366fbe604dc1d",
+        "status": "stopped",
+        "ownChildExited": true
+      }
+    ],
+    "loopbackListenersObservedAfterRun": 0
+  },
+  "budget": {
+    "totalReservedFen": 5084,
+    "projectReservations": 36,
+    "capFen": 10000,
+    "remainingFen": 4916,
+    "newReservedFen": 31,
+    "refund": false,
+    "reset": false
+  },
+  "authority": {
+    "consumptions": 28,
+    "decisions": 106,
+    "newConsumptions": 3,
+    "newDecisions": 11,
+    "oldPrefixPreserved": true,
+    "journalDigest": "sha256:04b4c31d9144a4dd968c371bcbab527988c467f63aa61b52cad7023f6a31e2fe"
+  },
+  "secretHandling": {
+    "parentLoadedKeyInMemory": true,
+    "assistantReadKeyValue": false,
+    "reviewerReadKeyValue": false,
+    "sdkChildReadSupplierKeyValue": false
+  },
+  "sourceConfigObservation": {
+    "agentMoUpstream": "https://api.minimax.cn/anthropic/v1/messages",
+    "installedPiMinimaxCnBaseUrl": "https://api.minimaxi.com/anthropic",
+    "differentHostnames": true,
+    "differenceProvesResetCause": false,
+    "staticTlsOrHeaderDefectConfirmed": false,
+    "noAdditionalNetworkProbe": true
+  },
+  "evidence": {
+    "installationResultDigest": "sha256:c61d45726c9311e2013f6cd8fc2533d75da0d2ce37548df02f258a70bb6f9cae",
+    "sessionResultDigest": "sha256:86b1a63e8f8a682760c6fb5d4f4e9df49102d68e7ca4c8b8b0ff83629fa2f4a0",
+    "reportResultDigest": "sha256:1c468a07a6dd35e0f8af5e2b3b09df8bc62bc2e994f230774e0eef2e5609429e",
+    "failedTurnDigest": "sha256:a466d706ca43bf14c8ac5c127d97a8a5a02f1cbb1d9b74cfb1dd1165eaf49a7f",
+    "approvedPreviewDigest": "sha256:7455b0e6d2dbf8e56ed3c60a32b19c474f8e5a1a5a021c0ff8e3639bb9ed64b5"
+  },
+  "scopeClosed": true,
+  "historicalFailuresUnchanged": true,
+  "supplierCostProofNoLongerRequired": true,
+  "fakeCostProofIntroduced": false,
+  "furtherModelRequestsAuthorized": false,
+  "commit": false,
+  "push": false,
+  "validation": {
+    "focusedTests": {
+      "pass": 17,
+      "fail": 0
+    },
+    "ioAndDocsTests": {
+      "pass": 36,
+      "fail": 0
+    },
+    "independentCodeReview": "passed; no report exists for content review",
+    "fullNpm": {
+      "exitCode": 1,
+      "tests": 1596,
+      "pass": 1520,
+      "fail": 16,
+      "skipped": 60,
+      "cancelled": 0,
+      "logDigest": "sha256:f2608c6dbe8ccf16a4ac959d1b0632c1fa5acc57c0b9b27957b833e79d2b25c0",
+      "ioFailureFixedAndRetested": true,
+      "remainingFailures": "1 Builder verifier case and 14 OpenClaw/package archive drift cases; not repaired in this Pi task"
+    },
+    "officialChecks": {
+      "durableFs": {
+        "exitCode": 0,
+        "tests": 2,
+        "pass": 2,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "logDigest": "sha256:ff68126063da84a707e03288739669c2fb410dbbf4b0bce584c1771d12daccf4"
+      },
+      "packedHookChain": {
+        "exitCode": 0,
+        "tests": 1,
+        "pass": 1,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "logDigest": "sha256:ffc6afe00cbbd43a58948039a22bf46281887527d0df207c55d8ec9733d4516b"
+      },
+      "packedBehavior": {
+        "exitCode": 0,
+        "tests": 8,
+        "pass": 7,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 1,
+        "logDigest": "sha256:493fbccaf55f5a29a095099d5a3fd4803ff04db92bac97aa11d3870821ee1734"
+      },
+      "immutableSuccessor": {
+        "exitCode": 0,
+        "tests": 1,
+        "pass": 1,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "logDigest": "sha256:aa966fbb9d04e0cd1f37a839303c67cd4f273eeb025bb5cb375de0fb20c7a96a"
+      }
+    },
+    "gitDiffCheck": "passed",
+    "finalDocumentationChecks": {
+      "pass": 11,
+      "fail": 0
+    },
+    "localLinksChecked": 244,
+    "runtimeSourceClosureReobservedUnchanged": true,
+    "noStagedChanges": true,
+    "headUnchanged": "2979a7086b522e114a766efd5e17b7ac2a2b6e55",
+    "cliEntry": {
+      "shellSyntax": "passed",
+      "nodeSyntax": "passed",
+      "nonTtyRefusesBeforeActivation": "passed",
+      "interactiveRerun": false
+    }
+  }
+}

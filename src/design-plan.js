@@ -1,3 +1,4 @@
+import { validatePiWorkspaceSource } from './pi-workspace-policy.js';
 import path from "node:path";
 import { validNativeModelProfileSource, validNativeRuntimeSource, nativeChatRuntime } from "./native-chat-model-profile.js";
 import {
@@ -130,6 +131,7 @@ export function buildDesignPlan(discoveryDb, userNeed, options = {}) {
     ...(userNeed.execution_profile === "native-chat" ? { execution_profile: "native-chat" } : {}),
     ...(Object.hasOwn(userNeed, "native_model_profile") ? { native_model_profile: userNeed.native_model_profile } : {}),
     ...(Object.hasOwn(userNeed, "native_runtime") ? { native_runtime: userNeed.native_runtime } : {}),
+    ...(Object.hasOwn(userNeed, "pi_workspace") ? { pi_workspace: structuredClone(userNeed.pi_workspace) } : {}),
     ok: validation.ok,
     agentId: sanitizeId(userNeed.agent_id),
     domain: sanitizeString(userNeed.domain),
@@ -179,6 +181,7 @@ export function validateDesignPlan(plan) {
     errors.push("execution_profile must be native-chat when supplied.");
   }
   if (!validNativeModelProfileSource(plan)) errors.push("native_model_profile must select the fixed native-chat model.");
+  errors.push(...validatePiWorkspaceSource(plan));
   if (!validNativeRuntimeSource(plan)) errors.push("native_runtime must explicitly select Pi with the fixed native-chat M3 profile.");
   if (plan.execution_profile === "native-chat"
     && (!validNativeRuntimeSource(plan) || plan.targetRuntime !== nativeChatRuntime(plan)

@@ -62,7 +62,7 @@ test('passes native SSE bytes to Pi without parsing or rewriting supplier events
   const f = await piBudgetFixture(t, '/x @file !cmd'), admitted = await f.admit(); let calls = 0;
   const body = 'event: message_start\ndata: {"native":"opaque synthetic event"}\n\nevent: message_stop\ndata: {"type":"message_stop"}\n\n';
   stubPiUpstream(t, async (url, options) => {
-    calls++; assert.equal(url, 'https://api.minimax.cn/anthropic/v1/messages');
+    calls++; assert.equal(url, 'https://api.minimaxi.com/anthropic/v1/messages');
     assert.equal(options.headers['x-api-key'], 'SYNTHETIC_KEY_MARKER');
     assert.equal(options.headers['anthropic-version'], '2023-06-01');
     assert.equal(options.rejectUnauthorized, true);

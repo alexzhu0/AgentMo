@@ -1,0 +1,122 @@
+{
+  "schemaVersion": "agentmo.pi-connection-offline-diagnosis.v1",
+  "date": "2026-11-17",
+  "status": "offline-diagnosis-and-network-preview-prepared",
+  "priorReportScopeClosed": true,
+  "diagnosis": {
+    "knownFailure": "COURSE_WIKI_UPSTREAM_NETWORK",
+    "savedNetworkCode": "ECONNRESET",
+    "savedHttpStatus": null,
+    "localProtocolPermissionReservationChecksPassed": true,
+    "errorFromNetworkBranchBeforeResponseProcessing": true,
+    "localTimeoutClassificationWouldDiffer": true,
+    "sentToFailedFileMtimeMs": 68366.299748,
+    "fileMtimeIntervalIsNotNetworkDuration": true,
+    "failedBeforeEstimatedTaskDeadlineMs": 488279,
+    "sdkProviderHostDiffers": true,
+    "legacyEndpoint": "https://api.minimax.cn/anthropic/v1/messages",
+    "piProviderBaseUrl": "https://api.minimaxi.com/anthropic",
+    "agentMoTls": "TLS1.2 only",
+    "nodeDefaultTls": "TLS1.2-TLS1.3",
+    "previousSameEndpointSucceededOn": "2026-11-13",
+    "hostDifferenceIsProvenRootCause": false,
+    "tlsDifferenceIsProvenRootCause": false,
+    "dnsTcpTlsStageOfFailure": "unknown",
+    "resetResponsibleParty": "unknown",
+    "globalProxyFlagsUnavailableInCurrentReadOnlyView": true
+  },
+  "sources": [
+    {
+      "path": "src/pi-upstream.js",
+      "digest": "sha256:304acf94a09af3977299a58f61be7ff483afab821e45379a3bedd8ecb5739cad"
+    },
+    {
+      "path": "src/pi-sdk.js",
+      "digest": "sha256:c5588c8653aaed27b87e9d3fcd7471e5271e2fc4d0f9efa098da13b2b7ec8c14"
+    },
+    {
+      "path": "src/course-wiki-budget.js",
+      "digest": "sha256:c7c6aef0ac70bf776ab91da1591c069ddca0e24974f0abac801e80c82f6cb080"
+    },
+    {
+      "path": "src/pi-budget-proxy.js",
+      "digest": "sha256:e9c94a80f4f35bdaa9b3c87a528eaa93e7caedb52f7bf741753784917462a00f"
+    },
+    {
+      "path": ".agentmo/pi-sdk-1.2.0-toolchain-2026-10-16-r1/node_modules/@earendil-works/pi-ai/dist/providers/data/minimax-cn.json",
+      "digest": "sha256:1bbfbd11c3edbd141841d3cef027e12157218f1aec92477e15772116c1fabe7a"
+    },
+    {
+      "path": ".agentmo/project-brief-pi-minimax-m3-report-2026-11-17-r1/turns/<turn-id>.sent.json",
+      "digest": "sha256:3a4e9c15f6fe33b94967fad13cd4f473c6574aaa90188109736754207e9aba67"
+    },
+    {
+      "path": ".agentmo/project-brief-pi-minimax-m3-report-2026-11-17-r1/turns/<turn-id>.failed.json",
+      "digest": "sha256:a466d706ca43bf14c8ac5c127d97a8a5a02f1cbb1d9b74cfb1dd1165eaf49a7f"
+    },
+    {
+      "path": "release/evidence/2026.11.13-m3-recovery-execution.json",
+      "digest": "sha256:bc2b925739962c936f6c37be5487d39c0bdda159b0a10d41d7de65842bd359e5"
+    },
+    {
+      "path": "release/evidence/2026.11.17-pi-report-delivery-execution.json",
+      "digest": "sha256:eed17a74815f20ecc3b9316db03f1bdcf91364e3b2fee44d35f940b1dc8fafaa"
+    }
+  ],
+  "comparisonPreview": {
+    "path": "docs/poc/pi-workspace/connection-comparison-preview.md",
+    "proposalPath": ".superpowers/sdd/2026-11-17-pi-connection-comparison/proposal.json",
+    "proposalDigest": "sha256:2563c6304ee284bdf5deccdeea297be1a1547e7bc700457146d1957c616d91ae",
+    "driverDigest": "sha256:e2a1dea4ef86584b053a41fe85853cc3f57ccf2bf3c332d2c0404a5b384cfa16",
+    "filesBound": 6,
+    "cases": [
+      {
+        "id": "agentmo-current",
+        "url": "https://api.minimax.cn/anthropic/v1/messages",
+        "minVersion": "TLSv1.2",
+        "maxVersion": "TLSv1.2"
+      },
+      {
+        "id": "pi-default-parameters",
+        "url": "https://api.minimaxi.com/anthropic/v1/messages",
+        "minVersion": "TLSv1.2",
+        "maxVersion": "TLSv1.3"
+      }
+    ],
+    "executed": false,
+    "applicationHeadRequestsMax": 2
+  },
+  "offlineValidation": {
+    "selfchecks": 9,
+    "preflight": "passed",
+    "networkRequests": 0,
+    "sdkExecuted": false,
+    "modelRequests": 0,
+    "keyRead": false,
+    "productionCodeChanged": false,
+    "fullNpmRepeated": false,
+    "gitDiffCheck": "passed",
+    "localLinksChecked": 128,
+    "documentationChecks": {
+      "pass": 11,
+      "fail": 0
+    },
+    "proposalAndSourceDigests": "passed",
+    "stagedFiles": 0,
+    "headUnchanged": "2979a7086b522e114a766efd5e17b7ac2a2b6e55"
+  },
+  "preservation": {
+    "budget": {
+      "totalReservedFen": 5084,
+      "projectReservations": 36,
+      "capFen": 10000
+    },
+    "authorityJournalDigest": "sha256:04b4c31d9144a4dd968c371bcbab527988c467f63aa61b52cad7023f6a31e2fe",
+    "newOperationRootAbsent": true,
+    "newApprovalRecordAbsent": true,
+    "oldReportFailureDigest": "sha256:a466d706ca43bf14c8ac5c127d97a8a5a02f1cbb1d9b74cfb1dd1165eaf49a7f",
+    "originalEvidenceUnmodified": true
+  },
+  "commit": false,
+  "push": false
+}

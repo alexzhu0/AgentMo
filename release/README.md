@@ -1,9 +1,16 @@
 # AgentMo版本与证据索引
 
-当前版本为v0.1 Alpha，端到端可用性验收中。最新事实见[当前状态](../docs/CURRENT_STATUS.md)，运行边界见[Pi CLI手册](../docs/CORE_MVP_RUNBOOK.md)。日期记录是历史事实，不授予再次安装、激活或模型请求。
+项目自 2026-11-21 暂停在 v0.1 Alpha。固定文字任务已有通过证据，工作区报告生成成功，引用内容验收未通过。查看[当前状态](../docs/CURRENT_STATUS.md)和[Pi CLI 手册](../docs/CORE_MVP_RUNBOOK.md)。日期记录保留各批次的实际结果与授权范围。
 
 | 日期 | 记录主题 |
 | --- | --- |
+| [`2026.11.21.md`](./2026.11.21.md) | 暂停快照，真实报告生成与停机通过，引用内容与整库检查未通过 |
+| [`2026.11.17.md`](./2026.11.17.md) | 首次报告连接失败，完成连接对照并准备修复包 |
+| [`2026.11.16.md`](./2026.11.16.md) | Pi资料/Skills/成果：安装、只读、wire失败修复及r2工具预览 |
+| [`2026.11.13.md`](./2026.11.13.md) | 单条恢复真实验收通过，四种固定行为证据收口 |
+| [`2026.11.12.md`](./2026.11.12.md) | 只读激活通过，M3三项通过、恢复网络失败 |
+| [`2026.11.11.md`](./2026.11.11.md) | TLS1.2修复版单次安装与独立只读预览 |
+| [`2026.11.10.md`](./2026.11.10.md) | MiniMax TLS1.2兼容修复与新安装预览 |
 | [`2026.11.09.md`](./2026.11.09.md) | Pi CLI Alpha运行与项目整理 |
 | [`2026.11.06.md`](./2026.11.06.md) | AgentMo核心MVP离线实施 |
 | [`2026.11.05.md`](./2026.11.05.md) | Pi诊断记录与AgentMo核心MVP计划 |
@@ -22,7 +29,7 @@
 | [`2026.10.10.md`](./2026.10.10.md) | Native-chat 安装流程与合成注册验证 |
 | [`2026.10.09.md`](./2026.10.09.md) | Native install binding and probe checkpoint |
 | [`2026.09.29.md`](./2026.09.29.md) | Validation recovery before native-chat delivery |
-| [`2026.09.28.md`](./2026.09.28.md) | Native-chat foundation + earlier Course Wiki evidence |
+| [`2026.09.28.md`](./2026.09.28.md) | Native-chat基础支持与Course Wiki历史证据；Node20已验证，全量检查阻塞、原生交付仍未完成（当日状态） |
 | [`2026.09.25.md`](./2026.09.25.md) | Course Wiki acceptance integration — code-only checkpoint |
 | [`2026.09.20.md`](./2026.09.20.md) | Course Wiki recovery and reviewed behavior evidence |
 | [`2026.09.16.md`](./2026.09.16.md) | Course Wiki upgrade compatibility (PARTIAL) |

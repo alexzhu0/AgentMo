@@ -7,6 +7,8 @@ Birth and Delivery Reports are fail-closed, Produce-internal gates. They are non
 
 AgentMo birth is an evidence gate, not a branding claim.
 
+The [Pi CLI acceptance record](CORE_MVP_ACCEPTANCE.md) tracks the current evidence for actual execution and report content against these boundaries.
+
 Birth is part of AgentMo stage 3: finish the Agent design, implementation, and delivery evidence loop. It follows stage 1 data discovery and stage 2 planning from user needs plus the discovery database.
 
 ## Phase 4 package/install evidence is not Birth evidence

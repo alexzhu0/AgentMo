@@ -1,3 +1,4 @@
+import { validatePiWorkspaceSource } from './pi-workspace-policy.js';
 import { containsSecretLikeValue, redactSecrets } from "./secret-redaction.js";
 import { validateSourceRefs } from "./source-refs.js";
 
@@ -28,6 +29,7 @@ export function validateUserNeed(need) {
     errors.push("execution_profile must be native-chat when supplied.");
   }
   if (!validNativeModelProfileSource(need)) errors.push("native_model_profile must select the fixed native-chat model.");
+  errors.push(...validatePiWorkspaceSource(need));
   if (!validNativeRuntimeSource(need)) errors.push("native_runtime must explicitly select Pi with the fixed native-chat M3 profile.");
   requireString(need, "agent_id", errors);
   requireString(need, "domain", errors);

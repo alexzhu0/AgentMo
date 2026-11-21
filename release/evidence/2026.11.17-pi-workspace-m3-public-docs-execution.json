@@ -1,0 +1,143 @@
+{
+  "schemaVersion": "agentmo.m3-public-docs-execution.v1",
+  "date": "2026-11-17",
+  "proposalDigest": "sha256:681e76253371b6ed7e9280d3c37693a99d2939463d508d928ff039b45c158300",
+  "status": "failed-preserved-no-retry",
+  "requests": [
+    {
+      "index": 1,
+      "url": "https://platform.minimax.cn/docs/pricing/overview",
+      "method": "GET",
+      "status": "public-page-retrieved",
+      "exitCode": 0,
+      "httpStatus": 200,
+      "bodyBytes": 311291,
+      "bodyDigest": "sha256:e99b7d5f991e1e376428974f2c66fe5ed82508d5174e48794a78064c248a45e9",
+      "transferMs": 10126,
+      "processTimedOut": false
+    },
+    {
+      "index": 2,
+      "url": "https://platform.minimax.cn/docs/api-reference/text-anthropic-api",
+      "method": "GET",
+      "status": "stopped-after-request-failure",
+      "exitCode": 28,
+      "httpStatus": 200,
+      "bodyBytes": 2732,
+      "bodyDigest": "sha256:d56bf98d75594c254bf801980ad09c0a594e295af6bd820a6c6a569cbe88d20b",
+      "transferMs": 15005,
+      "processTimedOut": false
+    }
+  ],
+  "modelRequests": 0,
+  "tokenCountApiRequests": 0,
+  "newReservedFen": 0,
+  "keyRead": false,
+  "sdkExecuted": false,
+  "agentActivated": false,
+  "authorityMutated": false,
+  "commit": false,
+  "push": false,
+  "ownChildrenExited": true,
+  "scopeClosed": true,
+  "originalResultDigest": "sha256:6d6a31f1bd4413df65735c2d7a554a3c15387fe256066cf696b7a3ced6371064",
+  "approvedPreviewDigest": "sha256:bb9296c7e32110873c81a4e0db2c887da1327fb780e52b6828d4b0c90dfcb3d1",
+  "approvedPreviewArchived": ".superpowers/sdd/2026-11-16-pi-workspace-agent/m3-public-docs-fetch-r1/approved-preview.md",
+  "sourceAcceptance": {
+    "pricing": {
+      "accepted": true,
+      "url": "https://platform.minimax.cn/docs/pricing/overview",
+      "date": "2026-11-17",
+      "bytes": 311291,
+      "digest": "sha256:e99b7d5f991e1e376428974f2c66fe5ed82508d5174e48794a78064c248a45e9"
+    },
+    "anthropicCompatibility": {
+      "accepted": false,
+      "reason": "curl exit28 despite HTTP200; only partial body retained",
+      "url": "https://platform.minimax.cn/docs/api-reference/text-anthropic-api",
+      "bytes": 2732,
+      "digest": "sha256:d56bf98d75594c254bf801980ad09c0a594e295af6bd820a6c6a569cbe88d20b"
+    }
+  },
+  "verifiedPublicPricing": {
+    "unit": "CNY per million tokens",
+    "model": "MiniMax-M3",
+    "service": "standard",
+    "tiers": [
+      {
+        "inputRange": "<=512k input tokens",
+        "input": "2.10",
+        "output": "8.40",
+        "cacheRead": "0.42",
+        "struckListInput": "4.20",
+        "struckListOutput": "16.80"
+      },
+      {
+        "inputRange": ">512k input tokens",
+        "input": "4.20",
+        "output": "16.80",
+        "cacheRead": "0.84",
+        "struckListInput": "8.40",
+        "struckListOutput": "33.60"
+      }
+    ],
+    "priorityMultiplier": "1.5; not used by proposed task",
+    "cachedDiscountRequiredForCostCalculation": false
+  },
+  "conditionalCost": {
+    "inputTokensAssumed": 53248,
+    "outputTokensAssumed": 2048,
+    "perRequestCny": "0.129024",
+    "sixRequestsCny": "0.774144",
+    "isPreSpendProof": false
+  },
+  "remainingProofGaps": [
+    "vendor guaranteed maximum billable input not established",
+    "model-specific tokenizer or complete input counting/serialization guarantee not established",
+    "Anthropic compatibility page incomplete; no API semantics accepted from partial body"
+  ],
+  "productionCostEnvelopeProven": false,
+  "productionGateChanged": false,
+  "reportRuntimeApprovalGranted": false,
+  "postrun": {
+    "budget": {
+      "totalReservedFen": 5053,
+      "projectReservations": 35,
+      "capFen": 10000,
+      "remainingFen": 4947,
+      "newReservedFen": 0
+    },
+    "authorityJournalDigest": "sha256:4443f14fde204003f020df86cbfa89bee1d4df630562a8dd059923fbc0215fbc",
+    "authorityUnchanged": true,
+    "productFrozenFilesVerified": 45,
+    "historicalResultDigestsUnchanged": true,
+    "retries": 0,
+    "restarts": 0,
+    "partialResponseUsedAsEvidence": false,
+    "allCreatedFilesPrivate": true
+  },
+  "validation": {
+    "pageDigestsAndLengths": "passed",
+    "standardTiersAndListVsDiscountMarkup": "passed",
+    "conditionalArithmetic": "passed",
+    "documentationTests": {
+      "command": "node --test test/command-docs.test.js",
+      "pass": 11,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "localLinks": {
+      "files": 6,
+      "checked": 104,
+      "missing": 0
+    },
+    "gitDiffCheck": "passed",
+    "privateModes": "0700 root and 0600 files verified",
+    "originalResultAndApprovedPreviewDigests": "unchanged",
+    "historicalResultDigests": "unchanged",
+    "productFrozenFiles": "45 of 45 unchanged",
+    "stagedFiles": 0,
+    "headUnchanged": "2979a7086b522e114a766efd5e17b7ac2a2b6e55"
+  }
+}

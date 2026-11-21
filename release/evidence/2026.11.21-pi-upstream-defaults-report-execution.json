@@ -1,0 +1,154 @@
+{
+  "schemaVersion": "agentmo.pi-workspace-report-execution.v1",
+  "date": "2026-11-21",
+  "status": "failed-preserved-no-retry",
+  "proposalDigest": "sha256:56167eaf6e528932deea8d3120817c0ed381cf50c30b3c68f3753cf9c1a3d5fb",
+  "proposalScopeClosed": true,
+  "executions": 1,
+  "retries": 0,
+  "restarts": 0,
+  "runnerExitCode": 1,
+  "installation": {
+    "status": "installed-verified",
+    "receiptDigest": "sha256:af8b2714d6b14d86e2b44236157954bc6241b6b3aa47eebb558be555466548f3",
+    "files": 8,
+    "directories": 6,
+    "runtimeSourceDigest": "sha256:6f189a7c27987f991ce5bc0c187fa8a1c5668092b2ee7b675b060075ca54e3ab",
+    "packageArchiveDigest": "sha256:9513f2233f5885376b2e700de9d0f80eb8c477216dfdf950e04fd1db28665828",
+    "installPlanDigest": "sha256:223df9cde69eed003e2fe971bee59a462754e14363a838556fd08523e0f9b7de"
+  },
+  "emptySession": {
+    "status": "created",
+    "cleanup": "stopped",
+    "modelRequests": 0,
+    "newReservedFen": 0
+  },
+  "reportTask": {
+    "status": "failed",
+    "model": "MiniMax-M3",
+    "upstreamEndpoint": "https://api.minimaxi.com/anthropic/v1/messages",
+    "maximumRequests": 6,
+    "actualRequests": 2,
+    "proxyCompletions": 2,
+    "httpStatuses": [
+      200,
+      200
+    ],
+    "successfulReads": 3,
+    "readAllApprovedInputs": true,
+    "writeToolCallsObserved": 1,
+    "successfulWriteResults": 0,
+    "stagedReport": false,
+    "publishedReport": false,
+    "independentContentReview": "not-run-no-published-report",
+    "durableTurnCause": "PI_SDK_FAILURE",
+    "cliFailureCode": "AGENTMO_PI_CLI_REQUEST_FAILED",
+    "outerFailureCode": "ERR_ASSERTION",
+    "privateHistoryDigest": "sha256:c34cebbfc95402ce7555080944405f83176ca707be66d00eacb0552d70396394",
+    "writeArgumentCheck": {
+      "exactFields": true,
+      "approvedPath": true,
+      "validText": true,
+      "readsAndCitationLineRangesValid": true,
+      "allListedMarkersPresent": false,
+      "noUnlistedMarkers": false
+    },
+    "failureBoundary": "The saved write call fails the existing citation correspondence check. No write result, staged file or publication claim exists. The coarse terminal code does not identify which guard ran first."
+  },
+  "connectionObservation": {
+    "targetRequestsCappedAtSeven": 2,
+    "extraTargetRequestObserved": false,
+    "requests": [
+      {
+        "socketAssignedMs": 0,
+        "dnsLookupMs": 2,
+        "tcpConnectMs": 2,
+        "tlsSecureMs": 198,
+        "requestFinishedMs": 198,
+        "httpHeadersMs": 1174,
+        "closedMs": 1566,
+        "httpStatus": 200,
+        "requestErrorCode": "UNKNOWN",
+        "responseErrorCode": null
+      },
+      {
+        "socketAssignedMs": 0,
+        "dnsLookupMs": 2,
+        "tcpConnectMs": 2,
+        "tlsSecureMs": 185,
+        "requestFinishedMs": 185,
+        "httpHeadersMs": 813,
+        "closedMs": 4386,
+        "httpStatus": 200,
+        "requestErrorCode": "UNKNOWN",
+        "responseErrorCode": null
+      }
+    ],
+    "observerRestored": true
+  },
+  "cleanup": {
+    "cliLabel": "failed",
+    "stopReceipts": [
+      {
+        "status": "stopped",
+        "reason": "requested",
+        "ownChildExited": true,
+        "digest": "sha256:6383ac93529aae11304a45c1265433de495cdb0025496127463b33a766ec38a8"
+      },
+      {
+        "status": "failed",
+        "reason": "case-failed",
+        "ownChildExited": true,
+        "digest": "sha256:d9e5d3f2a7c0ec0900c30e5a10383fe89dee8bb06309352d28f96ff345feea62"
+      }
+    ],
+    "noListenersOn19492Or19493": true,
+    "ownedChildrenExited": true
+  },
+  "budget": {
+    "beforeFen": 5084,
+    "addedFen": 62,
+    "afterFen": 5146,
+    "reservations": 38,
+    "capFen": 10000
+  },
+  "authority": {
+    "before": {
+      "consumptions": 28,
+      "decisions": 106
+    },
+    "after": {
+      "consumptions": 31,
+      "decisions": 117
+    },
+    "oldPrefixPreserved": true,
+    "journalDigest": "sha256:420e0b21e705d9c3faf0bf0f73379554ccc45d7f13a796dfb23b2a427e28ae0a"
+  },
+  "verification": {
+    "accepted": true,
+    "focusedRegressions": 69,
+    "observerTests": 7,
+    "fullCheckRerun": false,
+    "priorFullCheckEvidence": "release/evidence/2026.11.17-pi-report-delivery-execution.json"
+  },
+  "evidenceDigests": {
+    "approval": "sha256:b8b2ae9ddc1f5de841492d8683b5b738ba6aaf13296479592f99148a0a8725ec",
+    "driver": "sha256:54665c817401229c018fc024ca8d3b062e6f09a8746f1fc603c3a23888729b8d",
+    "observer": "sha256:9be9725b6b4e2c46d2bd9e11c3c453e49ec170a478675b26513be1d5dcc944dc",
+    "preview": "sha256:2144e0a848a1c849383aa30e08eb2dc336be40819176faf8a4f4dd27c6557f4f",
+    "runnerRecords": {
+      "single-run-claim.json": "sha256:522a41fc6eb39560be7d9ebd98bf22cf4006264a3b55e78be3d0437f54f727f6",
+      "installation.json": "sha256:24d61da3c8e12888399f36e945e4a0e26097d32c18b03a6d44ddb0b15e667e68",
+      "session-result.json": "sha256:8ae1463597c1144c7d5cb195ade1fb76fdb60c64cf563ed04f41db559172e03a",
+      "report-result.json": "sha256:9be99ca8fd7c3d059ad0273c3fe2810510b705c65a80832dfdf91eea48fbfc71",
+      "connection-observation.json": "sha256:0fb99eabd686def3dc17def2472ef393d4383dc719f330afcac49eb42c49d953",
+      "failure.json": "sha256:38884bdb91edbc75e5bfc269ad20c4574703f10c183d3430eb3dd548c04839c2"
+    },
+    "failedTurn": "sha256:ee370978e62cde8444c135bc5af22d1fb74746c308c9f5ac6c65f398d47e6673",
+    "priorReportResult": "sha256:1c468a07a6dd35e0f8af5e2b3b09df8bc62bc2e994f230774e0eef2e5609429e"
+  },
+  "supplierKeyHandling": "existing-parent-runtime-only",
+  "olderFailurePreserved": true,
+  "commit": false,
+  "push": false
+}

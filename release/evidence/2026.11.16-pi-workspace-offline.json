@@ -1,0 +1,757 @@
+{
+  "schemaVersion": "agentmo.pi-workspace-offline-delivery.v1",
+  "date": "2026-11-16",
+  "status": "offline-implemented-reviewed-remediated-validated-not-installed",
+  "branch": "codex/course-wiki",
+  "head": "2979a7086b522e114a766efd5e17b7ac2a2b6e55",
+  "approvedDocuments": {
+    "docs/superpowers/specs/2026-11-16-pi-workspace-agent-design.md": "f72b1d02718b8db851079b3c3bf4951ca18ade92e26dfc23a20cbcc3f0cbcd9e",
+    "docs/superpowers/plans/2026-11-16-pi-workspace-agent.md": "9e5479a24f1b81f518a48b8b58dd6ac62e9044a9a514e5abbd7c4d2dc3d7cab6"
+  },
+  "implementation": {
+    "tasksCompleted": 6,
+    "nativeLoopReused": true,
+    "runtimeDependenciesAdded": 0,
+    "changedFilesComparedToCapturedDirtyBaseline": 45,
+    "sourceFreezeDigest": "sha256:fcec49536509002072f9235b4f9542e1bc4a978a9c69eda1000af293c7670efc",
+    "sourceClosure": {
+      "digest": "sha256:045db6db7bc44b7edcc27450b648818d3617f21781bfa460dd1cf8c0a39c3201",
+      "fileCount": 147
+    },
+    "changedFiles": [
+      {
+        "path": "package.json",
+        "sha256": "bb482531d0ea0c49d1d1950de2b8e0ff4ff12a987b9ea2f473360a38b3809972",
+        "baselineSha256": "6479c0afed4f174d6c83058da99cb8f164fb6869a1716b22ea2c67073f36ec2c"
+      },
+      {
+        "path": "src/blueprint-draft.js",
+        "sha256": "94ca98108fa8f50a272818b23ec6a1ea4b756df2ebeb4f5de7e38571d5378fee",
+        "baselineSha256": "0c694982be8476ebb4cdcaa63986cbc59bbbd903e8ddaf2444a7d5ecb231eeea"
+      },
+      {
+        "path": "src/blueprint.js",
+        "sha256": "82eb45df280e0caa4e8b83a63b9772bb39ba298ec737170f72ec3fb2f9f2a98c",
+        "baselineSha256": "ed38271d506c0293f7de25031db917c10082e0637aed75ae60d7efb8822c6c99"
+      },
+      {
+        "path": "src/build-contract.js",
+        "sha256": "d489a84a2f16e8b102bfd2a82a9c5ded38d565431dbbf397f6af6ed4c99f1318",
+        "baselineSha256": "4905fb0d83ca0a7a2e5f9cb10268e2821e9f78679e177c9e6fd5688f8fc55b7f"
+      },
+      {
+        "path": "src/builder-package.js",
+        "sha256": "379133c1685098264e3d4149b45dd417da59a9e4b86df395d02f2a3cf25e7111",
+        "baselineSha256": "337ca7e63452ac2ceeeeb02c8342c56770a73a3d279ffe3f112f1d63f64fa5ad"
+      },
+      {
+        "path": "src/course-wiki-budget.js",
+        "sha256": "c7c6aef0ac70bf776ab91da1591c069ddca0e24974f0abac801e80c82f6cb080",
+        "baselineSha256": "ce3c66f2c5aed26296bb9bcdf788af4355e1ec48bc369fe7475b1009e23fe6dc"
+      },
+      {
+        "path": "src/design-plan.js",
+        "sha256": "13952ff8de6c8fbc6e1b14394ce5eba52f62956830bbecb75dffdf894cd50b0b",
+        "baselineSha256": "90a9cb84bc4a99ba7e2880c822a5c56599b74fb819bb91d75aee962cf49b6a7a"
+      },
+      {
+        "path": "src/javascript-static-analysis.js",
+        "sha256": "1e47a1148d2737c903aa9e8b05ea4d574f8d6f664c0babdaa77b346f731eba7d",
+        "baselineSha256": "b53ab7206086ecf28e9f9b365c701f0ce0f3bc6bdd5d0c4b03763885f539cc0f"
+      },
+      {
+        "path": "src/package-carriers.js",
+        "sha256": "93cc3242814eaf14c554d16687f729b191797e47e07cd525da035805475d5630",
+        "baselineSha256": "ae192d0defb8d575c4122923f40a0e816355623ea302e0d4300d01995d2fb2a0"
+      },
+      {
+        "path": "src/package-contract.js",
+        "sha256": "81fd363ae0794b007fe2181115bdf27c5dd1d714172d15743fda5acc0d4835be",
+        "baselineSha256": "7e311ac01e63ac7b840cfb619492b083c388bd9e0863ffc5c33db33ed26c5f4d"
+      },
+      {
+        "path": "src/package-produce.js",
+        "sha256": "279a47d6b5ed8ee4cf2dc6b95e6b1e6a7f2cf0385a81b7bef5b67b8e60b84e65",
+        "baselineSha256": "a16cd5d6a2768fd375bf69add4bdcbd9684e9ec4e7ce728bb1c27059ce6c8fef"
+      },
+      {
+        "path": "src/pi-budget-proxy.js",
+        "sha256": "e9c94a80f4f35bdaa9b3c87a528eaa93e7caedb52f7bf741753784917462a00f",
+        "baselineSha256": "e7899337febc558dc6aa287acd75366aa054411e9ff3ff26046104720d929d49"
+      },
+      {
+        "path": "src/pi-chat-cli.js",
+        "sha256": "587b35ca69f709382a93617949ca4a43a9f51dd802937256ab294cf4f0dadf6f",
+        "baselineSha256": "abdc6375c0432161f584897f385a4d2bb56b8131a5876565250342b1e9fee627"
+      },
+      {
+        "path": "src/pi-cli-run.js",
+        "sha256": "9d3546e412fcd8534a9b0211dc70ab290cb0737e636ae1f87f0cc2d48a43dae5",
+        "baselineSha256": "7447693b93478918ae02e863922abe1fe32a57434e48e709bceb1565c7f8b1db"
+      },
+      {
+        "path": "src/pi-install-plan.js",
+        "sha256": "f170d9e7fe338a09b6a99eb86386ac88a9d91c76bcac5039d76db3e916af624e",
+        "baselineSha256": "8f5bd1b292d3f872ddd9886156da24038c2b33f43cc3d25233378e9c5e9b75c3"
+      },
+      {
+        "path": "src/pi-install.js",
+        "sha256": "5df393d0fceb888d9e82f5874c3735534cf8a9bba51b41505f04f1fad22e21ab",
+        "baselineSha256": "e21ab95f73dc4691a1512d7beea213c9157a90c614542bcc1dd4d38ceeadacb6"
+      },
+      {
+        "path": "src/pi-native-runtime.js",
+        "sha256": "ced73820af512a8bef5b1edd2e5a75484f55265eae61f7c489a45ded67ff57e9",
+        "baselineSha256": "8ee5a644d9190abfdd0865e62ae75dc6b69ba5b2b7c52c1063ff4663da0607a4"
+      },
+      {
+        "path": "src/pi-sdk.js",
+        "sha256": "c5588c8653aaed27b87e9d3fcd7471e5271e2fc4d0f9efa098da13b2b7ec8c14",
+        "baselineSha256": "fdc700c07dfd5d7840a2ca4e9bcf47ad52c2f7d17c7e4d0c10f3c165408e5c88"
+      },
+      {
+        "path": "src/pi-session-host.js",
+        "sha256": "ee34e0951b7eb5d53a4ee7cba37fe428e4ae6b5a83dd95a89f6660d3e630d25c",
+        "baselineSha256": "71542ed8f56089ce92acc582c7da25f373e8feafbb9d7a3224579a48d26bad60"
+      },
+      {
+        "path": "src/pi-workspace-files.js",
+        "sha256": "696efe34efe423f6f6222fc239c08254c744e52f0d31ac2770e50ab3fbbcc989",
+        "baselineSha256": null
+      },
+      {
+        "path": "src/pi-workspace-policy.js",
+        "sha256": "370a3594be630db7a23014602bac6f00b2c522dd16b78b448c5ea49824f07b80",
+        "baselineSha256": null
+      },
+      {
+        "path": "src/pi-workspace-protocol.js",
+        "sha256": "4d1f75ffd5070110c2ea1d14f729eb727ad299c0baadd0015b0074f8411272aa",
+        "baselineSha256": null
+      },
+      {
+        "path": "src/scaffold-files.js",
+        "sha256": "6e1a3e9de84722dd7f919d427a0781c640c6ae36ce71e50b1d787f47e3669013",
+        "baselineSha256": "f3cc30cc5696f17e3b73cac19edba86ab55ba1c41f520377b7083cd09e762622"
+      },
+      {
+        "path": "src/targets/pi-package.js",
+        "sha256": "bff69d0935c0c26e50168b859752062142a613ed25bbfedfeacc1a98b86efc9e",
+        "baselineSha256": "09d746803e28379c510a67b81e85846ab444a140295117c55a5894c8d60e7641"
+      },
+      {
+        "path": "src/user-need.js",
+        "sha256": "a36c105d2d5ad46421ddf09b3cd3b79dcb22b4167b12fde698d105172bf60d16",
+        "baselineSha256": "5ce2c4d7176bd780128cc2b9ba61f9a5d9e9ac103d0280c9afb9df2737b02e13"
+      },
+      {
+        "path": "test/builder-packed-install.test.js",
+        "sha256": "bc05db099543670f9bc901a2cb2b01a3a58a560ce4185b69e64ab5a2831a450a",
+        "baselineSha256": "71858dd09bdb7f9a8df3da8facce7f08cbd5f1c882529d199597506c056f299c"
+      },
+      {
+        "path": "test/fixtures/pi-workspace/sdk-1.2.0-tools-wire.json",
+        "sha256": "840883c6731f88ff375dd5eec26fdd9921649d4aa65e8b3264f1448a7be85b54",
+        "baselineSha256": null
+      },
+      {
+        "path": "test/helpers/core-mvp-fixture.js",
+        "sha256": "cae5d5ec4f86d7b9a6c72dd3c75b1be5c0b6ab819e48b95730ee960fb23cace9",
+        "baselineSha256": "1a9c94074c78a6f966099488947ad754eed54c609e32ecf5fb15ae07b0d27999"
+      },
+      {
+        "path": "test/helpers/io-surface-inventory.js",
+        "sha256": "70ae4903e5726f5a77ede6bf0f84fc0aa797234dcfbf0734485dee35bfb255f4",
+        "baselineSha256": "7e699cc8d24e7e11018622524f0d7fded7fb1f72de50a6b5d993057997d546a8"
+      },
+      {
+        "path": "test/helpers/pi-budget-fixture.js",
+        "sha256": "732355da967e168ba52172270731b71b8622f11f22fb4073d588e8223f013801",
+        "baselineSha256": "b69644ccdc228bbd699ca17b136b98604eae2e11285b1cd0536cdb37d647be70"
+      },
+      {
+        "path": "test/helpers/pi-sdk-fixture.js",
+        "sha256": "39d362b624fc96325e48bd4bdd7c8220b5789409c38672f5e10cea710bab1845",
+        "baselineSha256": "fa971cd78a0f8715fef612aa3be9ef3e2903a5595eeed8917d243b852e1ba0e5"
+      },
+      {
+        "path": "test/helpers/pi-workspace-artifact-recovery-child.js",
+        "sha256": "1df7f839fa8d194dc7889fbd5bf333b46ee8bb3dbb12e990297f6b51d3ae5a44",
+        "baselineSha256": null
+      },
+      {
+        "path": "test/helpers/pi-workspace-cli-fixture.js",
+        "sha256": "30a0c7daa23e76768e7564a3fcebaf2c0d20d927c2681ae9fa4e5ed694b8e6de",
+        "baselineSha256": null
+      },
+      {
+        "path": "test/helpers/pi-workspace-fixture.js",
+        "sha256": "883a5851377e5fe1e204f47aa04ad0e112a3479b943d0111e690c21d2b52fbd7",
+        "baselineSha256": null
+      },
+      {
+        "path": "test/helpers/pi-workspace-recovery-child.js",
+        "sha256": "94b46098fde951bc7700b4be2f64bb88d256ec96baf4f9fc17e53ca6e890eebb",
+        "baselineSha256": null
+      },
+      {
+        "path": "test/pi-sdk-conformance-contract.test.js",
+        "sha256": "9ca6e599f703dba2d4b732ef3ad0488ff3f0e1b92811de1a86e45f1314f46900",
+        "baselineSha256": "a38e8f736435dff410e4b0afdde32cd15d416f5360aabafec8157abe77ff0b3d"
+      },
+      {
+        "path": "test/pi-workspace-budget.test.js",
+        "sha256": "8beadcc8bdd3c69b378c9b89cd1382b05d0dddc002852f2d2287cc8a25072a67",
+        "baselineSha256": null
+      },
+      {
+        "path": "test/pi-workspace-cli.test.js",
+        "sha256": "f5faa381446597ec5afd579ab1b580759f45088554a122bfeb19466a7b0ee136",
+        "baselineSha256": null
+      },
+      {
+        "path": "test/pi-workspace-files.test.js",
+        "sha256": "ec9a1b4d256afdbaeac45617ca12a7a358ca3f34ad9f6cf1a90fa566af7ecf0b",
+        "baselineSha256": null
+      },
+      {
+        "path": "test/pi-workspace-flow.test.js",
+        "sha256": "67ccdc017e8ebac24c75063d6af28d027c156465b400836558c5adc943710be0",
+        "baselineSha256": null
+      },
+      {
+        "path": "test/pi-workspace-integration.test.js",
+        "sha256": "2f035991d48f5f614241e9ef94d0a23e5b590664116cdec7c283fa1eba7d92f2",
+        "baselineSha256": null
+      },
+      {
+        "path": "test/pi-workspace-package.test.js",
+        "sha256": "6b38d47779fdb53144dbe6e335899d001d531ad5669d9f7bd940eec58c3acd20",
+        "baselineSha256": null
+      },
+      {
+        "path": "test/pi-workspace-policy.test.js",
+        "sha256": "4897a95796b520b7367c4aed9e9015fd9ab78cea1989d392005497c613e32e2a",
+        "baselineSha256": null
+      },
+      {
+        "path": "test/pi-workspace-protocol.test.js",
+        "sha256": "033ce2c7abece2756202c1d650c6efd7e59a579196f17cc5d59b7aa36f30a007",
+        "baselineSha256": null
+      },
+      {
+        "path": "test/pi-workspace-sdk.test.js",
+        "sha256": "b8d3d7838d251e83b9d5d763aa614e0e7a96247b3523280f94147247e18a3f17",
+        "baselineSha256": null
+      }
+    ]
+  },
+  "review": {
+    "task": "R-WS-BATCH",
+    "reviewReportDigest": "sha256:9bfb12ea9159de90e02075ef362ae66cc3ee65d52776e41c014e6f50c87e0b43",
+    "reviewedCandidate": "r1",
+    "originalConclusion": "reject",
+    "critical": 0,
+    "important": 5,
+    "minor": 1,
+    "findings": [
+      {
+        "id": "R1",
+        "severity": "Important",
+        "issue": "Strict wire equality rejects the fixed SDK non-strict tool-schema conversion.",
+        "required": "Match the observed SDK wire form exactly while retaining strict host tool arguments; add a static-derived fixture."
+      },
+      {
+        "id": "R2",
+        "severity": "Important",
+        "issue": "Workspace system instructions still forbid tools and omit logical source paths, output path and citation grammar.",
+        "required": "Supply the complete bounded task contract and source manifest; preserve old zero-tool bytes."
+      },
+      {
+        "id": "R3",
+        "severity": "Important",
+        "issue": "Invalid intermediate usage marks the task invalid without preventing further tools or requests.",
+        "required": "Fail immediately and guard both tool and request entry; prove counters and reservations stop."
+      },
+      {
+        "id": "R4",
+        "severity": "Important",
+        "issue": "Artifact recovery requires an in-process brand that cannot be reconstructed after publication crash.",
+        "required": "Persist a minimal private task/output binding and strictly admit it read-only from a fresh process; do not replay or mutate."
+      },
+      {
+        "id": "R5",
+        "severity": "Important",
+        "issue": "Missing or failed terminal records can admit plain-text failed task histories.",
+        "required": "Bind each historical workspace task to a successful terminal record, even without tool history."
+      },
+      {
+        "id": "R6",
+        "severity": "Minor",
+        "issue": "CLI success summary omits final response, request count, source summary and stop status.",
+        "required": "Render the existing validated fields without exposing private history or credentials."
+      }
+    ],
+    "remediation": "all six implemented and regression-verified on r2",
+    "acceptedBy": "controller",
+    "independentReviewOfRepairedBytes": false,
+    "existingReviewerReused": true
+  },
+  "validation": {
+    "focused": {
+      "command": "node --test (Pi, Stage 2, support-triage and I/O suites recorded in private log)",
+      "pass": 271,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "logDigest": "sha256:19ce66ea8ca39b3563672bc110fab746457ce692fb477995b9619b2171cf9527"
+    },
+    "complete": {
+      "command": "npm run check",
+      "exitCode": 0,
+      "sourceFrozenThroughout": true,
+      "sourceDrift": 0,
+      "logDigest": "sha256:088c33bc590b0e72f9a4d5952ec7bce1d1e99dd7325298073f386cdc7d05250a",
+      "lanes": [
+        {
+          "command": "npm run check:test:main",
+          "tests": 1595,
+          "suites": 112,
+          "pass": 1535,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 60,
+          "todo": 0,
+          "duration_ms": 2151199.895708
+        },
+        {
+          "command": "npm run check:test:durable-fs",
+          "tests": 2,
+          "suites": 2,
+          "pass": 2,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0,
+          "duration_ms": 47289.072667
+        },
+        {
+          "command": "npm run check:test:packed-hook-chain",
+          "tests": 1,
+          "suites": 1,
+          "pass": 1,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0,
+          "duration_ms": 150095.14325
+        },
+        {
+          "command": "npm run check:test:packed-behavior",
+          "tests": 8,
+          "suites": 1,
+          "pass": 7,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 1,
+          "todo": 0,
+          "duration_ms": 1080619.697083
+        },
+        {
+          "command": "npm run check:test:immutable-successor",
+          "tests": 1,
+          "suites": 1,
+          "pass": 1,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0,
+          "duration_ms": 302758.510167
+        }
+      ],
+      "countsMustNotBeSummedAsUniqueTests": true,
+      "engineeringVerificationDigest": "sha256:7974edb975b84d8318453ed1f28b30dc69ed8d65f4c4a1a318d9a7264baa73ec"
+    },
+    "finalDocumentChecks": {
+      "command": "node --test test/command-docs.test.js",
+      "exitCode": 0,
+      "pass": 11,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "logDigest": "sha256:b5bb37e6bdbb4f45743727968b0286120b878ab2497e0be28a522e2e54bfd00f",
+      "localLinksChecked": 161,
+      "missingLinks": 0,
+      "installPreviewDigestsAndBytesMatched": true,
+      "approvedDocumentsUnchanged": true,
+      "historicalCandidateAndFreezeUnchanged": true,
+      "gitDiffCheck": "passed"
+    }
+  },
+  "candidate": {
+    "agentId": "project-brief",
+    "archiveDigest": "sha256:8f1c1b76f34aede3c3f2647f38396cbb6739a6323cc7b0c82ebff2e70c94d89a",
+    "installPlanDigest": "sha256:efe3eaa689d7fad7c75a636f8ca88abdd7ec0bcf4372a7006671f6d4e33483b6",
+    "installPlanFileDigest": "sha256:b4449dd87c94ba5375a7ce6e84ca82b87d8d2442eef78907a75d239cf5db698f",
+    "installProposalDigest": "sha256:e23676517581d4080da4094d814c09eb4153bf2bb7d1828b4bb4eab9d1ece614",
+    "discoverPreviewDigest": "sha256:4a5399c78750654a0bdfd45851f15dc3487177bc67e1dffd6224409555ecbab9",
+    "planPreviewDigest": "sha256:19a1853983c3276f173d47cb67c9e1c43a44c8ec9cca7003eb3aa241f003fc75",
+    "files": [
+      {
+        "kind": "write",
+        "relativePath": "agent.json",
+        "mode": 384,
+        "byteLength": 611,
+        "sha256": "sha256:19caa03a211f708001c792ee9ac16a2ed6a666283cc137255fe1fca9de5a0745"
+      },
+      {
+        "kind": "write",
+        "relativePath": "browser/client.js",
+        "mode": 384,
+        "byteLength": 6333,
+        "sha256": "sha256:9d6e66626a6b7c25b3b2382fa558994ee3a53659da2b4c6c1883dd4aa831e494"
+      },
+      {
+        "kind": "write",
+        "relativePath": "browser/index.html",
+        "mode": 384,
+        "byteLength": 2155,
+        "sha256": "sha256:18fac10343f2b1c2dd1fb8ecb7420cbb999602b36ab50f35bd81ab02fe3137cb"
+      },
+      {
+        "kind": "write",
+        "relativePath": "browser/style.css",
+        "mode": 384,
+        "byteLength": 2703,
+        "sha256": "sha256:208b92b6e476873d8382c9865b8bf8a895cb3c2612f0d81b4e5ac6fa393ccac1"
+      },
+      {
+        "kind": "write",
+        "relativePath": "runtime-binding.json",
+        "mode": 384,
+        "byteLength": 884,
+        "sha256": "sha256:fd9482f279f8b2e7b75958ee8027cb0604ebe0e4934223bb9cd961b74ecaa164"
+      },
+      {
+        "kind": "write",
+        "relativePath": "skills/project-brief/SKILL.md",
+        "mode": 384,
+        "byteLength": 200,
+        "sha256": "sha256:65908f111203326fd9fdc2fab18eb7aeea343043596ce6a07d2991383806f770"
+      },
+      {
+        "kind": "write",
+        "relativePath": "system.md",
+        "mode": 384,
+        "byteLength": 963,
+        "sha256": "sha256:daba1668cc09ff5f95abcda68e290ab3d2b977cc66d8025340c8588d91aec6f2"
+      },
+      {
+        "kind": "write",
+        "relativePath": "workspace-policy.json",
+        "mode": 384,
+        "byteLength": 1084,
+        "sha256": "sha256:25faf217196e3272a93421c2a9b02563578e838dc5b438164307e825dd9b988a"
+      }
+    ],
+    "directories": [
+      "attempts",
+      "browser",
+      "sessions",
+      "skills",
+      "skills/project-brief",
+      "turns"
+    ],
+    "targetRoot": ".agentmo/project-brief-pi-minimax-m3-workspace-2026-11-16-r1",
+    "targetRootAbsent": true,
+    "sourceCoverageGaps": 6,
+    "exactSourceAndPlanConfirmationRequired": true,
+    "historicalBindingsRevalidated": false
+  },
+  "budget": {
+    "lastKnownReservedFen": 5053,
+    "lastKnownReservations": 35,
+    "capFen": 10000,
+    "source": "release/evidence/2026.11.13-m3-recovery-execution.json",
+    "sourceDigest": "sha256:bc2b925739962c936f6c37be5487d39c0bdda159b0a10d41d7de65842bd359e5",
+    "realStoreRead": false,
+    "newRealReservations": 0,
+    "newRealReservedFen": 0,
+    "syntheticTaskMaxRequests": 6,
+    "syntheticTaskMaxReservedFen": 186,
+    "conditionalAggregateFen": 5239
+  },
+  "boundaries": {
+    "actualSdkExecuted": false,
+    "realAgentInstalled": false,
+    "realAgentActivated": false,
+    "providerModelRequests": 0,
+    "realSecretsRead": false,
+    "realAuthorityStoreReadOrWritten": false,
+    "commit": false,
+    "push": false,
+    "historicalRuntimeScenesUntouched": true
+  },
+  "limitations": [
+    "Actual SDK tool assembly and M3 domain output remain unverified.",
+    "Workspace production cost gate remains cost-envelope-unproven; the M3 document is preparation, not executable paid approval.",
+    "Historical authority/budget metadata must be revalidated after exact installation approval and before mutation.",
+    "Six partial source-coverage gaps remain.",
+    "Old npm update-notice origin (cache or network) is unknown. Final complete run used offline npm and disabled updater/audit/fund."
+  ],
+  "retainedRuns": {
+    "r1Full": {
+      "status": "controller-cancelled-superseded-by-review-fixes",
+      "pass": 1315,
+      "fail": 0,
+      "cancelled": 32,
+      "skipped": 59,
+      "crossedSourceEdits": true
+    },
+    "r1TargetedCold": {
+      "pass": 79,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 1
+    },
+    "r2StartupFailure": {
+      "reason": "npm rejected using the same /dev/null file for both config roles",
+      "testsRun": 0,
+      "correction": "two distinct empty temporary config files; no source change"
+    }
+  },
+  "retainedLogDigests": [
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/controller-candidate-r1.log",
+      "sha256": "sha256:118b2af981ba61f382722907fe26104ab8bd5b82daf3724d4aff8aa560316250"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/controller-candidate-r2.log",
+      "sha256": "sha256:7cd4c6dc0be3babadbe7dd5a2d1763ac5640837bb02add0580a6422f2c9f38f4"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/fix1-green.log",
+      "sha256": "sha256:e92b5d988f8605c6dce1c0614f280b7523bf7d986415e4e59ac9e2f14d92d6c1"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/fix1-red.log",
+      "sha256": "sha256:c85257a4f1992e8f3d4fecfa26995fb4b82bc81306a4d144395d43539ad8a450"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/fix2-green.log",
+      "sha256": "sha256:3d9925fc4d846cbce77c619debeaa9e923110f4ed974914bd1f6f25ef8c99e11"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/fix2-red.log",
+      "sha256": "sha256:c971d2ac1980425d9a79f584a1c4f417ef0b7baeaa0cee48ffb0302d8e4daf9a"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/fix3-green-attempt1.log",
+      "sha256": "sha256:85ffb2deba3d11de1185b2794942161895de47f25e5b0743f7f3bcaab83a1927"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/fix3-red.log",
+      "sha256": "sha256:7da32708fefd721834763023cb2ab73d55fc59d7e923717ffd152edeae72e351"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/fix3-stream-red.log",
+      "sha256": "sha256:06511bf3507ec271727c52cb420745fe58c53ab0118291b67dfd136d1fad2919"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/fix4-green-attempt1.log",
+      "sha256": "sha256:c3e624514296892e1ff4d5b8427407f9a325d59dd4c1fa23858adcc75d248ad0"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/fix4-red.log",
+      "sha256": "sha256:eaf21d4e30de55455acfdcdbffa71968bc6fb13039495ceb2fb32209b2e80d4f"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/fix5-green-attempt1.log",
+      "sha256": "sha256:fc6a21bc71f52ee16fba183706fc2c9049178381dcc996d0b447e619902e2ed3"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/fix5-green.log",
+      "sha256": "sha256:f27748f521e49a6dc0668d35f1d7fdab371788bd6ad14a159cc75fcb6061a468"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/fix5-red.log",
+      "sha256": "sha256:cfdba0d0a672258746a3fd1760df31d8a0be95eedb9fd2e16ab47af6d6ade0ef"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/fix6-green.log",
+      "sha256": "sha256:bd9e9ac7a50c7d4ddea9d4fa821a3d5bbe02c613d7daa8250ac2ad0a89da06bb"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/fix6-red.log",
+      "sha256": "sha256:271e742e2ae52823d9430228eba9d124f462c5f55edb9ebaa01d0517718e2572"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/npm-check-first.log",
+      "sha256": "sha256:41a68a7032a12c28085a35c95a03877a1e6d8a39e6204f887de213d23722b8e3"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/npm-check-r2-config-startup-failure.log",
+      "sha256": "sha256:250e369d730a46c4d41df37449a5c58c169b4b1d2ab546951a8bed0285805a95"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/npm-check-r2-final.log",
+      "sha256": "sha256:088c33bc590b0e72f9a4d5952ec7bce1d1e99dd7325298073f386cdc7d05250a"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/r2-focused-stage-io.log",
+      "sha256": "sha256:19ce66ea8ca39b3563672bc110fab746457ce692fb477995b9619b2171cf9527"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/task1-green-attempt1.log",
+      "sha256": "sha256:e821dedee05062bd583fa7371ad3092975d723833815d8dc1475870284beaf96"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/task1-green-attempt2.log",
+      "sha256": "sha256:9a272e9ca2c8e76c8b20738239b9ba3dab01872bf9d1ab89e4635c990b9e48d2"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/task1-green-attempt3.log",
+      "sha256": "sha256:1eac68f6201100e6e44acff3002c724b13c03937d780d7092d3f7fa52be04cc8"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/task1-green.log",
+      "sha256": "sha256:9c4b4df76ab0f0af616b0e1df003ad0752fe7173c5662c7d6d04c8badc66f5ad"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/task1-red.log",
+      "sha256": "sha256:751c994bbcf3f7a017e44ee0d64b262b220c734dad9fbfc80d9c61a159a6be29"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/task2-green-attempt1.log",
+      "sha256": "sha256:01f45c737442ef78c905bfee068fc8b4c7a1d2a70c43157416ee76a6ab6aceb3"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/task2-green.log",
+      "sha256": "sha256:7976ca32943d611e744c08404b0b35ceea05896b76412ca79c9fd5de5e4c8396"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/task2-red-install.log",
+      "sha256": "sha256:3868bdaf68c5cf2b9ab56eef45d9e8312c38c5b23e6801547647d20bed7d00fe"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/task2-red.log",
+      "sha256": "sha256:a0a560293203cfc98696763af604fe54d93956761bc2194fb555a6cae3c9f6a8"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/task3-green-attempt1.log",
+      "sha256": "sha256:fd5ce6d9b75111c59f9bd6508451d3db41dacb10bec2da2780bd727b4ac44380"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/task3-green.log",
+      "sha256": "sha256:ca1fc84f5ce782536b1eee8b1b4c666794477cc68c91102762f3d8af45e2470a"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/task3-red.log",
+      "sha256": "sha256:0231002d9762be2fa76af3b405e4863c3793062e28e2cc537628a34233059488"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/task4-budget-green-attempt1.log",
+      "sha256": "sha256:237cd88939be6206ac071de9482e5d32488e3b40dd3a11738c150f6f075d396b"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/task4-budget-red.log",
+      "sha256": "sha256:562cf2c15be4de2a50b7a88d4dfb03e9dabfe46310ab4d1ef9caa55e24e54dad"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/task4-failure-red.log",
+      "sha256": "sha256:28a77aa52891f3f11723c85eff661a663314397e1743ebc18f3cf1b82af9d17b"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/task4-green.log",
+      "sha256": "sha256:7b103dc1977cd2daf1b2a4eb2547c9fe2d16aca4554f4cbd34f9aa2af5ec29f5"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/task4-protocol-green.log",
+      "sha256": "sha256:0cf4bb03d0ccf36ad64af2ea24e13f53d0577f17ee59d3fe6c098550f165110c"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/task4-red.log",
+      "sha256": "sha256:d6d7be69e63db46054ab17696599bd1edc9a5e53e9b1e690dd9a383c0d7a8ed1"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/task5-budget-flow.log",
+      "sha256": "sha256:05df5a73fc3034bbf6ea85673a0338056eed1feb18008e183874667005a6e55f"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/task5-final-hardening.log",
+      "sha256": "sha256:c1b3444b58aa8c488b5e59312e14849b9dc63300a97ca779a49e61e93f2172ed"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/task5-flow-attempt1.log",
+      "sha256": "sha256:d239527f611827801d34740f8f135c3b0bfbfc77766000c3fa1aaeb0074fa45a"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/task5-green-attempt1.log",
+      "sha256": "sha256:50003e5588e65e198093eeb221b2ca430f1f66e0349ca9ccb0820c134259931f"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/task5-hardening.log",
+      "sha256": "sha256:66208b216774c78c4462fdfa39f0fe933ac3d907967349e24277bc755ec23d0b"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/task5-integration-attempt1.log",
+      "sha256": "sha256:36e3f96d87154a3c85edd33d47c7de0b1f656978583e98b9ea11248932359990"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/task5-red.log",
+      "sha256": "sha256:a5b275835ba99660b5c45badfd1a18ac24553471993764feebcaffdc06c14431"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/task6-accounting-finalization.log",
+      "sha256": "sha256:989526fbb0366f53c3dce28dd1b40064e977fbbbf973ec91a71af3a83585f378"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/task6-budget-termination-retest.log",
+      "sha256": "sha256:d34f6928f4884b4457a5a40d2022d809161d02861fc2ae6dc85c53d6d7024c2d"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/task6-budget-termination.log",
+      "sha256": "sha256:fb089760525dc6721686ecc4a24233607236ceca1a628b5fd00c362f18ced22c"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/task6-cleanup-recovery.log",
+      "sha256": "sha256:9a11694d0bd44525d9220b8b4082173afcda5f31366dd60e46ff9696a05ee68b"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/task6-cold-io-retest.log",
+      "sha256": "sha256:529771a5727ccb7c21e14c8816027ca5d27f3440a3e86bd8f81219a03c47a547"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/task6-integration-attempt1.log",
+      "sha256": "sha256:b98a09b08e2242effb5721bfad5f0df42d6039f0a5f04559b9e4700c5c65e23e"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/task6-mvp-stage-regression.log",
+      "sha256": "sha256:77675c726099c332e317df5a4b77eb44411f52bde328670f9de8d056ab22c294"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/task6-public-cli-attempt1.log",
+      "sha256": "sha256:02c1c595de966bdd5ab889eb1e11576ca169499111310c0504c9e35547dceb32"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/task6-public-cli-attempt2.log",
+      "sha256": "sha256:0236a0f701937f564be2c9cb1a0f6cc307e17e100c2255b5e88d27a5557eec1d"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/task6-public-cli-history.log",
+      "sha256": "sha256:e85898ab68d8575dd7a2633bbdd6c4206843dab05fab2019d0b1064cdb47fb4e"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/task6-regression-final.log",
+      "sha256": "sha256:02a07c965d0668435b848ad1b2c931dfbd2df48ac8d0d6434f5def90ba538c58"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/task6-regression-first.log",
+      "sha256": "sha256:7eb90eaf41a40a38716e2e611ea56fdac8974006530d755a0ad614ddbc92a461"
+    },
+    {
+      "path": ".superpowers/sdd/2026-11-16-pi-workspace-agent/controller-final-docs.log",
+      "sha256": "sha256:b5bb37e6bdbb4f45743727968b0286120b878ab2497e0be28a522e2e54bfd00f"
+    }
+  ]
+}

@@ -10,6 +10,8 @@ Stage 3 Produce  -> Delivery Evidence Contract
 
 The support-triage MVP remains the composed vertical demo of these contracts. It is not the only valid path through AgentMo.
 
+The Pi CLI path uses these stages and keeps its current runtime and content results in [the acceptance record](CORE_MVP_ACCEPTANCE.md).
+
 ## Contract matrix
 
 | Stage | Purpose | Accepted inputs | Produced outputs | Forbidden process dependency |

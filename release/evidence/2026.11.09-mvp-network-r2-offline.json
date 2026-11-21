@@ -1,0 +1,32 @@
+{
+  "date": "2026-11-09",
+  "status": "offline-launch-repair-verified-awaiting-new-approval",
+  "previousProposalDigest": "sha256:87aacf5a8e971c5146e2be26637bfdccd77595e33e914799d671d87f337108c1",
+  "previousRejectionDigest": "sha256:68fa0654c82a44dcd9618fd002a58571e71fcb62a5710792ad4fb30b288ba0e8",
+  "previousHttpCalls": 0,
+  "previousScopeClosed": true,
+  "proposalDigest": "sha256:875e5fd1be2e7cd8112ca9035c1b14be336ce7e36c12e6881e1817b56f32e1ca",
+  "pinsVerified": 7,
+  "sourceDigest": "sha256:c0b4f2359c79c8d6f648795376f9e0e03fd7de6e29f77fc98d06f60ebad9f5eb",
+  "productionSourceChangedByThisRepair": false,
+  "ignoredSystemEnvironmentKeys": [
+    "__CF_USER_TEXT_ENCODING"
+  ],
+  "ignoredValuesRead": false,
+  "unexpectedKeysRejectedBeforeValues": true,
+  "selfcheckCases": 6,
+  "actualHostLaunchEnvironmentVerified": true,
+  "actualNetworkCalls": 0,
+  "r2ApprovalAndOperationAbsent": true,
+  "modelRequests": 0,
+  "newReservedFen": 0,
+  "totalReservedFen": 4898,
+  "capFen": 10000,
+  "keyRead": false,
+  "envFileRead": false,
+  "sdkExecuted": false,
+  "agentInstalled": false,
+  "agentActivated": false,
+  "committed": false,
+  "pushed": false
+}

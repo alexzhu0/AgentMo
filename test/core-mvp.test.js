@@ -6,6 +6,7 @@ import { withCoreMvpFixture } from './helpers/core-mvp-fixture.js';
 import { produceAgentPackage } from '../src/package-produce.js';
 import { inspectAgentPackage } from '../src/package-inspect.js';
 import { buildBehaviorCaseResult } from '../src/behavior-evidence.js';
+import { BUILDER_NPM_FILES_ALLOWLIST } from '../src/builder-package.js';
 import { digest } from './helpers/pi-native-fixture.js';
 
 test('builds distinct Pi packages through Discover Plan Produce', async t => {
@@ -23,6 +24,7 @@ test('builds distinct Pi packages through Discover Plan Produce', async t => {
 
 test('ships every new public CLI module with syntax validation', async () => {
   const pkg = JSON.parse(await readFile('package.json'));
+  assert.deepEqual(pkg.files, BUILDER_NPM_FILES_ALLOWLIST);
   for (const file of ['src/pi-upstream.js', 'src/pi-cli-client.js', 'src/pi-cli-run.js', 'src/pi-chat-cli.js']) {
     assert.ok(pkg.files.includes(file), file); assert.ok(pkg.scripts.check.includes(`node --check ${file}`), file);
   }

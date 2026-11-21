@@ -1,0 +1,305 @@
+{
+  "schemaVersion": "agentmo.research-source-manifest.v1",
+  "researchDate": "2026-11-13",
+  "status": "research-and-proposals-only",
+  "report": "2026-11-13-pi-ecosystem-reverse-engineering.md",
+  "method": {
+    "access": "public GitHub connector read-only fetch_file and repository/ref API",
+    "codeCopied": false,
+    "upstreamExecuted": false,
+    "dependenciesInstalled": false,
+    "providerRequests": 0,
+    "actualSdkExecuted": false,
+    "secretFilesRead": false
+  },
+  "localBaseline": {
+    "worktree": "codex/course-wiki",
+    "head": "2979a7086b522e114a766efd5e17b7ac2a2b6e55",
+    "preExistingUncommittedChanges": true,
+    "reviewedPaths": [
+      "src/targets/pi-package.js",
+      "src/pi-sdk.js",
+      "src/course-wiki-budget.js",
+      "src/pi-budget-proxy.js",
+      "src/pi-cli-run.js",
+      "docs/CORE_MVP_RUNBOOK.md",
+      "docs/CURRENT_STATUS.md"
+    ],
+    "productImplementationChanged": false
+  },
+  "compatibility": {
+    "installedPiSdk": "1.2.0",
+    "verifiedTag": {
+      "repository": "earendil-works/pi",
+      "tag": "v1.2.0",
+      "commit": "06a466935536f8c9bcacb2d5efc0fc021be1bdff"
+    },
+    "latestSourceIsNotInstalledApiGuarantee": true
+  },
+  "budgetContext": {
+    "unit": "CNY-fen",
+    "previouslyRecordedReserved": 5053,
+    "cap": 10000,
+    "newRealReservation": 0,
+    "note": "Taken from maintained project status; no runtime ledger read or write in this research."
+  },
+  "interpretationLimits": [
+    "Not a runtime, security, license-compliance or domain-quality certification.",
+    "No upstream performance claim or test suite result has been reproduced.",
+    "Current default zero-tool product scope remains; proposed capabilities require a chosen task and accepted design.",
+    "Original failed batches and consumed approvals remain closed.",
+    "Git blob SHA identifies upstream content; it is not an AgentMo approval digest."
+  ],
+  "sources": [
+    {
+      "id": "pi-current-readme",
+      "repository": "earendil-works/pi",
+      "commit": "47e9d74f9186de37e700693fac0f6e56a499657a",
+      "path": "README.md",
+      "gitBlobSha": "1cc6a371e34cd4f82d2917720577c54b77eaabd7",
+      "url": "https://github.com/earendil-works/pi/blob/47e9d74f9186de37e700693fac0f6e56a499657a/README.md",
+      "reviewedFor": "产品入口、扩展方式与执行边界",
+      "reviewMethod": "static-selected-sections"
+    },
+    {
+      "id": "pi-current-sdk",
+      "repository": "earendil-works/pi",
+      "commit": "47e9d74f9186de37e700693fac0f6e56a499657a",
+      "path": "packages/coding-agent/docs/sdk.md",
+      "gitBlobSha": "7d0883b3ff7926c077414ccce9b4f7aa31f7065b",
+      "url": "https://github.com/earendil-works/pi/blob/47e9d74f9186de37e700693fac0f6e56a499657a/packages/coding-agent/docs/sdk.md",
+      "reviewedFor": "当前SDK会话、运行和资源职责；不作为1.2.0兼容保证",
+      "reviewMethod": "static-selected-sections"
+    },
+    {
+      "id": "pi12-tools",
+      "repository": "earendil-works/pi",
+      "commit": "06a466935536f8c9bcacb2d5efc0fc021be1bdff",
+      "path": "packages/coding-agent/examples/sdk/05-tools.ts",
+      "gitBlobSha": "5f6f710d22a62bf381dc5a6b18aa100a9d4fea62",
+      "url": "https://github.com/earendil-works/pi/blob/06a466935536f8c9bcacb2d5efc0fc021be1bdff/packages/coding-agent/examples/sdk/05-tools.ts",
+      "reviewedFor": "固定1.2.0工具选择接口",
+      "reviewMethod": "static-selected-sections"
+    },
+    {
+      "id": "pi12-extensions",
+      "repository": "earendil-works/pi",
+      "commit": "06a466935536f8c9bcacb2d5efc0fc021be1bdff",
+      "path": "packages/coding-agent/examples/sdk/06-extensions.ts",
+      "gitBlobSha": "1efdb140bb86becb00d616fd3253c3be970895f7",
+      "url": "https://github.com/earendil-works/pi/blob/06a466935536f8c9bcacb2d5efc0fc021be1bdff/packages/coding-agent/examples/sdk/06-extensions.ts",
+      "reviewedFor": "固定1.2.0扩展、注册工具和tool_call拦截接口",
+      "reviewMethod": "static-selected-sections"
+    },
+    {
+      "id": "pi12-skills",
+      "repository": "earendil-works/pi",
+      "commit": "06a466935536f8c9bcacb2d5efc0fc021be1bdff",
+      "path": "packages/coding-agent/examples/sdk/04-skills.ts",
+      "gitBlobSha": "3c0887cbbce8f10b0ee9acd4ae650051c0c2c42a",
+      "url": "https://github.com/earendil-works/pi/blob/06a466935536f8c9bcacb2d5efc0fc021be1bdff/packages/coding-agent/examples/sdk/04-skills.ts",
+      "reviewedFor": "固定1.2.0 Skills与ResourceLoader",
+      "reviewMethod": "static-selected-sections"
+    },
+    {
+      "id": "pi12-context",
+      "repository": "earendil-works/pi",
+      "commit": "06a466935536f8c9bcacb2d5efc0fc021be1bdff",
+      "path": "packages/coding-agent/examples/sdk/07-context-files.ts",
+      "gitBlobSha": "c97b488708d3be9b0919f3086c70a4f10746c16e",
+      "url": "https://github.com/earendil-works/pi/blob/06a466935536f8c9bcacb2d5efc0fc021be1bdff/packages/coding-agent/examples/sdk/07-context-files.ts",
+      "reviewedFor": "固定1.2.0上下文资源覆盖",
+      "reviewMethod": "static-selected-sections"
+    },
+    {
+      "id": "pi12-sessions",
+      "repository": "earendil-works/pi",
+      "commit": "06a466935536f8c9bcacb2d5efc0fc021be1bdff",
+      "path": "packages/coding-agent/examples/sdk/11-sessions.ts",
+      "gitBlobSha": "975a6bb13a063d7fe7bc9d4a7346177741b034ca",
+      "url": "https://github.com/earendil-works/pi/blob/06a466935536f8c9bcacb2d5efc0fc021be1bdff/packages/coding-agent/examples/sdk/11-sessions.ts",
+      "reviewedFor": "固定1.2.0原生会话创建、打开、继续",
+      "reviewMethod": "static-selected-sections"
+    },
+    {
+      "id": "pi12-read-operations",
+      "repository": "earendil-works/pi",
+      "commit": "06a466935536f8c9bcacb2d5efc0fc021be1bdff",
+      "path": "packages/coding-agent/src/core/tools/read.ts",
+      "gitBlobSha": "ebe2c251703ecc4db875696290caf352aafe4859",
+      "url": "https://github.com/earendil-works/pi/blob/06a466935536f8c9bcacb2d5efc0fc021be1bdff/packages/coding-agent/src/core/tools/read.ts",
+      "reviewedFor": "工具操作可替换，默认本机读取",
+      "reviewMethod": "static-selected-sections"
+    },
+    {
+      "id": "pi12-path-utils",
+      "repository": "earendil-works/pi",
+      "commit": "06a466935536f8c9bcacb2d5efc0fc021be1bdff",
+      "path": "packages/coding-agent/src/core/tools/path-utils.ts",
+      "gitBlobSha": "1f9ab4cc9ec52279d1aa0b22739e1eea3c430177",
+      "url": "https://github.com/earendil-works/pi/blob/06a466935536f8c9bcacb2d5efc0fc021be1bdff/packages/coding-agent/src/core/tools/path-utils.ts",
+      "reviewedFor": "绝对路径与用户目录展开不是范围限制",
+      "reviewMethod": "static-selected-sections"
+    },
+    {
+      "id": "pichat-readme",
+      "repository": "earendil-works/pi-chat",
+      "commit": "9adbd29b40ee27ff1decf0fc87cbe180b40924f5",
+      "path": "README.md",
+      "gitBlobSha": "ea48d540831d2383c07b0d12ea8a04c0f9cfaab6",
+      "url": "https://github.com/earendil-works/pi-chat/blob/9adbd29b40ee27ff1decf0fc87cbe180b40924f5/README.md",
+      "reviewedFor": "渠道、资料、记忆、Skills及交付设计",
+      "reviewMethod": "static-selected-sections"
+    },
+    {
+      "id": "pichat-package",
+      "repository": "earendil-works/pi-chat",
+      "commit": "9adbd29b40ee27ff1decf0fc87cbe180b40924f5",
+      "path": "package.json",
+      "gitBlobSha": "df1cfaf61e993b3a25ed5d04f0a9441e7870835a",
+      "url": "https://github.com/earendil-works/pi-chat/blob/9adbd29b40ee27ff1decf0fc87cbe180b40924f5/package.json",
+      "reviewedFor": "版本、旧Pi peer依赖和实际许可声明",
+      "reviewMethod": "static-selected-sections"
+    },
+    {
+      "id": "pichat-license",
+      "repository": "earendil-works/pi-chat",
+      "commit": "9adbd29b40ee27ff1decf0fc87cbe180b40924f5",
+      "path": "LICENSE",
+      "gitBlobSha": "2c3b1cf5a6ff252322e0d42fb901d4ef973da74b",
+      "url": "https://github.com/earendil-works/pi-chat/blob/9adbd29b40ee27ff1decf0fc87cbe180b40924f5/LICENSE",
+      "reviewedFor": "Apache-2.0；不沿用README的不同许可文字",
+      "reviewMethod": "static-selected-sections"
+    },
+    {
+      "id": "pichat-tool-memory-entry",
+      "repository": "earendil-works/pi-chat",
+      "commit": "9adbd29b40ee27ff1decf0fc87cbe180b40924f5",
+      "path": "index.ts",
+      "gitBlobSha": "ae0178fd2e62c64fdf0607bec5322aed0267e5f1",
+      "url": "https://github.com/earendil-works/pi-chat/blob/9adbd29b40ee27ff1decf0fc87cbe180b40924f5/index.ts",
+      "reviewedFor": "原生工具委托、宿主路径检查、记忆和Skills装配、附件工具",
+      "reviewMethod": "static-selected-sections"
+    },
+    {
+      "id": "piclaw-readme",
+      "repository": "rcarmo/piclaw",
+      "commit": "68492a34ed6e839bf00edb169452e31cbb845b97",
+      "path": "README.md",
+      "gitBlobSha": "34adfdd17fde534eed8c0d68c260f24c4a2e83a0",
+      "url": "https://github.com/rcarmo/piclaw/blob/68492a34ed6e839bf00edb169452e31cbb845b97/README.md",
+      "reviewedFor": "产品能力与单用户进程权限边界",
+      "reviewMethod": "static-selected-sections"
+    },
+    {
+      "id": "piclaw-package",
+      "repository": "rcarmo/piclaw",
+      "commit": "68492a34ed6e839bf00edb169452e31cbb845b97",
+      "path": "package.json",
+      "gitBlobSha": "9ba61a8dccdc745903adbc97c14456b7c4b6e74d",
+      "url": "https://github.com/rcarmo/piclaw/blob/68492a34ed6e839bf00edb169452e31cbb845b97/package.json",
+      "reviewedFor": "产品3.3.4及Pi依赖1.5.2，不直接复用为1.2.0接口",
+      "reviewMethod": "static-selected-sections"
+    },
+    {
+      "id": "piclaw-sessions",
+      "repository": "rcarmo/piclaw",
+      "commit": "68492a34ed6e839bf00edb169452e31cbb845b97",
+      "path": "runtime/src/agent-pool/session.ts",
+      "gitBlobSha": "75c56f879145f977119f76bb383ee456cd2d280a",
+      "url": "https://github.com/rcarmo/piclaw/blob/68492a34ed6e839bf00edb169452e31cbb845b97/runtime/src/agent-pool/session.ts",
+      "reviewedFor": "原生资源、扩展、会话及运行装配",
+      "reviewMethod": "static-selected-sections"
+    },
+    {
+      "id": "piclaw-tool-factory",
+      "repository": "rcarmo/piclaw",
+      "commit": "68492a34ed6e839bf00edb169452e31cbb845b97",
+      "path": "runtime/src/agent-pool/tool-factory.ts",
+      "gitBlobSha": "2c06d8c13167a0f6358f939293419ff920ab06c6",
+      "url": "https://github.com/rcarmo/piclaw/blob/68492a34ed6e839bf00edb169452e31cbb845b97/runtime/src/agent-pool/tool-factory.ts",
+      "reviewedFor": "工具定义覆盖与实际操作委托",
+      "reviewMethod": "static-selected-sections"
+    },
+    {
+      "id": "piclaw-memory",
+      "repository": "rcarmo/piclaw",
+      "commit": "68492a34ed6e839bf00edb169452e31cbb845b97",
+      "path": "runtime/src/agent-memory/refresh.ts",
+      "gitBlobSha": "408bed0357f2a2b7eba73eef64d7b96008ef8be2",
+      "url": "https://github.com/rcarmo/piclaw/blob/68492a34ed6e839bf00edb169452e31cbb845b97/runtime/src/agent-memory/refresh.ts",
+      "reviewedFor": "类型化文件记忆与有界索引；不引入后台模型工作",
+      "reviewMethod": "static-selected-sections"
+    },
+    {
+      "id": "piclaw-persistence",
+      "repository": "rcarmo/piclaw",
+      "commit": "68492a34ed6e839bf00edb169452e31cbb845b97",
+      "path": "runtime/src/agent-pool/session-persistence.ts",
+      "gitBlobSha": "5b276a459ea71eb61d5eba4d891f1dfdb8883a41",
+      "url": "https://github.com/rcarmo/piclaw/blob/68492a34ed6e839bf00edb169452e31cbb845b97/runtime/src/agent-pool/session-persistence.ts",
+      "reviewedFor": "围绕原生公开SessionManager接口持久化",
+      "reviewMethod": "static-selected-sections"
+    },
+    {
+      "id": "mcp-readme",
+      "repository": "nicobailon/pi-mcp-adapter",
+      "commit": "1382423d353a06146f1b720631dccbfe81a1905d",
+      "path": "README.md",
+      "gitBlobSha": "ad01bfc12fc3ab7edf11206787b3e8baba3b0891",
+      "url": "https://github.com/nicobailon/pi-mcp-adapter/blob/1382423d353a06146f1b720631dccbfe81a1905d/README.md",
+      "reviewedFor": "按需工具连接设计，作者性能比较未独立验证",
+      "reviewMethod": "static-selected-sections"
+    },
+    {
+      "id": "mcp-tool-approval",
+      "repository": "nicobailon/pi-mcp-adapter",
+      "commit": "1382423d353a06146f1b720631dccbfe81a1905d",
+      "path": "tool-approval.ts",
+      "gitBlobSha": "39a7fe01ef49127477ffa827c3217a4739f18b95",
+      "url": "https://github.com/nicobailon/pi-mcp-adapter/blob/1382423d353a06146f1b720631dccbfe81a1905d/tool-approval.ts",
+      "reviewedFor": "单次、会话允许及拒绝分支；不继承其授权范围",
+      "reviewMethod": "static-selected-sections"
+    },
+    {
+      "id": "mcp-server-manager",
+      "repository": "nicobailon/pi-mcp-adapter",
+      "commit": "1382423d353a06146f1b720631dccbfe81a1905d",
+      "path": "server-manager.ts",
+      "gitBlobSha": "e142c1e4a805be626f223af3964dd16a5da4d02d",
+      "url": "https://github.com/nicobailon/pi-mcp-adapter/blob/1382423d353a06146f1b720631dccbfe81a1905d/server-manager.ts",
+      "reviewedFor": "连接复用、活动请求与空闲判断",
+      "reviewMethod": "static-selected-sections"
+    },
+    {
+      "id": "mcp-lifecycle",
+      "repository": "nicobailon/pi-mcp-adapter",
+      "commit": "1382423d353a06146f1b720631dccbfe81a1905d",
+      "path": "lifecycle.ts",
+      "gitBlobSha": "28e9c5a1c70ab678d9669a2026201bed4c6e8d52",
+      "url": "https://github.com/nicobailon/pi-mcp-adapter/blob/1382423d353a06146f1b720631dccbfe81a1905d/lifecycle.ts",
+      "reviewedFor": "空闲关闭与资源生命周期；不照搬重连策略",
+      "reviewMethod": "static-selected-sections"
+    },
+    {
+      "id": "openclaw-package",
+      "repository": "openclaw/openclaw",
+      "commit": "a7d05c7af04aa17ac57c994da238d0c60f058ca6",
+      "path": "package.json",
+      "gitBlobSha": "b704a322a0a2b98d2a1dcc5ae976e7d35aa492e4",
+      "url": "https://github.com/openclaw/openclaw/blob/a7d05c7af04aa17ac57c994da238d0c60f058ca6/package.json",
+      "reviewedFor": "当前自身AI运行依赖与Pi TUI依赖",
+      "reviewMethod": "static-selected-sections"
+    },
+    {
+      "id": "openclaw-session-sdk",
+      "repository": "openclaw/openclaw",
+      "commit": "a7d05c7af04aa17ac57c994da238d0c60f058ca6",
+      "path": "src/agents/sessions/sdk.ts",
+      "gitBlobSha": "7f2e7b42bfb8ec112f1da3e070151f754df96b64",
+      "url": "https://github.com/openclaw/openclaw/blob/a7d05c7af04aa17ac57c994da238d0c60f058ca6/src/agents/sessions/sdk.ts",
+      "reviewedFor": "当前自有会话入口，避免按历史关系误判SDK兼容",
+      "reviewMethod": "static-selected-sections"
+    }
+  ]
+}

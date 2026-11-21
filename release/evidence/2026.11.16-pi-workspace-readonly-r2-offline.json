@@ -1,0 +1,141 @@
+{
+  "schemaVersion": "agentmo.pi-workspace-readonly-repair.v1",
+  "date": "2026-11-16",
+  "status": "offline-fixed-new-preview-pending-approval",
+  "failureProposalDigest": "sha256:78b20b9f726f66be4246e124eda5dd015b3b28316ea2210aaf4c6b44492b2583",
+  "change": {
+    "helper": "install-inputs.mjs",
+    "beforeMode": "0644",
+    "afterMode": "0600",
+    "bytesUnchanged": true,
+    "runner": "run-approved-readonly-r2.mjs",
+    "preflight": "same control path as execution, exits before decisions and SDK start",
+    "stages": [
+      "read-proposal",
+      "read-driver",
+      "read-input-helper",
+      "load-installed-sources",
+      "product-preflight",
+      "authority-budget",
+      "empty-runtime-directories"
+    ]
+  },
+  "validation": {
+    "permissionRed": {
+      "pass": 0,
+      "fail": 1
+    },
+    "finalRegression": {
+      "tests": 7,
+      "pass": 7,
+      "fail": 0,
+      "skip": 0
+    },
+    "exactRunnerPreflight": {
+      "exitCode": 0,
+      "records": [
+        {
+          "stage": "read-proposal",
+          "state": "starting"
+        },
+        {
+          "stage": "read-driver",
+          "state": "starting"
+        },
+        {
+          "stage": "read-input-helper",
+          "state": "starting"
+        },
+        {
+          "stage": "load-installed-sources",
+          "state": "starting"
+        },
+        {
+          "stage": "product-preflight",
+          "state": "starting"
+        },
+        {
+          "stage": "authority-budget",
+          "state": "starting"
+        },
+        {
+          "stage": "empty-runtime-directories",
+          "state": "starting"
+        },
+        {
+          "status": "offline-preflight-passed",
+          "proposalDigest": "sha256:35cc87e74f24024d420575466a8790a1896da6257009724d5b2d67b265cbd272",
+          "activationPlanDigest": "sha256:9d929145add1992d65f15dc58df2e48dcca1d3d51f09baabc52263f0568573cd",
+          "budget": {
+            "totalReservedFen": 5053,
+            "projectReservations": 35,
+            "capFen": 10000
+          },
+          "sdkExecuted": false,
+          "activated": false,
+          "newDecisions": 0,
+          "newReservedFen": 0,
+          "modelRequests": 0
+        }
+      ],
+      "sdkExecuted": false,
+      "activated": false
+    },
+    "sourceFreezeFilesUnchanged": 45,
+    "productSourceChanged": false,
+    "originalFullNpmCheckReused": true,
+    "oldFailureSnapshotsVerified": 7
+  },
+  "nextPreview": {
+    "status": "prepared-not-executed",
+    "proposalDigest": "sha256:35cc87e74f24024d420575466a8790a1896da6257009724d5b2d67b265cbd272",
+    "activationPlanDigest": "sha256:9d929145add1992d65f15dc58df2e48dcca1d3d51f09baabc52263f0568573cd",
+    "activationPlanFileDigest": "sha256:df1367db791597d52e79e67a464aba6533e773b0b8586a929e35a5e59b632249",
+    "receiptDigest": "sha256:c1c5af6de7e95b94b268c32ee8a4cfb08d818e71d4224f3580d9ef02ebce2621",
+    "driverDigest": "sha256:ad739fa62124b1e7ef2a29fdcab04a427edbd6a323493e4cd06a02f66cc732a7",
+    "preflightPassed": true,
+    "exactRunnerPreflightPassed": true,
+    "actualSdkExecuted": false,
+    "activated": false,
+    "keyRead": false,
+    "modelRequests": 0,
+    "newReservedFen": 0
+  },
+  "authority": {
+    "consumptions": 24,
+    "decisions": 91,
+    "journalDigest": "sha256:30f45d8c40fc5e98e8eaf4ec9a15a872a0f886aa560f61898ca1d19ee0d47d2a",
+    "newConsumptions": 0,
+    "newDecisions": 0
+  },
+  "budget": {
+    "totalReservedFen": 5053,
+    "projectReservations": 35,
+    "capFen": 10000,
+    "newReservedFen": 0
+  },
+  "installationReceiptDigest": "sha256:c1c5af6de7e95b94b268c32ee8a4cfb08d818e71d4224f3580d9ef02ebce2621",
+  "preservedFailures": true,
+  "realSdkExecuted": false,
+  "activated": false,
+  "keyRead": false,
+  "modelRequests": 0,
+  "commit": false,
+  "push": false,
+  "costEnvelope": "unproven-production-workspace-blocked",
+  "fileDigests": {
+    "run-approved-readonly-r2.mjs": "sha256:ad739fa62124b1e7ef2a29fdcab04a427edbd6a323493e4cd06a02f66cc732a7",
+    "prepare-readonly-r2.mjs": "sha256:3d3cfe39add1f6069c6e40dda862b095790baabb862ce01c903e540a94350e5b",
+    "readonly-permission-regression.test.mjs": "sha256:4d9c432020682c54851492b74bc365d103345ccc4fdbebc8c5c7d20a539bcf2f",
+    "readonly-failure-snapshot-r1/manifest.json": "sha256:fbd73a28bdaf6e1e3378780a376d048b0223bf31d886dc29610c76472820263b"
+  },
+  "documentationValidation": {
+    "commandDocsPassed": 11,
+    "commandDocsFailed": 0,
+    "localLinksChecked": 223,
+    "previewHashesMatched": 5,
+    "gitDiffCheck": "passed",
+    "stagedFiles": 0,
+    "headUnchanged": "2979a7086b522e114a766efd5e17b7ac2a2b6e55"
+  }
+}

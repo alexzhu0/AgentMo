@@ -29,7 +29,7 @@ test('accepts the native SDK beta route and bare route without forwarding the qu
     assert.equal((await piHttpRequest(f.handler, request(f.text), { 'x-api-key': admitted.turnToken }, url)).statusCode, 409);
     assert.equal((await f.summary()).projectReservedFen, 31);
   }
-  assert.deepEqual(urls, ['https://api.minimax.cn/anthropic/v1/messages', 'https://api.minimax.cn/anthropic/v1/messages']);
+  assert.deepEqual(urls, ['https://api.minimaxi.com/anthropic/v1/messages', 'https://api.minimaxi.com/anthropic/v1/messages']);
 });
 
 test('rejects other query strings and routes before claiming or reserving a model request', async t => {

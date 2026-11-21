@@ -1,0 +1,116 @@
+{
+  "schemaVersion": "agentmo.pi-citation-repair-preparation.v1",
+  "date": "2026-11-21",
+  "status": "offline-verified-awaiting-exact-runtime-approval",
+  "priorFailure": {
+    "evidence": "release/evidence/2026.11.21-pi-upstream-defaults-report-execution.json",
+    "evidenceDigest": "sha256:dc09431d22d4f1c75e8c7bf25a470e9449f8de64a3677e156a0355bef1f843a3",
+    "reportResultDigest": "sha256:9be99ca8fd7c3d059ad0273c3fe2810510b705c65a80832dfdf91eea48fbfc71",
+    "oldStateRootPreserved": true,
+    "canonicalBodyMarkers": 23,
+    "citationRows": 2,
+    "unlistedBodyMarkers": 23,
+    "missingListedMarkers": 2,
+    "scopeClosed": true
+  },
+  "fix": {
+    "changed": "two model-facing workspace write instructions",
+    "validatorUnchanged": true,
+    "toolProtocolUnchanged": true,
+    "rule": "exactly one citation row for each distinct body marker, every row present verbatim in body",
+    "completeExample": true,
+    "sourceFiles": {
+      "src/pi-sdk.js": {
+        "before": "sha256:c5588c8653aaed27b87e9d3fcd7471e5271e2fc4d0f9efa098da13b2b7ec8c14",
+        "after": "sha256:b1d8e22bb32e471f1f956eb699642afc8b7138f1e49345acdb2e8cf732480137"
+      },
+      "test/pi-workspace-files.test.js": {
+        "before": "sha256:ec9a1b4d256afdbaeac45617ca12a7a358ca3f34ad9f6cf1a90fa566af7ecf0b",
+        "after": "sha256:c8e3f7289c7f66b8ea076ec5df854038ec32c6c0df0e97ba7ecb01013f289f25"
+      },
+      "src/pi-workspace-files.js": {
+        "before": "sha256:696efe34efe423f6f6222fc239c08254c744e52f0d31ac2770e50ab3fbbcc989",
+        "after": "sha256:696efe34efe423f6f6222fc239c08254c744e52f0d31ac2770e50ab3fbbcc989"
+      }
+    }
+  },
+  "validation": {
+    "red": {
+      "failed": 1
+    },
+    "focused": {
+      "passed": 66,
+      "failed": 0,
+      "skipped": 0
+    },
+    "confirmedRejects": [
+      "merged ranges with no exact marker correspondence",
+      "omitted row for a body marker",
+      "listed row with no body marker"
+    ],
+    "runnerPreflight": "passed",
+    "fullNpmCheck": {
+      "status": "running",
+      "fullPassClaim": false,
+      "log": "npm-check-offline.log",
+      "bootstrapConfigFailurePreserved": true
+    },
+    "logDigests": {
+      "red.log": "sha256:95d0eae23cb661709d72135770b485f9de30479ba536bde02317a971e8b11076",
+      "focused.log": "sha256:c76e1287ae6f60c82de6538dca346a119a57a546d7009186aa4d94850241d9cb",
+      "preflight.log": "sha256:02d44ab71737c04ef240849c19da6fc93ca109bddce954931e35d15490933d9a",
+      "npm-check.log": "sha256:250e369d730a46c4d41df37449a5c58c169b4b1d2ab546951a8bed0285805a95",
+      "docs": "sha256:0f0b5c3a1be678f263934c8e6930d284a9e5158f04959069e165b37eafb3893a"
+    },
+    "documentation": {
+      "passed": 11,
+      "failed": 0,
+      "localLinksChecked": 70
+    },
+    "gitDiffCheck": "passed"
+  },
+  "proposalPath": ".superpowers/sdd/2026-11-21-pi-citation-repair/delivery-proposal-r1.json",
+  "proposalDigest": "sha256:f5976a9420bd4301665951a01515dcde3dfedbcd61ac69afee535d5c3a2cde4a",
+  "previewDigest": "sha256:9cc337bf4d65390ae7abd594bdd572d1debde1e949b360339d8e4aef65790f1a",
+  "runtimeSource": {
+    "digest": "sha256:4b4bc5ef8fa463ea085283171da1ad49d58859c988d4033d51c39aa34df5fe40",
+    "fileCount": 147
+  },
+  "packageArchiveDigest": "sha256:a414f070663ef5b5468603e5ac9bf7b09bf8643f7f4375dcfd88fb99337b84ab",
+  "installPlanDigest": "sha256:acff0a1be4db584e7a525c75bd048b547688a7491d9f54c02069c1ee17cf518d",
+  "driverDigest": "sha256:54665c817401229c018fc024ca8d3b062e6f09a8746f1fc603c3a23888729b8d",
+  "observerDigest": "sha256:9be9725b6b4e2c46d2bd9e11c3c453e49ec170a478675b26513be1d5dcc944dc",
+  "buildContractDigest": "sha256:e9e4bb5d34a29ff11c97dd980deb713c27a98a1e90de5e72a3b10b4387e5cce4",
+  "planApprovalDigest": "sha256:fd827c14378b2e27694b05b421e2104d98ac493353960d5558d3257b0ca29dcb",
+  "budget": {
+    "reservedFen": 5146,
+    "reservations": 38,
+    "capFen": 10000,
+    "addedFen": 0
+  },
+  "authority": {
+    "consumptions": 31,
+    "decisions": 117,
+    "journalDigest": "sha256:420e0b21e705d9c3faf0bf0f73379554ccc45d7f13a796dfb23b2a427e28ae0a"
+  },
+  "proposedExecution": {
+    "modelRequestsMaximum": 6,
+    "toolCallsMaximum": 8,
+    "writesMaximum": 1,
+    "noRetries": true,
+    "noRestarts": true,
+    "newAgentFiles": 8,
+    "newAgentDirectories": 6
+  },
+  "actual": {
+    "installed": false,
+    "activated": false,
+    "actualSdkExecuted": false,
+    "modelRequests": 0,
+    "networkRequests": 0,
+    "readSupplierKey": false,
+    "approvalRecorded": false,
+    "commit": false,
+    "push": false
+  }
+}

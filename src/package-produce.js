@@ -212,6 +212,7 @@ export async function produceAgentPackage(options = {}, hooks = {}) {
     remainingRisks: [...buildContract.remainingRisks].sort(),
     ...(nativeChat ? { execution_profile: "native-chat" } : {}),
     ...(buildContract.native_runtime === "pi" ? { native_runtime: "pi" } : {}),
+    ...(buildContract.pi_workspace ? { pi_workspace: structuredClone(buildContract.pi_workspace) } : {}),
   };
   const manifestValidation = validateAgentPackageManifest(manifest, { observedMembers: members });
   if (!manifestValidation.ok) {
@@ -535,6 +536,8 @@ function revalidateAuthority(context) {
     || [blueprint, admitted.designPlan.value, targetAdmission].some(v =>
       Object.hasOwn(v, "native_runtime") !== Object.hasOwn(buildContract, "native_runtime")
       || v.native_runtime !== buildContract.native_runtime)
+    || !isDeepStrictEqual(blueprint.pi_workspace, buildContract.pi_workspace)
+    || !isDeepStrictEqual(admitted.designPlan.value.pi_workspace, buildContract.pi_workspace)
     || blueprint.execution_profile !== buildContract.execution_profile
     || admitted.designPlan.value.execution_profile !== buildContract.execution_profile
     || targetAdmission.execution_profile !== buildContract.execution_profile
